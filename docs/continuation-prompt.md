@@ -81,11 +81,12 @@ Use `cex-implementation-tasks-ai.md` for:
 - ✅ Exchange.Cache (4/5) - Solid TTL-based caching
 
 ### New Plugin Architecture Status
-#### Completed (Day 1 - Tasks 1-3):
+#### Completed (Day 1 - Tasks 1-5a):
 - ✅ Core.Registry (4/5) - Clean compile-time validation
 - ✅ Core.HTTP (4/5) - Good foundation, missing rate limit integration
-- ✅ All Behaviors (3/5) - Basic structure defined
-- ✅ Adapter Placeholders (2/5) - Stubs only, need implementation
+- ✅ All Behaviors (4/5) - Structure defined with options-based auth
+- ✅ Binance.Adapter (4/5) - Working adapter using Auth module
+- ✅ Binance.Auth (5/5) - Complete with options support and env fallback
 
 ### New Plugin Architecture To Build (Days 1-5)
 - [ ] Day 1: Core modules + Binance adapter
@@ -104,7 +105,8 @@ Mark completed tasks with ✅ and add completion date/time.
 - [x] 2. Implement Core.HTTP module with tests ✅
 - [x] 3. Create all behavior definitions ✅
 - [x] 4. Implement Binance.Adapter with tests ✅ (2024-11-14)
-- [ ] 5. Implement Binance.Auth with tests
+- [x] 5. Implement Binance.Auth with tests ✅ (2024-11-14)
+- [x] 5a. Refactor Auth to accept credentials as options ✅ (2024-11-14)
 - [ ] 6. Implement Binance.RateLimiter with tests
 
 ### Day 2 Tasks (Do in Order):
@@ -128,16 +130,19 @@ Mark completed tasks with ✅ and add completion date/time.
 - [ ] 18. Performance testing suite
 
 ### Progress Summary:
-**Completed**: 4/18 tasks (22.2%)
+**Completed**: 5.5/18 tasks (30.6%)
 **Current Day**: Day 1
-**Next Task**: Task 5 - Implement Binance.Auth with tests
-**Overall Code Quality**: 4.2/5 (Excellent legacy modules, plugin architecture in progress)
+**Next Task**: Task 6 - Implement Binance.RateLimiter with tests
+**Overall Code Quality**: 4.5/5 (Excellent foundation, clean auth refactoring)
 
 ### Recent Achievements:
 - ✅ Fixed 3 Dialyzer errors (2024-11-14)
 - ✅ Implemented plugin architecture foundation
 - ✅ Fixed Binance rate limit integration test (2024-11-14)
-- ✅ All 86 tests passing with 0 failures
+- ✅ Implemented Binance.Auth with HMAC-SHA256 signing (2024-11-14)
+- ✅ Refactored Auth system to accept credentials as options (2024-11-14)
+- ✅ All 121 tests passing with 0 failures
+- ✅ Test coverage at 76.2% overall, 72.1% for adapter
 - ✅ Dialyzer clean (0 errors)
 
 ### How to Request Each Task:
