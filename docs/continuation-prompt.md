@@ -6,7 +6,15 @@
 1. **ONE TASK PER CHAT**: Only implement a single module or task per session
 2. **NO FULL APP GENERATION**: Never try to create the entire application at once
 3. **INCREMENTAL PROGRESS**: Each chat session should complete one specific task
-4. **ASK FOR NEXT TASK**: After completing a task, ask what to work on next
+4. **UPDATE DOCUMENTATION**: After completing a task, update this file's progress
+5. **ASK FOR NEXT TASK**: After documenting progress, ask what to work on next
+
+### Required Progress Documentation:
+After completing each task, you MUST:
+1. Edit this file (`continuation-prompt.md`) to mark the task complete
+2. Update the progress percentage
+3. Commit the documentation changes
+4. THEN ask for the next task
 
 ### Example Correct Usage:
 ```
@@ -79,26 +87,43 @@ Use `cex-implementation-tasks-ai.md` for:
 - [ ] Day 4: Integration layer + circuit breaker
 - [ ] Day 5: Testing + documentation
 
-## Suggested Task Order (One Per Chat Session)
+## Task Progress Tracking
+
+### IMPORTANT: Update This List After Each Task
+Mark completed tasks with ✅ and add completion date/time.
 
 ### Day 1 Tasks (Do in Order):
-1. "Implement Core.Registry module with tests"
-2. "Implement Core.HTTP module with tests"
-3. "Create all behavior definitions"
-4. "Implement Binance.Adapter with tests"
-5. "Implement Binance.Auth with tests"
-6. "Implement Binance.RateLimiter with tests"
+- [ ] 1. Implement Core.Registry module with tests
+- [ ] 2. Implement Core.HTTP module with tests  
+- [ ] 3. Create all behavior definitions
+- [ ] 4. Implement Binance.Adapter with tests
+- [ ] 5. Implement Binance.Auth with tests
+- [ ] 6. Implement Binance.RateLimiter with tests
 
 ### Day 2 Tasks (Do in Order):
-7. "Implement Kraken.Auth with nonce and tests"
-8. "Implement Kraken.RateLimiter with tests"
-9. "Implement Deribit.OAuth with tests"
-10. "Implement Deribit.RateLimiter with tests"
+- [ ] 7. Implement Kraken.Auth with nonce and tests
+- [ ] 8. Implement Kraken.RateLimiter with tests
+- [ ] 9. Implement Deribit.OAuth with tests
+- [ ] 10. Implement Deribit.RateLimiter with tests
 
 ### Day 3 Tasks:
-11. "Discover ZenWebsocket API"
-12. "Implement Binance.MarketData with tests"
-13. "Implement Kraken.MarketData with binary frames and tests"
+- [ ] 11. Discover ZenWebsocket API
+- [ ] 12. Implement Binance.MarketData with tests
+- [ ] 13. Implement Kraken.MarketData with binary frames and tests
+
+### Day 4 Tasks:
+- [ ] 14. Implement Core.Circuit breaker
+- [ ] 15. Implement Core.Health monitoring
+- [ ] 16. Create ZenCex.Client facade
+
+### Day 5 Tasks:
+- [ ] 17. Integration testing suite
+- [ ] 18. Performance testing suite
+
+### Progress Summary:
+**Completed**: 0/18 tasks (0%)
+**Current Day**: Not started
+**Next Task**: Task 1 - Core.Registry
 
 ### How to Request Each Task:
 ```
@@ -237,6 +262,26 @@ After completing each day's tasks, verify:
 5. **CORE IS THIN** - Core modules are coordinators only (~300 lines total)
 
 ### After Completing a Task:
-- Inform the user the specific task is complete
-- Ask what task to work on next
-- Do NOT automatically continue to the next task
+1. **Update the task list** - Mark the completed task with ✅
+2. **Document what was created** - List files created/modified
+3. **Report test results** - Show test output (`mix test` results)
+4. **Update progress percentage** - Calculate completion (e.g., "6/18 modules = 33%")
+5. **THEN ask** - "What task should I work on next?"
+6. **Do NOT automatically continue** to the next task
+
+### Example Task Completion Report:
+```
+✅ Completed: Core.Registry module with tests
+
+Files created:
+- lib/zen_cex/core/registry.ex (32 lines)
+- test/zen_cex/core/registry_test.exs (45 lines)
+
+Test results:
+4 tests, 0 failures
+Coverage: 100%
+
+Progress: 1/18 modules complete (5.5%)
+
+What task should I work on next?
+```
