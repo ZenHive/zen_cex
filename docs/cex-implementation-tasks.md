@@ -1,10 +1,11 @@
 # CEX Implementation Tasks
 
 ## Progress Summary
-**Overall Status**: Strategic Pivot: Fresh start with plugin architecture
+**Overall Status**: Strategic Pivot: Fresh start with plugin architecture (Expert Validated)
 **Reference Implementation**: 5 modules completed (4.6/5 avg rating) - Now serving as reference only
-**New Approach**: 18 modules (5 core + 4 behaviors + 1 shared WebSocket + 12 adapters), ~2,000 lines
-**Timeline**: 5 days (vs 3-4 weeks refactoring)
+**New Approach**: 18 modules with locked scope, ~2,000 lines
+**Timeline**: 5 days with realistic scope (includes 2-3 hour burn-in)
+**Expert Assessment**: "Strong direction, production patterns, scope realism"
 
 ### Reference Implementation (Not Production)
 - 📚 1.1 Exchange.HTTP Module (4.5/5) - REQ integration with exponential backoff
@@ -13,16 +14,23 @@
 - 📚 1.4 Exchange.Cache Module (4.5/5) - TTL-based caching with cleanup
 - 📚 1.5 Exchange.RateLimit Module (4.5/5) - Atomic ETS rate limiting
 
-### New Plugin Structure (Day 1-5)
-- 🏗️ Core Modules (5): HTTP, Registry, Supervisor, Circuit, Health
-- 🏗️ Behaviors (4): Adapter, Auth, RateLimiter, Parser
-- 🏗️ Core MarketData (1): Shared WebSocket handling
-- 🏗️ Binance Adapter (4 modules): adapter, auth, rate_limiter, parser
-- 🏗️ Kraken Adapter (4 modules): adapter, auth, rate_limiter, parser
-- 🏗️ Deribit Adapter (4 modules): adapter, auth, rate_limiter, parser
+### New Plugin Structure (Day 1-5) - Expert Validated
+- ✅ Core Modules (5): HTTP (with Retry-After), Registry (compile-time), Supervisor, Circuit (per-endpoint), Health (continuous)
+- ✅ Behaviors (5): Adapter (@optional_callbacks), Auth, RateLimiter, Parser, PubSub (pluggable)
+- ✅ Core MarketData (1): Shared WebSocket with connection caps and batching
+- ✅ Binance Adapter (4): adapter, auth, rate_limiter (with endpoint weights), parser
+- ✅ Kraken Adapter (4): adapter, auth (ETS nonce), rate_limiter, parser
+- ✅ Deribit Adapter (4): adapter, auth (single-flight OAuth), rate_limiter, parser
 
 ## Overview
 Strategic pivot to plugin architecture - building fresh from Day 1 rather than refactoring.
+
+**Expert Review Applied**:
+- Fixed critical bugs (Process.list() broadcast, ETS match specs)
+- Added production patterns (per-endpoint circuits, Retry-After)
+- Removed unnecessary complexity (Phoenix.PubSub dependency)
+- Enhanced security (redaction in telemetry)
+- Realistic timeline with burn-in testing
 - **Approach**: Plugin-based architecture with isolated adapters per exchange
 - **Timeline**: 5 days (vs 3-4 weeks refactoring)
 - **Architecture**: Each exchange is self-contained (no cross-contamination)

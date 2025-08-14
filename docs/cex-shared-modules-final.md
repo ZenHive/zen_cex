@@ -95,6 +95,11 @@ This version incorporates critical production fixes from expert review:
 - **Trading**: REST-only for request/response certainty
 - **Positions**: REST polling, not WebSocket streams
 
+**Non-Goals (Explicitly Out of Scope):**
+- ❌ **NO trading over WebSocket** - All trading operations use REST exclusively for safety and certainty
+- ❌ **NO private data over WebSocket** - No account updates, order status, or user streams via WS
+- ❌ **NO WebSocket authentication** - Public channels only, no listen keys or OAuth for WS
+
 **What We REMOVED After Expert Review:**
 1. ❌ **ALL WebSocket Authentication** - Public streams only
 2. ❌ **Binance Listen Keys** - Not needed for public data
@@ -154,13 +159,19 @@ This version incorporates critical production fixes from expert review:
 
 | Data Type        | Transport | Auth Required | Update Freq | Requirements |
 |-----------------|-----------|---------------|-------------|--------------|
-| Positions       | REST      | ✅ Yes        | On-demand   | Cache 30s, HMAC/OAuth |
-| Account Balance | REST      | ✅ Yes        | On-demand   | Cache 30s, HMAC/OAuth |
-| Place Order     | REST      | ✅ Yes        | Real-time   | No cache, immediate execution |
-| Cancel Order    | REST      | ✅ Yes        | Real-time   | No cache, immediate execution |
-| Order Status    | REST      | ✅ Yes        | On-demand   | Cache 5s, poll if pending |
-| Funding Rates   | WebSocket | ❌ No         | 8 hours     | Public stream, dedup only |
-| Prices          | WebSocket | ❌ No         | Real-time   | Public stream, Kraken binary |
+| **TRADING OPERATIONS** |
+| Place Order     | REST ONLY | ✅ Yes        | Real-time   | No cache, immediate execution, NEVER WebSocket |
+| Cancel Order    | REST ONLY | ✅ Yes        | Real-time   | No cache, immediate execution, NEVER WebSocket |
+| Modify Order    | REST ONLY | ✅ Yes        | Real-time   | No cache, immediate execution, NEVER WebSocket |
+| **PRIVATE DATA** |
+| Positions       | REST ONLY | ✅ Yes        | On-demand   | Cache 30s, HMAC/OAuth, NO WS user streams |
+| Account Balance | REST ONLY | ✅ Yes        | On-demand   | Cache 30s, HMAC/OAuth, NO WS user streams |
+| Order Status    | REST ONLY | ✅ Yes        | On-demand   | Cache 5s, poll if pending, NO WS updates |
+| Trade History   | REST ONLY | ✅ Yes        | On-demand   | Cache 60s, NO WS private trades |
+| **PUBLIC MARKET DATA** |
+| Funding Rates   | WebSocket | ❌ No         | 8 hours     | Public stream only, dedup buffer |
+| Prices/Tickers  | WebSocket | ❌ No         | Real-time   | Public stream only, Kraken binary |
+| Order Book      | WebSocket | ❌ No         | Real-time   | Public stream only, depth updates |
 | 24hr Stats      | REST      | ❌ No         | 5 minutes   | Public endpoint, cache heavy |
 | Server Time     | REST      | ❌ No         | 1 minute    | Clock sync validation |
 
@@ -176,11 +187,12 @@ lib/zen_cex/
 │   ├── circuit.ex                 # Circuit breaker
 │   └── telemetry.ex              # Metrics emission
 ├── behaviors/                      # Plugin contracts (~50 lines)
-│   ├── adapter.ex                 # Main adapter behavior
+│   ├── adapter.ex                 # Main adapter behavior with @optional_callbacks
 │   ├── auth.ex                    # Authentication contract
 │   ├── rate_limiter.ex           # Rate limiting contract
 │   ├── market_data.ex            # WebSocket contract
-│   └── parser.ex                 # Response parsing contract
+│   ├── parser.ex                 # Response parsing contract
+│   └── pubsub.ex                 # Pluggable pubsub behavior
 ├── adapters/                      # Exchange implementations
 │   ├── binance/                  # ~400 lines per exchange (4 modules)
 │   │   ├── adapter.ex            # Main entry point + endpoints + HTTP config
@@ -204,29 +216,77 @@ lib/zen_cex/
 - Set exponential backoff with jitter
 - Adapter auto-registration on startup:
 ```elixir
-# Auto-discover and register adapters
-for module <- :application.get_key(:zen_cex, :modules) do
-  if function_exported?(module, :__adapter__, 0) do
-    Core.Registry.register(module.__adapter__(), module)
+# Compile-time adapter registration with validation
+defmodule ZenCex.Core.Registry do
+  @adapters %{
+    binance: ZenCex.Adapters.Binance.Adapter,
+    kraken: ZenCex.Adapters.Kraken.Adapter,
+    deribit: ZenCex.Adapters.Deribit.Adapter
+  }
+  
+  # Compile-time validation
+  for {name, module} <- @adapters do
+    unless Code.ensure_loaded?(module) do
+      raise "Adapter #{module} for #{name} not found at compile time"
+    end
   end
+  
+  def get_adapter!(exchange) do
+    @adapters[exchange] || raise "Unknown exchange: #{exchange}"
+  end
+  
+  def list_exchanges, do: Map.keys(@adapters)
 end
 ```
 
 **Plugin Pattern - Core Just Configures REQ**:
 ```elixir
 defmodule ZenCex.Core.HTTP do
-  def base_request(exchange) do
+  def base_request(exchange, operation_type \\ :standard) do
     adapter = Registry.get_adapter!(exchange)
+    
+    # Operation-specific timeouts
+    receive_timeout = case operation_type do
+      :trading -> 2_000     # 2s for trading operations
+      :market -> 5_000      # 5s for market data
+      :historical -> 30_000 # 30s for historical data
+      _ -> 5_000           # Default 5s
+    end
     
     Req.new(
       base_url: adapter.base_url(:prod),
       finch: ZenCex.Finch,
       retry: :safe_transient,
       retry_delay: &exponential_backoff_with_jitter/1,
-      max_retries: 3
+      max_retries: 3,
+      receive_timeout: receive_timeout
     )
-    |> Req.Request.register_options([:exchange])
-    |> Req.Request.merge(exchange: exchange)
+    |> Req.Request.register_options([:exchange, :operation_type])
+    |> Req.Request.merge(exchange: exchange, operation_type: operation_type)
+    |> add_retry_after_support()
+  end
+  
+  # Support Retry-After headers
+  defp add_retry_after_support(request) do
+    Req.Request.append_response_steps(request,
+      retry_after: fn {request, response} ->
+        case Req.Response.get_header(response, "retry-after") do
+          [value] ->
+            delay = parse_retry_after(value)
+            Process.sleep(delay)
+            {request, response}
+          _ ->
+            {request, response}
+        end
+      end
+    )
+  end
+  
+  defp parse_retry_after(value) do
+    case Integer.parse(value) do
+      {seconds, ""} -> seconds * 1000
+      _ -> 5000  # Default 5s if can't parse
+    end
   end
   
   defp exponential_backoff_with_jitter(n) do
@@ -296,6 +356,19 @@ end
 **Atomic Pattern with Cleanup and Partitioning (IMPROVED)**:
 ```elixir
 defmodule Exchange.RateLimit do
+  # Initialize ETS tables at app start with proper settings
+  def init_tables do
+    [:binance_spot, :binance_futures, :kraken, :deribit]
+    |> Enum.each(fn exchange ->
+      table = table_for(exchange)
+      :ets.new(table, [:named_table, :public, {:read_concurrency, true}])
+    end)
+    
+    # Binance endpoint weights table
+    :ets.new(:binance_endpoint_weights, [:named_table, :public])
+    init_endpoint_weights()
+  end
+  
   # ETS table partitioning for better performance
   def table_for(:binance_spot), do: :rate_limits_binance_spot
   def table_for(:binance_futures), do: :rate_limits_binance_futures
@@ -303,49 +376,129 @@ defmodule Exchange.RateLimit do
   def table_for(:deribit), do: :rate_limits_deribit
   def table_for(exchange), do: :"rate_limits_#{exchange}"
   
+  # Initialize Binance endpoint weights (some endpoints cost more)
+  defp init_endpoint_weights do
+    weights = %{
+      "/api/v3/order" => 1,
+      "/api/v3/openOrders" => 40,
+      "/api/v3/allOrders" => 10,
+      "/api/v3/klines" => 1,
+      "/api/v3/depth" => {1, 5, 10, 25, 50, 100, 500, 1000, 5000},  # Based on limit param
+      "/api/v3/account" => 10,
+      "/api/v3/myTrades" => 10
+    }
+    
+    Enum.each(weights, fn {endpoint, weight} ->
+      :ets.insert(:binance_endpoint_weights, {endpoint, weight})
+    end)
+  end
+  
+  # Get endpoint weight for Binance
+  defp get_endpoint_weight(endpoint) do
+    case :ets.lookup(:binance_endpoint_weights, endpoint) do
+      [{^endpoint, weight}] -> weight
+      [] -> 1  # Default weight
+    end
+  end
+  
   # No GenServer needed - ETS counters are atomic
-  def check_and_increment(exchange, endpoint, weight) do
+  def check_and_increment(exchange, endpoint, weight \\ 1) do
     # Determine which table based on exchange AND endpoint
     table = case {exchange, endpoint} do
-      {:binance, "fapi" <> _} -> table_for(:binance_futures)
+      {:binance, "/fapi" <> _} -> table_for(:binance_futures)
       {:binance, _} -> table_for(:binance_spot)
       {ex, _} -> table_for(ex)
+    end
+    
+    # Get actual weight for Binance endpoints
+    actual_weight = case exchange do
+      :binance -> get_endpoint_weight(endpoint) * weight
+      _ -> weight
     end
     
     now = System.system_time(:second)
     key = {exchange, now}
 
     # CRITICAL: Clean up old windows to prevent memory growth
-    cleanup_old_windows(table, exchange, now - 120)
+    cleanup_old_windows(table, exchange, now)
 
     # Different limits for different APIs
     limit = case {exchange, endpoint} do
-      {:binance, "fapi" <> _} -> 2400  # Futures has higher limit
+      {:binance, "/fapi" <> _} -> 2400  # Futures has higher limit
       {:binance, _} -> 1200              # Spot limit
       {:kraken, _} -> 15                 # Per second
       {:deribit, _} -> 20                # Per second
       _ -> 1200                          # Default
     end
 
-    case :ets.update_counter(table, key, {2, weight}, {key, 0}) do
+    # FIXED: Record shape is {key, count}, update position 2
+    case :ets.update_counter(table, key, {2, actual_weight}, {key, 0}) do
       count when count > limit ->
         {:error, :rate_limited}
       _count ->
         :ok
     end
   end
+  
+  # FIXED: Track X-MBX-ORDER-COUNT in dedicated table
+  def init_order_tracking do
+    :ets.new(:binance_order_counts, [:named_table, :public])
+  end
+  
+  def track_order_count(:binance, count) do
+    now = System.system_time(:second)
+    key = {:orders, now}  # Different key shape to avoid cleanup conflicts
+    
+    # Order limit is 10 per second, 100 per minute  
+    case :ets.update_counter(:binance_order_counts, key, {2, count}, {key, 0}) do
+      total when total > 100 -> {:error, :order_rate_limited}
+      _ -> :ok
+    end
+  end
+  
+  # Separate cleanup for order counts
+  def cleanup_order_counts do
+    now = System.system_time(:second)
+    cutoff = now - 70  # Keep 70 seconds of data
+    :ets.select_delete(:binance_order_counts, [
+      {{{:orders, :"$1"}, :"$2"}, [{:<, :"$1", cutoff}], [true]}
+    ])
+  end
 
-  defp cleanup_old_windows(table, exchange, cutoff_time) do
+  defp cleanup_old_windows(table, exchange, now) do
     # CRITICAL FIX: Use proper window sizes per exchange
     window_size = case exchange do
       :binance -> 60  # 60-second rolling window
       :kraken -> 1    # 1-second window
       :deribit -> 1   # 1-second window
     end
-    safe_cutoff = cutoff_time - (window_size + 10)  # Add buffer
+    safe_cutoff = now - (window_size + 10)  # Add buffer
+    
+    # FIXED: Match spec must match the inserted tuple format {{exchange, timestamp}, count}
     :ets.select_delete(table, [
-      {{{exchange, :"$1"}, :_}, [{:<, :"$1", safe_cutoff}], [true]}
+      {{{exchange, :"$1"}, :"$2"}, [{:<, :"$1", safe_cutoff}], [true]}
     ])
+  end
+  
+  # Get current usage for monitoring
+  def get_usage(exchange) do
+    table = table_for(exchange)
+    now = System.system_time(:second)
+    key = {exchange, now}
+    
+    limit = case exchange do
+      :binance_spot -> 1200
+      :binance_futures -> 2400
+      :kraken -> 15
+      :deribit -> 20
+    end
+    
+    used = case :ets.lookup(table, key) do
+      [{^key, count}] -> count
+      [] -> 0
+    end
+    
+    {used, limit}
   end
 end
 ```
@@ -365,19 +518,28 @@ end
 ### 5. Exchange.MarketData (SIMPLIFIED - Public Streams Only)
 **Purpose**: Public market data WebSocket connections (zero auth complexity)
 **Type**: GenServer wrapper around ZenWebsocket (actual API TBD)
+**Scope Lock**: This behavior covers PUBLIC CHANNELS ONLY. It must NEVER expose send/command APIs for trading or private actions.
+
 **Key Responsibilities (Just 4 Things)**:
-1. **Connect** to public WebSocket endpoints
-2. **Subscribe** to public channels (funding rates, prices)
+1. **Connect** to public WebSocket endpoints only
+2. **Subscribe** to public channels (funding rates, prices, order book)
 3. **Reconnect** with automatic resubscription
 4. **Deduplicate** with simple 10-second buffer
 
 **What This Module Does NOT Do**:
 - ❌ NO authentication or OAuth
-- ❌ NO listen key management
+- ❌ NO listen key management  
 - ❌ NO user streams or private channels
 - ❌ NO order updates or balance changes
 - ❌ NO complex sequence tracking
 - ❌ NO request/response patterns
+- ❌ NO trading commands over WebSocket
+- ❌ NO send_order/cancel_order functions
+
+**Allowed Subscriptions Per Exchange**:
+- **Binance**: `!markPrice@arr`, `ticker`, `depth`, `trade` (public only)
+- **Kraken**: `ticker`, `book`, `trade`, `spread` (public channels)
+- **Deribit**: `public/subscribe` for ticker, book, trades (NO private channels)
 
 **CRITICAL FOR AI CODERS**: ZenWebsocket is a NEW library not in AI training data. The discovery phase on Day 2 Morning is MANDATORY. AI coders must explore and learn the library's actual API through hands-on testing before attempting implementation. The code examples below are intentionally conceptual to force proper discovery.
 
@@ -452,9 +614,9 @@ defmodule Exchange.MarketData do
     {is_dup, new_buffer} = check_and_add(data, state.dedup_buffer)
     
     unless is_dup do
-      # Broadcast to interested processes
-      Phoenix.PubSub.broadcast(
-        ZenCex.PubSub,
+      # Broadcast to interested processes (using pluggable pubsub)
+      pubsub = Application.get_env(:zen_cex, :pubsub, ZenCex.PubSub.PG)
+      pubsub.broadcast(
         "market:#{state.exchange}",
         {:market_update, data}
       )
@@ -558,6 +720,8 @@ end
 ### 7. Exchange.Client (Orchestration Layer)
 **Purpose**: Simple facade coordinating other modules
 **Type**: Pure functions + module calls
+**Scope Lock**: ALL trading and private operations use REST exclusively
+
 **Key Responsibilities**:
 - Cache-first data retrieval
 - Rate limit checking before requests
@@ -565,9 +729,10 @@ end
 - Parser invocation
 - Circuit breaker pattern (simple version)
 - Health checks with clock sync
-- **Trading operations** (place, cancel, status)
+- **Trading operations via REST ONLY** (place, cancel, status)
+- **WebSocket for read-only public market data**
 
-**Trading Functions (REST Only)**:
+**Trading Functions (REST Only - NEVER WebSocket)**:
 ```elixir
 def place_order(exchange, symbol, side, size, opts \\ []) do
   with :ok <- RateLimit.check_and_increment(exchange, 10),  # Orders have higher weight
@@ -597,10 +762,12 @@ end
 
 Add to mix.exs:
 ```elixir
-{:req, "~> 0.5"},                    # Already in project
-{:zen_websocket, "~> 0.1.0"},        # WebSocket client (was WebSockex Adapter)
-{:jason, "~> 1.2"},                  # Already in project
-{:decimal, "~> 2.0"}                 # For precise financial calculations
+{:req, "~> 0.5"},                    # HTTP client with middleware
+{:finch, "~> 0.18"},                 # Connection pooling
+{:zen_websocket, "~> 0.1.0"},        # WebSocket client (from Hex)
+{:jason, "~> 1.2"},                  # JSON parsing
+{:decimal, "~> 2.0"},                # Precise financial calculations
+{:telemetry, "~> 1.2"}               # Monitoring and metrics
 ```
 
 **Note**: The library is now on Hex.pm as `zen_websocket` (renamed from WebSockex Adapter for clarity).
@@ -609,16 +776,24 @@ Add to mix.exs:
 
 ### Day 1: Foundation + Binance Adapter
 **Morning (4 hours)**:
-- Define all behaviors (adapter, auth, rate_limiter, market_data, parser)
-- Create Core.Registry for adapter discovery
-- Setup Core.HTTP with REQ configuration
-- Create Core.Supervisor structure
+- Define all behaviors with @optional_callbacks:
+  ```elixir
+  defmodule ZenCex.Behaviors.Adapter do
+    @callback get_positions(map()) :: {:ok, list()} | {:error, term()}
+    @callback get_balances(map()) :: {:ok, list()} | {:error, term()}
+    @optional_callbacks place_order: 4, cancel_order: 2, get_funding_rate: 1
+  end
+  ```
+- Create Core.Registry with compile-time validation
+- Setup Core.HTTP with REQ configuration and Retry-After support
+- Initialize ETS tables for rate limiting with proper settings
 
 **Afternoon (4 hours)**:
-- Implement complete Binance adapter (all 6 modules)
-- Test Binance auth with real API
-- Verify rate limiting with X-MBX-USED-WEIGHT headers
-- Validate positions/balances endpoints
+- Implement Binance adapter (4 modules: adapter, auth, rate_limiter, parser)
+- Test Binance auth with real API (api.binance.com and fapi.binance.com)
+- Verify rate limiting with X-MBX-USED-WEIGHT-1M headers
+- Track X-MBX-ORDER-COUNT-1M separately for order operations
+- Validate positions/balances endpoints with recvWindow parameter
 
 ### Day 2: Kraken + Deribit Adapters
 **Morning (4 hours) - Kraken Adapter**:
@@ -645,34 +820,53 @@ Add to mix.exs:
 - Initial exploration of API
 - Test with echo.websocket.org
 
-### Day 3: WebSocket Market Data (Full Day)
-**Morning (4 hours) - IMPLEMENTATION**:
-- Implement Binance.MarketData with discovered patterns from Day 2
+### Day 3: WebSocket Public Market Data (Full Day)
+**Scope Lock**: PUBLIC CHANNELS ONLY - No authentication, no private data, no trading
+
+**Morning (4 hours) - PUBLIC DATA IMPLEMENTATION**:
+- Implement Core.MarketData for PUBLIC WebSocket streams only
+- Connect to PUBLIC endpoints only (no auth tokens or listen keys)
 - Handle WebSocket frame fragmentation for large updates
-- Respect connection limits (max 5 connections per IP for Binance)
-- Implement Kraken.MarketData with binary frame handling (check GZIP then zlib)
+- Respect connection limits:
+  - Binance: max 5 connections per IP, 200 PUBLIC streams per connection
+  - Kraken: max 150 PUBLIC subscriptions per connection (batch in groups of 10)
+  - Deribit: max 200 PUBLIC channels per connection
+- Implement binary frame handling (check GZIP 0x1f,0x8b then zlib 0x78,0x9c)
 
 **Afternoon (4 hours) - IMPLEMENTATION**:
-- Implement Deribit.MarketData with JSON-RPC
-- Handle subscription limits (max 200 channels per connection)
-- Implement subscription batching for Kraken
+- Implement exchange-specific subscription batching:
+  ```elixir
+  # Kraken requires batching subscriptions
+  def batch_subscriptions(channels, batch_size \\ 10) do
+    Enum.chunk_every(channels, batch_size)
+    |> Enum.map(&build_subscription_message/1)
+  end
+  ```
+- Add proper ping/pong intervals per exchange:
+  - Binance: 30 minutes max silence
+  - Kraken: 10 seconds without ping = disconnect
+  - Deribit: 60 seconds heartbeat interval
 - Add simple dedup buffer with proper byte size tracking (not just count)
 
 ### Day 4: Integration & Client Facade
 **Morning (4 hours)**:
 - Create ZenCex.Client public API facade
-- Implement Core.Circuit breaker pattern with state persistence
-- Add request coalescing to prevent duplicates
-- Setup Core.Health for clock sync monitoring
-- Add connection pool protection:
+- Implement Core.Circuit breaker with per-endpoint tracking
+- Add fixed request coalescing (no Process.list())
+- Setup Core.Health for continuous clock sync monitoring:
   ```elixir
-  def checkout_connection(pool) do
-    case :poolboy.checkout(pool, false, 100) do
-      :full -> {:error, :pool_exhausted}
-      pid -> {:ok, pid}
-    end
+  # Check drift every 30s, not just startup
+  def handle_info(:check_clock_sync, state) do
+    drifts = [:binance, :kraken, :deribit]
+    |> Enum.map(&get_server_time/1)
+    |> calculate_median_drift()
+    
+    if drift > 500, do: emit_warning()
+    schedule_next_check()
+    {:noreply, state}
   end
   ```
+- Initialize :pg process groups for pubsub
 
 **Afternoon (4 hours)**:
 - Implement parser modules for all adapters
@@ -754,7 +948,7 @@ end
 ## Exchange-Specific Requirements
 
 ### Binance
-**REST API (Authenticated - Positions/Balances):**
+**REST API (Authenticated - Positions/Balances/Trading):**
 - Track X-MBX-USED-WEIGHT-1M header (returns current weight usage)
 - Timestamp must be within 5000ms of server time (recvWindow parameter)
 - HMAC-SHA256 signature required for private endpoints
@@ -762,12 +956,15 @@ end
   - Spot API (api.binance.com): 1200/minute
   - Futures API (fapi.binance.com): 2400/minute
   - Track separately in rate limiter
+- **ALL trading operations use REST only** - place, cancel, modify orders
 
-**WebSocket (Public Market Data):**
+**WebSocket (Public Market Data ONLY):**
 - Public streams at `wss://fstream.binance.com/ws` (futures) or `wss://stream.binance.com:9443/ws` (spot)
 - Subscribe to `!markPrice@arr` for all funding rates
-- No authentication needed for public streams
+- **NO LISTEN KEYS** - Not needed, not used, not implemented
+- **NO USER DATA STREAMS** - No `executionReport`, no `outboundAccountInfo`
 - Simple deduplication during reconnects
+- Public channels only: ticker, depth, trade, markPrice
 
 **Common Issues (from GitHub):**
 - Clock drift causes "Timestamp for this request is outside of the recvWindow"
@@ -775,15 +972,20 @@ end
 - WebSocket can send duplicate messages during reconnection
 
 ### Kraken
-**From Official Docs & ccxt Implementation:**
+**REST API (All Authenticated Operations):**
 - **CRITICAL**: Use microseconds + counter for nonce (not just microseconds)
 - API tier tracking: Starter = 15/sec, Intermediate = 20/sec
+- Separate endpoints: api.kraken.com (REST) vs ws.kraken.com
+- **ALL trading operations use REST only** - AddOrder, CancelOrder endpoints
+- Private endpoints: /0/private/Balance, /0/private/OpenPositions
+
+**WebSocket (Public Market Data ONLY):**
 - WebSocket disconnects after 10 seconds without ping
 - Binary WebSocket frames require zlib decompression (check GZIP 0x1f,0x8b first, then zlib 0x78,0x9c)
-- Separate endpoints: api.kraken.com (REST) vs ws.kraken.com
-- **NEW**: Add "reqid" for request tracking
-- **NEW**: Consider dead man's switch API for safety
-- **NEW**: Must batch subscriptions in groups
+- **NO PRIVATE CHANNELS** - No `ownTrades`, no `openOrders` subscriptions
+- **NO AUTHENTICATION** - Public ws.kraken.com endpoint only
+- Public channels only: ticker, book, trade, spread
+- Must batch subscriptions in groups
 
 **Binary Frame Handling (Required for Book Data):**
 ```elixir
@@ -813,18 +1015,24 @@ end
 - "EAPI:Invalid nonce" when system clock jumps backward or collision
 - WebSocket silently drops connection without ping/pong
 - Rate limit is per-second rolling window, not per-minute
+- HTTP/2 issues - must force HTTP/1.1 for Kraken REST API
 
 ### Deribit
-**REST API (Authenticated - Positions/Balances):**
+**REST API (All Authenticated Operations & Trading):**
 - OAuth2 with client_credentials grant type
 - Access token expires in 900 seconds (15 minutes)
-- **CRITICAL**: Refresh token 60 seconds BEFORE expiry (REST only)
+- **CRITICAL**: Refresh token 120 seconds BEFORE expiry (REST only)
 - Test endpoint: test.deribit.com vs www.deribit.com
+- **ALL trading uses REST** - Even though Deribit supports WS trading, we use REST only
+- Private methods: /private/buy, /private/sell, /private/cancel
 
-**WebSocket (Public Market Data):**
+**WebSocket (Public Market Data ONLY):**
 - Public endpoint: `wss://www.deribit.com/ws/api/v2`
-- Use `public/subscribe` method (no auth needed)
-- Subscribe to ticker channels for funding rates
+- Use `public/subscribe` method only (no auth needed)
+- **NO OAUTH FOR WEBSOCKET** - Public streams don't need authentication
+- **NO PRIVATE SUBSCRIPTIONS** - No user.portfolio, no user.orders channels
+- **NO TRADING OVER WS** - Even though Deribit supports it, we don't use it
+- Public channels only: ticker, book, trades
 - JSON-RPC 2.0 format for all messages
 - Heartbeat using `public/test` method every 30 seconds
 
@@ -936,24 +1144,55 @@ def start(_type, _args) do
 end
 
 defmodule Exchange.Telemetry do
+  require Logger
+  
   def log_request(_event, measurements, metadata, _config) do
     duration_ms = System.convert_time_unit(measurements.duration, :native, :millisecond)
+    
+    # SECURITY: Never log sensitive data
+    sanitized_metadata = sanitize_metadata(metadata)
 
     Logger.info("Exchange request completed",
-      exchange: metadata.exchange,
-      endpoint: metadata.path,
-      status: metadata.status,
+      exchange: sanitized_metadata.exchange,
+      endpoint: sanitized_metadata.path,
+      status: sanitized_metadata.status,
       duration_ms: duration_ms,
-      request_id: metadata[:request_id]
+      request_id: sanitized_metadata[:request_id]
     )
   end
 
   def log_error(_event, _measurements, metadata, _config) do
+    # SECURITY: Redact sensitive information
+    sanitized_metadata = sanitize_metadata(metadata)
+    
     Logger.error("Exchange request failed",
-      exchange: metadata.exchange,
-      error: inspect(metadata.reason),
-      request_id: metadata[:request_id]
+      exchange: sanitized_metadata.exchange,
+      error: inspect(sanitized_metadata.reason),
+      request_id: sanitized_metadata[:request_id]
     )
+  end
+  
+  # SECURITY: Redact keys, signatures, tokens
+  defp sanitize_metadata(metadata) do
+    metadata
+    |> Map.drop([:api_key, :api_secret, :signature, :token, :refresh_token])
+    |> Map.update(:headers, [], &redact_headers/1)
+    |> Map.update(:params, %{}, &redact_params/1)
+  end
+  
+  defp redact_headers(headers) do
+    Enum.map(headers, fn
+      {"x-mbx-apikey", _} -> {"x-mbx-apikey", "[REDACTED]"}
+      {"api-key", _} -> {"api-key", "[REDACTED]"}
+      {"authorization", _} -> {"authorization", "[REDACTED]"}
+      header -> header
+    end)
+  end
+  
+  defp redact_params(params) do
+    params
+    |> Map.update("signature", "[REDACTED]", fn _ -> "[REDACTED]" end)
+    |> Map.update("apikey", "[REDACTED]", fn _ -> "[REDACTED]" end)
   end
 end
 ```
@@ -1000,6 +1239,8 @@ defmodule Exchange.Coalesce do
   Prevents duplicate concurrent requests for the same data.
   When multiple processes request the same data, only one actual
   API call is made and results are shared.
+  
+  FIXED: Uses Registry or :pg for targeted broadcasts instead of Process.list()
   """
   
   use GenServer
@@ -1011,6 +1252,8 @@ defmodule Exchange.Coalesce do
   def init(_opts) do
     # Track inflight requests with timestamps for TTL
     :ets.new(:inflight_requests, [:set, :public, :named_table])
+    # Track waiters per key (FIXED: no more Process.list())
+    :ets.new(:coalesce_waiters, [:bag, :public, :named_table])
     # Schedule periodic cleanup of stale requests
     schedule_cleanup()
     {:ok, %{}}
@@ -1025,12 +1268,14 @@ defmodule Exchange.Coalesce do
         if now - timestamp > 30_000 do
           # Stale request, clean it up and become leader
           :ets.delete(:inflight_requests, key)
+          :ets.delete(:coalesce_waiters, key)
           fetch(key, fun, timeout)
         else
-          # Request in flight and fresh, wait for result
-          waiting_count = increment_waiting_count(key)
+          # Request in flight and fresh, register as waiter
+          :ets.insert(:coalesce_waiters, {key, self()})
           
           # Track coalescing effectiveness
+          waiting_count = length(:ets.lookup(:coalesce_waiters, key))
           :telemetry.execute(
             [:exchange, :coalesce, :hit],
             %{saved_requests: waiting_count},
@@ -1044,6 +1289,7 @@ defmodule Exchange.Coalesce do
               result
             {:DOWN, ^ref, :process, ^pid, _reason} ->
               # Original request failed, try again
+              :ets.delete(:coalesce_waiters, key)
               fetch(key, fun, timeout)
           after
             timeout ->
@@ -1069,10 +1315,11 @@ defmodule Exchange.Coalesce do
         result = try do
           fun.()
         after
-          # Broadcast result to waiters
+          # Broadcast result to waiters (FIXED: only to registered waiters)
           broadcast_result(key, result)
           # Clean up
           :ets.delete(:inflight_requests, key)
+          :ets.delete(:coalesce_waiters, key)
         end
         
         result
@@ -1122,11 +1369,9 @@ defmodule Exchange.Coalesce do
   end
   
   defp broadcast_result(key, result) do
-    # Get waiting count for telemetry
-    waiting_count = case :ets.lookup(:coalesce_stats, {key, :waiting}) do
-      [{{^key, :waiting}, count}] -> count
-      [] -> 0
-    end
+    # FIXED: Get registered waiters instead of Process.list()
+    waiters = :ets.lookup(:coalesce_waiters, key)
+    waiting_count = length(waiters)
     
     # Track broadcast effectiveness
     if waiting_count > 0 do
@@ -1137,14 +1382,12 @@ defmodule Exchange.Coalesce do
       )
     end
     
-    # Send to all processes monitoring this key
-    Process.list()
-    |> Enum.each(fn pid ->
-      send(pid, {:coalesce_result, key, result})
+    # Send to registered waiters only (FIXED: no more Process.list())
+    Enum.each(waiters, fn {^key, pid} ->
+      if Process.alive?(pid) do
+        send(pid, {:coalesce_result, key, result})
+      end
     end)
-    
-    # Clean up stats
-    :ets.delete(:coalesce_stats, {key, :waiting})
   end
 end
 ```
@@ -1405,7 +1648,85 @@ defmodule Exchange.Circuit do
 end
 ```
 
-### 2. Message Deduplication with :queue and Size Tracking
+### 2. Circuit Breaker Per-Endpoint with State Persistence
+```elixir
+defmodule Exchange.Circuit do
+  # Per-endpoint circuit tracking
+  # Format: {{exchange, endpoint}, state, failure_count, last_failure_time}
+  
+  def init do
+    :ets.new(:circuits, [:named_table, :public, {:read_concurrency, true}])
+    :ets.new(:circuit_trips, [:bag, :public, :named_table])  # Track trip history
+  end
+
+  def call(exchange, endpoint, fun) do
+    now = System.system_time(:second)
+    key = {exchange, endpoint}
+
+    case :ets.lookup(:circuits, key) do
+      [{_, :open, _, last_failure}] when now - last_failure > 60 ->
+        # Move to half-open after 60 seconds
+        :ets.insert(:circuits, {key, :half_open, 0, last_failure})
+        attempt_call(key, fun, :half_open, now)
+
+      [{_, :open, _, _}] ->
+        {:error, :circuit_open}
+
+      [{_, :half_open, _, _}] ->
+        # Limited probe in half-open state
+        attempt_call(key, fun, :half_open, now)
+
+      _ ->
+        # Normal operation
+        attempt_call(key, fun, :closed, now)
+    end
+  end
+  
+  defp attempt_call(key, fun, state, now) do
+    result = fun.()
+    
+    case {result, state} do
+      {{:error, reason}, :half_open} when reason in [:timeout, :exchange_error] ->
+        # Failed probe - back to open
+        :ets.insert(:circuits, {key, :open, 1, now})
+        :ets.insert(:circuit_trips, {key, now})  # Track trip
+        emit_telemetry(key, :trip)
+        result
+        
+      {{:error, reason}, _} when reason in [:rate_limited, :ip_banned] ->
+        # Rate limits don't trip circuit
+        result
+        
+      {{:error, _}, _} ->
+        # Increment failure count
+        failures = :ets.update_counter(:circuits, key, {3, 1}, {key, :closed, 0, now})
+        if failures >= 3 do
+          :ets.insert(:circuits, {key, :open, failures, now})
+          :ets.insert(:circuit_trips, {key, now})
+          emit_telemetry(key, :trip)
+        end
+        result
+        
+      {success, _} ->
+        # Reset on success
+        :ets.insert(:circuits, {key, :closed, 0, now})
+        success
+    end
+  end
+  
+  def count_trips(exchange, endpoint, window_ms) do
+    key = {exchange, endpoint}
+    cutoff = System.system_time(:second) - div(window_ms, 1000)
+    
+    :ets.select(:circuit_trips, [
+      {{key, :"$1"}, [{:>, :"$1", cutoff}], [:"$1"]}
+    ])
+    |> length()
+  end
+end
+```
+
+### 3. Message Deduplication with :queue and Size Tracking
 ```elixir
 defmodule Exchange.Dedup do
   # Proper ring buffer with :queue for bounded memory
@@ -2076,6 +2397,47 @@ ZenCex.Client.get_positions(:coinbase)  # Works immediately
 4. ❌ **Sequence Tracking** - Simple dedup is sufficient
 5. ❌ **User Streams** - Use REST polling instead
 6. ❌ **Order Updates via WS** - REST gives certainty
+
+## WebSocket Scope Lock - Acceptance Criteria
+
+### MUST Requirements (Non-Negotiable)
+1. **No Trading Over WebSocket**
+   - ✅ Client facade MUST NOT expose send_order/cancel_order via WebSocket
+   - ✅ All trading functions MUST route through REST with authentication
+   - ✅ WebSocket modules MUST NOT have any trading-related functions
+
+2. **No Private Data Over WebSocket**
+   - ✅ No adapter exposes WebSocket auth endpoints or private subscription paths
+   - ✅ No listen key generation or management code exists
+   - ✅ No user data stream subscriptions (executionReport, outboundAccountInfo, etc.)
+   - ✅ No private channel subscriptions (ownTrades, openOrders, user.portfolio)
+
+3. **Public Channels Only**
+   - ✅ WebSocket connections use public endpoints exclusively
+   - ✅ Allowed channels are explicitly listed per exchange
+   - ✅ Subscription requests are validated against allowed channel list
+
+4. **REST for All Authenticated Operations**
+   - ✅ Trading operations (place/cancel/modify) use REST exclusively
+   - ✅ Position queries use REST with proper authentication
+   - ✅ Balance checks use REST with proper authentication
+   - ✅ Order status polling uses REST, not WebSocket updates
+
+### Testing Requirements
+1. **Negative Tests**
+   - ✅ Test suite verifies WebSocket connections NEVER attempt auth
+   - ✅ Test that trading calls NEVER touch WebSocket layer
+   - ✅ Test that private channel subscriptions are rejected
+
+2. **Configuration Validation**
+   - ✅ WebSocket config forbids credentials (no API keys/secrets)
+   - ✅ Any provided WebSocket auth config is ignored with warning
+
+### Documentation Requirements
+1. **Clear Boundaries**
+   - ✅ README explicitly states WebSocket is public-only
+   - ✅ API docs mark all trading functions as REST-only
+   - ✅ Examples show proper REST usage for trading
 
 ## Key Differences from v9.0 (Expert Review Applied)
 
