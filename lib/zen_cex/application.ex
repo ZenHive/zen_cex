@@ -7,22 +7,20 @@ defmodule ZenCex.Application do
 
   @impl true
   def start(_type, _args) do
-    # Attach telemetry handlers
-    ZenCex.Telemetry.attach_handlers()
+    # Telemetry handlers disabled during rewrite
+    # ZenCex.Telemetry.attach_handlers()
 
     children = [
       # HTTP client for API requests
-      {Finch, name: ZenCex.Finch},
+      {Finch, name: ZenCex.Finch}
 
-      # Rate limiter for exchange APIs
-      ZenCex.RateLimit,
-
-      # Health monitoring for exchanges
-      {ZenCex.Health.Monitor,
-       exchanges: [:binance, :kraken, :deribit], check_interval: :timer.minutes(5)},
-
-      # Startup health check
-      {ZenCex.Health.Startup, []}
+      # NOTE: Old Exchange modules disabled - rewriting with plugin architecture
+      # See docs/cex-implementation-tasks.md for new architecture plan
+      
+      # Disabled during rewrite:
+      # - ZenCex.RateLimit (will become per-adapter rate limiters)
+      # - ZenCex.Health.Monitor (will become Core.Health)  
+      # - ZenCex.Health.Startup (will become Core.Health)
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
