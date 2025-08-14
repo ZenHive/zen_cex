@@ -155,7 +155,20 @@ As an AI code reviewer, follow this systematic review process:
 - [ ] Confirms caching reduces API calls
 - [ ] Rating: _/5
 
-## Common Implementation Mistakes to Check
+## Code Quality Checks
+
+### TODO Formatting
+- [ ] All temporary code marked with `TODO:` (not "For now" or "Currently")
+- [ ] No informal markers like "For now", "In production", "Should be"
+- [ ] All TODOs are discoverable by `mix credo`
+- [ ] Examples of CORRECT formatting:
+  - ✅ `# TODO: Implement rate limiting`
+  - ✅ `# TODO: For now, returning mock data`
+  - ❌ `# For now, just pass through`
+  - ❌ `# In production this should...`
+  - ❌ `# Currently using placeholder`
+
+### Common Implementation Mistakes to Check
 
 1. **Kraken nonce**: Using only System.os_time(:microsecond) without counter
 2. **Binance limits**: Not separating spot vs futures rate limits
@@ -164,6 +177,7 @@ As an AI code reviewer, follow this systematic review process:
 5. **Circuit breaker**: Tripping on rate limits (shouldn't)
 6. **ETS cleanup**: Not scheduling periodic cleanup
 7. **HTTP/2 with Kraken**: Not forcing HTTP/1.1
+8. **TODO formatting**: Using "For now" instead of "TODO: For now"
 
 ## Next Action Decision Tree
 

@@ -9,15 +9,24 @@ defmodule ZenCex.Core.Registry do
     deribit: ZenCex.Adapters.Deribit.Adapter
   }
 
-  # Validate at compile time
-  for {name, module} <- @adapters do
-    unless Code.ensure_loaded?(module) do
-      raise "Adapter #{module} for #{name} not found"
+  # Validate at runtime on first access instead of compile time
+  # This avoids circular dependency issues during compilation
+  defp ensure_adapter_loaded!(module, name) do
+    case Code.ensure_loaded(module) do
+      {:module, ^module} -> :ok
+      {:error, reason} -> raise "Adapter #{module} for #{name} failed to load: #{reason}"
     end
   end
 
   def get_adapter!(exchange) do
-    @adapters[exchange] || raise "Unknown exchange: #{exchange}"
+    case @adapters[exchange] do
+      nil ->
+        raise "Unknown exchange: #{exchange}"
+
+      module ->
+        ensure_adapter_loaded!(module, exchange)
+        module
+    end
   end
 
   def list_exchanges, do: Map.keys(@adapters)

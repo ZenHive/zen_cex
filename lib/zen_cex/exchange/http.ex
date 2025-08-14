@@ -122,7 +122,7 @@ defmodule ZenCex.HTTP do
     exchange = ReqHelpers.get_private(request, :exchange) || request.options[:exchange]
 
     # Get endpoint from URL path
-    endpoint = 
+    endpoint =
       case request.url do
         %URI{path: nil} -> "/"
         %URI{path: path} -> path

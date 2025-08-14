@@ -167,7 +167,7 @@ defmodule ZenCex.Health.Monitor do
 
   defp alert_warning(result) do
     # TODO: Integrate with alerting system (e.g., send to monitoring service)
-    # For now, just log the warning
+    # TODO: For now, just log the warning
     case result[:consensus][:outliers] do
       [] ->
         Logger.warning("[HealthMonitor] General time drift warning")
@@ -186,7 +186,7 @@ defmodule ZenCex.Health.Monitor do
 
   defp alert_critical(result) do
     # TODO: Integrate with alerting system (e.g., PagerDuty, SMS, etc.)
-    # For now, log critically
+    # TODO: For now, log critically
     Logger.error("[HealthMonitor] CRITICAL: Time synchronization failure!")
 
     case result[:failed_exchanges] do
