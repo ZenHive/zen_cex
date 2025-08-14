@@ -1,22 +1,23 @@
-# CEX Shared Modules - Production Ready Plan (v10.1 - Expert Refinements)
+# CEX Plugin Architecture - Fresh Start Plan (v11.0)
 
-## Version 10.1 - Final Expert Refinements Applied (100% Complete)
+## Version 11.0 - Plugin Architecture from Day 1
 
-### Latest Refinements (The Last 2%)
-1. ✅ **Connection Health Check**: Monitor for 30s silence, auto-reconnect
-2. ✅ **Proper Dedup Implementation**: Using `:erlang.phash2` with 10s window
-3. ✅ **Binary Frame Auto-Detection**: Handle both zlib (0x78,0x9c) and gzip (0x1f,0x8b) for Kraken
+### Critical Decision: Fresh Start with Plugin Architecture
+After reviewing the implementation timeline (4 days for shared modules) and the refactoring plan (3-4 weeks), we're **starting fresh with plugin architecture from Day 1**. This is faster, cleaner, and avoids all refactoring complexity.
 
-### Expert Review Key Insights
-- **WebSocket = Public Market Data ONLY** (no auth, no trading, no user streams)
-- **REST = ALL Authenticated Operations** (positions, balances, trading)
-- **Architecture Score: 95/100** - Production-ready with correct separation of concerns
+**Why Fresh Start?**
+- Current implementation is only 62.5% complete (5/8 modules)
+- No WebSocket implementation yet to preserve
+- Plugin architecture from start = no technical debt
+- 5 days to production vs 3-4 weeks refactoring
+- Can reference existing code without being constrained by it
 
-### Critical Simplifications from Expert Review
-1. ✅ **REQ Retry Config is CORRECT**: `retry: :safe_transient` is safe since trading is REST-only
-2. ✅ **WebSocket Drastically Simplified**: Just public streams, no auth complexity
-3. ✅ **Removed Unnecessary Complexity**: No listen keys, no OAuth for WS, no sequence tracking
-4. ✅ **10-Second Dedup Buffer**: Simple ring buffer is sufficient for public data
+### Architecture Changes from v10.1
+1. ✅ **Plugin-First Design**: Each exchange is a self-contained adapter
+2. ✅ **Zero Cross-Contamination**: No exchange-specific code in core modules
+3. ✅ **Behavior-Driven**: Compile-time verification of adapter compliance
+4. ✅ **Simplified Core**: Core modules are just coordinators (~300 lines total)
+5. ✅ **Clean Separation**: Each adapter ~500 lines, fully isolated
 
 ## Version 9.0 - Operational Excellence Added (100% Complete)
 
@@ -77,12 +78,14 @@ This version incorporates critical production fixes from expert review:
 
 ## Executive Summary
 
-8 modules, 500 lines total. Pure functions where possible, GenServers only for connection state. Using REQ's built-in features and ZenWebsocket (formerly WebSockex Adapter, now on Hex.pm) for WebSockets. 
+**Fresh start with plugin architecture from Day 1**. No refactoring needed - build it right the first time. 5 days total, incorporating all lessons from existing code.
 
-**Architecture Philosophy (Expert Validated):**
-- **WebSocket**: Fire-and-forget public market data consumption
-- **REST**: Careful, authenticated operations with proper error handling
-- **Separation**: WebSocket issues never affect trading operations
+**Plugin Architecture Philosophy:**
+- **Each exchange is a self-contained plugin** with its own auth, rate limiting, and parsing
+- **Core modules are thin coordinators** - just 5 modules, ~300 lines total  
+- **Zero cross-contamination** - exchange-specific code never leaks into core
+- **Behaviors define contracts** - compile-time verification of adapter compliance
+- **WebSocket remains simple** - public market data only, no auth complexity
 
 **Critical Note for AI Coders**: ZenWebsocket is a new library not in AI training data. The discovery phase on Day 2 Morning is MANDATORY. AI coders must explore and learn the library's actual API through hands-on testing before attempting implementation. The code examples below are intentionally conceptual to force proper discovery.
 
@@ -161,61 +164,70 @@ This version incorporates critical production fixes from expert review:
 | 24hr Stats      | REST      | ❌ No         | 5 minutes   | Public endpoint, cache heavy |
 | Server Time     | REST      | ❌ No         | 1 minute    | Clock sync validation |
 
-## Module Architecture (8 Modules)
+## Plugin Architecture Structure
 
-### 1. Exchange.HTTP (Pure Functions + REQ)
-**Purpose**: HTTP requests using REQ's built-in features
-**Type**: Pure functions
+### Directory Layout (From Day 1)
+```
+lib/zen_cex/
+├── core/                           # Thin coordination layer (~300 lines)
+│   ├── http.ex                    # REQ configuration only
+│   ├── registry.ex                # Plugin discovery
+│   ├── supervisor.ex              # OTP supervision
+│   ├── circuit.ex                 # Circuit breaker
+│   └── telemetry.ex              # Metrics emission
+├── behaviors/                      # Plugin contracts (~50 lines)
+│   ├── adapter.ex                 # Main adapter behavior
+│   ├── auth.ex                    # Authentication contract
+│   ├── rate_limiter.ex           # Rate limiting contract
+│   ├── market_data.ex            # WebSocket contract
+│   └── parser.ex                 # Response parsing contract
+├── adapters/                      # Exchange implementations
+│   ├── binance/                  # ~500 lines per exchange
+│   │   ├── adapter.ex            # Main entry point
+│   │   ├── auth.ex               # HMAC-SHA256 signing
+│   │   ├── endpoints.ex          # Endpoint definitions
+│   │   ├── rate_limiter.ex       # Sliding window (1200/min)
+│   │   ├── market_data.ex        # WebSocket handler
+│   │   └── parser.ex             # Response normalization
+│   ├── kraken/
+│   │   └── ... (same structure)
+│   └── deribit/
+│       └── ... (same structure)
+└── client.ex                      # Public API facade
+```
+
+## Module Architecture (Plugin-Based)
+
+### 1. Core.HTTP (Thin Coordinator)
+**Purpose**: Minimal REQ configuration, delegates to adapters
+**Lines**: ~50
 **Key Responsibilities**:
-- Base request configuration per exchange using Req.Request.merge/2
-- **CRITICAL**: Exponential backoff with jitter (NOT linear)
-- Middleware for timestamp injection and rate limit tracking
-- Response caching via REQ cache plugin for slow-changing data
-- Clock sync validation before sensitive requests
+- Create base REQ request with Finch pool
+- Set exponential backoff with jitter
+- Everything else delegated to adapter modules
 
-**REQ Production Pattern (REVISED WITH SAFER EXPONENTIAL)**:
+**Plugin Pattern - Core Just Configures REQ**:
 ```elixir
-# Different timeouts for different operation types
-def base_request(exchange, operation_type \\ :market_data) do
-  timeout = case operation_type do
-    :trading -> 2_000        # Fast timeout for trades
-    :market_data -> 5_000    # Standard for prices
-    :historical -> 30_000    # Long for bulk data
-    _ -> 5_000
+defmodule ZenCex.Core.HTTP do
+  def base_request(exchange) do
+    adapter = Registry.get_adapter!(exchange)
+    
+    Req.new(
+      base_url: adapter.base_url(:prod),
+      finch: ZenCex.Finch,
+      retry: :safe_transient,
+      retry_delay: &exponential_backoff_with_jitter/1,
+      max_retries: 3
+    )
+    |> Req.Request.register_options([:exchange])
+    |> Req.Request.merge(exchange: exchange)
   end
-  Req.new(
-    base_url: exchange_url(exchange),
-    finch: ZenCex.Finch,  # CRITICAL: Must specify Finch instance
-    retry: :safe_transient,  # Only retry safe methods
-    retry_delay: fn n ->
-      # Exponential backoff: 1s, 2s, 4s, 8s, 16s, 32s, capped at 60s
-      base_ms = min(1000 * (2 ** min(n, 10)), 60_000)
-      jitter_ms = :rand.uniform(500)
-      min(base_ms + jitter_ms, 60_000)  # Cap at 60 seconds
-    end,
-    max_retries: 3,
-    compressed: true,  # Auto gzip/deflate handling
-    receive_timeout: timeout,  # Use operation-specific timeout
-    pool_timeout: 1_000
-  )
-  |> Req.Request.prepend_request_steps(
-    inject_timestamp: &inject_timestamp/1,
-    check_rate_limit: &check_rate_limit/1,
-    add_request_id: &add_request_id/1  # For tracing
-  )
-  |> Req.Request.append_response_steps(
-    extract_weight: &extract_weight/1
-  )
-end
-
-# Request ID for tracing with timestamp for easier correlation
-defp add_request_id(request) do
-  timestamp = DateTime.utc_now() |> DateTime.to_unix(:millisecond)
-  request_id = "#{request.options[:exchange]}-#{timestamp}-#{System.unique_integer([:positive])}"
-
-  request
-  |> Req.Request.put_header("x-request-id", request_id)
-  |> Req.Request.put_private(:request_id, request_id)
+  
+  defp exponential_backoff_with_jitter(n) do
+    base_ms = min(1000 * (2 ** min(n, 10)), 60_000)
+    jitter_ms = :rand.uniform(500)
+    min(base_ms + jitter_ms, 60_000)
+  end
 end
 ```
 
@@ -227,20 +239,26 @@ end
 - Built-in telemetry events
 - ReqCache plugin for 24hr stats
 
-### 2. Exchange.Auth (Pure Functions - REST Only)
-**Purpose**: Authentication for REST API calls only
-**Type**: Pure functions
+### 2. Adapter Auth Modules (Exchange-Specific)
+**Purpose**: Each adapter implements its own authentication
+**Lines**: ~100 per adapter
 **Key Responsibilities**:
-- HMAC signatures for Binance/Kraken REST
-- OAuth token management for Deribit REST (with refresh tracking)
-- Nonce generation using microseconds + counter for Kraken (FIXED)
-- Timestamp addition with sync validation
-- API key/secret retrieval from environment
+- Completely isolated per exchange
+- No shared code between exchanges
+- Each adapter handles its own quirks
 
-**Exchange Specifics**:
-- Binance: HMAC-SHA256, timestamp within 5000ms window
-- Kraken: Microsecond + counter nonce (prevents collisions)
-- Deribit: OAuth with 10-minute token expiry (REST only)
+**Example - Binance.Auth**:
+```elixir
+defmodule ZenCex.Adapters.Binance.Auth do
+  @behaviour ZenCex.Behaviors.Auth
+  
+  @impl true
+  def sign_request(request, _opts) do
+    # HMAC-SHA256 with timestamp
+    # Completely self-contained
+  end
+end
+```
 
 **Kraken Nonce Fix**:
 ```elixir
@@ -576,58 +594,72 @@ Add to mix.exs:
 
 **Note**: The library is now on Hex.pm as `zen_websocket` (renamed from WebSockex Adapter for clarity).
 
-## Implementation Timeline (4 Days - Discovery-Based)
+## Implementation Timeline (5 Days - Plugin Architecture)
 
-### Day 1: REST APIs with Authentication
+### Day 1: Foundation + Binance Adapter
 **Morning (4 hours)**:
-- Exchange.HTTP with safer exponential REQ configuration
-- Exchange.Auth with Kraken nonce fix + OAuth for Deribit
-- Clock sync validation setup
+- Define all behaviors (adapter, auth, rate_limiter, market_data, parser)
+- Create Core.Registry for adapter discovery
+- Setup Core.HTTP with REQ configuration
+- Create Core.Supervisor structure
 
 **Afternoon (4 hours)**:
-- Exchange.Cache with TTL cleanup process
-- Exchange.RateLimit with window cleanup
-- Test authenticated endpoints (positions/balances)
+- Implement complete Binance adapter (all 6 modules)
+- Test Binance auth with real API
+- Verify rate limiting with X-MBX-USED-WEIGHT headers
+- Validate positions/balances endpoints
 
-### Day 2: ZenWebsocket Discovery & Implementation
-**Morning (4 hours) - DISCOVERY PHASE FOR AI CODERS**:
+### Day 2: Kraken + Deribit Adapters
+**Morning (4 hours) - Kraken Adapter**:
+- Implement Kraken.Auth with microsecond+counter nonce fix
+- Implement Kraken.RateLimiter (15/sec for starter tier)
+- Implement Kraken.Endpoints
+- Test with real Kraken API
+
+**Afternoon (4 hours) - Deribit Adapter**:
+- Implement Deribit.Auth with OAuth2 token management
+- Add single-flight protection for token refresh
+- Implement Deribit.RateLimiter (20/sec)
+- Test OAuth flow with test.deribit.com
+
+### Day 3: WebSocket Market Data
+**Morning (4 hours) - DISCOVERY PHASE**:
 - Add zen_websocket dependency from Hex
-- Read zen_websocket documentation thoroughly
-- Study the library's API and connection patterns
-- Test with echo.websocket.org to understand message flow
-- Document the discovered patterns for future reference
+- Read documentation and test with echo.websocket.org
+- Study the library's actual API (NOT in AI training data)
+- Document discovered patterns before implementing
 
 **Afternoon (4 hours) - IMPLEMENTATION**:
-- Create Exchange.MarketData base module using discovered patterns
-- Connect to Binance public funding rate stream
-- Test Kraken binary frame handling
-- Verify reconnection and heartbeat behavior
+- Implement Binance.MarketData with discovered patterns
+- Implement Kraken.MarketData with binary frame handling
+- Implement Deribit.MarketData with JSON-RPC
+- Add simple dedup buffer with :queue for all adapters
 
-### Day 3: Complete WebSocket Implementation
+### Day 4: Integration & Client Facade
 **Morning (4 hours)**:
-- Implement Kraken WebSocket (with binary frame handling)
-- Implement Deribit WebSocket (leverage example if applicable)
-- Add deduplication buffer with :queue
-- Test all three exchanges concurrently
+- Create ZenCex.Client public API facade
+- Implement Core.Circuit breaker pattern
+- Add request coalescing to prevent duplicates
+- Setup Core.Health for clock sync monitoring
 
 **Afternoon (4 hours)**:
-- Heartbeat/ping-pong implementation per exchange
-- Subscription state tracking for reconnects
-- Error handling and logging
-- Verify data flows to cache correctly
-
-### Day 4: Integration & Production
-**Morning (4 hours)**:
-- Exchange.Parser for all exchanges
-- Exchange.Client orchestration
-- Exchange.Supervisor setup
-- Circuit breaker pattern
-
-**Afternoon (4 hours)**:
+- Implement parser modules for all adapters
 - End-to-end testing with real exchanges
-- Telemetry and monitoring setup
-- Documentation of actual implementation
-- Production deployment preparation
+- Add telemetry throughout
+- Performance validation under load
+
+### Day 5: Testing & Documentation
+**Morning (4 hours)**:
+- Behavior compliance tests for all adapters
+- Integration tests with real APIs
+- Performance benchmarks
+- Test adapter isolation
+
+**Afternoon (4 hours)**:
+- Write comprehensive README
+- Document adapter implementation guide
+- Create example usage scripts
+- Production deployment checklist
 
 ## Finch Pool Configuration (Production Optimized)
 
@@ -1955,6 +1987,32 @@ defmodule Exchange.Alerts do
 end
 ```
 
+## Plugin Architecture Benefits
+
+### Clean Separation
+- **No exchange code in core modules** - Core is just 5 files, ~300 lines
+- **Each adapter fully isolated** - Bugs in Binance don't affect Kraken
+- **Parallel development possible** - Teams can work on different exchanges
+- **Easy to test** - Each adapter tested independently
+
+### Adding New Exchanges (Post Day 5)
+```bash
+# 1. Create adapter directory
+mkdir -p lib/zen_cex/adapters/coinbase
+
+# 2. Copy template structure
+cp -r lib/zen_cex/adapters/_template/* lib/zen_cex/adapters/coinbase/
+
+# 3. Implement exchange specifics
+vim lib/zen_cex/adapters/coinbase/auth.ex
+
+# 4. Register adapter
+Registry.register(:coinbase, ZenCex.Adapters.Coinbase.Adapter)
+
+# 5. Done! No core changes needed
+ZenCex.Client.get_positions(:coinbase)  # Works immediately
+```
+
 ## What We're NOT Building
 
 - WebSocket for request/response patterns
@@ -1964,6 +2022,7 @@ end
 - Circuit breakers beyond simple fail-fast
 - Message queuing or buffering
 - Automated trading logic (just the API layer)
+- **Cross-exchange shared code** - Each adapter is independent
 
 ## Day-One Non-Negotiables (Expert Validated)
 
