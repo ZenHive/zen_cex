@@ -1,5 +1,28 @@
 # AI Coder Implementation Guide for ZenCex
 
+## CRITICAL: One Task Per Chat Session
+
+### ⚠️ IMPORTANT: Task Scope Rules
+1. **ONE TASK PER CHAT**: Only implement a single module or task per session
+2. **NO FULL APP GENERATION**: Never try to create the entire application at once
+3. **INCREMENTAL PROGRESS**: Each chat session should complete one specific task
+4. **ASK FOR NEXT TASK**: After completing a task, ask what to work on next
+
+### Example Correct Usage:
+```
+User: "Read docs/continuation-prompt.md and implement Core.Registry module"
+AI: [Implements ONLY Core.Registry module]
+
+User: "Read docs/continuation-prompt.md and implement Binance.Auth"
+AI: [Implements ONLY Binance.Auth module]
+```
+
+### Example INCORRECT Usage:
+```
+User: "Read docs/continuation-prompt.md and implement everything"
+AI: ❌ WRONG - This would try to create the entire app
+```
+
 ## How to Use This Documentation as an AI Coder
 
 ### Document Hierarchy and Purpose
@@ -56,6 +79,32 @@ Use `cex-implementation-tasks-ai.md` for:
 - [ ] Day 4: Integration layer + circuit breaker
 - [ ] Day 5: Testing + documentation
 
+## Suggested Task Order (One Per Chat Session)
+
+### Day 1 Tasks (Do in Order):
+1. "Implement Core.Registry module"
+2. "Implement Core.HTTP module"
+3. "Create all behavior definitions"
+4. "Implement Binance.Adapter"
+5. "Implement Binance.Auth"
+6. "Implement Binance.RateLimiter"
+
+### Day 2 Tasks (Do in Order):
+7. "Implement Kraken.Auth with nonce"
+8. "Implement Kraken.RateLimiter"
+9. "Implement Deribit.OAuth"
+10. "Implement Deribit.RateLimiter"
+
+### Day 3 Tasks:
+11. "Discover ZenWebsocket API"
+12. "Implement Binance.MarketData"
+13. "Implement Kraken.MarketData with binary frames"
+
+### How to Request Each Task:
+```
+"Read docs/continuation-prompt.md and implement [SPECIFIC TASK]"
+```
+
 ## Quick Start Commands
 
 ```bash
@@ -75,7 +124,7 @@ mkdir -p lib/zen_cex/{core,behaviors,adapters}
 mkdir -p lib/zen_cex/adapters/{binance,kraken,deribit}
 
 # 4. Start implementing from Day 1 tasks
-# Follow cex-implementation-tasks-ai.md
+# ONE TASK AT A TIME - Follow cex-implementation-tasks-ai.md
 ```
 
 ## Implementation Checklist
@@ -171,4 +220,13 @@ After completing each day's tasks, verify:
 
 ## Remember
 
-This is a plugin architecture - each exchange is completely isolated. Never put exchange-specific code in core modules. Core modules are thin coordinators only (~300 lines total across 5 files).
+1. **ONE TASK PER CHAT SESSION** - Never try to implement the entire application
+2. **INCREMENTAL PROGRESS** - Each module builds on the previous ones
+3. **TEST AFTER EACH MODULE** - Verify each piece works before moving on
+4. **PLUGIN ARCHITECTURE** - Each exchange is completely isolated
+5. **CORE IS THIN** - Core modules are coordinators only (~300 lines total)
+
+### After Completing a Task:
+- Inform the user the specific task is complete
+- Ask what task to work on next
+- Do NOT automatically continue to the next task
