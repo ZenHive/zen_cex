@@ -82,23 +82,23 @@ Use `cex-implementation-tasks-ai.md` for:
 ## Suggested Task Order (One Per Chat Session)
 
 ### Day 1 Tasks (Do in Order):
-1. "Implement Core.Registry module"
-2. "Implement Core.HTTP module"
+1. "Implement Core.Registry module with tests"
+2. "Implement Core.HTTP module with tests"
 3. "Create all behavior definitions"
-4. "Implement Binance.Adapter"
-5. "Implement Binance.Auth"
-6. "Implement Binance.RateLimiter"
+4. "Implement Binance.Adapter with tests"
+5. "Implement Binance.Auth with tests"
+6. "Implement Binance.RateLimiter with tests"
 
 ### Day 2 Tasks (Do in Order):
-7. "Implement Kraken.Auth with nonce"
-8. "Implement Kraken.RateLimiter"
-9. "Implement Deribit.OAuth"
-10. "Implement Deribit.RateLimiter"
+7. "Implement Kraken.Auth with nonce and tests"
+8. "Implement Kraken.RateLimiter with tests"
+9. "Implement Deribit.OAuth with tests"
+10. "Implement Deribit.RateLimiter with tests"
 
 ### Day 3 Tasks:
 11. "Discover ZenWebsocket API"
-12. "Implement Binance.MarketData"
-13. "Implement Kraken.MarketData with binary frames"
+12. "Implement Binance.MarketData with tests"
+13. "Implement Kraken.MarketData with binary frames and tests"
 
 ### How to Request Each Task:
 ```
@@ -136,10 +136,20 @@ mkdir -p lib/zen_cex/adapters/{binance,kraken,deribit}
 - [ ] Set up environment variables for testing
 
 ### After Implementing Each Module:
+- [ ] Create corresponding test file in test/ directory
+- [ ] Write at least 3 unit tests for happy path
+- [ ] Write at least 2 tests for error cases
+- [ ] Run tests with `mix test path/to/test.exs`
 - [ ] Run integration tests against real API
 - [ ] Verify no rate limit violations
 - [ ] Check memory usage (no leaks)
 - [ ] Confirm all CRITICAL features work
+
+### Test Coverage Requirements:
+- **Minimum 80% coverage** for all modules
+- **100% coverage** for critical paths (auth, rate limiting)
+- **Integration tests** for each exchange
+- **Performance tests** for rate limiting and WebSocket
 
 ### Exchange-Specific Critical Points:
 

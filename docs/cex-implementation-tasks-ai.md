@@ -413,38 +413,292 @@ end
 
 ## Testing Requirements
 
-### Integration Test Template
+### CRITICAL: Every Module Needs Tests
+
+#### Test File Structure
+```
+test/zen_cex/
+├── core/
+│   ├── registry_test.exs
+│   ├── http_test.exs
+│   ├── circuit_test.exs
+│   └── health_test.exs
+├── adapters/
+│   ├── binance/
+│   │   ├── auth_test.exs
+│   │   ├── rate_limiter_test.exs
+│   │   ├── market_data_test.exs
+│   │   └── integration_test.exs
+│   ├── kraken/
+│   │   └── ... (same structure)
+│   └── deribit/
+│       └── ... (same structure)
+└── integration/
+    └── end_to_end_test.exs
+```
+
+### Test Template for Each Module
+
+#### Unit Test Template
 ```elixir
-defmodule ZenCex.Adapters.Binance.IntegrationTest do
-  use ExUnit.Case
+defmodule ZenCex.Core.RegistryTest do
+  use ExUnit.Case, async: true
   
-  @tag :integration
-  test "real API authentication" do
-    # MUST test against real Binance API
-    request = build_test_request()
-    signed = ZenCex.Adapters.Binance.Auth.sign_request(request, [])
-    
-    assert signed.headers["X-MBX-APIKEY"]
-    assert signed.params["signature"]
-    assert signed.params["timestamp"]
-  end
-  
-  @tag :integration
-  test "rate limiting with real endpoints" do
-    # MUST verify rate limit tracking
-    endpoint = "/api/v3/account"
-    
-    assert :ok = ZenCex.Adapters.Binance.RateLimiter.check_and_increment(endpoint)
-    
-    # Simulate hitting limit
-    for _ <- 1..1200 do
-      ZenCex.Adapters.Binance.RateLimiter.check_and_increment(endpoint)
+  describe "get_adapter!/1" do
+    test "returns adapter for known exchange" do
+      assert ZenCex.Core.Registry.get_adapter!(:binance) == 
+        ZenCex.Adapters.Binance.Adapter
     end
     
-    assert {:error, :rate_limited} = 
-      ZenCex.Adapters.Binance.RateLimiter.check_and_increment(endpoint)
+    test "raises for unknown exchange" do
+      assert_raise RuntimeError, "Unknown exchange: invalid", fn ->
+        ZenCex.Core.Registry.get_adapter!(:invalid)
+      end
+    end
+  end
+  
+  describe "list_exchanges/0" do
+    test "returns all supported exchanges" do
+      exchanges = ZenCex.Core.Registry.list_exchanges()
+      assert :binance in exchanges
+      assert :kraken in exchanges
+      assert :deribit in exchanges
+      assert length(exchanges) == 3
+    end
   end
 end
+```
+
+#### Integration Test Template
+```elixir
+defmodule ZenCex.Adapters.Binance.IntegrationTest do
+  use ExUnit.Case, async: false
+  
+  @moduletag :integration
+  @moduletag timeout: 30_000
+  
+  setup do
+    # Ensure environment variables are set
+    unless System.get_env("BINANCE_API_KEY") do
+      skip("BINANCE_API_KEY not set")
+    end
+    :ok
+  end
+  
+  describe "authentication" do
+    test "generates valid HMAC signature" do
+      request = Req.new(
+        base_url: "https://api.binance.com",
+        params: %{"symbol" => "BTCUSDT"}
+      )
+      
+      signed = ZenCex.Adapters.Binance.Auth.sign_request(request, [])
+      
+      assert signed.headers["X-MBX-APIKEY"]
+      assert signed.params["signature"]
+      assert signed.params["timestamp"]
+      assert signed.params["recvWindow"] == 5000
+      
+      # Verify timestamp is recent
+      timestamp = signed.params["timestamp"]
+      now = System.system_time(:millisecond)
+      assert abs(now - timestamp) < 1000
+    end
+    
+    @tag :external_api
+    test "can make authenticated call to real API" do
+      # Only run if we have valid test credentials
+      request = build_authenticated_request()
+      
+      case Req.get(request, url: "/api/v3/account") do
+        {:ok, %{status: 200}} ->
+          assert true
+        {:ok, %{status: 401}} ->
+          # Test credentials may be invalid
+          IO.puts("Test API keys invalid - skipping")
+        {:error, reason} ->
+          flunk("API call failed: #{inspect(reason)}")
+      end
+    end
+  end
+  
+  describe "rate limiting" do
+    test "enforces limits correctly" do
+      table = :rate_limits_binance_spot
+      :ets.delete_all_objects(table)
+      
+      # Should allow up to limit
+      for i <- 1..1199 do
+        assert :ok = ZenCex.Adapters.Binance.RateLimiter.check_and_increment("/api/v3/ticker", 1)
+      end
+      
+      # Should block at limit
+      assert {:error, :rate_limited} = 
+        ZenCex.Adapters.Binance.RateLimiter.check_and_increment("/api/v3/ticker", 2)
+    end
+    
+    test "tracks spot and futures separately" do
+      # Spot endpoint
+      assert :ok = ZenCex.Adapters.Binance.RateLimiter.check_and_increment("/api/v3/ticker", 1)
+      
+      # Futures endpoint (different limit)
+      assert :ok = ZenCex.Adapters.Binance.RateLimiter.check_and_increment("/fapi/v1/ticker", 1)
+      
+      # Verify different tables
+      spot_count = :ets.info(:rate_limits_binance_spot, :size)
+      futures_count = :ets.info(:rate_limits_binance_futures, :size)
+      
+      assert spot_count > 0
+      assert futures_count > 0
+    end
+  end
+end
+```
+
+#### WebSocket Test Template
+```elixir
+defmodule ZenCex.Adapters.Binance.MarketDataTest do
+  use ExUnit.Case, async: false
+  
+  @moduletag :integration
+  
+  describe "WebSocket connection" do
+    test "connects to public endpoint" do
+      {:ok, pid} = ZenCex.Adapters.Binance.MarketData.start_link([])
+      
+      # Give it time to connect
+      Process.sleep(1000)
+      
+      assert Process.alive?(pid)
+      
+      # Check state
+      state = :sys.get_state(pid)
+      assert state.connection != nil
+      
+      GenServer.stop(pid)
+    end
+    
+    test "deduplicates messages within 10 seconds" do
+      {:ok, pid} = ZenCex.Adapters.Binance.MarketData.start_link([])
+      
+      # Simulate duplicate messages
+      message = %{"s" => "BTCUSDT", "p" => "50000"}
+      
+      # First message should process
+      assert :ok = GenServer.call(pid, {:handle_message, message})
+      
+      # Duplicate should be ignored
+      assert :duplicate = GenServer.call(pid, {:handle_message, message})
+      
+      # After 10 seconds, same message should process again
+      Process.sleep(10_100)
+      assert :ok = GenServer.call(pid, {:handle_message, message})
+      
+      GenServer.stop(pid)
+    end
+  end
+end
+```
+
+### Required Test Coverage
+
+#### For Each Core Module:
+- [ ] Registry: Adapter lookup, error handling
+- [ ] HTTP: REQ configuration, backoff calculation
+- [ ] Circuit: State transitions, cooldown period
+- [ ] Health: Clock sync, drift detection
+
+#### For Each Adapter Auth:
+- [ ] Signature generation correctness
+- [ ] Required headers present
+- [ ] Timestamp handling
+- [ ] Environment variable loading
+- [ ] Error cases (missing credentials)
+
+#### For Each Rate Limiter:
+- [ ] Correct limits enforced
+- [ ] Window cleanup works
+- [ ] No memory leaks
+- [ ] Concurrent access safe
+
+#### For Each WebSocket:
+- [ ] Connects to correct endpoint
+- [ ] Handles disconnections
+- [ ] Deduplication works
+- [ ] Binary frame handling (Kraken)
+- [ ] JSON-RPC format (Deribit)
+
+### Performance Test Template
+```elixir
+defmodule ZenCex.RateLimiter.PerformanceTest do
+  use ExUnit.Case, async: false
+  
+  @tag :performance
+  test "handles 10,000 concurrent requests efficiently" do
+    start_time = System.monotonic_time(:millisecond)
+    
+    tasks = for i <- 1..10_000 do
+      Task.async(fn ->
+        ZenCex.Adapters.Binance.RateLimiter.check_and_increment("/api/v3/ticker", 1)
+      end)
+    end
+    
+    results = Task.await_many(tasks)
+    
+    end_time = System.monotonic_time(:millisecond)
+    duration = end_time - start_time
+    
+    # Should complete in under 100ms
+    assert duration < 100
+    
+    # Most should succeed (within limit)
+    success_count = Enum.count(results, &(&1 == :ok))
+    assert success_count >= 1190  # Allow for some timing variance
+  end
+  
+  @tag :performance
+  test "no memory leak after extended operation" do
+    initial_memory = :erlang.memory(:ets)
+    
+    for _ <- 1..100_000 do
+      ZenCex.Adapters.Binance.RateLimiter.check_and_increment("/api/v3/ticker", 1)
+    end
+    
+    # Force cleanup
+    send(ZenCex.RateLimit, :cleanup)
+    Process.sleep(100)
+    
+    final_memory = :erlang.memory(:ets)
+    memory_growth = final_memory - initial_memory
+    
+    # Should not grow more than 1MB
+    assert memory_growth < 1_000_000
+  end
+end
+```
+
+### Test Execution Commands
+```bash
+# Run all tests
+mix test
+
+# Run only unit tests (fast)
+mix test --exclude integration --exclude performance
+
+# Run integration tests
+mix test --only integration
+
+# Run performance tests
+mix test --only performance
+
+# Run with coverage
+mix test --cover
+
+# Run specific test file
+mix test test/zen_cex/adapters/binance/auth_test.exs
+
+# Run specific test
+mix test test/zen_cex/adapters/binance/auth_test.exs:42
 ```
 
 ## Environment Variables Required
