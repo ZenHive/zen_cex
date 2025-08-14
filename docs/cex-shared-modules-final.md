@@ -182,12 +182,10 @@ lib/zen_cex/
 │   ├── market_data.ex            # WebSocket contract
 │   └── parser.ex                 # Response parsing contract
 ├── adapters/                      # Exchange implementations
-│   ├── binance/                  # ~500 lines per exchange
-│   │   ├── adapter.ex            # Main entry point
+│   ├── binance/                  # ~400 lines per exchange (4 modules)
+│   │   ├── adapter.ex            # Main entry point + endpoints + HTTP config
 │   │   ├── auth.ex               # HMAC-SHA256 signing
-│   │   ├── endpoints.ex          # Endpoint definitions
-│   │   ├── rate_limiter.ex       # Sliding window (1200/min)
-│   │   ├── market_data.ex        # WebSocket handler
+│   │   ├── rate_limiter.ex       # Sliding window (1200/min with 60-sec windows)
 │   │   └── parser.ex             # Response normalization
 │   ├── kraken/
 │   │   └── ... (same structure)
@@ -198,13 +196,21 @@ lib/zen_cex/
 
 ## Module Architecture (Plugin-Based)
 
-### 1. Core.HTTP (Thin Coordinator)
-**Purpose**: Minimal REQ configuration, delegates to adapters
-**Lines**: ~50
+### 1. Core.HTTP (Thin Coordinator) + Core.Registry
+**Purpose**: Minimal REQ configuration + adapter discovery
+**Lines**: ~50 + ~80
 **Key Responsibilities**:
 - Create base REQ request with Finch pool
 - Set exponential backoff with jitter
-- Everything else delegated to adapter modules
+- Adapter auto-registration on startup:
+```elixir
+# Auto-discover and register adapters
+for module <- :application.get_key(:zen_cex, :modules) do
+  if function_exported?(module, :__adapter__, 0) do
+    Core.Registry.register(module.__adapter__(), module)
+  end
+end
+```
 
 **Plugin Pattern - Core Just Configures REQ**:
 ```elixir
@@ -330,8 +336,13 @@ defmodule Exchange.RateLimit do
   end
 
   defp cleanup_old_windows(table, exchange, cutoff_time) do
-    # Keep 70 seconds of data to avoid deleting active windows
-    safe_cutoff = cutoff_time - 70
+    # CRITICAL FIX: Use proper window sizes per exchange
+    window_size = case exchange do
+      :binance -> 60  # 60-second rolling window
+      :kraken -> 1    # 1-second window
+      :deribit -> 1   # 1-second window
+    end
+    safe_cutoff = cutoff_time - (window_size + 10)  # Add buffer
     :ets.select_delete(table, [
       {{{exchange, :"$1"}, :_}, [{:<, :"$1", safe_cutoff}], [true]}
     ])
@@ -613,34 +624,55 @@ Add to mix.exs:
 **Morning (4 hours) - Kraken Adapter**:
 - Implement Kraken.Auth with microsecond+counter nonce fix
 - Implement Kraken.RateLimiter (15/sec for starter tier)
-- Implement Kraken.Endpoints
+- Add Kraken's "reqid" for request tracking
 - Test with real Kraken API
 
-**Afternoon (4 hours) - Deribit Adapter**:
+**Afternoon (3 hours) - Deribit Adapter**:
 - Implement Deribit.Auth with OAuth2 token management
-- Add single-flight protection for token refresh
+- Add proper single-flight protection with request queuing:
+  ```elixir
+  defstruct [:token, :refreshing, :waiting_pids]
+  
+  def get_token(%{refreshing: true, waiting_pids: pids} = state) do
+    {:wait, %{state | waiting_pids: [self() | pids]}}
+  end
+  ```
 - Implement Deribit.RateLimiter (20/sec)
 - Test OAuth flow with test.deribit.com
 
-### Day 3: WebSocket Market Data
-**Morning (4 hours) - DISCOVERY PHASE**:
-- Add zen_websocket dependency from Hex
-- Read documentation and test with echo.websocket.org
-- Study the library's actual API (NOT in AI training data)
-- Document discovered patterns before implementing
+**Evening (1 hour) - WebSocket Discovery**:
+- Add zen_websocket dependency
+- Initial exploration of API
+- Test with echo.websocket.org
+
+### Day 3: WebSocket Market Data (Full Day)
+**Morning (4 hours) - IMPLEMENTATION**:
+- Implement Binance.MarketData with discovered patterns from Day 2
+- Handle WebSocket frame fragmentation for large updates
+- Respect connection limits (max 5 connections per IP for Binance)
+- Implement Kraken.MarketData with binary frame handling (check GZIP then zlib)
 
 **Afternoon (4 hours) - IMPLEMENTATION**:
-- Implement Binance.MarketData with discovered patterns
-- Implement Kraken.MarketData with binary frame handling
 - Implement Deribit.MarketData with JSON-RPC
-- Add simple dedup buffer with :queue for all adapters
+- Handle subscription limits (max 200 channels per connection)
+- Implement subscription batching for Kraken
+- Add simple dedup buffer with proper byte size tracking (not just count)
 
 ### Day 4: Integration & Client Facade
 **Morning (4 hours)**:
 - Create ZenCex.Client public API facade
-- Implement Core.Circuit breaker pattern
+- Implement Core.Circuit breaker pattern with state persistence
 - Add request coalescing to prevent duplicates
 - Setup Core.Health for clock sync monitoring
+- Add connection pool protection:
+  ```elixir
+  def checkout_connection(pool) do
+    case :poolboy.checkout(pool, false, 100) do
+      :full -> {:error, :pool_exhausted}
+      pid -> {:ok, pid}
+    end
+  end
+  ```
 
 **Afternoon (4 hours)**:
 - Implement parser modules for all adapters
@@ -747,8 +779,11 @@ end
 - **CRITICAL**: Use microseconds + counter for nonce (not just microseconds)
 - API tier tracking: Starter = 15/sec, Intermediate = 20/sec
 - WebSocket disconnects after 10 seconds without ping
-- Binary WebSocket frames require zlib decompression
+- Binary WebSocket frames require zlib decompression (check GZIP 0x1f,0x8b first, then zlib 0x78,0x9c)
 - Separate endpoints: api.kraken.com (REST) vs ws.kraken.com
+- **NEW**: Add "reqid" for request tracking
+- **NEW**: Consider dead man's switch API for safety
+- **NEW**: Must batch subscriptions in groups
 
 **Binary Frame Handling (Required for Book Data):**
 ```elixir

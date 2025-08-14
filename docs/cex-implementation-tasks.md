@@ -3,7 +3,7 @@
 ## Progress Summary
 **Overall Status**: Strategic Pivot: Fresh start with plugin architecture
 **Reference Implementation**: 5 modules completed (4.6/5 avg rating) - Now serving as reference only
-**New Approach**: 28 modules (5 core + 5 behaviors + 18 adapters), ~2,400 lines
+**New Approach**: 18 modules (5 core + 4 behaviors + 1 shared WebSocket + 12 adapters), ~2,000 lines
 **Timeline**: 5 days (vs 3-4 weeks refactoring)
 
 ### Reference Implementation (Not Production)
@@ -15,10 +15,11 @@
 
 ### New Plugin Structure (Day 1-5)
 - 🏗️ Core Modules (5): HTTP, Registry, Supervisor, Circuit, Health
-- 🏗️ Behaviors (5): Adapter, Auth, RateLimiter, MarketData, Parser
-- 🏗️ Binance Adapter (6 modules)
-- 🏗️ Kraken Adapter (6 modules)
-- 🏗️ Deribit Adapter (6 modules)
+- 🏗️ Behaviors (4): Adapter, Auth, RateLimiter, Parser
+- 🏗️ Core MarketData (1): Shared WebSocket handling
+- 🏗️ Binance Adapter (4 modules): adapter, auth, rate_limiter, parser
+- 🏗️ Kraken Adapter (4 modules): adapter, auth, rate_limiter, parser
+- 🏗️ Deribit Adapter (4 modules): adapter, auth, rate_limiter, parser
 
 ## Overview
 Strategic pivot to plugin architecture - building fresh from Day 1 rather than refactoring.
