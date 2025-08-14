@@ -395,12 +395,20 @@ defmodule ZenCex.Auth do
 
   @spec sign_binance_request(map(), map()) :: {:ok, map()}
   defp sign_binance_request(request, keys) do
+    # Extract params from request (handle both map access and struct patterns)
+    current_params =
+      case request do
+        %{params: params} when is_map(params) -> params
+        %{"params" => params} when is_map(params) -> params
+        _ -> %{}
+      end
+
     # Add timestamp and recvWindow if not present
     params_with_timestamp =
-      if Map.has_key?(request.params, "timestamp") do
-        request.params
+      if Map.has_key?(current_params, "timestamp") do
+        current_params
       else
-        add_binance_timestamp(request.params, request[:binance_opts] || [])
+        add_binance_timestamp(current_params, request[:binance_opts] || [])
       end
 
     # Build query string from params

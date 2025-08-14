@@ -33,7 +33,7 @@ defmodule ZenCex.MixProject do
     [
       # HTTP client
       {:req, "~> 0.5.0"},
-      {:finch, "~> 0.19.0"},
+      {:finch, "~> 0.20.0"},
 
       # JSON handling
       {:jason, "~> 1.4"},
@@ -45,6 +45,7 @@ defmodule ZenCex.MixProject do
       {:telemetry, "~> 1.0"},
 
       # Testing & development
+      {:plug, "~> 1.0", only: :test},
       {:mock, "~> 0.3.8", only: :test},
       {:excoveralls, "~> 0.18", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

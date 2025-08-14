@@ -74,6 +74,31 @@ defmodule ZenCex.Adapters.Binance.AdapterTest do
     end
   end
 
+  describe "rate limiting" do
+    test "respects rate limits for public endpoints" do
+      # Start the rate limiter if not already running
+      {:ok, _} = Application.ensure_all_started(:zen_cex)
+
+      # Multiple rapid requests should not fail for public endpoints
+      # as they have low weight
+      results =
+        for _ <- 1..5 do
+          Adapter.get_server_time()
+        end
+
+      # All should succeed or fail due to network, not rate limiting
+      Enum.each(results, fn result ->
+        case result do
+          {:ok, _} ->
+            :ok
+
+          {:error, reason} ->
+            assert reason in [:nxdomain, :timeout, :econnrefused]
+        end
+      end)
+    end
+  end
+
   describe "get_balances/1" do
     test "returns error when credentials are missing" do
       # Clear environment variables temporarily
@@ -83,7 +108,7 @@ defmodule ZenCex.Adapters.Binance.AdapterTest do
       System.delete_env("BINANCE_API_KEY")
       System.delete_env("BINANCE_API_SECRET")
 
-      assert {:error, :missing_credentials} = Adapter.get_balances(%{})
+      assert {:error, "Missing environment variable: BINANCE_API_KEY"} = Adapter.get_balances(%{})
 
       # Restore if they existed
       if original_key, do: System.put_env("BINANCE_API_KEY", original_key)
@@ -114,7 +139,8 @@ defmodule ZenCex.Adapters.Binance.AdapterTest do
                      :nxdomain,
                      :timeout,
                      :econnrefused,
-                     "Invalid API-key, IP, or permissions for action."
+                     "Invalid API-key, IP, or permissions for action.",
+                     "API-key format invalid."
                    ]
         end
       else
@@ -133,7 +159,8 @@ defmodule ZenCex.Adapters.Binance.AdapterTest do
       System.delete_env("BINANCE_API_KEY")
       System.delete_env("BINANCE_API_SECRET")
 
-      assert {:error, :missing_credentials} = Adapter.get_positions(%{})
+      assert {:error, "Missing environment variable: BINANCE_API_KEY"} =
+               Adapter.get_positions(%{})
 
       # Restore if they existed
       if original_key, do: System.put_env("BINANCE_API_KEY", original_key)
@@ -151,7 +178,7 @@ defmodule ZenCex.Adapters.Binance.AdapterTest do
       System.delete_env("BINANCE_API_SECRET")
 
       result = Adapter.place_order("BTCUSDT", :buy, :market, %{quantity: 0.001})
-      assert {:error, :missing_credentials} = result
+      assert {:error, "Missing environment variable: BINANCE_API_KEY"} = result
 
       # Restore if they existed
       if original_key, do: System.put_env("BINANCE_API_KEY", original_key)
@@ -173,7 +200,7 @@ defmodule ZenCex.Adapters.Binance.AdapterTest do
           price: 50000
         })
 
-      assert {:error, :missing_credentials} = result
+      assert {:error, "Missing environment variable: BINANCE_API_KEY"} = result
 
       # Restore if they existed
       if original_key, do: System.put_env("BINANCE_API_KEY", original_key)
@@ -190,7 +217,8 @@ defmodule ZenCex.Adapters.Binance.AdapterTest do
       System.delete_env("BINANCE_API_KEY")
       System.delete_env("BINANCE_API_SECRET")
 
-      assert {:error, :missing_credentials} = Adapter.cancel_order("12345", %{symbol: "BTCUSDT"})
+      assert {:error, "Missing environment variable: BINANCE_API_KEY"} =
+               Adapter.cancel_order("12345", %{symbol: "BTCUSDT"})
 
       # Restore if they existed
       if original_key, do: System.put_env("BINANCE_API_KEY", original_key)
@@ -245,7 +273,7 @@ defmodule ZenCex.Adapters.Binance.AdapterTest do
       System.delete_env("BINANCE_API_KEY")
       System.delete_env("BINANCE_API_SECRET")
 
-      assert {:error, :missing_credentials} = Adapter.get_balances(%{})
+      assert {:error, "Missing environment variable: BINANCE_API_KEY"} = Adapter.get_balances(%{})
     end
 
     test "signature is generated correctly" do

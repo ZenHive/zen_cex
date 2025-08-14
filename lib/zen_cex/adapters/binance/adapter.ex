@@ -18,6 +18,7 @@ defmodule ZenCex.Adapters.Binance.Adapter do
   @behaviour ZenCex.Behaviors.Adapter
 
   alias ZenCex.Core.HTTP
+  alias ZenCex.{Auth, RateLimit}
 
   @impl true
   def base_url(:prod), do: "https://api.binance.com"
@@ -144,41 +145,40 @@ defmodule ZenCex.Adapters.Binance.Adapter do
   end
 
   defp apply_auth(request) do
-    # Check for API credentials
-    api_key = System.get_env("BINANCE_API_KEY")
-    api_secret = System.get_env("BINANCE_API_SECRET")
+    # Extract params from Req.Request structure
+    params = request.options[:params] || %{}
+    method = request.method
+    url = to_string(request.url)
 
-    if api_key && api_secret do
-      # Add timestamp
-      timestamp = System.system_time(:millisecond)
-      params = Map.put(request.params, :timestamp, timestamp)
+    # Create a request map that Auth module expects
+    auth_request = %{
+      params: params,
+      method: method,
+      url: url
+    }
 
-      # Add recvWindow if not present
-      params = Map.put_new(params, :recvWindow, 5000)
+    # Use centralized authentication system
+    case Auth.sign_request(:binance, auth_request, []) do
+      {:ok, signed_request} ->
+        # Apply the signed params and headers back to the Req.Request
+        updated_request = %{
+          request
+          | options:
+              request.options
+              |> Map.put(:params, signed_request.params)
+              |> Map.put(
+                :headers,
+                (request.options[:headers] || []) ++ (signed_request[:headers] || [])
+              )
+        }
 
-      # Generate signature
-      query_string = URI.encode_query(params)
+        {:ok, updated_request}
 
-      signature =
-        :crypto.mac(:hmac, :sha256, api_secret, query_string)
-        |> Base.encode16(case: :lower)
+      {:error, :missing_credentials} = error ->
+        error
 
-      # Signature must be last parameter
-      params = Map.put(params, :signature, signature)
-
-      # Add API key header
-      headers = [{"X-MBX-APIKEY", api_key}]
-
-      request =
-        request
-        |> Req.merge(
-          params: params,
-          headers: headers
-        )
-
-      {:ok, request}
-    else
-      {:error, :missing_credentials}
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -186,14 +186,22 @@ defmodule ZenCex.Adapters.Binance.Adapter do
     # Check rate limits first
     with :ok <- check_rate_limit(request),
          {:ok, response} <- Req.request(request) do
+      # Update rate limit counters from response headers
+      update_rate_limits_from_headers(request, response)
       handle_response(response)
     end
   end
 
-  defp check_rate_limit(_request) do
-    # TODO: Delegate to rate limiter when available
-    # TODO: For now, just pass through
-    :ok
+  defp check_rate_limit(request) do
+    # Determine exchange type based on endpoint
+    exchange_type = determine_exchange_type(request)
+    endpoint = request.options[:url] || "/"
+
+    # Calculate weight based on operation type
+    weight = calculate_request_weight(request)
+
+    # Check rate limit with the RateLimit module
+    RateLimit.check_and_increment(exchange_type, endpoint, weight)
   end
 
   defp handle_response(%{status: status, body: body}) when status in 200..299 do
@@ -314,5 +322,67 @@ defmodule ZenCex.Adapters.Binance.Adapter do
     ]
 
     endpoint not in public_endpoints
+  end
+
+  defp update_rate_limits_from_headers(request, response) do
+    # Extract exchange type to update the correct counter
+    exchange_type = determine_exchange_type(request)
+
+    # Update rate limit counters from response headers
+    RateLimit.update_from_headers(exchange_type, response.headers)
+  end
+
+  defp determine_exchange_type(request) do
+    # Check if it's a futures endpoint based on URL
+    url = request.options[:url] || ""
+
+    if String.starts_with?(url, "/fapi") or String.starts_with?(url, "/dapi") do
+      :binance_futures
+    else
+      :binance_spot
+    end
+  end
+
+  @doc false
+  def calculate_request_weight(request) do
+    # Different operations have different weights
+    # Reference: https://binance-docs.github.io/apidocs/spot/en/#limits
+
+    endpoint = request.options[:url] || ""
+    method = request.options[:method] || :get
+
+    cond do
+      # Order operations have higher weight
+      String.contains?(endpoint, "/order") and method in [:post, :delete] ->
+        10
+
+      # Account information is heavy
+      String.contains?(endpoint, "/account") ->
+        10
+
+      # Position risk for futures
+      String.contains?(endpoint, "/positionRisk") ->
+        5
+
+      # Market data endpoints
+      String.contains?(endpoint, "/klines") ->
+        1
+
+      String.contains?(endpoint, "/ticker") ->
+        1
+
+      String.contains?(endpoint, "/depth") ->
+        case request.options[:params][:limit] do
+          nil -> 1
+          limit when limit <= 100 -> 1
+          limit when limit <= 500 -> 5
+          limit when limit <= 1000 -> 10
+          _ -> 50
+        end
+
+      # Default weight
+      true ->
+        1
+    end
   end
 end
