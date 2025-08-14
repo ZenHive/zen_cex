@@ -93,7 +93,7 @@ Use `cex-implementation-tasks-ai.md` for:
 Mark completed tasks with ✅ and add completion date/time.
 
 ### Day 1 Tasks (Do in Order):
-- [ ] 1. Implement Core.Registry module with tests
+- [x] 1. Implement Core.Registry module with tests ✅
 - [ ] 2. Implement Core.HTTP module with tests  
 - [ ] 3. Create all behavior definitions
 - [ ] 4. Implement Binance.Adapter with tests
@@ -121,14 +121,36 @@ Mark completed tasks with ✅ and add completion date/time.
 - [ ] 18. Performance testing suite
 
 ### Progress Summary:
-**Completed**: 0/18 tasks (0%)
-**Current Day**: Not started
-**Next Task**: Task 1 - Core.Registry
+**Completed**: 1/18 tasks (5.5%)
+**Current Day**: Day 1
+**Next Task**: Task 2 - Core.HTTP
 
 ### How to Request Each Task:
 ```
 "Read docs/continuation-prompt.md and implement [SPECIFIC TASK]"
 ```
+
+### Task Prompt Templates:
+Use these exact prompts for each task:
+
+**Day 1:**
+- Task 1: `"Read docs/continuation-prompt.md and implement Core.Registry module with tests"`
+- Task 2: `"Read docs/continuation-prompt.md and implement Core.HTTP module with tests"`
+- Task 3: `"Read docs/continuation-prompt.md and create all behavior definitions"`
+- Task 4: `"Read docs/continuation-prompt.md and implement Binance.Adapter with tests"`
+- Task 5: `"Read docs/continuation-prompt.md and implement Binance.Auth with tests"`
+- Task 6: `"Read docs/continuation-prompt.md and implement Binance.RateLimiter with tests"`
+
+**Day 2:**
+- Task 7: `"Read docs/continuation-prompt.md and implement Kraken.Auth with nonce and tests"`
+- Task 8: `"Read docs/continuation-prompt.md and implement Kraken.RateLimiter with tests"`
+- Task 9: `"Read docs/continuation-prompt.md and implement Deribit.OAuth with tests"`
+- Task 10: `"Read docs/continuation-prompt.md and implement Deribit.RateLimiter with tests"`
+
+**Day 3:**
+- Task 11: `"Read docs/continuation-prompt.md and discover ZenWebsocket API"`
+- Task 12: `"Read docs/continuation-prompt.md and implement Binance.MarketData with tests"`
+- Task 13: `"Read docs/continuation-prompt.md and implement Kraken.MarketData with binary frames and tests"`
 
 ## Quick Start Commands
 
@@ -266,12 +288,12 @@ After completing each day's tasks, verify:
 2. **Document what was created** - List files created/modified
 3. **Report test results** - Show test output (`mix test` results)
 4. **Update progress percentage** - Calculate completion (e.g., "6/18 modules = 33%")
-5. **THEN ask** - "What task should I work on next?"
+5. **Provide next task prompt** - Give the exact command for the next task
 6. **Do NOT automatically continue** to the next task
 
 ### Example Task Completion Report:
 ```
-✅ Completed: Core.Registry module with tests
+✅ Completed: Task 1 - Core.Registry module with tests
 
 Files created:
 - lib/zen_cex/core/registry.ex (32 lines)
@@ -281,7 +303,9 @@ Test results:
 4 tests, 0 failures
 Coverage: 100%
 
-Progress: 1/18 modules complete (5.5%)
+Progress: 1/18 tasks complete (5.5%)
+Next Task: Task 2 - Core.HTTP
 
-What task should I work on next?
+To continue with the next task, use:
+"Read docs/continuation-prompt.md and implement Core.HTTP module with tests"
 ```
