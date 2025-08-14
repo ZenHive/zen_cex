@@ -1,5 +1,30 @@
 # Code Review Prompt for AI Coders
 
+## How to Request a Review
+
+### Review Request Templates:
+Use these exact prompts to request reviews:
+
+**Review a specific module:**
+```
+"Read docs/review-prompt.md and review the Core.Registry implementation"
+```
+
+**Review all completed modules:**
+```
+"Read docs/review-prompt.md and review all completed modules in lib/zen_cex/"
+```
+
+**Review a specific aspect:**
+```
+"Read docs/review-prompt.md and review the rate limiting implementation for correctness"
+```
+
+**Review test coverage:**
+```
+"Read docs/review-prompt.md and review test coverage for all modules"
+```
+
 ## How to Review ZenCex Implementation
 
 ### Review Process
@@ -8,6 +33,7 @@ As an AI code reviewer, follow this systematic review process:
 1. **Read Architecture Docs First**
    - Read `cex-shared-modules-ai.md` for technical requirements
    - Read `cex-implementation-tasks-ai.md` for expected implementation
+   - Check `continuation-prompt.md` for current progress
 
 2. **Check Implementation Against Requirements**
    - Verify all CRITICAL markers are implemented
@@ -20,6 +46,10 @@ As an AI code reviewer, follow this systematic review process:
    - 3/5: Functional but missing important features
    - 2/5: Major issues or missing critical requirements
    - 1/5: Fundamentally broken or wrong approach
+
+4. **Provide Next Action**
+   - Always end with the exact prompt for the next action
+   - Either fix issues or continue to next task
 
 ## Review Checklist for Each Module
 
@@ -135,6 +165,34 @@ As an AI code reviewer, follow this systematic review process:
 6. **ETS cleanup**: Not scheduling periodic cleanup
 7. **HTTP/2 with Kraken**: Not forcing HTTP/1.1
 
+## Next Action Decision Tree
+
+### Based on Review Results:
+
+```
+IF overall_rating < 3.0 THEN
+  → "Critical issues need fixing"
+  → Provide: "Read docs/continuation-prompt.md and fix [MOST CRITICAL ISSUE]"
+  
+ELSIF any_module_rating < 3.0 THEN
+  → "Module needs rework"
+  → Provide: "Read docs/continuation-prompt.md and fix [MODULE_NAME] [SPECIFIC_ISSUE]"
+  
+ELSIF overall_rating < 4.0 THEN
+  → "Minor improvements needed"
+  → Provide: "Read docs/continuation-prompt.md and improve [SPECIFIC_ASPECT]"
+  
+ELSIF test_coverage < 80% THEN
+  → "Add more tests"
+  → Provide: "Read docs/continuation-prompt.md and add tests for [MODULE_NAME]"
+  
+ELSE
+  → "Ready for next task"
+  → Check continuation-prompt.md for next uncompleted task
+  → Provide: "Read docs/continuation-prompt.md and implement [NEXT_TASK]"
+END
+```
+
 ## Overall Rating Calculation
 
 ```elixir
@@ -186,6 +244,55 @@ average = Enum.sum(Keyword.values(modules)) / length(modules)
 ### Strengths:
 1. [What was done well]
 2. [What was done well]
+
+### Next Action Required:
+[Provide the exact prompt for fixing issues or continuing]
+```
+
+## After Review Actions
+
+### If Critical Issues Found (Rating < 3):
+Provide fix prompt:
+```
+"Read docs/continuation-prompt.md and fix [SPECIFIC ISSUE] in [MODULE]"
+```
+
+### If Minor Issues Found (Rating 3-4):
+Provide improvement prompt:
+```
+"Read docs/continuation-prompt.md and improve [SPECIFIC ASPECT] in [MODULE]"
+```
+
+### If Review Passed (Rating 4.5-5):
+Provide next task prompt from the task list:
+```
+"Read docs/continuation-prompt.md and implement [NEXT UNCOMPLETED TASK]"
+```
+
+### Example Review Completion:
+
+```markdown
+## Code Review Results
+
+### Overall Rating: 3.5/5
+
+### Module Ratings:
+- Core.Registry: 5/5 ✅
+- Core.HTTP: 5/5 ✅
+- Binance.Auth: 2/5 ❌ (Missing timestamp validation)
+- Tests: 3/5 ⚠️ (Missing error cases)
+
+### Critical Issues Found:
+1. Binance.Auth missing recvWindow parameter (line 42)
+2. No test for expired timestamp scenario
+
+### Recommendations:
+1. Add recvWindow: 5000 to auth parameters
+2. Add test for timestamp outside window
+
+### Next Action Required:
+To fix the critical issue, use:
+"Read docs/continuation-prompt.md and fix Binance.Auth timestamp validation with recvWindow parameter"
 ```
 
 ## Review Commands
