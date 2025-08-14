@@ -97,7 +97,7 @@ defmodule ZenCex.Adapters.Binance.AdapterTest do
     test "parses balances correctly" do
       # Test internal parsing function through module attribute trick
       # Since parse_balances is private, we test it through the public interface
-      mock_response = %{
+      _mock_response = %{
         "balances" => [
           %{"asset" => "BTC", "free" => "1.5", "locked" => "0.5"},
           %{"asset" => "ETH", "free" => "10.0", "locked" => "0"},

@@ -190,7 +190,7 @@ defmodule ZenCex.Adapters.Binance.Adapter do
     )
   end
 
-  defp add_auth_if_needed(request, path, params \\ %{}) do
+  defp add_auth_if_needed(request, path, params) do
     # Public endpoints don't need authentication
     public_endpoints = ["/api/v3/time", "/api/v3/exchangeInfo", "/api/v3/ticker/price"]
 
@@ -201,48 +201,31 @@ defmodule ZenCex.Adapters.Binance.Adapter do
     end
   end
 
-  defp add_authentication(request, original_params \\ %{}) do
-    api_key = System.get_env("BINANCE_API_KEY")
-    api_secret = System.get_env("BINANCE_API_SECRET")
+  defp add_authentication(request, original_params) do
+    # Use the Auth module for signing
+    # Convert Req.Request to a simple map structure that Auth expects
+    # Ensure headers is always a list, not a map
+    current_headers =
+      case request.headers do
+        headers when is_list(headers) -> headers
+        headers when is_map(headers) -> Map.to_list(headers)
+        _ -> []
+      end
 
-    if api_key && api_secret do
-      timestamp = System.system_time(:millisecond)
+    auth_request = %{
+      params: original_params,
+      headers: current_headers
+    }
 
-      # Use the original params passed from build_request
-      Logger.debug("add_authentication - original_params: #{inspect(original_params)}")
+    # Sign the request using the Auth module
+    # This will use environment variables by default
+    signed = ZenCex.Adapters.Binance.Auth.sign_request(auth_request)
 
-      params =
-        original_params
-        |> Map.put("timestamp", timestamp)
-        |> Map.put("recvWindow", 5000)
+    # Merge the signed params and headers back into the Req.Request
+    Logger.debug("add_authentication - signed params: #{inspect(signed.params)}")
+    Logger.debug("add_authentication - signed headers: #{inspect(signed.headers)}")
 
-      query_string = URI.encode_query(params)
-      signature = generate_signature(query_string, api_secret)
-
-      params = Map.put(params, "signature", signature)
-      Logger.debug("add_authentication - final params: #{inspect(params)}")
-
-      # Headers must be a list of tuples for Req
-      headers = [{"X-MBX-APIKEY", api_key}]
-      Logger.debug("add_authentication - headers: #{inspect(headers)}")
-
-      Logger.debug(
-        "add_authentication - about to merge with params: #{inspect(params)} and headers: #{inspect(headers)}"
-      )
-
-      result = Req.merge(request, params: params, headers: headers)
-      Logger.debug("add_authentication - result options after merge: #{inspect(result.options)}")
-
-      result
-    else
-      Logger.warning("Binance API credentials not configured")
-      request
-    end
-  end
-
-  defp generate_signature(data, secret) do
-    :crypto.mac(:hmac, :sha256, secret, data)
-    |> Base.encode16(case: :lower)
+    Req.merge(request, params: signed.params, headers: signed.headers)
   end
 
   defp execute_request(request) do
