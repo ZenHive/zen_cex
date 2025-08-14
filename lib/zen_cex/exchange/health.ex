@@ -169,7 +169,6 @@ defmodule ZenCex.Health do
       end
     else
       {:error, _} = error -> error
-      error -> {:error, error}
     end
   end
 

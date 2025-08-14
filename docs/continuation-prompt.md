@@ -94,8 +94,8 @@ Mark completed tasks with ✅ and add completion date/time.
 
 ### Day 1 Tasks (Do in Order):
 - [x] 1. Implement Core.Registry module with tests ✅
-- [ ] 2. Implement Core.HTTP module with tests  
-- [ ] 3. Create all behavior definitions
+- [x] 2. Implement Core.HTTP module with tests ✅
+- [x] 3. Create all behavior definitions ✅
 - [ ] 4. Implement Binance.Adapter with tests
 - [ ] 5. Implement Binance.Auth with tests
 - [ ] 6. Implement Binance.RateLimiter with tests
@@ -121,9 +121,9 @@ Mark completed tasks with ✅ and add completion date/time.
 - [ ] 18. Performance testing suite
 
 ### Progress Summary:
-**Completed**: 1/18 tasks (5.5%)
+**Completed**: 3/18 tasks (16.7%)
 **Current Day**: Day 1
-**Next Task**: Task 2 - Core.HTTP
+**Next Task**: Task 4 - Implement Binance.Adapter with tests
 
 ### How to Request Each Task:
 ```

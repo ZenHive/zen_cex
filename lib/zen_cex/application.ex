@@ -16,7 +16,7 @@ defmodule ZenCex.Application do
 
       # NOTE: Old Exchange modules disabled - rewriting with plugin architecture
       # See docs/cex-implementation-tasks.md for new architecture plan
-      
+
       # Disabled during rewrite:
       # - ZenCex.RateLimit (will become per-adapter rate limiters)
       # - ZenCex.Health.Monitor (will become Core.Health)  

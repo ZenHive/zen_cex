@@ -165,10 +165,6 @@ defmodule ZenCex.Health.Monitor do
     Map.update(state, :critical_count, 1, &(&1 + 1))
   end
 
-  defp update_counters(state, _error) do
-    Map.update(state, :error_count, 1, &(&1 + 1))
-  end
-
   defp alert_warning(result) do
     # TODO: Integrate with alerting system (e.g., send to monitoring service)
     # For now, just log the warning

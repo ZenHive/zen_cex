@@ -121,13 +121,11 @@ defmodule ZenCex.HTTP do
     # Check private first, fall back to options for exchange
     exchange = ReqHelpers.get_private(request, :exchange) || request.options[:exchange]
 
-    # Defensive URL checking with warning
-    endpoint =
-      if is_nil(request.url) do
-        Logger.warning("Rate limit check called with nil URL for exchange: #{inspect(exchange)}")
-        "/"
-      else
-        request.url.path || "/"
+    # Get endpoint from URL path
+    endpoint = 
+      case request.url do
+        %URI{path: nil} -> "/"
+        %URI{path: path} -> path
       end
 
     # Get weight from private field (default is 1)

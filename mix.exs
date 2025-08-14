@@ -38,6 +38,9 @@ defmodule ZenCex.MixProject do
       # JSON handling
       {:jason, "~> 1.4"},
 
+      # Financial calculations
+      {:decimal, "~> 2.0"},
+
       # Telemetry
       {:telemetry, "~> 1.0"},
 
