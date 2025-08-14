@@ -56,6 +56,7 @@ Strategic pivot to plugin architecture - building fresh from Day 1 rather than r
 - [ ] Binance.HTTP - Exchange-specific configuration
 - [ ] Binance.Auth - HMAC-SHA256 signatures
 - [ ] Binance.RateLimiter - 1200/min spot, 2400/min futures
+  - **WARNING**: Tests in `test/zen_cex/adapters/binance/` need rewriting for plugin architecture
 - [ ] Binance.MarketData - WebSocket for public data
 - [ ] Binance.Parser - Response normalization
 - [ ] Binance.Client - Orchestration

@@ -2,387 +2,308 @@ defmodule ZenCex.Adapters.Binance.Adapter do
   @moduledoc """
   Binance exchange adapter implementation.
 
-  Provides access to Binance spot and futures markets with:
-  - Account information and balances
-  - Open positions tracking
-  - Order placement and cancellation
-  - Market data retrieval
-
-  ## Important Notes
-  - Requires API key and secret for authenticated endpoints
-  - Supports both spot and futures markets
-  - Timestamp must be within 5000ms window
-  - Signature must be the last query parameter
+  Provides a unified interface for interacting with Binance REST API
+  including spot trading, futures, and account management.
   """
 
   @behaviour ZenCex.Behaviors.Adapter
 
-  alias ZenCex.Core.HTTP
-  alias ZenCex.{Auth, RateLimit}
+  require Logger
 
   @impl true
   def base_url(:prod), do: "https://api.binance.com"
   def base_url(:test), do: "https://testnet.binance.vision"
+  def base_url(:futures_prod), do: "https://fapi.binance.com"
+  def base_url(:futures_test), do: "https://testnet.binancefuture.com"
 
   @impl true
   def get_positions(params) do
-    # For futures positions
-    endpoint = "/fapi/v2/positionRisk"
+    # For Binance futures positions
+    request = build_request("/fapi/v2/positionRisk", params, :futures_prod)
 
-    with {:ok, request} <- build_request(:futures, endpoint, params),
-         {:ok, response} <- execute_request(request) do
-      parse_positions(response)
-    end
-  end
+    case execute_request(request) do
+      {:ok, %{status: 200, body: body}} ->
+        positions = parse_positions(body)
+        {:ok, positions}
 
-  @impl true
-  def get_balances(params) do
-    # For spot account balances
-    endpoint = "/api/v3/account"
-
-    with {:ok, request} <- build_request(:spot, endpoint, params),
-         {:ok, response} <- execute_request(request) do
-      parse_balances(response)
-    end
-  end
-
-  @impl true
-  def place_order(symbol, side, type, params) do
-    endpoint = determine_order_endpoint(params)
-
-    order_params =
-      params
-      |> Map.put(:symbol, symbol)
-      |> Map.put(:side, to_string(side) |> String.upcase())
-      |> Map.put(:type, to_string(type) |> String.upcase())
-
-    with {:ok, request} <- build_request(:trading, endpoint, order_params, :post),
-         {:ok, response} <- execute_request(request) do
-      {:ok, response}
-    end
-  end
-
-  @impl true
-  def cancel_order(order_id, params) do
-    market_type = Map.get(params, :market_type, :spot)
-
-    endpoint =
-      case market_type do
-        :futures -> "/fapi/v1/order"
-        _ -> "/api/v3/order"
-      end
-
-    cancel_params = Map.put(params, :orderId, order_id)
-
-    with {:ok, request} <- build_request(:trading, endpoint, cancel_params, :delete),
-         {:ok, response} <- execute_request(request) do
-      {:ok, response}
-    end
-  end
-
-  # Additional public functions for Binance-specific features
-
-  def get_server_time do
-    endpoint = "/api/v3/time"
-
-    with {:ok, request} <- build_public_request(endpoint),
-         {:ok, response} <- execute_request(request) do
-      {:ok, response["serverTime"]}
-    end
-  end
-
-  def get_exchange_info(params \\ %{}) do
-    endpoint = "/api/v3/exchangeInfo"
-
-    with {:ok, request} <- build_public_request(endpoint, params),
-         {:ok, response} <- execute_request(request) do
-      {:ok, response}
-    end
-  end
-
-  def get_ticker_price(symbol) do
-    endpoint = "/api/v3/ticker/price"
-    params = %{symbol: symbol}
-
-    with {:ok, request} <- build_public_request(endpoint, params),
-         {:ok, response} <- execute_request(request) do
-      {:ok, response}
-    end
-  end
-
-  # Private helper functions
-
-  defp build_request(operation_type, endpoint, params, method \\ :get) do
-    request =
-      HTTP.base_request(:binance, operation_type)
-      |> Req.merge(
-        method: method,
-        url: endpoint,
-        params: params
-      )
-
-    # Add authentication if needed
-    if requires_auth?(endpoint) do
-      case apply_auth(request) do
-        {:ok, authed_request} -> {:ok, authed_request}
-        error -> error
-      end
-    else
-      {:ok, request}
-    end
-  end
-
-  defp build_public_request(endpoint, params \\ %{}) do
-    request =
-      HTTP.base_request(:binance, :market)
-      |> Req.merge(
-        method: :get,
-        url: endpoint,
-        params: params
-      )
-
-    {:ok, request}
-  end
-
-  defp apply_auth(request) do
-    # Extract params from Req.Request structure
-    params = request.options[:params] || %{}
-    method = request.method
-    url = to_string(request.url)
-
-    # Create a request map that Auth module expects
-    auth_request = %{
-      params: params,
-      method: method,
-      url: url
-    }
-
-    # Use centralized authentication system
-    case Auth.sign_request(:binance, auth_request, []) do
-      {:ok, signed_request} ->
-        # Apply the signed params and headers back to the Req.Request
-        updated_request = %{
-          request
-          | options:
-              request.options
-              |> Map.put(:params, signed_request.params)
-              |> Map.put(
-                :headers,
-                (request.options[:headers] || []) ++ (signed_request[:headers] || [])
-              )
-        }
-
-        {:ok, updated_request}
-
-      {:error, :missing_credentials} = error ->
-        error
+      {:ok, %{status: status, body: body}} ->
+        {:error, {:api_error, status, body}}
 
       {:error, reason} ->
         {:error, reason}
     end
   end
 
-  defp execute_request(request) do
-    # Check rate limits first
-    with :ok <- check_rate_limit(request),
-         {:ok, response} <- Req.request(request) do
-      # Update rate limit counters from response headers
-      update_rate_limits_from_headers(request, response)
-      handle_response(response)
+  @impl true
+  def get_balances(params) do
+    request = build_request("/api/v3/account", params, :prod)
+
+    case execute_request(request) do
+      {:ok, %{status: 200, body: body}} ->
+        balances = parse_balances(body)
+        {:ok, balances}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, {:api_error, status, body}}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
-  defp check_rate_limit(request) do
-    # Determine exchange type based on endpoint
-    exchange_type = determine_exchange_type(request)
-    endpoint = request.options[:url] || "/"
+  @impl true
+  def place_order(symbol, side, type, params) do
+    order_params =
+      params
+      |> Map.put("symbol", symbol)
+      |> Map.put("side", to_binance_side(side))
+      |> Map.put("type", to_binance_order_type(type))
 
-    # Calculate weight based on operation type
-    weight = calculate_request_weight(request)
+    request = build_request("/api/v3/order", order_params, :prod, :post)
 
-    # Check rate limit with the RateLimit module
-    RateLimit.check_and_increment(exchange_type, endpoint, weight)
+    case execute_request(request) do
+      {:ok, %{status: 200, body: body}} ->
+        {:ok, body}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, {:api_error, status, body}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
-  defp handle_response(%{status: status, body: body}) when status in 200..299 do
-    {:ok, body}
+  @impl true
+  def cancel_order(order_id, params) do
+    cancel_params = Map.put(params, "orderId", order_id)
+    request = build_request("/api/v3/order", cancel_params, :prod, :delete)
+
+    case execute_request(request) do
+      {:ok, %{status: 200, body: body}} ->
+        {:ok, body}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, {:api_error, status, body}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
-  defp handle_response(%{status: 429}) do
-    {:error, :rate_limited}
+  # Public API endpoints (no authentication required)
+  def get_server_time do
+    request = build_public_request("/api/v3/time", %{}, :prod)
+
+    case execute_request(request) do
+      {:ok, %{status: 200, body: %{"serverTime" => time}}} ->
+        {:ok, time}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, {:api_error, status, body}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
-  defp handle_response(%{status: status, body: body}) do
-    error_msg =
-      case body do
-        %{"msg" => msg} -> msg
-        %{"message" => msg} -> msg
-        _ -> "HTTP #{status}"
+  def get_exchange_info(params \\ %{}) do
+    request = build_public_request("/api/v3/exchangeInfo", params, :prod)
+
+    case execute_request(request) do
+      {:ok, %{status: 200, body: body}} ->
+        {:ok, body}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, {:api_error, status, body}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def get_ticker_price(params \\ %{}) do
+    request = build_public_request("/api/v3/ticker/price", params, :prod)
+
+    case execute_request(request) do
+      {:ok, %{status: 200, body: body}} ->
+        {:ok, body}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, {:api_error, status, body}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Private helper functions
+
+  defp build_request(path, params, env, method \\ :get) do
+    base = base_url(env)
+
+    Logger.debug(
+      "build_request - path: #{path}, params: #{inspect(params)}, env: #{env}, method: #{method}"
+    )
+
+    request = ZenCex.Core.HTTP.base_request(:binance)
+    Logger.debug("build_request - base request options: #{inspect(request.options)}")
+
+    # Don't merge params here if we need authentication - let add_auth handle all params
+    auth_needed = path not in ["/api/v3/time", "/api/v3/exchangeInfo", "/api/v3/ticker/price"]
+
+    merge_opts =
+      if auth_needed do
+        # Don't include params here - add_auth will handle them
+        [
+          base_url: base,
+          url: path,
+          method: method
+        ]
+      else
+        # For public endpoints, include params directly
+        [
+          base_url: base,
+          url: path,
+          params: params,
+          method: method
+        ]
       end
 
-    {:error, error_msg}
+    request = Req.merge(request, merge_opts)
+    Logger.debug("build_request - after merge options: #{inspect(request.options)}")
+
+    result = add_auth_if_needed(request, path, params)
+    Logger.debug("build_request - after auth options: #{inspect(result.options)}")
+
+    result
   end
 
-  defp parse_positions(response) when is_list(response) do
-    positions =
-      response
-      |> Enum.filter(fn pos ->
-        # Filter out positions with 0 quantity
-        case pos do
-          %{"positionAmt" => amt} when is_binary(amt) ->
-            String.to_float(amt) != 0.0
+  defp build_public_request(path, params, env) do
+    base = base_url(env)
 
-          %{"positionAmt" => amt} when is_number(amt) ->
-            amt != 0
-
-          _ ->
-            false
-        end
-      end)
-      |> Enum.map(&format_position/1)
-
-    {:ok, positions}
+    ZenCex.Core.HTTP.base_request(:binance)
+    |> Req.merge(
+      base_url: base,
+      url: path,
+      params: params,
+      method: :get
+    )
   end
 
-  defp parse_positions(_), do: {:error, :invalid_response}
+  defp add_auth_if_needed(request, path, params \\ %{}) do
+    # Public endpoints don't need authentication
+    public_endpoints = ["/api/v3/time", "/api/v3/exchangeInfo", "/api/v3/ticker/price"]
+
+    if path in public_endpoints do
+      request
+    else
+      add_authentication(request, params)
+    end
+  end
+
+  defp add_authentication(request, original_params \\ %{}) do
+    api_key = System.get_env("BINANCE_API_KEY")
+    api_secret = System.get_env("BINANCE_API_SECRET")
+
+    if api_key && api_secret do
+      timestamp = System.system_time(:millisecond)
+
+      # Use the original params passed from build_request
+      Logger.debug("add_authentication - original_params: #{inspect(original_params)}")
+
+      params =
+        original_params
+        |> Map.put("timestamp", timestamp)
+        |> Map.put("recvWindow", 5000)
+
+      query_string = URI.encode_query(params)
+      signature = generate_signature(query_string, api_secret)
+
+      params = Map.put(params, "signature", signature)
+      Logger.debug("add_authentication - final params: #{inspect(params)}")
+
+      # Headers must be a list of tuples for Req
+      headers = [{"X-MBX-APIKEY", api_key}]
+      Logger.debug("add_authentication - headers: #{inspect(headers)}")
+
+      Logger.debug(
+        "add_authentication - about to merge with params: #{inspect(params)} and headers: #{inspect(headers)}"
+      )
+
+      result = Req.merge(request, params: params, headers: headers)
+      Logger.debug("add_authentication - result options after merge: #{inspect(result.options)}")
+
+      result
+    else
+      Logger.warning("Binance API credentials not configured")
+      request
+    end
+  end
+
+  defp generate_signature(data, secret) do
+    :crypto.mac(:hmac, :sha256, secret, data)
+    |> Base.encode16(case: :lower)
+  end
+
+  defp execute_request(request) do
+    Req.request(request)
+  end
+
+  defp parse_positions(positions) when is_list(positions) do
+    Enum.map(positions, fn pos ->
+      %{
+        symbol: pos["symbol"],
+        position_amt: parse_decimal(pos["positionAmt"]),
+        entry_price: parse_decimal(pos["entryPrice"]),
+        mark_price: parse_decimal(pos["markPrice"]),
+        unrealized_pnl: parse_decimal(pos["unRealizedProfit"]),
+        position_side: pos["positionSide"]
+      }
+    end)
+  end
+
+  defp parse_positions(_), do: []
 
   defp parse_balances(%{"balances" => balances}) when is_list(balances) do
-    formatted_balances =
-      balances
-      |> Enum.filter(fn balance ->
-        # Filter out zero balances
-        free = parse_amount(balance["free"])
-        locked = parse_amount(balance["locked"])
-        free > 0 || locked > 0
-      end)
-      |> Enum.map(&format_balance/1)
-
-    {:ok, formatted_balances}
+    balances
+    |> Enum.filter(fn b ->
+      free = parse_decimal(b["free"])
+      locked = parse_decimal(b["locked"])
+      Decimal.gt?(free, Decimal.new(0)) or Decimal.gt?(locked, Decimal.new(0))
+    end)
+    |> Enum.map(fn balance ->
+      %{
+        asset: balance["asset"],
+        free: parse_decimal(balance["free"]),
+        locked: parse_decimal(balance["locked"])
+      }
+    end)
   end
 
-  defp parse_balances(_), do: {:error, :invalid_response}
+  defp parse_balances(_), do: []
 
-  defp format_position(position) do
-    %{
-      symbol: position["symbol"],
-      position_amount: parse_amount(position["positionAmt"]),
-      entry_price: parse_amount(position["entryPrice"]),
-      mark_price: parse_amount(position["markPrice"]),
-      unrealized_pnl: parse_amount(position["unRealizedProfit"]),
-      margin_type: position["marginType"],
-      side: determine_position_side(position)
-    }
-  end
+  defp parse_decimal(nil), do: Decimal.new(0)
+  defp parse_decimal(""), do: Decimal.new(0)
 
-  defp format_balance(balance) do
-    %{
-      asset: balance["asset"],
-      free: parse_amount(balance["free"]),
-      locked: parse_amount(balance["locked"]),
-      total: parse_amount(balance["free"]) + parse_amount(balance["locked"])
-    }
-  end
-
-  defp parse_amount(nil), do: 0.0
-
-  defp parse_amount(amount) when is_binary(amount) do
-    case Float.parse(amount) do
-      {value, _} -> value
-      :error -> 0.0
+  defp parse_decimal(value) when is_binary(value) do
+    case Decimal.parse(value) do
+      {decimal, _remainder} -> decimal
+      :error -> Decimal.new(0)
     end
   end
 
-  defp parse_amount(amount) when is_number(amount), do: amount
+  defp parse_decimal(value) when is_number(value), do: Decimal.new(value)
+  defp parse_decimal(_), do: Decimal.new(0)
 
-  defp determine_position_side(%{"positionAmt" => amt}) do
-    amount = parse_amount(amt)
+  defp to_binance_side(:buy), do: "BUY"
+  defp to_binance_side(:sell), do: "SELL"
+  defp to_binance_side(side) when is_binary(side), do: String.upcase(side)
 
-    cond do
-      amount > 0 -> :long
-      amount < 0 -> :short
-      true -> :flat
-    end
-  end
-
-  defp determine_order_endpoint(params) do
-    case Map.get(params, :market_type, :spot) do
-      :futures -> "/fapi/v1/order"
-      _ -> "/api/v3/order"
-    end
-  end
-
-  defp requires_auth?(endpoint) do
-    public_endpoints = [
-      "/api/v3/time",
-      "/api/v3/exchangeInfo",
-      "/api/v3/ticker/price",
-      "/api/v3/ticker/24hr",
-      "/api/v3/depth",
-      "/api/v3/klines"
-    ]
-
-    endpoint not in public_endpoints
-  end
-
-  defp update_rate_limits_from_headers(request, response) do
-    # Extract exchange type to update the correct counter
-    exchange_type = determine_exchange_type(request)
-
-    # Update rate limit counters from response headers
-    RateLimit.update_from_headers(exchange_type, response.headers)
-  end
-
-  defp determine_exchange_type(request) do
-    # Check if it's a futures endpoint based on URL
-    url = request.options[:url] || ""
-
-    if String.starts_with?(url, "/fapi") or String.starts_with?(url, "/dapi") do
-      :binance_futures
-    else
-      :binance_spot
-    end
-  end
-
-  @doc false
-  def calculate_request_weight(request) do
-    # Different operations have different weights
-    # Reference: https://binance-docs.github.io/apidocs/spot/en/#limits
-
-    endpoint = request.options[:url] || ""
-    method = request.options[:method] || :get
-
-    cond do
-      # Order operations have higher weight
-      String.contains?(endpoint, "/order") and method in [:post, :delete] ->
-        10
-
-      # Account information is heavy
-      String.contains?(endpoint, "/account") ->
-        10
-
-      # Position risk for futures
-      String.contains?(endpoint, "/positionRisk") ->
-        5
-
-      # Market data endpoints
-      String.contains?(endpoint, "/klines") ->
-        1
-
-      String.contains?(endpoint, "/ticker") ->
-        1
-
-      String.contains?(endpoint, "/depth") ->
-        case request.options[:params][:limit] do
-          nil -> 1
-          limit when limit <= 100 -> 1
-          limit when limit <= 500 -> 5
-          limit when limit <= 1000 -> 10
-          _ -> 50
-        end
-
-      # Default weight
-      true ->
-        1
-    end
-  end
+  defp to_binance_order_type(:market), do: "MARKET"
+  defp to_binance_order_type(:limit), do: "LIMIT"
+  defp to_binance_order_type(:stop_loss), do: "STOP_LOSS"
+  defp to_binance_order_type(:stop_loss_limit), do: "STOP_LOSS_LIMIT"
+  defp to_binance_order_type(:take_profit), do: "TAKE_PROFIT"
+  defp to_binance_order_type(:take_profit_limit), do: "TAKE_PROFIT_LIMIT"
+  defp to_binance_order_type(type) when is_binary(type), do: String.upcase(type)
 end
