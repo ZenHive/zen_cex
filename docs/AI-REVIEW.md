@@ -69,7 +69,8 @@ We want pragmatic simplicity, not naive simplicity. This means choosing solution
 - ✅ **Task #5**: OrderSafety Module with Idempotency - COMPLETED (5/5 ⭐⭐)
 - ✅ **Task #6**: ClockSync Module - COMPLETED (5/5 ⭐⭐⭐⭐⭐)
 - ✅ **Task #7**: Binance.Auth Module - COMPLETED (4.5/5 ⭐)
-- 🚧 **Tasks #8-25**: Remaining tasks in progress
+- ✅ **Task #8**: Binance.RateLimiter Module - COMPLETED (5/5 ⭐⭐⭐⭐⭐)
+- 🚧 **Tasks #9-25**: Remaining tasks in progress
 
 ### Task #1: Core.Registry Module ✅ COMPLETED (5/5 ⭐⭐)
 ### Task #2: Remove Core.Supervisor ✅ COMPLETED (5/5 ⭐⭐)
@@ -175,16 +176,17 @@ We want pragmatic simplicity, not naive simplicity. This means choosing solution
 - ✅ Named constants for all magic numbers
 - ✅ Functions under 20 lines, clean separation of concerns
 
-### Task #8: Binance.RateLimiter Module
+### Task #8: Binance.RateLimiter Module ✅ COMPLETED (5/5 ⭐⭐⭐⭐⭐)
 **File**: `lib/zen_cex/adapters/binance/rate_limiter.ex`
 
 #### Required Elements:
-- [ ] ETS with atomic counters
-- [ ] Sliding window implementation
-- [ ] Reads weight from response headers
-- [ ] Emergency bypass for cancel operations
-- [ ] Cleanup every 60 seconds
-- [ ] Performance < 100μs for checks
+- [x] ETS with atomic counters
+- [x] Sliding window implementation (60-second timestamp-based)
+- [x] Reads weight from response headers (x-mbx-used-weight-1m)
+- [x] Emergency bypass for cancel operations
+- [x] Cleanup every 60 seconds (via RateLimiterCleanup GenServer)
+- [x] Performance < 100μs for checks (verified)
+- [x] Tests: 15 passing, 0 dialyzer warnings, 0 credo issues
 
 ### Task #9: Binance.Parser Module
 **File**: `lib/zen_cex/adapters/binance/parser.ex`

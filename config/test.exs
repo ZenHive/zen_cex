@@ -3,7 +3,8 @@ import Config
 # Suppress telemetry warnings about local functions during tests
 config :logger, :console,
   level: :warning,
-  format: "$time $metadata[$level] $message\n"
+  format: "$time $metadata[$level] $message\n",
+  metadata: [:endpoint, :operation]
 
 # Suppress specific logger warnings for tests  
 config :logger,

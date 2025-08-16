@@ -18,7 +18,10 @@ defmodule ZenCex.Application do
       ZenCex.Safety.OrderSafety,
 
       # Clock synchronization for accurate exchange timestamps
-      ZenCex.Safety.ClockSync
+      ZenCex.Safety.ClockSync,
+
+      # Binance rate limiter cleanup process
+      ZenCex.Adapters.Binance.RateLimiterCleanup
 
       # NOTE: Following Req-centric architecture:
       # - No Core.Supervisor needed (Req handles connection lifecycle)

@@ -62,9 +62,6 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
         :ets.insert(@table_name, {:uid_used, 0})
         :ets.insert(@table_name, {:requests, []})
 
-        # Schedule cleanup
-        schedule_cleanup()
-
       _table ->
         # Table already exists
         :ok
@@ -290,7 +287,7 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
 
   defp calculate_weight_sum(requests, type) do
     requests
-    |> Enum.filter(fn r -> r.type == type or type == :all end)
+    |> Enum.filter(fn r -> r.type == type end)
     |> Enum.map(fn r -> r.weight end)
     |> Enum.sum()
   end
@@ -346,12 +343,6 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
     with {:ok, uid_limit} <- parse_header(headers["x-mbx-uid-limit-1m"]) do
       :ets.insert(@table_name, {:uid_limit, uid_limit})
     end
-  end
-
-  defp schedule_cleanup do
-    # TODO: For now, cleanup happens during get_status calls
-    # In production, this would be handled by a dedicated cleanup process
-    :ok
   end
 
   @doc false
