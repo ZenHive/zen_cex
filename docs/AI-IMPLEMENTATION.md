@@ -1,5 +1,17 @@
 # ZenCex AI Implementation Guide
 
+## ⚠️ CRITICAL SAFETY WARNING ⚠️
+**This library handles real money. A single bug can cause significant financial losses.**
+
+**MANDATORY**: Implement ALL Pattern 0.x safety patterns BEFORE any other features:
+- **Pattern 0.1**: Clock sync (prevents auth failures)
+- **Pattern 0.2**: Order idempotency (prevents duplicate orders)
+- **Pattern 0.3**: Position reconciliation (detects drift)
+- **Pattern 0.4**: Emergency bypass (allows risk reduction)
+- **Pattern 0.5**: Order lifecycle (handles partial fills)
+
+**Without these patterns, the library is NOT safe for production use.**
+
 ## CRITICAL: One Task Per Session Rule
 **NEVER implement multiple modules in one session. Complete ONE task, update progress, then stop.**
 
@@ -20,11 +32,11 @@
 ## Quick Start for AI Coders
 
 ### Your Current Status
-- **Architecture**: Req-powered adapters with built-in pooling, retry, telemetry
-- **Progress**: 13% complete (2/15 core tasks done)
-- **Next Task**: Remove redundant OTP - Req handles pooling, retry, telemetry
-- **Priority**: Proactive clock sync, circuit breakers, dynamic rate limit learning
-- **Focus**: Production-ready REST-only patterns for reliable trading operations
+- **Architecture**: Req-powered adapters with critical safety patterns for trading
+- **Progress**: 10% complete (2/20 tasks done, safety patterns added)
+- **Next Task**: Implement OrderSafety module with idempotency (Task 1)
+- **Priority**: SAFETY FIRST - idempotency, position reconciliation, emergency bypass
+- **Focus**: Production-ready trading safety before any new features
 
 ### Navigation
 1. Check "Current Task" section
@@ -34,16 +46,398 @@
 
 ## Current Task
 
-**Task #2**: Remove redundant OTP supervision - leverage Req's built-in features
+**Task #1**: Implement OrderSafety module with idempotency
 
-**Why**: Req already provides connection pooling (Finch), retry logic, middleware pipeline, and telemetry. We don't need GenServers for what Req handles.
+**Why**: Network timeouts + retries without idempotency = duplicate orders = financial losses. This is the #1 cause of trading disasters.
 
 **Success Criteria**:
-- [ ] Remove Core.Supervisor entirely
-- [ ] Simplify Application to only start Finch
-- [ ] Change RateLimiter.start_link to RateLimiter.init_tables
-- [ ] Update tests to not expect supervision
-- [ ] All existing tests still pass
+- [ ] Create `lib/zen_cex/safety/order_safety.ex` with Pattern 0.2
+- [ ] Generate deterministic client_order_id from order params
+- [ ] Check for existing orders before placing new ones
+- [ ] Handle timeout scenarios by checking order status
+- [ ] Add comprehensive tests for duplicate prevention
+- [ ] Test network timeout + retry scenarios
+- [ ] Verify idempotency window works correctly
+
+## Critical Safety Patterns (MUST IMPLEMENT FIRST)
+
+### Pattern 0.1: Proactive Clock Synchronization (Critical for Auth)
+```elixir
+# Sync on startup and periodically - prevents auth failures
+defmodule ClockSync do
+  @ntp_servers ~w(time.google.com time.cloudflare.com pool.ntp.org)
+  @sync_interval :timer.minutes(5)
+
+  # Call this IMMEDIATELY on application startup
+  def init_sync do
+    # Proactively sync with all exchanges on startup
+    [:binance, :kraken, :deribit]
+    |> Enum.each(&sync_with_exchange/1)
+    
+    # Schedule periodic sync
+    Process.send_after(self(), :periodic_sync, @sync_interval)
+  end
+
+  def ensure_time_sync(exchange) do
+    case :ets.lookup(:clock_sync, {exchange, :last_sync}) do
+      [{_, last_sync}] when System.os_time(:second) - last_sync < @sync_interval ->
+        :ok  # Recent sync, use cached offset
+      
+      _ ->
+        # Proactively sync with NTP first, fallback to exchange
+        sync_with_ntp() || sync_with_exchange(exchange)
+    end
+  end
+
+  defp sync_with_ntp do
+    # Try multiple NTP servers for resilience
+    Enum.find_value(@ntp_servers, fn server ->
+      case get_ntp_time(server) do
+        {:ok, ntp_time} ->
+          offset = ntp_time - System.os_time(:millisecond)
+          store_offset(:global, offset)
+          {:ok, offset}
+        _ -> nil
+      end
+    end)
+  end
+
+  defp sync_with_exchange(exchange) do
+    case get_server_time(exchange) do
+      {:ok, server_time} ->
+        local_time = System.os_time(:millisecond)
+        offset = server_time - local_time
+        
+        if abs(offset) > 1000 do
+          Logger.warning("Clock skew detected for #{exchange}: #{offset}ms")
+        end
+        
+        store_offset(exchange, offset)
+        {:ok, offset}
+      
+      {:error, reason} ->
+        use_cached_offset(exchange, reason)
+    end
+  end
+
+  # Apply offset when signing requests
+  def apply_time_offset(timestamp, exchange) do
+    case :ets.lookup(:clock_sync, {exchange, :offset}) do
+      [{_, offset}] -> timestamp + offset
+      [] -> timestamp
+    end
+  end
+end
+```
+
+### Pattern 0.2: Order Idempotency and Duplicate Protection (CRITICAL)
+```elixir
+# Prevent duplicate orders on network timeout/retry
+defmodule OrderSafety do
+  @idempotency_window :timer.minutes(5)
+  
+  def place_order_safely(exchange, params) do
+    # Generate deterministic client_order_id
+    client_order_id = generate_idempotency_key(params)
+    
+    # Check if we've already sent this order
+    case check_existing_order(exchange, client_order_id) do
+      {:ok, existing_order} ->
+        Logger.info("Order already exists: #{client_order_id}")
+        {:ok, existing_order}  # Return existing, don't duplicate
+      
+      :not_found ->
+        params_with_id = Map.put(params, :client_order_id, client_order_id)
+        
+        case place_order_with_timeout(exchange, params_with_id) do
+          {:ok, order} ->
+            cache_order(client_order_id, order)
+            {:ok, order}
+          
+          {:error, :timeout} ->
+            # On timeout, ALWAYS check if order was placed
+            check_order_by_client_id(exchange, client_order_id)
+          
+          error ->
+            error
+        end
+    end
+  end
+  
+  defp generate_idempotency_key(params) do
+    # Include timestamp with 5-minute window for idempotency
+    window = div(System.os_time(:second), 300)
+    data = {window, params[:symbol], params[:side], params[:quantity], params[:price]}
+    
+    :crypto.hash(:sha256, :erlang.term_to_binary(data))
+    |> Base.encode16(case: :lower)
+    |> binary_part(0, 16)  # Most exchanges limit client_order_id length
+  end
+  
+  defp check_existing_order(exchange, client_order_id) do
+    key = {exchange, :order, client_order_id}
+    
+    case :ets.lookup(:order_cache, key) do
+      [{^key, order, timestamp}] ->
+        if System.os_time(:millisecond) - timestamp < @idempotency_window do
+          {:ok, order}
+        else
+          :not_found
+        end
+      [] ->
+        :not_found
+    end
+  end
+  
+  defp cache_order(client_order_id, order) do
+    key = {order.exchange, :order, client_order_id}
+    :ets.insert(:order_cache, {key, order, System.os_time(:millisecond)})
+  end
+end
+```
+
+### Pattern 0.3: Position Reconciliation and Drift Detection (CRITICAL)
+```elixir
+# Ensure orders actually affect positions as expected
+defmodule PositionReconciliation do
+  @tolerance Decimal.new("0.0001")
+  
+  def execute_with_verification(exchange, order) do
+    # Get position before order
+    {:ok, position_before} = get_position(exchange, order.symbol)
+    
+    # Place order with safety
+    {:ok, order_result} = OrderSafety.place_order_safely(exchange, order)
+    
+    # Wait for settlement (exchange-specific)
+    Process.sleep(exchange_settlement_delay(exchange))
+    
+    # Get position after order
+    {:ok, position_after} = get_position(exchange, order.symbol)
+    
+    # Verify position changed as expected
+    expected_change = calculate_expected_change(order)
+    actual_change = Decimal.sub(position_after.quantity, position_before.quantity)
+    
+    diff = Decimal.abs(Decimal.sub(actual_change, expected_change))
+    
+    if Decimal.compare(diff, @tolerance) == :gt do
+      Logger.critical("POSITION DRIFT DETECTED!")
+      Logger.critical("Symbol: #{order.symbol}")
+      Logger.critical("Expected change: #{expected_change}")
+      Logger.critical("Actual change: #{actual_change}")
+      Logger.critical("Drift: #{diff}")
+      
+      # Emit telemetry for alerting
+      :telemetry.execute(
+        [:zen_cex, :position, :drift],
+        %{drift: Decimal.to_float(diff)},
+        %{exchange: exchange, symbol: order.symbol}
+      )
+      
+      # Trigger emergency reconciliation
+      trigger_reconciliation(exchange, order.symbol)
+    end
+    
+    {:ok, order_result}
+  end
+  
+  defp calculate_expected_change(%{side: :buy, quantity: qty}), do: qty
+  defp calculate_expected_change(%{side: :sell, quantity: qty}), do: Decimal.negate(qty)
+  
+  defp exchange_settlement_delay(:binance), do: 100
+  defp exchange_settlement_delay(:kraken), do: 500  # Kraken is slower
+  defp exchange_settlement_delay(:deribit), do: 200
+  
+  defp trigger_reconciliation(exchange, symbol) do
+    # Get all recent orders for this symbol
+    orders = get_recent_orders(exchange, symbol)
+    
+    # Get current position
+    {:ok, position} = get_position(exchange, symbol)
+    
+    # Calculate what position should be
+    expected_position = calculate_position_from_orders(orders)
+    
+    # Log discrepancy for manual review
+    Logger.critical("Position reconciliation required:")
+    Logger.critical("Current position: #{position.quantity}")
+    Logger.critical("Expected from orders: #{expected_position}")
+    
+    # Could implement auto-correction here if safe
+  end
+end
+```
+
+### Pattern 0.4: Emergency Operation Priority Bypass (CRITICAL)
+```elixir
+# Emergency operations must NEVER be rate limited
+defmodule EmergencyBypass do
+  @emergency_operations [
+    :cancel_order,
+    :cancel_all_orders,
+    :close_position,
+    :close_all_positions,
+    :reduce_risk
+  ]
+  
+  def check_priority({request, options}) do
+    operation = request.private[:operation]
+    
+    cond do
+      # Emergency operations ALWAYS go through
+      operation in @emergency_operations ->
+        Logger.warning("EMERGENCY OPERATION: #{operation} - bypassing all limits")
+        {request, options}
+      
+      # High priority operations get preference
+      high_priority?(operation) ->
+        check_with_priority({request, options}, :high)
+      
+      # Normal operations go through standard checks
+      true ->
+        check_normal_limits({request, options})
+    end
+  end
+  
+  defp high_priority?(operation) do
+    operation in [:modify_order, :get_position, :get_margin]
+  end
+  
+  defp check_with_priority({request, options}, :high) do
+    # Allow if we have >5% capacity remaining
+    capacity_ratio = get_remaining_capacity(request.private[:exchange])
+    
+    if capacity_ratio > 0.05 do
+      {request, options}
+    else
+      {Req.Request.halt(request, {:error, :rate_limited}), options}
+    end
+  end
+  
+  defp check_normal_limits({request, options}) do
+    # Normal operations need >20% capacity
+    capacity_ratio = get_remaining_capacity(request.private[:exchange])
+    
+    if capacity_ratio > 0.20 do
+      {request, options}
+    else
+      {Req.Request.halt(request, {:error, :rate_limited}), options}
+    end
+  end
+  
+  defp get_remaining_capacity(exchange) do
+    case :ets.lookup(:"#{exchange}_rate_limits", :current_usage) do
+      [{_, used}] ->
+        limit = get_rate_limit(exchange)
+        1 - (used / limit)
+      [] ->
+        1.0  # Assume full capacity if no data
+    end
+  end
+end
+```
+
+### Pattern 0.5: Order State Machine and Lifecycle Management (CRITICAL)
+```elixir
+# Track order lifecycle to handle partial fills and stuck orders
+defmodule OrderLifecycle do
+  @order_states %{
+    binance: ~w(NEW PARTIALLY_FILLED FILLED CANCELED REJECTED EXPIRED)a,
+    kraken: ~w(pending open closed canceled expired)a,
+    deribit: ~w(open filled rejected cancelled untriggered triggered)a
+  }
+  
+  @terminal_states %{
+    binance: ~w(FILLED CANCELED REJECTED EXPIRED)a,
+    kraken: ~w(closed canceled expired)a,
+    deribit: ~w(filled rejected cancelled)a
+  }
+  
+  @stuck_order_timeout %{
+    binance: :timer.seconds(30),
+    kraken: :timer.minutes(2),  # Kraken can be slow
+    deribit: :timer.seconds(45)
+  }
+  
+  def track_order(exchange, order) do
+    # Store order in tracking table
+    key = {exchange, order.order_id}
+    :ets.insert(:order_tracking, {key, order, :new, System.os_time(:millisecond)})
+    
+    # Schedule check for stuck orders
+    Process.send_after(self(), {:check_stuck_order, key}, @stuck_order_timeout[exchange])
+    
+    {:ok, order}
+  end
+  
+  def handle_info({:check_stuck_order, {exchange, order_id} = key}, state) do
+    case :ets.lookup(:order_tracking, key) do
+      [{^key, _order, status, placed_at}] when status in [:new, :pending] ->
+        # Order still pending after timeout - likely stuck
+        Logger.warning("Order #{order_id} stuck in #{status} state")
+        
+        # Try to get fresh status
+        case get_order_status(exchange, order_id) do
+          {:ok, %{status: fresh_status}} when fresh_status in [:new, :pending] ->
+            # Still stuck - cancel it
+            Logger.warning("Cancelling stuck order #{order_id}")
+            cancel_order(exchange, order_id)
+            
+          {:ok, %{status: fresh_status}} ->
+            # Status changed, update tracking
+            :ets.update_element(:order_tracking, key, {3, fresh_status})
+            
+          {:error, reason} ->
+            Logger.error("Failed to check order #{order_id}: #{inspect(reason)}")
+        end
+      
+      _ ->
+        # Order no longer pending, all good
+        :ok
+    end
+    
+    {:noreply, state}
+  end
+  
+  def handle_partial_fill(exchange, order) do
+    filled_qty = order.executed_quantity
+    remaining_qty = Decimal.sub(order.quantity, filled_qty)
+    fill_ratio = Decimal.div(filled_qty, order.quantity)
+    
+    cond do
+      # If mostly filled (>95%), accept it
+      Decimal.compare(fill_ratio, "0.95") == :gt ->
+        Logger.info("Order #{order.id} mostly filled (#{fill_ratio}), accepting")
+        mark_order_complete(exchange, order.id)
+        {:ok, :mostly_filled}
+      
+      # If barely filled (<10%), cancel and replace
+      Decimal.compare(fill_ratio, "0.10") == :lt ->
+        Logger.info("Order #{order.id} barely filled (#{fill_ratio}), replacing")
+        cancel_order(exchange, order.id)
+        
+        # Place new order for remaining quantity
+        new_order = %{order | quantity: remaining_qty}
+        OrderSafety.place_order_safely(exchange, new_order)
+      
+      # Otherwise wait for more fills
+      true ->
+        Logger.info("Order #{order.id} partially filled (#{fill_ratio}), waiting")
+        {:ok, :waiting_for_fills}
+    end
+  end
+  
+  def is_terminal_state?(exchange, state) do
+    state in @terminal_states[exchange]
+  end
+  
+  defp mark_order_complete(exchange, order_id) do
+    key = {exchange, order_id}
+    :ets.update_element(:order_tracking, key, {3, :completed})
+  end
+end
+```
 
 ## Essential Patterns
 
@@ -68,27 +462,95 @@ def sign_request({request, options} = req_tuple) do
 end
 ```
 
-### Pattern 2: Rate Limiter with Sliding Window
+### Pattern 2: Rate Limiter with Sliding Window and Cleanup
 ```elixir
-def rate_limit_step({request, options}) do
-  exchange = request.private[:exchange]
-  weight = calculate_weight(request)
-
-  # Sliding window with microsecond precision
-  now = System.os_time(:microsecond)
-  window_start = now - :timer.seconds(60)
-
-  # Atomic check and increment
-  case check_and_consume_capacity(exchange, weight, window_start) do
-    :ok ->
+defmodule RateLimiter do
+  @cleanup_interval :timer.seconds(60)
+  
+  def init_tables do
+    :ets.new(:rate_limit_requests, [:named_table, :public, :set, {:write_concurrency, true}])
+    
+    # Schedule periodic cleanup to prevent memory leak
+    Process.send_after(self(), :cleanup_old_entries, @cleanup_interval)
+  end
+  
+  def rate_limit_step({request, options}) do
+    exchange = request.private[:exchange]
+    weight = calculate_weight(request)
+    operation = request.private[:operation]
+    
+    # Check if emergency operation (bypass rate limits)
+    if operation in [:cancel_all_orders, :close_all_positions] do
       {request, options}
-    {:error, :capacity_exceeded, retry_after} ->
-      # Add retry-after header for client awareness
-      request = request
-      |> Req.Request.halt()
-      |> Req.Request.put_private(:retry_after, retry_after)
-
-      {request, Keyword.put(options, :error, {:rate_limited, retry_after})}
+    else
+      # Sliding window with microsecond precision
+      now = System.os_time(:microsecond)
+      window_start = now - :timer.seconds(60)
+      
+      # Atomic check and increment
+      case check_and_consume_capacity(exchange, weight, window_start, now) do
+        :ok ->
+          {request, options}
+        {:error, :capacity_exceeded, retry_after} ->
+          # Add retry-after header for client awareness
+          request = request
+          |> Req.Request.halt()
+          |> Req.Request.put_private(:retry_after, retry_after)
+          
+          {request, Keyword.put(options, :error, {:rate_limited, retry_after})}
+      end
+    end
+  end
+  
+  defp check_and_consume_capacity(exchange, weight, window_start, now) do
+    table = :"#{exchange}_rate_limits"
+    
+    # Clean up old entries atomically
+    cleanup_old_entries(table, window_start)
+    
+    # Calculate current usage in window
+    current_usage = calculate_window_usage(table, window_start)
+    limit = get_rate_limit(exchange)
+    
+    if current_usage + weight <= limit do
+      # Add this request to the window
+      key = {now, :erlang.unique_integer([:monotonic])}
+      :ets.insert(table, {key, weight, now})
+      :ok
+    else
+      retry_after = calculate_retry_after(table, limit, weight)
+      {:error, :capacity_exceeded, retry_after}
+    end
+  end
+  
+  defp cleanup_old_entries(table, cutoff) do
+    # Remove entries older than the window
+    :ets.select_delete(table, [
+      {{{:"$1", :_}, :_, :"$2"}, [{:<, :"$2", cutoff}], [true]}
+    ])
+  end
+  
+  defp calculate_window_usage(table, window_start) do
+    :ets.select(table, [
+      {{:_, :"$1", :"$2"}, [{:>=, :"$2", window_start}], [:"$1"]}
+    ])
+    |> Enum.sum()
+  end
+  
+  def handle_info(:cleanup_old_entries, state) do
+    # Cleanup all exchange tables
+    [:binance, :kraken, :deribit]
+    |> Enum.each(fn exchange ->
+      table = :"#{exchange}_rate_limits"
+      if :ets.info(table) != :undefined do
+        cutoff = System.os_time(:microsecond) - :timer.seconds(60)
+        cleanup_old_entries(table, cutoff)
+      end
+    end)
+    
+    # Schedule next cleanup
+    Process.send_after(self(), :cleanup_old_entries, @cleanup_interval)
+    {:noreply, state}
   end
 end
 ```
@@ -104,22 +566,188 @@ end
 :ets.update_counter(table, key, {2, increment}, {key, 0, 0})
 ```
 
-### Pattern 4: Circuit Breaker as Req Middleware
+### Pattern 4: Circuit Breaker with Failure Thresholds
 ```elixir
-# Production pattern for fault tolerance
-Req.Request.prepend_request_steps(req,
-  circuit_breaker: fn {request, options} ->
-    case check_circuit_state(request.url.host) do
-      :closed -> {request, options}
+defmodule CircuitBreaker do
+  @failure_threshold 5
+  @success_threshold 3
+  @timeout :timer.minutes(1)
+  @half_open_timeout :timer.seconds(30)
+  
+  def init_tables do
+    :ets.new(:circuit_breakers, [:named_table, :public, :set, {:write_concurrency, true}])
+  end
+  
+  def circuit_breaker_step({request, options}) do
+    exchange = request.private[:exchange] || extract_exchange(request.url.host)
+    
+    case get_circuit_state(exchange) do
+      :closed ->
+        # Circuit is closed, allow request
+        {request, options}
+        
       :open ->
-        request = Req.Request.halt(request)
-        {request, Keyword.put(options, :error, :circuit_open)}
+        # Circuit is open, check if we should transition to half-open
+        if should_attempt_recovery?(exchange) do
+          transition_to_half_open(exchange)
+          {request, Keyword.put(options, :circuit_test, true)}
+        else
+          request = Req.Request.halt(request, {:error, :circuit_open})
+          {request, options}
+        end
+        
       :half_open ->
-        # Allow one request through for testing
-        {request, Keyword.put(options, :circuit_test, true)}
+        # Circuit is half-open, allow limited requests
+        if can_send_test_request?(exchange) do
+          {request, Keyword.put(options, :circuit_test, true)}
+        else
+          request = Req.Request.halt(request, {:error, :circuit_half_open_busy})
+          {request, options}
+        end
     end
   end
-)
+  
+  def record_result(exchange, :success) do
+    case get_circuit_state(exchange) do
+      :closed ->
+        # Reset failure count on success
+        :ets.insert(:circuit_breakers, {{exchange, :failures}, 0})
+        
+      :half_open ->
+        # Increment success count
+        successes = :ets.update_counter(:circuit_breakers, {exchange, :successes}, 1, {{exchange, :successes}, 0})
+        
+        if successes >= @success_threshold do
+          # Enough successes, close the circuit
+          transition_to_closed(exchange)
+        end
+        
+      :open ->
+        # Shouldn't happen, but handle gracefully
+        :ok
+    end
+  end
+  
+  def record_result(exchange, :failure) do
+    case get_circuit_state(exchange) do
+      :closed ->
+        # Increment failure count
+        failures = :ets.update_counter(:circuit_breakers, {exchange, :failures}, 1, {{exchange, :failures}, 0})
+        
+        if failures >= @failure_threshold do
+          # Too many failures, open the circuit
+          transition_to_open(exchange)
+        end
+        
+      :half_open ->
+        # Failure in half-open state, immediately reopen
+        transition_to_open(exchange)
+        
+      :open ->
+        # Already open, update last failure time
+        :ets.insert(:circuit_breakers, {{exchange, :last_failure}, System.os_time(:millisecond)})
+    end
+  end
+  
+  defp get_circuit_state(exchange) do
+    case :ets.lookup(:circuit_breakers, {exchange, :state}) do
+      [{{^exchange, :state}, state}] -> state
+      [] -> :closed  # Default state
+    end
+  end
+  
+  defp transition_to_open(exchange) do
+    Logger.warning("Circuit breaker OPENED for #{exchange}")
+    :ets.insert(:circuit_breakers, [
+      {{exchange, :state}, :open},
+      {{exchange, :opened_at}, System.os_time(:millisecond)},
+      {{exchange, :failures}, 0}
+    ])
+    
+    # Emit telemetry
+    :telemetry.execute(
+      [:zen_cex, :circuit_breaker, :opened],
+      %{exchange: exchange},
+      %{}
+    )
+  end
+  
+  defp transition_to_half_open(exchange) do
+    Logger.info("Circuit breaker transitioning to HALF-OPEN for #{exchange}")
+    :ets.insert(:circuit_breakers, [
+      {{exchange, :state}, :half_open},
+      {{exchange, :half_opened_at}, System.os_time(:millisecond)},
+      {{exchange, :successes}, 0},
+      {{exchange, :test_in_progress}, false}
+    ])
+  end
+  
+  defp transition_to_closed(exchange) do
+    Logger.info("Circuit breaker CLOSED for #{exchange}")
+    :ets.insert(:circuit_breakers, [
+      {{exchange, :state}, :closed},
+      {{exchange, :failures}, 0},
+      {{exchange, :closed_at}, System.os_time(:millisecond)}
+    ])
+    
+    # Emit telemetry
+    :telemetry.execute(
+      [:zen_cex, :circuit_breaker, :closed],
+      %{exchange: exchange},
+      %{}
+    )
+  end
+  
+  defp should_attempt_recovery?(exchange) do
+    case :ets.lookup(:circuit_breakers, {exchange, :opened_at}) do
+      [{{^exchange, :opened_at}, opened_at}] ->
+        System.os_time(:millisecond) - opened_at > @timeout
+      [] ->
+        true
+    end
+  end
+  
+  defp can_send_test_request?(exchange) do
+    # Use compare_and_swap to ensure only one test request at a time
+    case :ets.lookup(:circuit_breakers, {exchange, :test_in_progress}) do
+      [{{^exchange, :test_in_progress}, false}] ->
+        :ets.insert(:circuit_breakers, {{exchange, :test_in_progress}, true})
+        true
+      _ ->
+        false
+    end
+  end
+  
+  # Attach this to Req response steps
+  def response_step({request, response}) do
+    exchange = request.private[:exchange]
+    
+    if response.status < 500 do
+      record_result(exchange, :success)
+    else
+      record_result(exchange, :failure)
+    end
+    
+    # Reset test flag if this was a test request
+    if request.private[:circuit_test] do
+      :ets.insert(:circuit_breakers, {{exchange, :test_in_progress}, false})
+    end
+    
+    {request, response}
+  end
+  
+  # Error step for network failures
+  def error_step({request, exception}) do
+    exchange = request.private[:exchange]
+    record_result(exchange, :failure)
+    
+    if request.private[:circuit_test] do
+      :ets.insert(:circuit_breakers, {{exchange, :test_in_progress}, false})
+    end
+    
+    {request, exception}
+  end
+end
 ```
 
 ### Pattern 5: Order State Tracking (Trading Operations)
@@ -720,7 +1348,7 @@ end
 
 | Exchange | Auth Method | Critical Requirement | Common Error | Production Gotcha |
 |----------|------------|---------------------|-------------|-------------------|
-| Binance | HMAC-SHA256 | Signature LAST in params | Wrong param order | Spot vs Futures have different URLs/limits; listenKey expires 60m (not 30m); OCO orders = 2x weight |
+| Binance | HMAC-SHA256 | Signature LAST in params | Wrong param order | Spot vs Futures have different URLs/limits; listenKey expires 60m; OCO orders = 2x weight |
 | Kraken | Nonce + HMAC | Microsecond + counter; Base64 secret | Using only microseconds | "EOrder:Insufficient funds" can occur AFTER acceptance; Edit = cancel+new; "Busy" errors need backoff |
 | Deribit | OAuth2 | Refresh 120s before expiry | Token expiration | Mark price lags during volatility; Weekly test reset Sunday 08:00 UTC; Portfolio margin different endpoints |
 | Bybit | HMAC-SHA256 | timestamp within 5s; Different base URLs | Clock skew | api.bybit.com (spot) vs api-testnet.bybit.com (derivatives); Different signatures per product |
@@ -857,37 +1485,46 @@ defp pool_config do
 end
 ```
 
-## Task Implementation Sequence (REST-Optimized: 15 Tasks)
+## Task Implementation Sequence (Safety-First: 20 Tasks)
+
+### Phase 0: Critical Safety Patterns (5 tasks) - MUST DO FIRST
+```bash
+[ ] Task 1: Implement OrderSafety module with idempotency
+[ ] Task 2: Implement PositionReconciliation with drift detection
+[ ] Task 3: Implement EmergencyBypass for rate limiting
+[ ] Task 4: Implement OrderLifecycle state machine
+[ ] Task 5: Implement ClockSync with proactive NTP sync
+```
 
 ### Phase 1: Core Foundation (4 tasks)
 ```bash
-[✅] Task 1: Core.Registry - Adapter registration and validation
-[🔄] Task 2: Remove Core.Supervisor - Use Req's built-in features  # <- CURRENT
-[ ] Task 3: Proactive clock sync with NTP (critical for auth)
-[ ] Task 4: Basic telemetry hooks with Req events
+[✅] Task 6: Core.Registry - Adapter registration and validation
+[🔄] Task 7: Remove Core.Supervisor - Use Req's built-in features  # <- CURRENT
+[ ] Task 8: Implement enhanced CircuitBreaker with thresholds
+[ ] Task 9: Basic telemetry hooks with Req events
 ```
 
 ### Phase 2: Binance Reference Implementation (3 tasks)
 ```bash
-[ ] Task 5: Core.HTTP with Req patterns and middleware
-[ ] Task 6: Binance complete adapter (Auth, RateLimiter, Parser)
-[ ] Task 7: Integration tests with real API + fixture capture
+[ ] Task 10: Core.HTTP with Req patterns and safety middleware
+[ ] Task 11: Binance complete adapter (Auth, RateLimiter with cleanup, Parser)
+[ ] Task 12: Integration tests with real API + fixture capture
 ```
 
 ### Phase 3: Production Essentials (4 tasks)
 ```bash
-[ ] Task 8: Circuit breaker as Req error step
-[ ] Task 9: Idempotency for order operations
-[ ] Task 10: Dynamic rate limit learning from headers
-[ ] Task 11: Health monitoring with per-endpoint tracking
+[ ] Task 13: Dynamic rate limit learning from headers
+[ ] Task 14: Health monitoring with per-endpoint tracking
+[ ] Task 15: Graceful shutdown with state persistence
+[ ] Task 16: Multi-account rotation for resilience
 ```
 
 ### Phase 4: Additional Exchanges (4 tasks)
 ```bash
-[ ] Task 12: Kraken adapter (nonce management, CSV parsing)
-[ ] Task 13: Deribit OAuth adapter (token refresh, JSON-RPC)
-[ ] Task 14: Multi-account rotation for resilience
-[ ] Task 15: Production runbook and troubleshooting guide
+[ ] Task 17: Kraken adapter (nonce persistence, CSV parsing, async margin)
+[ ] Task 18: Deribit OAuth adapter (token refresh, JSON-RPC, mark price lag)
+[ ] Task 19: Exchange-specific quirks implementation (from table)
+[ ] Task 20: Production runbook with safety procedures
 ```
 
 ## Common AI Coder Mistakes
