@@ -3,6 +3,20 @@
 ## CRITICAL: One Task Per Session Rule
 **NEVER implement multiple modules in one session. Complete ONE task, update progress, then stop.**
 
+## What This Library Does (and Does NOT Do)
+
+### This Library DOES (REST Trading Operations):
+- **Order Management**: Place, modify, cancel orders via REST
+- **Position Management**: Query positions, balances, margins
+- **Account Operations**: Withdrawals, deposits, transfers
+- **Risk Management**: Liquidation prices, margin requirements
+
+### This Library does NOT do:
+- **No Market Data**: No price feeds, order books, or tick data (use WebSocket library)
+- **No Streaming**: REST-only, no WebSocket implementation
+- **No HFT**: Focus on reliability over microsecond latency
+- **No Market Making**: No order book management or spread calculations
+
 ## Quick Start for AI Coders
 
 ### Your Current Status
@@ -108,39 +122,33 @@ Req.Request.prepend_request_steps(req,
 )
 ```
 
-### Pattern 5: Request Coalescing with GenServer Coordination
+### Pattern 5: Order State Tracking (Trading Operations)
 ```elixir
-# Production-ready coalescing without race conditions
-defmodule RequestCoalescer do
-  use GenServer
-
-  def get(url, opts) do
-    key = {url, opts[:params]}
-    GenServer.call(__MODULE__, {:coalesce, key, fn -> Req.get(url, opts) end})
-  end
-
-  def handle_call({:coalesce, key, fun}, from, state) do
-    case Map.get(state, key) do
-      nil ->
-        # First request, execute in Task
-        task = Task.async(fun)
-        {:noreply, Map.put(state, key, {task, [from]})}
-
-      {task, waiters} ->
-        # Add to waiters
-        {:noreply, Map.put(state, key, {task, [from | waiters]})}
+# Track order states to prevent duplicate operations
+defmodule OrderStateTracker do
+  def track_order_operation(client_order_id, operation) do
+    key = {client_order_id, operation}
+    
+    case :ets.insert_new(:order_operations, {key, System.os_time(:millisecond)}) do
+      true -> :ok
+      false -> 
+        [{_, timestamp}] = :ets.lookup(:order_operations, key)
+        if System.os_time(:millisecond) - timestamp < 5000 do
+          {:error, :duplicate_operation}
+        else
+          # Old operation, allow retry
+          :ets.insert(:order_operations, {key, System.os_time(:millisecond)})
+          :ok
+        end
     end
   end
-
-  def handle_info({ref, result}, state) when is_reference(ref) do
-    # Find and reply to all waiters
-    {key, {task, waiters}} = Enum.find(state, fn
-      {_k, {%Task{ref: ^ref}, _}} -> true
-      _ -> false
-    end)
-
-    Enum.each(waiters, &GenServer.reply(&1, result))
-    {:noreply, Map.delete(state, key)}
+  
+  def cleanup_old_operations do
+    # Clean up operations older than 1 hour
+    cutoff = System.os_time(:millisecond) - :timer.hours(1)
+    :ets.select_delete(:order_operations, [
+      {{{:"$1", :"$2"}, :"$3"}, [{:<, :"$3", cutoff}], [true]}
+    ])
   end
 end
 ```
@@ -195,7 +203,31 @@ def handle_telemetry_event([:req, :request, :stop], measurements, metadata, _con
 end
 ```
 
-### Pattern 8: Optimized Req Configuration per Exchange
+### Pattern 8: Response Validation (Critical for Trading)
+```elixir
+# Exchanges often return 200 with error bodies
+def validate_response({request, response} = req_resp) do
+  case validate_exchange_response(request.private.exchange, response) do
+    :ok -> req_resp
+    {:error, reason} -> 
+      {request, %{response | status: 500, body: %{error: reason}}}
+  end
+end
+
+defp validate_exchange_response(:binance, %{status: 200, body: %{"code" => code}}) 
+  when code < 0, do: {:error, {:binance_error, code}}
+defp validate_exchange_response(:kraken, %{status: 200, body: %{"error" => errors}}) 
+  when errors != [], do: {:error, {:kraken_errors, errors}}
+defp validate_exchange_response(_, _), do: :ok
+
+# Exchange-specific error normalization
+def normalize_error(:binance, %{"code" => -2010}), do: {:error, :insufficient_balance}
+def normalize_error(:binance, %{"code" => -1021}), do: {:error, :invalid_timestamp}
+def normalize_error(:kraken, ["EAPI:Rate limit exceeded"]), do: {:error, :rate_limited}
+def normalize_error(:kraken, ["EGeneral:Permission denied"]), do: {:error, :unauthorized}
+```
+
+### Pattern 9: Optimized Req Configuration per Exchange
 ```elixir
 def create_req_client(exchange) do
   config = get_exchange_config(exchange)
@@ -340,30 +372,32 @@ defmodule OrderPlacer do
 end
 ```
 
-### Pattern 12: Simplified Request Prioritization (REST-Optimized)
+### Pattern 12: Trading Operation Prioritization
 ```elixir
-# Simple priority levels for REST trading
-defmodule RequestPriority do
+# All trading operations are critical - prioritize by risk
+defmodule TradingPriority do
   @priorities %{
-    high: [:cancel_order, :close_position],    # Risk management
-    normal: [:place_order, :modify_order],      # Trading operations
-    low: [:market_data, :account_info]          # Cacheable queries
+    critical: [:cancel_all_orders, :close_all_positions],  # Emergency
+    high: [:cancel_order, :close_position],                # Risk reduction
+    normal: [:modify_order, :place_order],                 # Regular trading
+    low: [:get_balance, :get_position]                     # Read operations
   }
-
-  def check_priority(endpoint, current_capacity_ratio) do
-    priority = get_priority(endpoint)
+  
+  def check_priority(operation, current_capacity_ratio) do
+    priority = get_priority(operation)
     
     case {priority, current_capacity_ratio} do
-      {:high, ratio} when ratio > 0.1 -> :ok     # Always allow if >10% capacity
-      {:normal, ratio} when ratio > 0.3 -> :ok    # Need 30% capacity
-      {:low, ratio} when ratio > 0.5 -> :ok       # Need 50% capacity
+      {:critical, _} -> :ok  # Always allow emergency operations
+      {:high, ratio} when ratio > 0.05 -> :ok
+      {:normal, ratio} when ratio > 0.20 -> :ok
+      {:low, ratio} when ratio > 0.40 -> :ok
       _ -> {:error, :rate_limited}
     end
   end
   
-  defp get_priority(endpoint) do
-    Enum.find_value(@priorities, :normal, fn {level, endpoints} ->
-      if endpoint in endpoints, do: level
+  defp get_priority(operation) do
+    Enum.find_value(@priorities, :normal, fn {level, operations} ->
+      if operation in operations, do: level
     end)
   end
 end
@@ -483,7 +517,137 @@ defmodule ZenCex.Application do
 end
 ```
 
-### Pattern 16: Proactive Clock Synchronization (Critical for Auth)
+### Pattern 16: Position Reconciliation (Trading Operations)
+```elixir
+# Critical for ensuring position state consistency
+defmodule PositionReconciliation do
+  def reconcile_after_order(exchange, symbol, expected_change) do
+    # Get position before and after
+    {:ok, position_before} = get_position(exchange, symbol)
+    
+    # Wait for settlement
+    Process.sleep(exchange_settlement_delay(exchange))
+    
+    {:ok, position_after} = get_position(exchange, symbol)
+    
+    actual_change = position_after.quantity - position_before.quantity
+    
+    if abs(actual_change - expected_change) > 0.0001 do
+      Logger.error("Position reconciliation failed: expected #{expected_change}, got #{actual_change}")
+      :telemetry.execute([:zen_cex, :reconciliation, :mismatch], 
+        %{expected: expected_change, actual: actual_change},
+        %{exchange: exchange, symbol: symbol})
+    end
+  end
+  
+  defp exchange_settlement_delay(:binance), do: 100
+  defp exchange_settlement_delay(:kraken), do: 500  # Slower settlement
+  defp exchange_settlement_delay(:deribit), do: 200
+end
+```
+
+### Pattern 17: Pre-Trade Validation
+```elixir
+defmodule PreTradeValidation do
+  def validate_before_order(exchange, order) do
+    with :ok <- check_symbol_active?(exchange, order.symbol),
+         :ok <- check_balance_sufficient?(exchange, order),
+         :ok <- check_margin_available?(exchange, order),
+         :ok <- check_position_limits?(exchange, order),
+         :ok <- check_order_rate_limit?(exchange),
+         :ok <- check_daily_loss_limit?(order) do
+      :ok
+    else
+      {:error, reason} = error ->
+        Logger.warning("Pre-trade validation failed: #{inspect(reason)}")
+        error
+    end
+  end
+  
+  # Validate notional minimum (Binance: price * quantity > minNotional)
+  def validate_notional_minimum(:binance, %{price: p, quantity: q, symbol: symbol}) do
+    min_notional = get_symbol_filter(symbol, :MIN_NOTIONAL)
+    if Decimal.mult(p, q) |> Decimal.compare(min_notional) == :lt do
+      {:error, {:below_minimum_notional, min_notional}}
+    else
+      :ok
+    end
+  end
+end
+```
+
+### Pattern 18: Order Lifecycle Management
+```elixir
+# Each exchange has different order states
+defmodule OrderLifecycle do
+  @order_states %{
+    binance: ~w(NEW PARTIALLY_FILLED FILLED CANCELED REJECTED EXPIRED)a,
+    kraken: ~w(pending open closed canceled expired)a,
+    deribit: ~w(open filled rejected cancelled untriggered triggered)a
+  }
+
+  # Terminal states where no further action needed
+  @terminal_states %{
+    binance: ~w(FILLED CANCELED REJECTED EXPIRED)a,
+    kraken: ~w(closed canceled expired)a,
+    deribit: ~w(filled rejected cancelled)a
+  }
+
+  def is_terminal_state?(exchange, state) do
+    state in @terminal_states[exchange]
+  end
+  
+  # Handle stuck orders
+  def monitor_order(exchange, order_id, placed_at) do
+    max_duration = max_pending_duration(exchange)
+    Process.send_after(self(), {:check_order, order_id}, max_duration)
+    
+    receive do
+      {:check_order, ^order_id} ->
+        case get_order_status(exchange, order_id) do
+          {:ok, %{state: state}} when state in [:new, :pending] ->
+            Logger.warning("Order #{order_id} stuck in #{state} state")
+            cancel_order(exchange, order_id)
+            {:error, :order_stuck}
+          _ -> :ok
+        end
+    end
+  end
+  
+  defp max_pending_duration(:binance), do: :timer.seconds(30)
+  defp max_pending_duration(:kraken), do: :timer.minutes(2)  # Kraken can be slow
+  defp max_pending_duration(:deribit), do: :timer.seconds(45)
+end
+```
+
+### Pattern 19: Partial Fill Handling
+```elixir
+# Handle partial fills properly
+defmodule PartialFillHandler do
+  def handle_partial_fill(exchange, order) do
+    filled_qty = order.executed_quantity
+    remaining_qty = Decimal.sub(order.quantity, filled_qty)
+    fill_ratio = Decimal.div(filled_qty, order.quantity)
+    
+    cond do
+      # If mostly filled (>95%), accept it
+      Decimal.compare(fill_ratio, "0.95") == :gt ->
+        {:ok, :mostly_filled}
+      
+      # If barely filled (<10%), cancel and replace
+      Decimal.compare(fill_ratio, "0.10") == :lt ->
+        cancel_order(exchange, order.id)
+        place_order(exchange, %{order | quantity: remaining_qty})
+      
+      # Otherwise wait for more fills
+      true ->
+        {:ok, :waiting_for_fills}
+    end
+  end
+end
+```
+
+### Pattern 20: Proactive Clock Synchronization (Critical for Auth)
 ```elixir
 # Sync on startup and periodically - prevents auth failures
 defmodule ClockSync do
@@ -563,7 +727,7 @@ end
 | OKX | HMAC + Passphrase | passphrase required in headers | Missing passphrase | Demo trading affects production rate limits; Requires OK-ACCESS-PASSPHRASE header |
 | Coinbase | JWT | JWT token with RS256 | HMAC instead of JWT | Completely different auth than other exchanges; Uses JWT not HMAC |
 
-### Critical Exchange Quirks
+### Critical Exchange Quirks (Trading Operations)
 
 **Binance:**
 - **CRITICAL**: Spot (api.binance.com) vs Futures (fapi.binance.com) have completely different rate limits
@@ -571,10 +735,11 @@ end
 - Weight system: simple requests = 1, complex = 5-50, OCO orders consume 2x weight when partially filled
 - Order rate limits separate from request rate limits (can be rate limited on orders but not requests)
 - `recvWindow` default 5000ms, max 60000ms for timestamp validation
-- `listenKey` for user data streams expires after 60 minutes (not 30 as often documented)
 - Clock synchronization critical (±1000ms tolerance)
-- Market data endpoints don't count against user rate limits (use for monitoring)
-- Testnet has different rate limits than production
+- Test orders (`test=true`) still consume rate limit weight
+- Order Response Type (ACK, RESULT, FULL) affects rate limit weight
+- `/sapi/*` endpoints have separate rate limits from `/api/*`
+- Notional value (price * quantity) must exceed minimum for each pair
 
 **Kraken:**
 - **CRITICAL**: "EOrder:Insufficient funds" can occur AFTER order acceptance due to async margin check
@@ -752,60 +917,60 @@ end
 **Right**: One module per session with tests
 **Why**: Incremental progress ensures quality
 
-### Mistake 6: Missing Circuit Breaker Protection
+### Mistake 6: Testing Market Data Fetching via REST
+**Wrong**: Fetching price feeds, order books via REST
+**Right**: Trading operations only - use WebSocket library for market data
+**Why**: This library is for trading operations, not market data
+
+### Mistake 7: Missing Circuit Breaker Protection
 **Wrong**: Continuing to hammer failing endpoints
 **Right**: Implement circuit breaker with exponential backoff
 **Why**: Failed exchanges can cascade failures
 
-### Mistake 7: No Request Deduplication
-**Wrong**: Multiple simultaneous identical requests
-**Right**: Coalesce duplicate requests and share results
-**Why**: Prevents API abuse and improves performance
+### Mistake 8: Request Coalescing for Trading Operations
+**Wrong**: Coalescing order operations or trade requests
+**Right**: Only coalesce read operations (balances, positions)
+**Why**: Every trade operation must be independent
 
-### Mistake 8: Ignoring Clock Synchronization
+### Mistake 9: Ignoring Clock Synchronization
 **Wrong**: Assuming local time matches exchange time
 **Right**: Check and adjust for clock skew per exchange
 **Why**: Many exchanges reject requests with >1s time difference
 
-### Mistake 9: Not Using Req's Telemetry
+### Mistake 10: Not Using Req's Telemetry
 **Wrong**: Custom logging and metrics throughout code
 **Right**: Hook into [:req, :request, :*] events
 **Why**: Req already emits comprehensive telemetry
 
-### Mistake 10: Hardcoding Connection Pool Sizes
+### Mistake 11: Hardcoding Connection Pool Sizes
 **Wrong**: Same pool configuration for all exchanges
 **Right**: Tune pools based on exchange characteristics
 **Why**: Binance handles 50+ concurrent, Kraken prefers fewer
 
-### Mistake 11: No Idempotency for Orders
+### Mistake 12: No Idempotency for Orders
 **Wrong**: Retrying order placement without client_order_id
 **Right**: Generate deterministic client_order_id for safe retries
 **Why**: Network timeout + retry = potential duplicate orders
 
-### Mistake 12: Ignoring Partial Fills
+### Mistake 13: Ignoring Partial Fills
 **Wrong**: Assuming orders are fully filled or cancelled
 **Right**: Track fill quantity and handle partial execution
 **Why**: Large orders often partially fill in volatile markets
 
-### Mistake 13: Static Rate Limit Assumptions
+### Mistake 14: Static Rate Limit Assumptions
 **Wrong**: Hardcoding rate limits from documentation
 **Right**: Read actual limits from response headers dynamically
 **Why**: Exchanges adjust limits based on tier/load/time
 
-### Mistake 14: Ignoring Req's Built-in Features
+### Mistake 15: Ignoring Req's Built-in Features
 **Wrong**: Implementing custom retry, caching, compression
-**Right**: Use `retry: :safe_transient`, `cache: true`, `compress_body: true`
+**Right**: Use `retry: :safe_transient`, `compress_body: true`
 **Why**: Req already handles these optimally
 
-### Mistake 15: Missing Exchange-Specific Requirements
+### Mistake 16: Missing Exchange-Specific Requirements
 **Wrong**: Assuming all exchanges use same auth pattern
 **Right**: Handle OKX passphrase, Bybit URL split, Kraken POST-only
 **Why**: Each exchange has unique quirks that break auth
-
-### Mistake 16: Not Handling Partial Fills
-**Wrong**: Assuming orders are fully filled or cancelled
-**Right**: Track `executed_qty` and handle partial execution states
-**Why**: Large orders often partially fill in volatile markets
 
 ### Mistake 17: Missing Graceful Shutdown
 **Wrong**: Letting supervisor terminate processes immediately
@@ -885,6 +1050,41 @@ signature = Binance.Auth.sign_request(params, secret)
 - Check network connectivity to exchange
 - Verify firewall settings
 - Monitor DNS resolution
+
+### Trading-Specific Production Issues
+
+#### Issue: Order Stuck in NEW State
+**Symptoms**: Order remains in NEW/PENDING state beyond normal time
+**Root Cause**: Exchange matching engine delays or connectivity issues
+**Solution**:
+```elixir
+# Monitor orders with timeouts
+Process.send_after(self(), {:check_order, order_id}, :timer.seconds(30))
+# Cancel and retry if stuck
+```
+
+#### Issue: Position Drift After Partial Fills
+**Symptoms**: Local position state doesn't match exchange
+**Root Cause**: Partial fills not properly tracked
+**Solution**:
+```elixir
+# Always reconcile after orders
+reconcile_position(exchange, symbol, expected_change)
+# Alert on mismatches > 0.0001
+```
+
+#### Issue: Double Order Execution on Timeout
+**Symptoms**: Order times out but actually executes
+**Root Cause**: Network timeout shorter than exchange processing
+**Solution**:
+```elixir
+# Always check order status after timeout
+case place_order_with_timeout(params, timeout: 5_000) do
+  {:error, :timeout} ->
+    # Order might have succeeded - check by client_order_id
+    check_order_status(params.client_order_id)
+end
+```
 
 ### Common Production Failures (Not in Exchange Docs)
 
@@ -1044,22 +1244,24 @@ mix credo --strict               # Code quality
 mix test --cover                 # >80% coverage
 ```
 
-### Memory & Performance Targets (REST-Optimized)
-- Rate limiter: <5ms per check (plenty fast for REST)
-- Concurrent requests: 100-500 (realistic for REST trading)
-- Memory growth: <10MB under sustained load (reasonable for caching)
-- ETS cleanup: Every 60 seconds for sliding windows
-- Circuit breaker: <1ms decision time
-- Health check: Max 5 second timeout with exponential backoff
-- Connection pool: 10-30 per exchange (optimal for REST)
-- Request coalescing: Market data only (not needed for orders)
-- Body size limit: 10MB default
-- Telemetry overhead: <2% of request time
-- Clock sync: Proactive NTP + exchange sync every 5 min
-- OAuth refresh: 120 seconds before expiry
-- Idempotency window: 5 minutes for order operations
-- Graceful shutdown: Max 30 seconds to drain requests
-- Nonce persistence: Required for Kraken continuity
+### Memory & Performance Targets (Trading Operations)
+- **Order placement latency**: <500ms p99 (reliability over speed)
+- **Order cancellation latency**: <200ms p99 (cancels must be fast)
+- **Position query latency**: <1000ms p95 (reads can be slower)
+- **Rate limit check**: <100μs (must be instant)
+- **Idempotency check**: <50μs (critical for safety)
+- **Concurrent orders per exchange**: 20 max (don't spam orders)
+- **Connection pool**: 10-30 per exchange (optimal for trading)
+- **Circuit breaker decision**: <10μs (must be instant)
+- **Memory growth**: <10MB under sustained load
+- **ETS cleanup**: Every 60 seconds for sliding windows
+- **Clock sync**: Proactive NTP + exchange sync every 5 min
+- **OAuth refresh**: 120 seconds before expiry (Deribit)
+- **Idempotency window**: 5 minutes for order operations
+- **Graceful shutdown**: Max 30 seconds to drain requests
+- **Nonce persistence**: Required for Kraken continuity
+- **Order state tracking**: 1 hour retention
+- **Position reconciliation**: Within 100ms of settlement
 
 ## Architecture: Leveraging Req's Built-in Capabilities
 
@@ -1069,10 +1271,10 @@ mix test --cover                 # >80% coverage
 - **Middleware Pipeline**: Req's steps handle auth, rate limiting, telemetry
 - **Observability**: Req emits comprehensive telemetry events automatically
 
-### What Actually Needs GenServers
+### What Actually Needs GenServers (Trading Operations)
 - **Deribit.Auth** - OAuth token state management with single-flight refresh
-- **RequestCoalescer** - Coordinate duplicate request handling (one GenServer)
 - **That's it!** Everything else uses Req features or ETS atomic operations
+- **NO coalescing for trading** - Every order/trade must be independent
 
 ### What Req Handles For Us
 - **Connection pooling** - Finch integration with HTTP/2 support
@@ -1173,26 +1375,36 @@ end
 - **Rate limit tests**: Use ETS table manipulation, not real API hammering
 - **Error tests**: Req.Test to simulate timeouts, 429s, 503s
 
-## Test File Template
+## Test File Template (Trading Operations)
 
 ```elixir
-defmodule ZenCex.Adapters.Binance.RateLimiterTest do
+defmodule ZenCex.Adapters.Binance.OrderTest do
   use ExUnit.Case, async: true
   import Req.Test
 
-  # ONE strategic integration test to verify real behavior
+  # ONE strategic integration test per trading operation
   @tag :integration
-  @tag :skip  # Run manually when needed: mix test --include integration
-  test "verify real Binance rate limit headers" do
-    # Make ONE real API call to understand headers
-    {:ok, response} = Binance.HTTP.get("/api/v3/time")
+  @tag :requires_api_key
+  @tag :skip  # Run manually: mix test --include integration
+  test "verify order placement and cancellation flow" do
+    # Use minimum possible size to avoid real fills
+    min_order = %{
+      symbol: "BTCUSDT",
+      side: :buy,
+      type: :limit,
+      quantity: "0.001",  # Minimum for BTC
+      price: "10000",     # Far from market to avoid fill
+      client_order_id: "test_#{System.unique_integer()}"
+    }
 
-    # Capture the ACTUAL rate limit headers
-    assert response.headers["x-mbx-used-weight-1m"]
-    assert response.headers["x-mbx-order-count-1m"]
+    # Place order
+    assert {:ok, %{order_id: order_id}} = Binance.place_order(min_order)
 
-    # Save this structure for mocks
-    File.write!("test/fixtures/binance_headers.json", Jason.encode!(response.headers))
+    # Immediately cancel to avoid fill
+    assert {:ok, _} = Binance.cancel_order(order_id)
+
+    # Verify it was cancelled
+    assert {:ok, %{status: "CANCELED"}} = Binance.get_order(order_id)
   end
 
   # FAST unit tests using ETS manipulation
@@ -1420,5 +1632,26 @@ end
 - **Clock sync**: Proactive on startup + every 5 min
 - **One task**: Complete, validate, stop
 
+## Final Summary: Trading Operations Library
+
+### What We're Building
+A **REST-only trading operations library** for cryptocurrency exchanges that:
+- Places, modifies, and cancels orders reliably
+- Manages positions and account balances
+- Handles risk management and margin requirements
+- Provides fault-tolerant, production-ready trading infrastructure
+
+### What We're NOT Building
+- **NO market data fetching** (use WebSocket library)
+- **NO price feeds or order books** (use WebSocket library)
+- **NO high-frequency trading** (focus on reliability)
+- **NO WebSocket implementation** (REST-only scope)
+
+### Key Architecture Decisions
+- **Req-centric**: Leverage Req's built-in features, don't reinvent
+- **Minimal GenServers**: Only Deribit OAuth needs state
+- **ETS for performance**: Atomic operations for rate limiting
+- **Trading safety first**: Idempotency, validation, reconciliation
+
 ---
-**Remember**: This guide is your single source of truth. Test against real APIs first, mock second.
+**Remember**: This guide is for building a production-ready REST trading operations library. Test against real APIs first, mock second. Focus on reliability over speed.

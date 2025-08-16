@@ -1,178 +1,102 @@
-# Expert Review Request: ZenCex Plugin Architecture & Implementation
+# Expert Review Request: ZenCex Library
 
-## Your Role
+## Your Background
 You are a senior Elixir developer with:
-- 10+ years of Elixir/Erlang experience, deep OTP expertise
-- Extensive experience integrating with cryptocurrency exchange APIs (Binance, Kraken, Deribit, FTX, etc.)
-- Expert-level knowledge of the Req HTTP client library and its advanced features
-- Production experience with high-throughput, fault-tolerant financial systems
-- Deep understanding of rate limiting, authentication patterns, and RESTful protocols
+- 10+ years of Elixir/Erlang experience and deep OTP expertise
+- Extensive production experience with cryptocurrency exchange APIs
+- Expert knowledge of the Req HTTP client library
+- Production experience with fault-tolerant financial systems
+- Deep understanding of REST API patterns, rate limiting, and authentication
 
-## Prerequisites - IMPORTANT
-Before reviewing this document, please:
-1. **Read the latest Req documentation** at https://hexdocs.pm/req/ (v0.5.x or latest)
-2. **Review Req.Steps module** for understanding available request/response/error steps
-3. **Study Req's middleware pipeline** and how to extend it with custom steps
-4. **Understand Req's built-in features**: Finch pooling, retry logic, telemetry, compression, etc.
+## Review Request
 
-## Review Scope
-Please review the ZenCex library documentation and provide expert feedback on our plugin architecture for CEX integrations.
+We're building ZenCex, a REST-only library for cryptocurrency exchange trading operations. We'd appreciate your expert review of our architecture and implementation approach.
 
-## Document to Review
+## Documentation to Review
 
-**docs/AI-IMPLEMENTATION.md** - Our streamlined implementation guide (342 lines)
-- This single document combines all architecture, implementation, progress, and review criteria
-- Contains essential patterns, current status, and validation criteria
+Please review: **docs/AI-IMPLEMENTATION.md**
 
-
-## Specific Areas for Expert Input
-
-### 1. Req Library Usage & Feature Leverage
-Review our essential patterns in the document.
-Are we missing critical Req features?
-
-### 2. CEX API Patterns
-Review the Exchange Requirements Table:
-| Exchange | Auth Method | Critical Requirement | Common Error |
-|----------|------------|---------------------|-------------|
-| Binance | HMAC-SHA256 | Signature LAST in params | Wrong param order |
-| Kraken | Nonce | Microsecond + counter | Using only microseconds |
-| Deribit | OAuth2 | Refresh 120s before expiry | Token expiration |
-
-Questions:
-- Are these the most critical requirements for each exchange?
-- What other exchange-specific gotchas should we document?
-- Is our approach to handle these requirements optimal?
-
-### 3. Req-Centric Architecture
-Based on leveraging Req's features:
-- Are we properly utilizing Req's built-in capabilities?
-
-
-### 4. Common AI Coder Mistakes Section
-We document 3 common mistakes:
-1. Manual request manipulation instead of Req functions
-2. Creating GenServers when simple modules suffice
-3. Implementing everything at once
-
-Are these the right mistakes to highlight? What others should we add?
-
-### 5. Performance & Scalability
-Our targets:
-- Rate limiter: <1ms per check
-- 10,000 concurrent requests: <100ms
-- Memory growth: <1MB under load
-- ETS cleanup: Every 60 seconds
-
-Are these realistic? What benchmarks would you recommend?
-
-## Specific Questions
-
-1. **One-Task-Per-Session Rule**: We enforce completing one task at a time for AI coders. Is this too restrictive or beneficial for quality?
-
-2. **Documentation Approach**: We reduced 2,346 lines to 342. Did we cut too much essential information?
-
-3. **Essential Patterns**: Are our 4 HTTP/testing patterns the right ones to highlight, or should we include others?
-
-4. **Req.Test**: Should we prioritize Req.Test stubs over real API testing for unit tests?
-
-5. **Task Prioritization**: Current task is #2 (Remove Core.Supervisor to use Req features). Is leveraging Req's capabilities the right priority?
-
-6. **Missing Components**: What critical components are we not considering?
-
-7. **Req vs OTP Trade-offs**: By relying on Req's features instead of OTP supervision, what failure modes might we miss? Does Req's retry and pooling sufficiently replace supervision trees for HTTP operations?
-
-8. **Removing HFT/WebSocket Content**: Since we've decided NO HFT and NO WebSocket, what sections in AI-IMPLEMENTATION.md should be removed or modified? Please identify:
-   - Patterns that are only relevant for HFT (microsecond optimizations, etc.)
-   - Any WebSocket-related content that should be deleted
-   - Performance targets that are unnecessarily aggressive for REST-only trading
-   - Complexity that only makes sense for HFT scenarios
-
-9. **Future WebSocket Addition**: Given that WebSocket support might be added later as a separate module (for market data streaming):
-   - Does our current REST-only architecture allow clean addition of WebSocket later?
-   - Do we need to prepare anything now to avoid future refactoring?
-   - Can WebSocket be completely independent when we add it later?
-   - Should we avoid any patterns that would make WebSocket addition difficult?
-
-## Expected Output
-
-Please provide:
-
-### 1. Architecture Assessment (1-10 rating)
-- Strengths of the streamlined approach
-- Critical gaps in the essential patterns
-- Missing architectural components
-
-### 2. Req Usage Improvements
-- Specific Req features we're underutilizing
-- Better patterns for our 5 essential examples
-- Advanced Req techniques for production
-
-### 3. CEX Integration Insights
-- Exchange-specific issues not covered
-- Better auth/rate limiting strategies
-- Production gotchas from your experience
-
-### 4. Priority Fixes
-- Top 5 issues in our current approach
-- Which of the 33 tasks to prioritize
-- What tasks to add or remove
-
-### 5. Code Improvements
-- Better versions of our essential patterns
-- Missing patterns we should add
-- Production-ready enhancements
-
-### 6. Simplification Recommendations (REST-only focus)
-- Which patterns/tasks can be removed since we're not doing HFT?
-- Which performance targets can be relaxed for regular trading?
-- Suggested simplified task list focusing on REST reliability
-
-### 7. Future Extensibility Assessment
-- Confirm our REST architecture won't block future WebSocket addition
-- Any architectural decisions to avoid that would complicate WebSocket later
-- Confirmation that WebSocket can be a completely separate module when needed
-- No preparatory work needed now for future WebSocket support
+This document serves as the single source of truth for our AI-assisted development process. It contains our architecture decisions, implementation patterns, and progress tracking.
 
 ## Context
-This library is being built for:
-- Production cryptocurrency trading systems (REST API only)
-- Delta-Neutral Strategies (Portfolio Margin)
-- Multi-exchange arbitrage and market making
-- Easy extension with new exchanges
-- Position management and order execution via REST
 
-**IMPORTANT - This library is explicitly NOT for:**
-- **NO High-Frequency Trading (HFT)** - We do NOT want HFT capabilities
-- **NO WebSocket implementation** - REST APIs only, no streaming data (current scope)
-- **NO Low-latency trading** - Focus on reliability over speed
-- **NO High-volume/microsecond trading** - Regular trading operations only
+### What ZenCex Is
+- A REST-only trading operations library for cryptocurrency exchanges
+- Focused on order management, position tracking, and account operations
+- Built for reliability over speed (not HFT)
+- Leverages Req's built-in capabilities instead of custom OTP supervision
 
-We are building a reliable REST-only library for position management and trading operations. We want to leverage where Elixir shines for Crypto Trading with fault-tolerance and concurrent REST API operations.
+### What ZenCex Is NOT
+- Not for market data (that would require WebSocket)
+- Not for high-frequency trading
+- Not implementing WebSocket (may be added later as separate module)
+- Not for microsecond latency requirements
 
-**Future Enhancement Consideration:**
-- WebSocket support may be added in the future as a separate module (e.g., for market data streaming)
-- The current REST-only architecture should not block future WebSocket additions
-- We don't need to implement any WebSocket preparation now - it can be completely separate when needed
+### Target Users
+- Production cryptocurrency trading systems
+- Delta-neutral strategies and portfolio margin
+- Multi-exchange arbitrage (non-HFT)
+- Teams needing reliable order execution
 
-The documentation is optimized for AI-assisted development, hence the directive style and minimal examples. We've pivoted to a Req-centric REST-only architecture that leverages its built-in connection pooling (Finch), retry logic, middleware pipeline, and telemetry instead of reimplementing these with OTP. No WebSocket support is planned or desired.
+## Review Guidelines
 
-## Review Focus
-Please focus on:
-1. **Production readiness** - Will this REST-only architecture handle real trading volumes (not HFT)?
-2. **Req optimization** - Are we using Req's full potential for REST API operations?
-3. **Exchange quirks** - What CEX-specific REST API issues will bite us?
-4. **Documentation completeness** - Is 342 lines the right balance for AI coders?
-5. **REST-only design** - Are we missing any critical REST API patterns (no WebSocket needed)?
-6. **Future extensibility** - Confirm REST design won't block future WebSocket module addition
+Please provide an unbiased, comprehensive review covering:
 
-## Start Your Review
-Begin by:
-1. Reading the latest Req documentation at https://hexdocs.pm/req/
-2. Reading the entire AI-IMPLEMENTATION.md document 
-3. Providing your initial assessment of our REST-only approach, its features and limitations
+1. **Overall Architecture**
+   - What works well?
+   - What concerns you?
+   - What's missing?
 
-Please be direct and critical. We want honest expert feedback to build a world-class REST API CEX integration library (no HFT, no WebSocket) that can be efficiently implemented by AI coders.
+2. **Technical Decisions**
+   - Are our choices sound?
+   - What would you do differently?
+   - Any red flags?
 
+3. **Production Readiness**
+   - Will this handle real-world trading?
+   - What will break under load?
+   - Security concerns?
 
-DO NOT READ THE CODEBASE.
+4. **Code Quality & Patterns**
+   - Are the patterns appropriate?
+   - Maintainability issues?
+   - Testing approach?
+
+5. **Documentation**
+   - Is it sufficient for AI-assisted development?
+   - Too much or too little detail?
+   - Clear or confusing?
+
+## Specific Considerations
+
+While we want your independent assessment, please also consider:
+
+- We're using Req instead of building OTP supervision trees
+- The document is optimized for AI coders (one task per session)
+- We explicitly exclude market data and WebSocket
+- Future WebSocket support should remain possible as a separate module
+
+## Prerequisites
+
+Before reviewing, please familiarize yourself with:
+- Latest Req documentation (https://hexdocs.pm/req/)
+- Req.Steps and middleware pipeline
+- Req's built-in features (Finch pooling, retry, telemetry)
+
+## Output Format
+
+Please structure your review however you feel is most helpful. We value:
+- Honest, direct feedback
+- Specific examples of issues
+- Actionable recommendations
+- Priority ordering of concerns
+
+## Important Note
+
+Please DO NOT read the actual codebase - focus only on the AI-IMPLEMENTATION.md document. We want your assessment of the approach and patterns, not the current implementation state.
+
+---
+
+We're looking for critical, unfiltered feedback. Don't hold back - we need to know what will fail in production before it does.
+
+Thank you for your expertise.
