@@ -43,11 +43,15 @@ defmodule ZenCex.Core.HTTP do
 
   ## Examples
 
-      # Basic trading request
+      # Basic trading request (uses environment variables for auth)
       request = ZenCex.Core.HTTP.base_request(:binance, :trading)
       
       # Health check (no auth/rate limiting)
       health_request = ZenCex.Core.HTTP.health_check_request(:kraken)
+      
+      # Testing with manual credentials (no environment setup needed)
+      request = ZenCex.Core.HTTP.base_request(:binance, :trading)
+      |> Req.merge(auth_credentials: %{api_key: "test_key", api_secret: "test_secret"})
       
       # Custom configuration
       request = ZenCex.Core.HTTP.base_request(:deribit, :market)
@@ -86,7 +90,13 @@ defmodule ZenCex.Core.HTTP do
     receive_timeout = get_timeout(operation_type)
 
     Req.new()
-    |> Req.Request.register_options([:exchange, :operation_type, :skip_auth, :skip_rate_limit])
+    |> Req.Request.register_options([
+      :exchange,
+      :operation_type,
+      :skip_auth,
+      :skip_rate_limit,
+      :auth_credentials
+    ])
     |> Req.Request.prepend_request_steps(
       zen_cex_rate_limit: &rate_limit_step/1,
       zen_cex_auth: &auth_step/1
@@ -173,8 +183,11 @@ defmodule ZenCex.Core.HTTP do
       # Get the auth module
       auth = adapter.auth()
 
-      # Sign the request
-      auth.sign_request(request)
+      # Get credentials from request options if provided (for testing)
+      auth_credentials = request.options[:auth_credentials] || %{}
+
+      # Sign the request with optional credentials
+      auth.sign_request(request, auth_credentials)
     end
   end
 

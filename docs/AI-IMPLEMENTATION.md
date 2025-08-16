@@ -107,10 +107,11 @@ You may implement **related tasks within the same phase** when they are tightly 
 ### Phase 2: Binance Reference Implementation (5 tasks)
 ```
 [✅] Task 6: ClockSync with proactive NTP sync           <- COMPLETED
-[ ] Task 7: Binance.Auth - HMAC-SHA256 as Req step     ┐
-[ ] Task 8: Binance.RateLimiter - ETS tables           ├─ Natural group
-[ ] Task 9: Binance.Parser - Response parsing          └─ (auth chain)
-[ ] Task 10: Integration tests with real API           <- Requires 7-9
+[ ] Task 7: Write Tests against REAL API to discover the real API endpoints and their behavior
+[ ] Task 8: Binance.Auth - HMAC-SHA256 as Req step     ┐
+[ ] Task 9: Binance.RateLimiter - ETS tables           ├─ Natural group
+[ ] Task 10: Binance.Parser - Response parsing          └─ (auth chain)
+[ ] Task 11: Integration tests with real API           <- Requires 7-9
 ```
 
 **Suggested Groupings**:

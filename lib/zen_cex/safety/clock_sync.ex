@@ -424,7 +424,8 @@ defmodule ZenCex.Safety.ClockSync do
     # Kraken returns: {"error": [], "result": {"unixtime": 1640995200, "rfc1123": "..."}}
     case Jason.decode(body) do
       {:ok, %{"result" => %{"unixtime" => unix_time}}} when is_integer(unix_time) ->
-        {:ok, unix_time * 1000}  # Convert seconds to milliseconds
+        # Convert seconds to milliseconds
+        {:ok, unix_time * 1000}
 
       {:ok, %{"error" => [error | _]}} ->
         {:error, {:kraken_error, error}}

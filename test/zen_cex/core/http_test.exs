@@ -26,7 +26,7 @@ defmodule ZenCex.Core.HTTPTest do
     end
 
     defmodule Auth do
-      def sign_request(request) do
+      def sign_request(request, _auth_credentials \\ %{}) do
         # Add a test header to verify auth was called
         Req.Request.put_header(request, "x-test-auth", "signed")
       end
