@@ -75,19 +75,19 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ## Current Task
 
-**Task #7**: Binance.Auth - HMAC-SHA256 as Req step (Next task in Phase 2)
+**Task #8**: Binance.RateLimiter - ETS tables (Next task in Phase 2)
 
-**File**: `lib/zen_cex/adapters/binance/auth.ex`
+**File**: `lib/zen_cex/adapters/binance/rate_limiter.ex`
 
 **Key Requirements**:
-- HMAC-SHA256 signature as Req request step
-- Signature as LAST query parameter
-- X-MBX-APIKEY header
-- recvWindow parameter
-- Timestamp with clock offset applied
-- Tests with real API responses
+- ETS with atomic counters
+- Sliding window implementation
+- Reads weight from response headers
+- Emergency bypass for cancel operations
+- Cleanup every 60 seconds
+- Performance < 100μs for checks
 
-**Full Requirements & Review Criteria**: See Task #7 in AI-REVIEW.md
+**Full Requirements & Review Criteria**: See Task #8 in AI-REVIEW.md
 
 ---
 
@@ -107,11 +107,10 @@ You may implement **related tasks within the same phase** when they are tightly 
 ### Phase 2: Binance Reference Implementation (5 tasks)
 ```
 [✅] Task 6: ClockSync with proactive NTP sync           <- COMPLETED
-[ ] Task 7: Write Tests against REAL API to discover the real API endpoints and their behavior
-[ ] Task 8: Binance.Auth - HMAC-SHA256 as Req step     ┐
-[ ] Task 9: Binance.RateLimiter - ETS tables           ├─ Natural group
-[ ] Task 10: Binance.Parser - Response parsing          └─ (auth chain)
-[ ] Task 11: Integration tests with real API           <- Requires 7-9
+[✅] Task 7: Binance.Auth - HMAC-SHA256 as Req step     <- COMPLETED (5/5 ⭐)
+[ ] Task 8: Binance.RateLimiter - ETS tables           ┐
+[ ] Task 9: Binance.Parser - Response parsing          └─ Natural group
+[ ] Task 10: Integration tests with real API           <- Requires 7-9
 ```
 
 **Suggested Groupings**:

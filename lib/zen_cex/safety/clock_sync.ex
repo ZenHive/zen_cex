@@ -420,38 +420,50 @@ defmodule ZenCex.Safety.ClockSync do
     end
   end
 
-  defp parse_kraken_time(body) do
+  defp parse_kraken_time(body) when is_map(body) do
     # Kraken returns: {"error": [], "result": {"unixtime": 1640995200, "rfc1123": "..."}}
-    case Jason.decode(body) do
-      {:ok, %{"result" => %{"unixtime" => unix_time}}} when is_integer(unix_time) ->
+    # Note: Req automatically decodes JSON, so body is already a map
+    case body do
+      %{"result" => %{"unixtime" => unix_time}} when is_integer(unix_time) ->
         # Convert seconds to milliseconds
         {:ok, unix_time * 1000}
 
-      {:ok, %{"error" => [error | _]}} ->
+      %{"error" => [error | _]} ->
         {:error, {:kraken_error, error}}
 
-      {:ok, data} ->
+      data ->
         {:error, {:invalid_response, data}}
-
-      {:error, reason} ->
-        {:error, {:json_decode_error, reason}}
     end
   end
 
-  defp parse_deribit_time(body) do
-    # Deribit returns: {"jsonrpc": "2.0", "result": {"server_time": 1640995200000}, ...}
+  defp parse_kraken_time(body) when is_binary(body) do
+    # Fallback for string body (shouldn't happen with Req, but kept for compatibility)
     case Jason.decode(body) do
-      {:ok, %{"result" => %{"server_time" => server_time}}} when is_integer(server_time) ->
+      {:ok, decoded} -> parse_kraken_time(decoded)
+      {:error, reason} -> {:error, {:json_decode_error, reason}}
+    end
+  end
+
+  defp parse_deribit_time(body) when is_map(body) do
+    # Deribit returns: {"jsonrpc": "2.0", "result": {"server_time": 1640995200000}, ...}
+    # Note: Req automatically decodes JSON, so body is already a map
+    case body do
+      %{"result" => %{"server_time" => server_time}} when is_integer(server_time) ->
         {:ok, server_time}
 
-      {:ok, %{"error" => error}} ->
+      %{"error" => error} ->
         {:error, {:deribit_error, error}}
 
-      {:ok, data} ->
+      data ->
         {:error, {:invalid_response, data}}
+    end
+  end
 
-      {:error, reason} ->
-        {:error, {:json_decode_error, reason}}
+  defp parse_deribit_time(body) when is_binary(body) do
+    # Fallback for string body (shouldn't happen with Req, but kept for compatibility)
+    case Jason.decode(body) do
+      {:ok, decoded} -> parse_deribit_time(decoded)
+      {:error, reason} -> {:error, {:json_decode_error, reason}}
     end
   end
 
