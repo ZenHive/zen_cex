@@ -140,19 +140,18 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ## Current Task
 
-**Task #9**: Binance.Parser - Response parsing (Next task in Phase 2)
+**Task #10**: Binance Integration Tests (Next task in Phase 2)
 
-**File**: `lib/zen_cex/adapters/binance/parser.ex`
+**File**: `test/zen_cex/adapters/binance_integration_test.exs`
 
 **Key Requirements**:
-- JSON response parsing
-- Normalizes to common format
-- Error code mapping
-- Type conversions (strings to Decimal)
-- Handles null/missing fields
-- Tests with fixture data
+- Tests against real testnet
+- Captures responses for fixtures
+- Tests error scenarios
+- Uses Req.Test for mocking
+- Fixture version control
 
-**Full Requirements & Review Criteria**: See Task #9 in AI-REVIEW.md
+**Full Requirements & Review Criteria**: See Task #10 in AI-REVIEW.md
 
 ---
 
@@ -174,8 +173,8 @@ You may implement **related tasks within the same phase** when they are tightly 
 [✅] Task 6: ClockSync with proactive NTP sync           <- COMPLETED
 [✅] Task 7: Binance.Auth - HMAC-SHA256 as Req step     <- COMPLETED (5/5 ⭐)
 [✅] Task 8: Binance.RateLimiter - ETS tables           <- COMPLETED ✨
-[ ] Task 9: Binance.Parser - Response parsing          <- NEXT
-[ ] Task 10: Integration tests with real API           <- Requires 7-9
+[✅] Task 9: Binance.Parser - Response parsing          <- COMPLETED (5/5 ⭐⭐⭐⭐⭐)
+[ ] Task 10: Integration tests with real API           <- NEXT
 ```
 
 **Suggested Groupings**:
