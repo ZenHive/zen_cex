@@ -12,7 +12,10 @@ defmodule ZenCex.Application do
 
     children = [
       # HTTP client for API requests
-      {Finch, name: ZenCex.Finch}
+      {Finch, name: ZenCex.Finch},
+
+      # Core supervisor for managing adapters and shared resources
+      ZenCex.Core.Supervisor
 
       # NOTE: Old Exchange modules disabled - rewriting with plugin architecture
       # See docs/cex-implementation-tasks.md for new architecture plan

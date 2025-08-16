@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ZenCex is an Elixir library for centralized cryptocurrency exchange (CEX) integrations, extracted from the BlockWatch Phoenix application. It provides a unified interface for interacting with multiple exchanges (Binance, Kraken, Deribit) through REST APIs, with planned WebSocket support for real-time market data.
+ZenCex is an Elixir library for centralized cryptocurrency exchange (CEX) REST API integrations, extracted from the BlockWatch Phoenix application. It provides a unified interface for interacting with multiple exchanges (Binance, Kraken, Deribit) through their REST APIs with a focus on trading operations.
 
 **Relationship to BlockWatch**: This library was extracted to be a standalone, reusable package for CEX integrations across the Elixir ecosystem. The parent BlockWatch application (../blockwatch) is a Phoenix LiveView app for monitoring DeFi positions.
 
@@ -61,63 +61,75 @@ The test suite is organized into three categories:
 
 ## Architecture
 
+### Plugin Architecture Overview
+
+The library uses a **plugin architecture** where each exchange is a self-contained adapter:
+
+- **Core Modules** (`ZenCex.Core.*`): Thin coordination layer
+- **Behaviors** (`ZenCex.Behaviors.*`): Contracts that adapters must implement
+- **Adapters** (`ZenCex.Adapters.{Binance,Kraken,Deribit}.*`): Exchange-specific implementations
+
 ### Core Module Structure
 
-The library is organized around the `ZenCex.Exchange` namespace with specialized modules for different concerns:
+1. **Core.Supervisor** (`lib/zen_cex/core/supervisor.ex`)
+   - Manages adapter lifecycle and supervision
+   - Starts required GenServers for each exchange
+   - Handles dynamic adapter registration
 
-1. **HTTP Client Layer** (`lib/zen_cex/exchange/http.ex`)
-   - Built on REQ with Finch for connection pooling
-   - Implements exponential backoff with jitter: `min(2^n * 1000, 60000) + random(0-500)ms`
-   - Middleware pipeline for request/response processing
-   - Operation-specific timeouts (trading: 2s, market: 5s, historical: 30s)
+2. **Core.Registry** (`lib/zen_cex/core/registry.ex`)
+   - Compile-time validation of adapters
+   - Runtime adapter lookup and validation
+   - Exchange listing and capability queries
 
-2. **Authentication** (`lib/zen_cex/exchange/auth.ex`)
-   - Binance: HMAC-SHA256 signatures with timestamp/recvWindow
-   - Kraken: HMAC-SHA512 with atomic nonce generation via ETS
-   - Deribit: OAuth2 with automatic token refresh (120s buffer)
-   - Environment-based credential management
+3. **Core.HTTP** (`lib/zen_cex/core/http.ex`)
+   - Req middleware pipeline for auth, rate limiting, circuit breaking
+   - Telemetry integration for observability
+   - Request coalescing for duplicate prevention
 
-3. **Rate Limiting** (`lib/zen_cex/exchange/rate_limit.ex`)
-   - Atomic ETS counters for lock-free concurrent access
-   - True sliding window for Binance (60 per-second buckets)
-   - Per-exchange limits: Binance (1200/min), Binance Futures (2400/min), Kraken (15/sec), Deribit (20/sec)
-   - Automatic cleanup of expired windows every 60 seconds
-   - Header-based reconciliation for server-reported weights
+### Adapter Components
 
-4. **Health Monitoring** (`lib/zen_cex/exchange/health/`)
-   - Clock sync validation with configurable thresholds (300ms warning, 500ms critical)
-   - Multi-exchange consensus detection using median drift
-   - Startup health checks via `Health.Startup` GenServer
-   - Periodic monitoring via `Health.Monitor` GenServer
+Each exchange adapter implements these modules:
 
-5. **Caching** (`lib/zen_cex/exchange/cache.ex`)
-   - TTL-based ETS caching with automatic cleanup
-   - Separate tables for positions, balances, and market data
-   - Public tables for concurrent read access
-   - Memory statistics via `get_stats/0`
+1. **Adapter Module** (`lib/zen_cex/adapters/{exchange}/adapter.ex`)
+   - Entry point implementing `Behaviors.Adapter`
+   - Coordinates all exchange-specific functionality
+   - Returns child specs for supervision
 
-6. **Telemetry** (`lib/zen_cex/exchange/telemetry.ex`)
-   - Comprehensive event emission for monitoring
-   - Attached handlers for rate limiting and health events
-   - Integration points for external monitoring systems
+2. **Auth Module** (`lib/zen_cex/adapters/{exchange}/auth.ex`)
+   - Implements `Behaviors.Auth` behavior
+   - Exchange-specific authentication (HMAC, OAuth, etc.)
+   - Credential management from environment
+
+3. **RateLimiter** (`lib/zen_cex/adapters/{exchange}/rate_limiter.ex`)
+   - Implements `Behaviors.RateLimiter` behavior
+   - Exchange-specific rate limiting logic
+   - ETS-based atomic counters for performance
+
+4. **WebSocket** (`lib/zen_cex/adapters/{exchange}/websocket.ex`)
+   - Implements `Behaviors.WebSocket` behavior
+   - Public market data streams only
+   - Exchange-specific frame handling
 
 ### Supervision Tree
 
 ```
 ZenCex.Application
 ├── Finch (named: ZenCex.Finch)
-├── ZenCex.RateLimit
-├── ZenCex.Health.Monitor
-└── ZenCex.Health.Startup
+├── ZenCex.Core.Supervisor
+    ├── ZenCex.Adapters.Binance.RateLimiter
+    ├── ZenCex.Adapters.Kraken.RateLimiter  
+    ├── ZenCex.Adapters.Deribit.RateLimiter
+    └── ZenCex.Adapters.Deribit.Auth (OAuth GenServer)
 ```
 
 ### Key Design Patterns
 
-1. **Atomic Operations**: Rate limiting uses ETS atomic counters instead of GenServer state to avoid bottlenecks
-2. **Single-Flight Protection**: OAuth token refresh uses in-flight tracking to prevent concurrent token requests
-3. **Middleware Architecture**: REQ request/response steps for cross-cutting concerns
-4. **Table Partitioning**: Separate ETS tables per exchange for optimal concurrent access
-5. **Public ETS Tables**: Direct ETS access for read operations, GenServer only for cleanup/management
+1. **Req Middleware Pipeline**: Auth, rate limiting, circuit breaking as Req request/response steps
+2. **Atomic Operations**: Rate limiting uses ETS atomic counters instead of GenServer state to avoid bottlenecks
+3. **Single-Flight Protection**: OAuth token refresh uses in-flight tracking to prevent concurrent token requests
+4. **Request Coalescing**: Duplicate request prevention for high-frequency operations
+5. **WebSocket Separation**: zen_websocket for public streams (Req has no WebSocket support)
+6. **Table Partitioning**: Separate ETS tables per exchange for optimal concurrent access
 
 ## Exchange-Specific Implementation Details
 
@@ -159,28 +171,36 @@ DERIBIT_HOST=test.deribit.com  # or www.deribit.com for production
 
 ## Current Implementation Status
 
-### Completed Modules (62.5%)
-- ✅ Exchange.HTTP - REQ-based HTTP client with middleware
-- ✅ Exchange.Auth - Multi-exchange authentication strategies  
-- ✅ Exchange.RateLimit - Atomic rate limiting with sliding windows
-- ✅ Exchange.Health - Clock sync and consensus monitoring
-- ✅ Exchange.Cache - TTL-based caching with cleanup
+### Completed Components
+- ✅ Core.Supervisor - Dynamic adapter management
+- ✅ Core.Registry - Adapter registration and lookup
+- ✅ Binance.RateLimiter - Sliding window rate limiting
+- ✅ Binance.Auth - HMAC-SHA256 authentication
+- ✅ Initial test coverage for core modules
 
-### Pending Modules
-- ⏳ Exchange.MarketData - WebSocket support for real-time data
-- ⏳ Exchange.Parser - Response normalization across exchanges
-- ⏳ Exchange.Client - Unified orchestration layer
+### In Progress
+- 🔄 Remaining exchange adapters (Kraken, Deribit)
+- 🔄 Integration tests for all exchanges
+- 🔄 Production hardening (circuit breaker, health monitoring)
+
+### Documentation  
+- **docs/AI-IMPLEMENTATION.md** - Single source of truth for AI coders (283 lines)
+  - Combines all previous docs (was 2,346 lines across 4 files)
+  - One-task-per-session rule with current task tracking
+  - Essential patterns with minimal code examples
+  - Common AI coder mistakes and solutions
+  - Validation checklists and performance targets
 
 ## Important Implementation Notes
 
-### From Task Documentation (docs/cex-implementation-tasks.md)
-- Overall completion: 62.5% (5/8 modules)
-- Average quality rating: 4.6/5 for completed modules
-- Timeline estimate: 4 days total (Day 1 REST APIs completed)
-- WebSocket implementation (Day 2) not yet started
+### Current Status
+- Plugin architecture with Req middleware pipeline
+- Core modules and behaviors defined
+- Binance adapter partially implemented
+- Focus on completing one exchange fully before others
 
 ### Key Architectural Decisions
-- **WebSocket for public market data, REST for authenticated operations**
+- **REST API focus for all trading operations**
 - **Atomic ETS over GenServer state** for rate limiting (lock-free concurrency)
 - **Single-flight protection** for OAuth token refresh
 - **True sliding window** for Binance rate limits (60 per-second buckets)
@@ -209,11 +229,11 @@ When adding new features:
 ## Module Dependencies
 
 Critical internal dependencies to be aware of:
-- `HTTP` module depends on `RateLimit` for pre-request checking
-- `Auth.DeribitOAuth` is a separate GenServer for token management
-- `Health.Monitor` depends on `Endpoints` for time endpoint definitions
-- All modules emit telemetry events via `Telemetry` module
-- `ReqHelpers` provides utilities for REQ private data management
+- Adapters register with `Core.Registry` at compile time
+- `Core.HTTP` delegates to adapter-specific implementations
+- `Deribit.Auth` runs as a GenServer for OAuth token management
+- Each adapter's RateLimiter manages its own ETS tables
+- All modules emit telemetry events for monitoring
 
 ## Performance Characteristics
 
