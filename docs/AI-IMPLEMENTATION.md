@@ -11,6 +11,7 @@ You are a senior Elixir developer with:
 - Expert knowledge of the Req HTTP client library
 - Production experience with fault-tolerant financial systems
 - Deep understanding of REST API patterns, rate limiting, and authentication
+
 ## Development Philosophy
 
 ### Simplicity Guidelines
@@ -69,7 +70,6 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ### This Library does NOT do:
 - **No Market Data**: No price feeds, order books, or tick data
-- **No Streaming**: REST-only, no WebSocket implementation
 - **No HFT**: Focus on reliability over microsecond latency
 - **No Market Making**: No order book management
 
@@ -96,9 +96,9 @@ You may implement **related tasks within the same phase** when they are tightly 
 ```
 [✅] Task 1: Core.Registry - Adapter registration and validation
 [✅] Task 2: Remove Core.Supervisor - Use Req's built-in features
-[ ] Task 3: Core.HTTP with Req patterns and middleware  <- CURRENT
-[ ] Task 4: Basic telemetry hooks with Req events       ├─ Can be grouped
-[ ] Task 5: OrderSafety module with idempotency         └─ together
+[✅] Task 3: Core.HTTP with Req patterns and middleware  <- COMPLETED
+[✅] Task 4: Basic telemetry hooks with Req events       <- COMPLETED
+[✅] Task 5: OrderSafety module with idempotency         <- COMPLETED
 ```
 
 **Suggested Grouping**: Tasks 3-5 form the core HTTP infrastructure and can be implemented together.
@@ -109,7 +109,7 @@ You may implement **related tasks within the same phase** when they are tightly 
 [ ] Task 7: Binance.Auth - HMAC-SHA256 as Req step     ┐
 [ ] Task 8: Binance.RateLimiter - ETS tables           ├─ Natural group
 [ ] Task 9: Binance.Parser - Response parsing          └─ (auth chain)
-[ ] Task 10: Integration tests with real API            <- Requires 7-9
+[ ] Task 10: Integration tests with real API           <- Requires 7-9
 ```
 
 **Suggested Groupings**:

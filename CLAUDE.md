@@ -304,15 +304,22 @@ end
 The codebase follows Test-Driven Development (TDD) with three test categories:
 
 1. **Unit Tests**: Pure functions, no external dependencies
-2. **Integration Tests**: Real API calls with test credentials (PREFERRED)
+2. **Integration Tests**: Real API calls with test credentials (REQUIRED FIRST)
 3. **Performance Tests**: Load testing and benchmarking
 
+**CRITICAL: Test Against Real APIs First**
+- **ALWAYS** test against real APIs first to understand actual behavior
+- **NEVER** create mocks without first testing the real API
+- **DOCUMENT** observed API behavior from real testing
+- **ONLY** add mocks after fully understanding real API responses
+
 When adding new features:
-1. Write failing tests first
-2. Implement minimal code to pass tests
-3. Refactor while keeping tests green
-4. Add integration tests for real API validation
-5. Only add mocks after validating against real APIs
+1. Write failing integration tests against REAL APIs first
+2. Understand and document actual API behavior
+3. Implement minimal code to pass tests
+4. Refactor while keeping tests green
+5. Extract unit tests with mocks ONLY after validating real behavior
+6. Mocks must exactly match observed real API behavior
 
 ### Coverage Targets
 - Overall: 80% minimum
@@ -395,9 +402,10 @@ Following BlockWatch's testing policy:
 ```
 [!] TESTING POLICY [!]
 --------------------------------------------------
-PREFER REAL APIs over mocks whenever possible.
-Test against real exchange APIs when available.
-Mocks should only be used for truly external dependencies.
+ALWAYS test against REAL APIs first to understand behavior.
+NEVER create mocks without first testing real APIs.
+Document actual API responses and edge cases from real testing.
+Mocks must exactly match observed real API behavior.
 This ensures reliable, production-ready code.
 --------------------------------------------------
 ```
@@ -439,4 +447,43 @@ api_key = "test_key"
 # GOOD: mix credo will track this
 # TODO: In production, this should use environment variables
 api_key = "test_key"
+```
+
+### No Magic Numbers
+
+**CRITICAL**: All numeric literals must be named constants or have explanatory comments:
+- **Instead of**: `timeout = 5000`
+- **Write**: `@default_timeout_ms 5000` or `timeout = 5000  # 5 seconds`
+- **Instead of**: `if retries > 3`
+- **Write**: `@max_retries 3` then `if retries > @max_retries`
+- **Instead of**: `Process.sleep(100)`
+- **Write**: `@backoff_delay_ms 100` then `Process.sleep(@backoff_delay_ms)`
+
+Examples of values that need constants:
+- Timeout values (milliseconds, seconds)
+- Retry counts and backoff delays
+- Buffer sizes and batch limits
+- Port numbers and API versions
+- Rate limit thresholds
+- Any numeric value that could change or needs explanation
+
+```elixir
+# BAD: Magic numbers without explanation
+def fetch_data do
+  with {:error, _} <- attempt() do
+    Process.sleep(1000)
+    retry(3)
+  end
+end
+
+# GOOD: Named constants with clear intent
+@retry_delay_ms 1000
+@max_retry_attempts 3
+
+def fetch_data do
+  with {:error, _} <- attempt() do
+    Process.sleep(@retry_delay_ms)
+    retry(@max_retry_attempts)
+  end
+end
 ```

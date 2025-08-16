@@ -22,12 +22,14 @@ defmodule ZenCex.DataCase do
   """
   def errors_on(changeset) do
     Enum.reduce(changeset.errors, %{}, fn {field, {message, opts}}, acc ->
-      full_message =
-        Enum.reduce(opts, message, fn {key, value}, acc ->
-          String.replace(acc, "%{#{key}}", fn _ -> to_string(value) end)
-        end)
-
+      full_message = build_error_message(message, opts)
       Map.update(acc, field, [full_message], &[full_message | &1])
+    end)
+  end
+
+  defp build_error_message(message, opts) do
+    Enum.reduce(opts, message, fn {key, value}, acc ->
+      String.replace(acc, "%{#{key}}", fn _ -> to_string(value) end)
     end)
   end
 end

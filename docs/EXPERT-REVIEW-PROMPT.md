@@ -8,15 +8,55 @@ You are a senior Elixir developer with:
 - Production experience with fault-tolerant financial systems
 - Deep understanding of REST API patterns, rate limiting, and authentication
 
+## Development Philosophy
+
+### Simplicity Guidelines
+- Code simplicity is a primary feature, not an afterthought
+- Start simple and add complexity only when proven necessary
+- **Target ~5-10 public functions per module** - Keep interfaces minimal
+- **Function length guidelines**:
+  - Pure business logic: aim for ~15 lines
+  - GenServer callbacks: up to ~30 lines is acceptable
+  - Complex pattern matching: up to ~25 lines
+  - **Always prioritize readability** over arbitrary limits
+- **Keep function call chains shallow** - 2-3 levels max
+- **Use behaviors only when ≥2 implementations exist**
+- **No custom error wrapping** - Pass raw errors through
+- **Create abstractions only with proven need** - Need 3+ use cases
+
+### Anti-Patterns to Avoid
+- No premature optimization without performance data
+- No "just-in-case" code for hypothetical requirements
+- No abstractions without at least 3 concrete usage examples
+- No complex macros unless absolutely necessary
+- No overly clever solutions prioritizing elegance over clarity
+- Don't split cohesive logic just to meet line counts
+- Avoid deep nesting and complex conditionals
+
+### Pragmatic Simplicity
+We want pragmatic simplicity, not naive simplicity. This means choosing solutions that are simple but robust, maintainable but not overengineered, and practical for real-world use cases rather than theoretically perfect.
+
 ## Review Request
 
 We're building ZenCex, a REST-only library for cryptocurrency exchange trading operations. We'd appreciate your expert review of our architecture and implementation approach.
 
 ## Documentation to Review
 
-Please review: **docs/AI-IMPLEMENTATION.md**
+Please review the following two documents that work together:
 
-This document serves as the single source of truth for our AI-assisted development process. It contains our architecture decisions, implementation patterns, and progress tracking.
+1. **docs/AI-IMPLEMENTATION.md** - Task guide for AI Coders (201 lines)
+2. **docs/AI-REVIEW.md** - Review checklist for AI Reviewers (700+ lines)
+
+These documents implement an AI-to-AI workflow where:
+- AI Coders implement tasks using the streamlined AI-IMPLEMENTATION.md
+- AI Reviewers validate implementations using the comprehensive AI-REVIEW.md
+- Humans supervise the overall process
+
+To see the recent restructuring, you can run:
+```bash
+git diff docs/AI-IMPLEMENTATION.md
+git diff docs/AI-REVIEW.md  # (new file)
+```
 
 ## Context
 
@@ -24,6 +64,7 @@ This document serves as the single source of truth for our AI-assisted developme
 - A REST-only trading operations library for cryptocurrency exchanges
 - Focused on order management, position tracking, and account operations
 - Built for reliability over speed (not HFT)
+- Market Making where elixir is used to implement strategies
 - Leverages Req's built-in capabilities instead of custom OTP supervision
 
 ### What ZenCex Is NOT
@@ -40,41 +81,36 @@ This document serves as the single source of truth for our AI-assisted developme
 
 ## Review Guidelines
 
-Please provide an unbiased, comprehensive review covering:
+Please provide an unbiased, comprehensive review of both documents covering:
 
-1. **Overall Architecture**
-   - What works well?
-   - What concerns you?
-   - What's missing?
+1. **Documentation Structure**
+   - Is the split between implementation and review effective?
+   - Are the documents appropriately sized for their purposes?
+   - Is the AI-to-AI workflow clear and practical?
 
-2. **Technical Decisions**
-   - Are our choices sound?
-   - What would you do differently?
-   - Any red flags?
+2. **Technical Content**
+   - Are the safety patterns comprehensive?
+   - Are the requirements clear and testable?
+   - Are there any critical gaps?
 
-3. **Production Readiness**
-   - Will this handle real-world trading?
-   - What will break under load?
-   - Security concerns?
+3. **Usability**
+   - Can an AI Coder effectively implement tasks with AI-IMPLEMENTATION.md?
+   - Can an AI Reviewer effectively validate with AI-REVIEW.md?
+   - Is the workflow sustainable?
 
-4. **Code Quality & Patterns**
-   - Are the patterns appropriate?
-   - Maintainability issues?
-   - Testing approach?
-
-5. **Documentation**
-   - Is it sufficient for AI-assisted development?
-   - Too much or too little detail?
-   - Clear or confusing?
+4. **Production Readiness**
+   - Do the patterns address real-world trading issues?
+   - Are the safety mechanisms sufficient?
+   - What could go wrong?
 
 ## Specific Considerations
 
 While we want your independent assessment, please also consider:
 
+- The documents are designed for AI agents, not human developers
+- The one-task-per-session rule is intentional for quality control
+- The REST-only scope is a deliberate architectural decision
 - We're using Req instead of building OTP supervision trees
-- The document is optimized for AI coders (one task per session)
-- We explicitly exclude market data and WebSocket
-- Future WebSocket support should remain possible as a separate module
 
 ## Prerequisites
 
@@ -89,14 +125,18 @@ Please structure your review however you feel is most helpful. We value:
 - Honest, direct feedback
 - Specific examples of issues
 - Actionable recommendations
-- Priority ordering of concerns
+- Assessment of whether this approach will work in practice
 
 ## Important Note
 
-Please DO NOT read the actual codebase - focus only on the AI-IMPLEMENTATION.md document. We want your assessment of the approach and patterns, not the current implementation state.
+These documents are designed specifically for AI-assisted development. The workflow assumes AI agents will be doing the implementation and review, with human oversight. Please evaluate them in this context.
 
 ---
 
-We're looking for critical, unfiltered feedback. Don't hold back - we need to know what will fail in production before it does.
+We're looking for critical, unfiltered feedback. Don't hold back - we need to know if this approach will work before deploying it.
 
-Thank you for your expertise.
+
+DO NOT READ THE CODEBASE
+
+
+REMEMBER WE ARE STILL PLANNING, WE CAN NOT PLAN EVERYTHING to 100%. We need a place to start, and we need to be able to code and iterate quickly.

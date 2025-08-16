@@ -11,19 +11,17 @@ defmodule ZenCex.Application do
     # ZenCex.Telemetry.attach_handlers()
 
     children = [
-      # HTTP client for API requests
+      # HTTP client for API requests - Req's connection pooling backend
       {Finch, name: ZenCex.Finch},
 
-      # Core supervisor for managing adapters and shared resources
-      ZenCex.Core.Supervisor
+      # Order safety for idempotency checks (manages ETS table lifecycle)
+      ZenCex.Safety.OrderSafety
 
-      # NOTE: Old Exchange modules disabled - rewriting with plugin architecture
-      # See docs/cex-implementation-tasks.md for new architecture plan
-
-      # Disabled during rewrite:
-      # - ZenCex.RateLimit (will become per-adapter rate limiters)
-      # - ZenCex.Health.Monitor (will become Core.Health)  
-      # - ZenCex.Health.Startup (will become Core.Health)
+      # NOTE: Following Req-centric architecture:
+      # - No Core.Supervisor needed (Req handles connection lifecycle)
+      # - Rate limiting via ETS tables with atomic operations (no GenServer)
+      # - Auth as stateless Req middleware steps (except Deribit OAuth)
+      # - TODO: Add Deribit.Auth GenServer when OAuth is implemented
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

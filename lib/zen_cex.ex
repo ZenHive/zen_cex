@@ -28,6 +28,6 @@ defmodule ZenCex do
 
   # Main entry points - actual implementations are in submodules
   # Use ZenCex.HTTP.base_request/2 for HTTP requests
-  # Use ZenCex.RateLimit.check_and_update/3 for rate limiting  
+  # Use ZenCex.RateLimit.check_and_update/3 for rate limiting
   # Use ZenCex.Health.check_exchange_sync/2 for health checks
 end

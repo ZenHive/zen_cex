@@ -4,7 +4,7 @@ defmodule ZenCex.Core.Registry do
   """
 
   @adapters %{
-    binance: ZenCex.Adapters.Binance.Adapter,
+    # binance: ZenCex.Adapters.Binance.Adapter,  # TODO: Implement Binance adapter
     kraken: ZenCex.Adapters.Kraken.Adapter,
     deribit: ZenCex.Adapters.Deribit.Adapter
   }
