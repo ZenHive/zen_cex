@@ -7,10 +7,10 @@
 
 ### Your Current Status
 - **Architecture**: Req-powered adapters with built-in pooling, retry, telemetry
-- **Progress**: 23% complete (7/37 tasks done)
+- **Progress**: 8% complete (2/25 tasks done)
 - **Next Task**: Remove redundant OTP - Req handles pooling, retry, telemetry
-- **Priority**: Production hardening with idempotency, prioritization, multi-account
-- **Focus**: Production-ready patterns for trading operations where elixir excels.
+- **Priority**: Production hardening with idempotency, clock sync, dynamic rate limits
+- **Focus**: Production-ready REST-only patterns for reliable trading operations.
 
 ### Navigation
 1. Check "Current Task" section
@@ -33,22 +33,23 @@
 
 ## Essential Patterns
 
-### Pattern 1: Req Request Step with Error Handling (Auth)
+### Pattern 1: Req Request Step with Error Context (Auth)
 ```elixir
-# MUST return {request, options} tuple with proper error handling
-def sign_request({request, options}) do
-  with {:ok, api_key} <- fetch_credentials(:api_key),
-       {:ok, secret} <- fetch_credentials(:api_secret),
-       {:ok, signed_params} <- sign_params(request.options[:params], secret) do
-    request = request
-    |> Req.Request.put_header("x-mbx-apikey", api_key)
-    |> Req.Request.merge_options(params: signed_params)
-
-    {request, options}  # CRITICAL: Return tuple
+# MUST return {request, options} tuple with proper error context
+def sign_request({request, options} = req_tuple) do
+  with {:ok, credentials} <- get_credentials(request),
+       {:ok, signed_request} <- apply_signature(request, credentials) do
+    {signed_request, options}
   else
-    {:error, reason} ->
-      # Halt with proper error
-      {Req.Request.halt(request), Keyword.put(options, :error, reason)}
+    {:error, :missing_credentials} = error ->
+      # Provide context for debugging
+      error_request = Req.Request.halt(request, error)
+      {error_request, Keyword.put(options, :error_context, :auth_failed)}
+    
+    {:error, reason} = error ->
+      # Tag other errors appropriately
+      error_request = Req.Request.halt(request, error)
+      {error_request, Keyword.put(options, :error_type, :signature_failed)}
   end
 end
 ```
@@ -194,51 +195,64 @@ def handle_telemetry_event([:req, :request, :stop], measurements, metadata, _con
 end
 ```
 
-### Pattern 8: Req Configuration per Exchange
+### Pattern 8: Optimized Req Configuration per Exchange
 ```elixir
 def create_req_client(exchange) do
   config = get_exchange_config(exchange)
 
   Req.new(
     base_url: config.base_url,
-    # Exchange-specific retry strategy
-    retry: [
-      delay: fn attempt -> :timer.seconds(attempt) end,
-      max_attempts: 3,
-      should_retry: fn
-        {:ok, %{status: 429}} -> {:delay, :timer.seconds(60)}
-        {:ok, %{status: 503}} -> true
-        {:error, %Mint.TransportError{}} -> true
-        _ -> false
-      end
-    ],
-    # Automatic decompression
+    # Use Req's built-in retry with jitter
+    retry: :safe_transient,  # Handles 429, 5xx, timeouts automatically
+    retry_delay: &exponential_backoff_with_jitter/1,
+    max_retries: get_max_retries(exchange),
+    # Native caching for market data
+    cache: true,
+    cache_dir: System.tmp_dir!() <> "/zen_cex_#{exchange}",
+    # Automatic compression and decompression
+    compress_body: true,
     decode_body: true,
     # Backpressure control
     pool_timeout: 5_000,
     receive_timeout: 30_000,
-    # Body size limits for memory protection
+    # Body size limits
     max_body: 10_485_760  # 10MB limit
   )
   |> attach_middleware(exchange)
   |> attach_telemetry()
+  |> Req.Request.prepend_error_steps(
+    circuit_recovery: &handle_circuit_recovery/1
+  )
+end
+
+defp exponential_backoff_with_jitter(attempt) do
+  base = :timer.seconds(attempt)
+  jitter = :rand.uniform(1000)
+  base + jitter
 end
 ```
 
-### Pattern 9: Stream Processing for Large Responses
+### Pattern 9: Dynamic Rate Limit Adjustment
 ```elixir
-# For endpoints that return large datasets
-def stream_request(url, opts) do
-  Stream.resource(
-    fn -> init_pagination(url, opts) end,
-    fn state ->
-      case fetch_page(state) do
-        {:ok, data, next_state} -> {[data], next_state}
-        :done -> {:halt, state}
-      end
-    end,
-    fn state -> cleanup(state) end
-  )
+# Update rate limits from response headers
+def update_rate_limits_from_response(exchange, response) do
+  case exchange do
+    :binance ->
+      used = Req.Response.get_header(response, "x-mbx-used-weight-1m")
+      limit = Req.Response.get_header(response, "x-mbx-used-weight-limit-1m")
+      :ets.insert(:binance_rate_limits, {:current_usage, String.to_integer(used)})
+      :ets.insert(:binance_rate_limits, {:current_limit, String.to_integer(limit || "1200")})
+    
+    :kraken ->
+      # Kraken tier can change dynamically
+      counter = Req.Response.get_header(response, "api-rate-limit-counter")
+      tier = detect_kraken_tier(counter)
+      :ets.insert(:kraken_rate_limits, {:tier, tier})
+    
+    :deribit ->
+      remaining = Req.Response.get_header(response, "x-ratelimit-remaining")
+      :ets.insert(:deribit_rate_limits, {:remaining, String.to_integer(remaining || "10")})
+  end
 end
 ```
 
@@ -400,65 +414,61 @@ defmodule HealthMonitor do
 end
 ```
 
-### Pattern 15: Advanced Req Configuration with Caching
+### Pattern 15: Proactive NTP Clock Synchronization
 ```elixir
-# Leverage Req's built-in caching for market data
-def create_req_client(exchange) do
-  config = get_exchange_config(exchange)
+# Proactive NTP sync prevents auth failures
+defmodule ClockSync do
+  @ntp_servers ~w(time.google.com time.cloudflare.com pool.ntp.org)
+  @sync_interval :timer.minutes(5)
 
-  Req.new(
-    base_url: config.base_url,
-    # Built-in caching for GET requests
-    cache: true,
-    cache_dir: "/tmp/zen_cex_#{exchange}",
-    cache_keys: &cache_key_generator/1,
+  def ensure_time_sync(exchange) do
+    case :ets.lookup(:clock_sync, {exchange, :last_sync}) do
+      [{_, last_sync}] when System.os_time(:second) - last_sync < @sync_interval ->
+        :ok  # Recent sync, use cached offset
+      
+      _ ->
+        # Proactively sync with NTP first, fallback to exchange
+        sync_with_ntp() || sync_with_exchange(exchange)
+    end
+  end
 
-    # Advanced retry with jitter
-    retry: [
-      delay: fn attempt ->
-        base = :timer.seconds(attempt)
-        jitter = :rand.uniform(1000)
-        base + jitter
-      end,
-      max_attempts: 3,
-      should_retry: fn
-        {:ok, %{status: 429}} -> {:delay, :timer.seconds(60)}
-        {:ok, %{status: 503}} -> true
-        {:error, %Mint.TransportError{}} -> true
-        _ -> false
+  defp sync_with_ntp do
+    # Try multiple NTP servers for resilience
+    Enum.find_value(@ntp_servers, fn server ->
+      case get_ntp_time(server) do
+        {:ok, ntp_time} ->
+          offset = ntp_time - System.os_time(:millisecond)
+          store_offset(:global, offset)
+          {:ok, offset}
+        _ -> nil
       end
-    ],
+    end)
+  end
 
-    # Compression
-    compress_body: true,  # For large POST bodies
-    decode_body: true,
+  defp sync_with_exchange(exchange) do
+    case get_server_time(exchange) do
+      {:ok, server_time} ->
+        local_time = System.os_time(:millisecond)
+        offset = server_time - local_time
+        
+        if abs(offset) > 1000 do
+          Logger.warning("Clock skew detected for #{exchange}: #{offset}ms")
+        end
+        
+        store_offset(exchange, offset)
+        {:ok, offset}
+      
+      {:error, reason} ->
+        use_cached_offset(exchange, reason)
+    end
+  end
 
-    # Custom error normalization
-    decode_body: fn
-      {:ok, %{status: status} = resp} when status in 400..599 ->
-        normalize_exchange_error(resp)
-      other ->
-        other
-    end,
-
-    # Backpressure control
-    pool_timeout: 5_000,
-    receive_timeout: 30_000,
-    max_body: 10_485_760  # 10MB limit
-  )
-  |> attach_middleware(exchange)
-  |> attach_telemetry()
-end
-
-defp cache_key_generator(request) do
-  # Cache market data for 1 second, account data not cached
-  case request.url.path do
-    "/api/v3/ticker" <> _ ->
-      {request.url, request.options[:params], div(System.os_time(:second), 1)}
-    "/api/v3/depth" <> _ ->
-      {request.url, request.options[:params], div(System.os_time(:second), 1)}
-    _ ->
-      nil  # Don't cache
+  # Apply offset when signing requests
+  def apply_time_offset(timestamp, exchange) do
+    case :ets.lookup(:clock_sync, {exchange, :offset}) do
+      [{_, offset}] -> timestamp + offset
+      [] -> timestamp
+    end
   end
 end
 ```
@@ -467,11 +477,11 @@ end
 
 | Exchange | Auth Method | Critical Requirement | Common Error | Production Gotcha |
 |----------|------------|---------------------|-------------|-------------------|
-| Binance | HMAC-SHA256 | Signature LAST in params | Wrong param order | IP weight != UID weight; User data streams expire after 30m (not 60m) |
-| Kraken | Nonce | Microsecond + counter | Using only microseconds | Ledger exports async; Edit orders = cancel+new for limits |
-| Deribit | OAuth2 | Refresh 120s before expiry | Token expiration | Options assignment at 08:00 UTC causes 1min downtime |
-| Bybit | HMAC-SHA256 | timestamp within 5s | Clock skew | Different endpoints for spot/derivatives |
-| OKX | HMAC-SHA256 | passphrase required | Missing passphrase | Simulated trading affects rate limits |
+| Binance | HMAC-SHA256 | Signature LAST in params | Wrong param order | IP weight != UID weight; User data streams expire after 30m (not 60m); Dynamic rate limits in headers |
+| Kraken | Nonce + HMAC | Microsecond + counter; Base64 secret | Using only microseconds | Ledger exports async; Edit orders = cancel+new; Some endpoints return CSV; All private use POST |
+| Deribit | OAuth2 | Refresh 120s before expiry | Token expiration | Options assignment at 08:00 UTC causes 1min downtime; JSON-RPC even for REST |
+| Bybit | HMAC-SHA256 | timestamp within 5s; Different base URLs | Clock skew | api.bybit.com (spot) vs api-testnet.bybit.com (derivatives) |
+| OKX | HMAC + Passphrase | passphrase required in headers | Missing passphrase | Simulated trading affects rate limits; Requires OK-ACCESS-PASSPHRASE header |
 
 ### Critical Exchange Quirks
 
@@ -504,60 +514,47 @@ end
 - JSON-RPC style API even for REST endpoints
 - Single-flight protection critical for OAuth token refresh
 
-### Active Clock Synchronization Pattern
+### Exchange-Specific Authentication Patterns
 ```elixir
-# Proactively sync before auth requests
-defmodule ClockSync do
-  def ensure_time_sync(exchange) do
-    # Check if we need to refresh sync (every 5 minutes)
-    case :ets.lookup(:clock_sync, {exchange, :last_sync}) do
-      [{_, last_sync}] when System.os_time(:second) - last_sync < 300 ->
-        :ok  # Recent sync, use cached offset
-
-      _ ->
-        # Actively sync now
-        sync_with_exchange(exchange)
-    end
-  end
-
-  defp sync_with_exchange(exchange) do
-    case get_server_time(exchange) do
-      {:ok, server_time} ->
-        local_time = System.os_time(:millisecond)
-        offset = server_time - local_time
-
-        # Store offset and last sync time
-        :ets.insert(:clock_sync, [
-          {{exchange, :offset}, offset},
-          {{exchange, :last_sync}, System.os_time(:second)}
-        ])
-
-        if abs(offset) > 1000 do
-          Logger.warning("Clock skew detected for #{exchange}: #{offset}ms")
-        end
-
-        {:ok, offset}
-
-      {:error, reason} ->
-        # Use last known offset or fail if none
-        case :ets.lookup(:clock_sync, {exchange, :offset}) do
-          [{_, saved_offset}] ->
-            Logger.warning("Using cached offset for #{exchange} due to: #{inspect(reason)}")
-            {:ok, saved_offset}
-          [] ->
-            {:error, :clock_sync_required}
-        end
-    end
-  end
-
-  # Apply offset when signing requests
-  def apply_time_offset(timestamp, exchange) do
-    case :ets.lookup(:clock_sync, {exchange, :offset}) do
-      [{_, offset}] -> timestamp + offset
-      [] -> timestamp
-    end
+# OKX requires passphrase beyond standard HMAC
+def sign_okx_request({request, options}) do
+  with {:ok, api_key} <- fetch_credentials(:okx_api_key),
+       {:ok, secret} <- fetch_credentials(:okx_api_secret),
+       {:ok, passphrase} <- fetch_credentials(:okx_passphrase) do
+    
+    timestamp = System.os_time(:second) |> to_string()
+    method = to_string(request.method) |> String.upcase()
+    path = request.url.path <> format_query_string(request.options[:params])
+    body = request.body || ""
+    
+    # OKX signature: timestamp + method + path + body
+    prehash = timestamp <> method <> path <> body
+    signature = :crypto.mac(:hmac, :sha256, secret, prehash) |> Base.encode64()
+    
+    request = request
+    |> Req.Request.put_header("ok-access-key", api_key)
+    |> Req.Request.put_header("ok-access-sign", signature)
+    |> Req.Request.put_header("ok-access-timestamp", timestamp)
+    |> Req.Request.put_header("ok-access-passphrase", passphrase)  # CRITICAL
+    
+    {request, options}
+  else
+    error -> {Req.Request.halt(request, error), options}
   end
 end
+
+# Kraken requires careful secret handling
+def normalize_kraken_secret(secret) do
+  case Base.decode64(secret) do
+    {:ok, decoded} -> decoded  # Already base64, use decoded bytes
+    :error -> secret  # Raw bytes, use as-is
+  end
+end
+
+# Bybit requires different base URLs
+def get_bybit_base_url(:spot), do: "https://api.bybit.com"
+def get_bybit_base_url(:derivatives), do: "https://api-testnet.bybit.com"
+def get_bybit_base_url(:options), do: "https://api.bybit.com"  # Same as spot
 ```
 
 ### Finch Pool Configuration
@@ -606,56 +603,50 @@ defp pool_config do
 end
 ```
 
-## Task Implementation Sequence
+## Task Implementation Sequence (Simplified: 25 Tasks)
 
-### Phase 1: Core Foundation & Production Hardening
+### Phase 1: Core Foundation (5 tasks)
 ```bash
-# Immediate priorities for production readiness
-[✅] Task 1: Core.Registry
-[🔄] Task 2: Simplify architecture (remove Core.Supervisor)  # <- CURRENT
-[ ] Task 3: Add telemetry integration (CRITICAL for observability)
-[ ] Task 4: Active clock synchronization (prevents auth failures)
-[ ] Task 5: Idempotency for order placement (prevents duplicate orders)
-[ ] Task 6: Request prioritization system (risk management first)
-[ ] Task 7: Request coalescing with GenServer (prevent API abuse)
-[ ] Task 8: Multi-account API key rotation (distribute load)
-[ ] Task 9: Per-endpoint health monitoring (granular visibility)
+[✅] Task 1: Core.Registry - Adapter registration and validation
+[🔄] Task 2: Remove Core.Supervisor - Use Req's built-in features  # <- CURRENT
+[ ] Task 3: Req-native telemetry integration
+[ ] Task 4: Proactive NTP clock sync with caching
+[ ] Task 5: Idempotency with conflict resolution
 ```
 
-### Phase 2: Binance Implementation with New Patterns
+### Phase 2: Binance Implementation (5 tasks)
 ```bash
-[ ] Task 10: Core.HTTP with Req steps, caching, and backpressure
-[ ] Task 11: Binance.Auth with proactive clock sync
-[ ] Task 12: Binance.RateLimiter with priority tiers
-[ ] Task 13: Binance.Parser with graceful degradation
-[ ] Task 14: Integration tests with golden file captures
-[ ] Task 15: Performance validation under load
+[ ] Task 6: Core.HTTP with proper Req patterns
+[ ] Task 7: Binance.Auth with clock sync
+[ ] Task 8: Binance.RateLimiter with dynamic header updates
+[ ] Task 9: Integration tests with fixture capture
+[ ] Task 10: Load testing validation
 ```
 
-### Phase 3: Additional Exchanges
+### Phase 3: Additional Exchanges (10 tasks)
 ```bash
-[ ] Task 16-18: Kraken adapter (nonce, async ledgers, decimal precision)
-[ ] Task 19-21: Deribit adapter (OAuth, portfolio margin, options)
-[ ] Task 22: Req.Test framework with captured responses
+# Kraken (5 tasks)
+[ ] Task 11: Kraken.Auth with nonce management
+[ ] Task 12: Kraken.RateLimiter with tier detection
+[ ] Task 13: Kraken.Parser for CSV and JSON
+[ ] Task 14: Kraken decimal precision handling
+[ ] Task 15: Kraken integration tests
+
+# Deribit (5 tasks)
+[ ] Task 16: Deribit.Auth GenServer with OAuth
+[ ] Task 17: Deribit.RateLimiter for matching engine
+[ ] Task 18: Deribit JSON-RPC adapter
+[ ] Task 19: Portfolio margin calculations
+[ ] Task 20: Deribit integration tests
 ```
 
-### Phase 4: Production Operations
+### Phase 4: Production Hardening (5 tasks)
 ```bash
-[ ] Task 23: Circuit breaker with exchange-specific thresholds
-[ ] Task 24: Multi-tier rate limiting (second/minute/hour windows)
-[ ] Task 25: Memory protection and backpressure tuning
-[ ] Task 26: Load testing with 10K concurrent requests
-[ ] Task 27: Error recovery with exponential backoff + jitter
-[ ] Task 28: Graceful degradation with stale data fallback
-[ ] Task 29: Connection pool dynamic adjustment
-[ ] Task 30: Comprehensive troubleshooting guide
-[ ] Task 31: Performance benchmarks documentation
-[ ] Task 32: Production deployment patterns
-[ ] Task 33: Monitoring and alerting setup
-[ ] Task 34: Order lifecycle management patterns
-[ ] Task 35: Partial fill reconciliation
-[ ] Task 36: Production incident runbooks
-[ ] Task 37: Security audit and credential rotation
+[ ] Task 21: Circuit breaker with Req error steps
+[ ] Task 22: Request coalescing GenServer
+[ ] Task 23: Health monitoring and alerting
+[ ] Task 24: Security audit and credential rotation
+[ ] Task 25: Production runbooks and troubleshooting
 ```
 
 ## Common AI Coder Mistakes
@@ -722,18 +713,18 @@ end
 
 ### Mistake 13: Static Rate Limit Assumptions
 **Wrong**: Hardcoding rate limits from documentation
-**Right**: Read actual limits from response headers
-**Why**: Exchanges dynamically adjust limits based on tier/load
+**Right**: Read actual limits from response headers dynamically
+**Why**: Exchanges adjust limits based on tier/load/time
 
-### Mistake 14: No Graceful Degradation
-**Wrong**: Failing requests when rate limited
-**Right**: Serve stale cached data with warning
-**Why**: Better to show slightly old data than error
+### Mistake 14: Ignoring Req's Built-in Features
+**Wrong**: Implementing custom retry, caching, compression
+**Right**: Use `retry: :safe_transient`, `cache: true`, `compress_body: true`
+**Why**: Req already handles these optimally
 
-### Mistake 15: Single API Key Usage
-**Wrong**: Using one API key for all operations
-**Right**: Rotate multiple keys for load distribution
-**Why**: Spreads rate limits and prevents single point of failure
+### Mistake 15: Missing Exchange-Specific Requirements
+**Wrong**: Assuming all exchanges use same auth pattern
+**Right**: Handle OKX passphrase, Bybit URL split, Kraken POST-only
+**Why**: Each exchange has unique quirks that break auth
 
 ## Troubleshooting Guide
 
@@ -919,22 +910,20 @@ mix credo --strict               # Code quality
 mix test --cover                 # >80% coverage
 ```
 
-### Memory & Performance Targets (Updated)
-- Rate limiter: <0.1ms per check (100 microseconds)
+### Memory & Performance Targets (REST-Optimized)
+- Rate limiter: <1ms per check (sufficient for REST)
 - 10,000 concurrent requests: <100ms total orchestration
 - Memory growth: <1MB under sustained load
 - ETS cleanup: Every 60 seconds for sliding windows
-- Circuit breaker: <0.01ms decision time (10 microseconds)
+- Circuit breaker: <0.1ms decision time
 - Health check: Max 5 second timeout with exponential backoff
-- Connection pool: Dynamic 20-50 per exchange based on latency
-- Request coalescing: 99% duplicate elimination
-- Body size limit: 10MB default, streaming for larger
+- Connection pool: 20-50 per exchange (Finch-managed)
+- Request coalescing: 95% duplicate elimination (good enough)
+- Body size limit: 10MB default
 - Telemetry overhead: <1% of request time
-- Clock sync: Proactive before auth requests + every 5 min check
+- Clock sync: Proactive NTP + exchange sync every 5 min
 - OAuth refresh: 120 seconds before expiry
 - Idempotency window: 5 minutes for order operations
-- Priority queue overhead: <0.05ms per request
-- Multi-account rotation: <0.01ms selection time
 
 ## Architecture: Leveraging Req's Built-in Capabilities
 
@@ -951,13 +940,13 @@ mix test --cover                 # >80% coverage
 
 ### What Req Handles For Us
 - **Connection pooling** - Finch integration with HTTP/2 support
-- **Retry logic** - Configurable per exchange with exponential backoff
-- **Decompression** - Automatic gzip/deflate/br handling
-- **Telemetry** - Built-in events for request lifecycle
+- **Retry logic** - `:safe_transient` handles 429, 5xx, timeouts automatically
+- **Compression** - Automatic gzip/deflate/br with `compress_body: true`
+- **Caching** - Native caching with `cache: true` and custom keys
+- **Telemetry** - Built-in `[:req, :request, :*]` events
 - **Backpressure** - Pool and receive timeouts prevent overload
-- **Body streaming** - For large responses without loading into memory
-- **Request pipelining** - Middleware steps for auth, rate limit, circuit breaker
-- **Error handling** - Automatic retry with custom should_retry logic
+- **Error steps** - `prepend_error_steps/2` for circuit breaker recovery
+- **Response parsing** - Automatic JSON with `decode_body: true`
 
 ### Application Supervisor
 ```elixir

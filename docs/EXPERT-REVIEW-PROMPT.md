@@ -82,6 +82,18 @@ Are these realistic? What benchmarks would you recommend?
 
 7. **Req vs OTP Trade-offs**: By relying on Req's features instead of OTP supervision, what failure modes might we miss? Does Req's retry and pooling sufficiently replace supervision trees for HTTP operations?
 
+8. **Removing HFT/WebSocket Content**: Since we've decided NO HFT and NO WebSocket, what sections in AI-IMPLEMENTATION.md should be removed or modified? Please identify:
+   - Patterns that are only relevant for HFT (microsecond optimizations, etc.)
+   - Any WebSocket-related content that should be deleted
+   - Performance targets that are unnecessarily aggressive for REST-only trading
+   - Complexity that only makes sense for HFT scenarios
+
+9. **Future WebSocket Addition**: Given that WebSocket support might be added later as a separate module (for market data streaming):
+   - Does our current REST-only architecture allow clean addition of WebSocket later?
+   - Do we need to prepare anything now to avoid future refactoring?
+   - Can WebSocket be completely independent when we add it later?
+   - Should we avoid any patterns that would make WebSocket addition difficult?
+
 ## Expected Output
 
 Please provide:
@@ -111,6 +123,17 @@ Please provide:
 - Missing patterns we should add
 - Production-ready enhancements
 
+### 6. Simplification Recommendations (REST-only focus)
+- Which patterns/tasks can be removed since we're not doing HFT?
+- Which performance targets can be relaxed for regular trading?
+- Suggested simplified task list focusing on REST reliability
+
+### 7. Future Extensibility Assessment
+- Confirm our REST architecture won't block future WebSocket addition
+- Any architectural decisions to avoid that would complicate WebSocket later
+- Confirmation that WebSocket can be a completely separate module when needed
+- No preparatory work needed now for future WebSocket support
+
 ## Context
 This library is being built for:
 - Production cryptocurrency trading systems (REST API only)
@@ -121,11 +144,16 @@ This library is being built for:
 
 **IMPORTANT - This library is explicitly NOT for:**
 - **NO High-Frequency Trading (HFT)** - We do NOT want HFT capabilities
-- **NO WebSocket implementation** - REST APIs only, no streaming data
+- **NO WebSocket implementation** - REST APIs only, no streaming data (current scope)
 - **NO Low-latency trading** - Focus on reliability over speed
 - **NO High-volume/microsecond trading** - Regular trading operations only
 
 We are building a reliable REST-only library for position management and trading operations. We want to leverage where Elixir shines for Crypto Trading with fault-tolerance and concurrent REST API operations.
+
+**Future Enhancement Consideration:**
+- WebSocket support may be added in the future as a separate module (e.g., for market data streaming)
+- The current REST-only architecture should not block future WebSocket additions
+- We don't need to implement any WebSocket preparation now - it can be completely separate when needed
 
 The documentation is optimized for AI-assisted development, hence the directive style and minimal examples. We've pivoted to a Req-centric REST-only architecture that leverages its built-in connection pooling (Finch), retry logic, middleware pipeline, and telemetry instead of reimplementing these with OTP. No WebSocket support is planned or desired.
 
@@ -136,6 +164,7 @@ Please focus on:
 3. **Exchange quirks** - What CEX-specific REST API issues will bite us?
 4. **Documentation completeness** - Is 342 lines the right balance for AI coders?
 5. **REST-only design** - Are we missing any critical REST API patterns (no WebSocket needed)?
+6. **Future extensibility** - Confirm REST design won't block future WebSocket module addition
 
 ## Start Your Review
 Begin by:
