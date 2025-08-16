@@ -13,25 +13,25 @@ Please review the ZenCex library documentation and provide expert feedback on ou
 
 ## Document to Review
 
-**docs/AI-IMPLEMENTATION.md** - Our streamlined implementation guide (242 lines)
+**docs/AI-IMPLEMENTATION.md** - Our streamlined implementation guide (342 lines)
 - This single document combines all architecture, implementation, progress, and review criteria
 - Previously 2,346 lines across 4 files, now optimized for clarity
 - Contains essential patterns, current status, and validation criteria
 
 Please analyze this document for:
-- **Architecture Assessment**: Is the plugin architecture with Req middleware sound?
-- **Implementation Patterns**: Are the 5 essential patterns correct and complete?
-- **Progress Evaluation**: At 21.2% complete, are we on the right track?
-- **Review Criteria**: Do our validation checklists cover critical aspects?
+- **Architecture Assessment**: Is leveraging Req's built-in features instead of OTP supervision correct?
+- **Implementation Patterns**: Are the 4 essential patterns utilizing Req properly?
+- **Progress Evaluation**: At 29% complete (7/24 tasks), are we on the right track?
+- **Review Criteria**: Is removing Core.Supervisor justified given Req's capabilities?
 
 ## Specific Areas for Expert Input
 
-### 1. Req Library Usage
+### 1. Req Library Usage & Feature Leverage
 Review our essential patterns in the document:
 - **Pattern 1**: Auth as Req request step - Is returning `{request, options}` tuple correct?
 - **Pattern 2**: Rate limiter as middleware - Should we halt the pipeline this way?
-- **Pattern 3**: ETS atomic operations - Is this better than GenServer state?
-- **Pattern 5**: Req.Test for unit testing - Should we use this for deterministic tests?
+- **Pattern 3**: ETS tables without GenServer - Does Req's pipeline make this viable?
+- **Pattern 4**: Req.Test for unit testing - Should we use this for deterministic tests?
 
 Are we missing critical Req features like:
 - Request/response steps for telemetry?
@@ -52,23 +52,32 @@ Questions:
 - What other exchange-specific gotchas should we document?
 - Is our approach to handle these requirements optimal?
 
-### 3. Plugin Architecture
-Based on the task sequence (Day 1-5):
-- Is our Core modules approach (thin coordination layer) correct?
-- Should behaviors be more or less prescriptive?
-- Are we missing critical production features?
-- How would you structure the 33 tasks differently?
+### 3. Req-Centric Architecture
+Based on leveraging Req's features:
+- Is removing Core.Supervisor justified since Req provides pooling, retry, telemetry?
+- Do rate limiters work better as Req middleware with ETS than as GenServers?
+- Is having only Deribit.Auth as a GenServer correct (stateful OAuth)?
+- Are we properly utilizing Req's built-in capabilities?
 
-### 4. Common AI Coder Mistakes Section
+### 4. Leveraging Req's Built-in Capabilities
+We're removing OTP supervision because Req provides:
+- **Connection pooling** via Finch integration
+- **Retry logic** with exponential backoff
+- **Middleware pipeline** for auth, rate limiting, telemetry
+- **Built-in observability** through telemetry events
+
+Only Deribit.Auth needs GenServer (OAuth state). Is this the right approach?
+
+### 5. Common AI Coder Mistakes Section
 We document 4 common mistakes:
 1. Using Req for WebSocket (wrong - use zen_websocket)
 2. Manual request manipulation instead of Req functions
-3. GenServer state for counters instead of ETS atomic
+3. Creating GenServers when simple modules suffice
 4. Implementing everything at once
 
 Are these the right mistakes to highlight? What others should we add?
 
-### 5. Performance & Scalability
+### 6. Performance & Scalability
 Our targets:
 - Rate limiter: <1ms per check
 - 10,000 concurrent requests: <100ms
@@ -81,15 +90,17 @@ Are these realistic? What benchmarks would you recommend?
 
 1. **One-Task-Per-Session Rule**: We enforce completing one task at a time for AI coders. Is this too restrictive or beneficial for quality?
 
-2. **Documentation Approach**: We reduced 2,346 lines to 242. Did we cut too much essential information?
+2. **Documentation Approach**: We reduced 2,346 lines to 342. Did we cut too much essential information?
 
 3. **Essential Patterns**: Are our 4 HTTP/testing patterns the right ones to highlight, or should we include others?
 
 4. **Req.Test**: Should we prioritize Req.Test stubs over real API testing for unit tests?
 
-5. **Task Prioritization**: Current task is #2 (Core.HTTP refactoring). Should we prioritize differently?
+5. **Task Prioritization**: Current task is #2 (Remove Core.Supervisor to use Req features). Is leveraging Req's capabilities the right priority?
 
 6. **Missing Components**: What critical components are we not considering?
+
+7. **Req vs OTP Trade-offs**: By relying on Req's features instead of OTP supervision, what failure modes might we miss? Does Req's retry and pooling sufficiently replace supervision trees for HTTP operations?
 
 ## Expected Output
 
@@ -126,21 +137,23 @@ This library is being built for:
 - High-frequency operations (10,000+ req/s)
 - Multi-exchange arbitrage and market making
 - Easy extension with new exchanges
+- **NEW**: Maximum simplicity - modules over processes
 
-The documentation is optimized for AI-assisted development, hence the directive style and minimal examples.
+The documentation is optimized for AI-assisted development, hence the directive style and minimal examples. We've pivoted to a Req-centric architecture that leverages its built-in connection pooling (Finch), retry logic, middleware pipeline, and telemetry instead of reimplementing these with OTP.
 
 ## Review Focus
 Please focus on:
 1. **Production readiness** - Will this architecture handle real trading volumes?
 2. **Req optimization** - Are we using Req's full potential?
 3. **Exchange quirks** - What CEX-specific issues will bite us?
-4. **Documentation completeness** - Is 242 lines enough for AI coders?
+4. **Documentation completeness** - Is 342 lines the right balance for AI coders?
 
 ## Start Your Review
 Begin by reading the entire AI-IMPLEMENTATION.md document and provide your initial assessment of our approach, especially:
-- The essential HTTP and testing patterns
-- The one-task-per-session rule
-- The current architecture at 21.2% complete
-- Whether our streamlined approach loses critical information
+- The Req-centric architecture (leveraging built-in pooling, retry, telemetry)
+- Whether removing OTP supervision makes sense given Req's capabilities
+- The essential HTTP and testing patterns using Req features
+- The one-task-per-session rule for AI development
+- Whether we're properly utilizing Req instead of reimplementing its features
 
 Please be direct and critical. We want honest expert feedback to build a world-class CEX integration library that can be efficiently implemented by AI coders.

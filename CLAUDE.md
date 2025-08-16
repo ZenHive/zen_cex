@@ -61,20 +61,20 @@ The test suite is organized into three categories:
 
 ## Architecture
 
-### Plugin Architecture Overview
+### Req-Centric Architecture Overview
 
-The library uses a **plugin architecture** where each exchange is a self-contained adapter:
+The library leverages **Req's built-in capabilities** instead of custom OTP supervision:
 
-- **Core Modules** (`ZenCex.Core.*`): Thin coordination layer
-- **Behaviors** (`ZenCex.Behaviors.*`): Contracts that adapters must implement
-- **Adapters** (`ZenCex.Adapters.{Binance,Kraken,Deribit}.*`): Exchange-specific implementations
+- **Core Modules** (`ZenCex.Core.*`): Thin coordination layer using Req middleware
+- **Behaviors** (`ZenCex.Behaviors.*`): Contracts for Req-based adapters
+- **Adapters** (`ZenCex.Adapters.{Binance,Kraken,Deribit}.*`): Stateless modules (except Deribit OAuth)
 
 ### Core Module Structure
 
-1. **Core.Supervisor** (`lib/zen_cex/core/supervisor.ex`)
-   - Manages adapter lifecycle and supervision
-   - Starts required GenServers for each exchange
-   - Handles dynamic adapter registration
+1. **Application** (`lib/zen_cex/application.ex`)
+   - Initializes ETS tables for rate limiting
+   - Starts Finch for Req's connection pooling
+   - Only supervises Deribit.Auth GenServer (OAuth state)
 
 2. **Core.Registry** (`lib/zen_cex/core/registry.ex`)
    - Compile-time validation of adapters
@@ -82,9 +82,9 @@ The library uses a **plugin architecture** where each exchange is a self-contain
    - Exchange listing and capability queries
 
 3. **Core.HTTP** (`lib/zen_cex/core/http.ex`)
-   - Req middleware pipeline for auth, rate limiting, circuit breaking
-   - Telemetry integration for observability
-   - Request coalescing for duplicate prevention
+   - Configures Req's built-in features: pooling, retry, telemetry
+   - Adds auth and rate limiting as Req request/response steps
+   - Leverages Req's middleware pipeline instead of custom coordination
 
 ### Adapter Components
 
@@ -110,26 +110,27 @@ Each exchange adapter implements these modules:
    - Public market data streams only
    - Exchange-specific frame handling
 
-### Supervision Tree
+### Supervision Tree (Minimal - Leveraging Req)
 
 ```
 ZenCex.Application
-├── Finch (named: ZenCex.Finch)
-├── ZenCex.Core.Supervisor
-    ├── ZenCex.Adapters.Binance.RateLimiter
-    ├── ZenCex.Adapters.Kraken.RateLimiter  
-    ├── ZenCex.Adapters.Deribit.RateLimiter
-    └── ZenCex.Adapters.Deribit.Auth (OAuth GenServer)
+├── Finch (named: ZenCex.Finch)  # Req's connection pooling
+└── ZenCex.Adapters.Deribit.Auth  # Only stateful component (OAuth)
+
+# No supervision needed for:
+# - Rate limiters (ETS tables with atomic ops)
+# - Auth modules (stateless Req steps)
+# - HTTP operations (Req handles retry, telemetry)
 ```
 
-### Key Design Patterns
+### Key Design Patterns (Req-Powered)
 
-1. **Req Middleware Pipeline**: Auth, rate limiting, circuit breaking as Req request/response steps
-2. **Atomic Operations**: Rate limiting uses ETS atomic counters instead of GenServer state to avoid bottlenecks
-3. **Single-Flight Protection**: OAuth token refresh uses in-flight tracking to prevent concurrent token requests
-4. **Request Coalescing**: Duplicate request prevention for high-frequency operations
-5. **WebSocket Separation**: zen_websocket for public streams (Req has no WebSocket support)
-6. **Table Partitioning**: Separate ETS tables per exchange for optimal concurrent access
+1. **Req's Built-in Features**: Connection pooling (Finch), retry logic, telemetry - no custom implementation needed
+2. **Req Middleware Steps**: Auth and rate limiting as composable request/response steps
+3. **ETS Without GenServers**: Atomic counters for rate limiting work better with Req's pipeline
+4. **Single-Flight Protection**: OAuth token refresh (only stateful operation)
+5. **WebSocket Separation**: zen_websocket for streams (Req doesn't support WebSocket)
+6. **Minimal Supervision**: Only Deribit OAuth needs a process - everything else is stateless
 
 ## Exchange-Specific Implementation Details
 
@@ -172,16 +173,16 @@ DERIBIT_HOST=test.deribit.com  # or www.deribit.com for production
 ## Current Implementation Status
 
 ### Completed Components
-- ✅ Core.Supervisor - Dynamic adapter management
 - ✅ Core.Registry - Adapter registration and lookup
-- ✅ Binance.RateLimiter - Sliding window rate limiting
-- ✅ Binance.Auth - HMAC-SHA256 authentication
+- ✅ Binance.RateLimiter - ETS tables with atomic operations
+- ✅ Binance.Auth - HMAC-SHA256 as Req step
 - ✅ Initial test coverage for core modules
 
 ### In Progress
+- 🔄 Removing Core.Supervisor (Task #2) - Use Req's features instead
+- 🔄 Refactoring to Req middleware steps
 - 🔄 Remaining exchange adapters (Kraken, Deribit)
-- 🔄 Integration tests for all exchanges
-- 🔄 Production hardening (circuit breaker, health monitoring)
+- 🔄 Integration tests leveraging Req.Test
 
 ### Documentation  
 - **docs/AI-IMPLEMENTATION.md** - Single source of truth for AI coders (283 lines)
@@ -194,17 +195,17 @@ DERIBIT_HOST=test.deribit.com  # or www.deribit.com for production
 ## Important Implementation Notes
 
 ### Current Status
-- Plugin architecture with Req middleware pipeline
-- Core modules and behaviors defined
-- Binance adapter partially implemented
-- Focus on completing one exchange fully before others
+- Req-centric architecture leveraging built-in features
+- Removing redundant OTP supervision (Task #2 in progress)
+- Binance adapter being refactored to use Req steps
+- Focus on utilizing Req's capabilities instead of reimplementing
 
 ### Key Architectural Decisions
-- **REST API focus for all trading operations**
-- **Atomic ETS over GenServer state** for rate limiting (lock-free concurrency)
-- **Single-flight protection** for OAuth token refresh
-- **True sliding window** for Binance rate limits (60 per-second buckets)
-- **Median-based consensus** for multi-exchange health monitoring
+- **Req-centric design**: Leverage built-in pooling, retry, telemetry instead of custom OTP
+- **Stateless adapters**: Only Deribit OAuth needs GenServer for token state
+- **ETS with Req middleware**: Rate limiting as request steps with atomic counters
+- **No Core.Supervisor**: Req's Finch handles connection lifecycle
+- **Minimal processes**: Let Req handle complexity, we just configure it
 
 ## Testing Approach
 

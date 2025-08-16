@@ -48,15 +48,22 @@ The AI implementation guide enforces:
 
 ## Architecture Overview
 
+**Req-centric design** - Leveraging Req's built-in connection pooling, retry logic, and middleware pipeline instead of custom OTP supervision.
+
 ```
 lib/zen_cex/
-├── core/           # Thin coordination layer with Req middleware
+├── core/           # Thin coordination layer
+│   ├── registry.ex # Adapter registration
+│   └── http.ex     # Req client setup
 ├── behaviors/      # Adapter contracts
-└── adapters/       # Exchange implementations
-    ├── binance/    # HMAC-SHA256, 1200 req/min
+└── adapters/       # Exchange implementations (stateless)
+    ├── binance/    # HMAC-SHA256, ETS rate limiting
     ├── kraken/     # Nonce-based, HTTP/1.1 only
-    └── deribit/    # OAuth2, JSON-RPC
+    └── deribit/    # OAuth2 (only GenServer needed)
 ```
+
+**Why minimal supervision**: Req provides connection pooling (Finch), retry with backoff, telemetry, and middleware pipeline
+**Only GenServer needed**: Deribit OAuth token management (stateful)
 
 ### Key Technologies
 - **HTTP Client**: Req with middleware pipeline
@@ -66,10 +73,10 @@ lib/zen_cex/
 
 ## Current Status
 
-- **Progress**: 25% complete (7/28 tasks)
-- **Current Task**: #2 - Refactor Core.HTTP with Req steps
-- **Architecture**: Production-ready plugin system
-- **Next Priority**: Req middleware integration
+- **Progress**: 29% complete (7/24 tasks)
+- **Current Task**: #2 - Remove Core.Supervisor (use Req's built-in features)
+- **Architecture**: Req-powered adapters with middleware pipeline
+- **Next Priority**: Leverage Req instead of reimplementing its features
 
 ## Key Features
 

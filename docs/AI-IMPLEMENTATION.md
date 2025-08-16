@@ -6,10 +6,10 @@
 ## Quick Start for AI Coders
 
 ### Your Current Status
-- **Architecture**: Plugin-based with Req middleware pipeline
-- **Progress**: 21.2% complete (7/28 tasks done) 
-- **Next Task**: Refactor Core.HTTP with Req steps pipeline
-- **Priority**: Production hardening with Req patterns
+- **Architecture**: Req-powered adapters (leveraging built-in middleware)
+- **Progress**: 29% complete (7/24 tasks done) 
+- **Next Task**: Remove redundant OTP - Req handles pooling, retry, telemetry
+- **Priority**: Use Req's features instead of reimplementing them
 
 ### Navigation
 1. Check "Current Task" section
@@ -19,16 +19,16 @@
 
 ## Current Task
 
-**Task #2**: Refactor Core.HTTP with Req middleware pipeline
+**Task #2**: Remove redundant OTP supervision - leverage Req's built-in features
 
-**Command**: `mix test test/zen_cex/core/http_test.exs`
+**Why**: Req already provides connection pooling (Finch), retry logic, middleware pipeline, and telemetry. We don't need GenServers for what Req handles.
 
 **Success Criteria**:
-- [ ] Auth attached as request step
-- [ ] Rate limiter can halt pipeline
-- [ ] Circuit breaker handles failures
-- [ ] Telemetry emits events
-- [ ] Tests pass with 100% coverage
+- [ ] Remove Core.Supervisor entirely
+- [ ] Simplify Application to only start Finch
+- [ ] Change RateLimiter.start_link to RateLimiter.init_tables
+- [ ] Update tests to not expect supervision
+- [ ] All existing tests still pass
 
 ## Essential Patterns
 
@@ -58,9 +58,14 @@ Req.Request.prepend_request_steps(req,
 )
 ```
 
-### Pattern 3: ETS Atomic Operations
+### Pattern 3: Simple ETS Tables (No GenServer)
 ```elixir
-# NEVER use GenServer state for counters
+# Just create tables at app startup, no process needed
+def init_tables do
+  :ets.new(:binance_rate_limits, [:named_table, :public, :set])
+end
+
+# Use atomic operations for concurrent access
 :ets.update_counter(table, key, {2, increment}, {key, 0, 0})
 ```
 
@@ -86,15 +91,15 @@ end)
 
 ### Day 1: Core + Binance (Current)
 ```bash
-# You are here: Task 2 of 8
+# You are here: Task 2 - Simplifying architecture
 [✅] Task 1: Core.Registry
-[🔄] Task 2: Core.HTTP with Req steps  # <- CURRENT
-[ ] Task 3: Core.RequestCoalescer
-[ ] Task 4: Core.RateLimitBudget
-[✅] Task 5: Behaviors (done)
-[ ] Task 6: Binance.Auth as Req steps
-[ ] Task 7: Binance.RateLimiter
-[ ] Task 8: Binance.Parser
+[🔄] Task 2: Simplify architecture (remove Core.Supervisor)  # <- CURRENT
+[ ] Task 3: Core.HTTP with Req steps
+[ ] Task 4: Binance.Auth as Req steps
+[ ] Task 5: Binance.RateLimiter (simple module)
+[ ] Task 6: Binance.Parser
+[ ] Task 7: Integration tests
+[ ] Task 8: Performance validation
 ```
 
 ### Day 2: Testing + Other Exchanges
@@ -104,10 +109,10 @@ end)
 [ ] Task 14-16: Deribit adapter
 ```
 
-### Day 3-4: Production
+### Day 3: Production Hardening
 ```bash
-[ ] Task 17-22: Circuit breaker, health, telemetry
-[ ] Task 23-28: Performance tests, documentation
+[ ] Task 17-20: Circuit breaker, health monitoring
+[ ] Task 21-24: Performance tests, documentation
 ```
 
 ## Common AI Coder Mistakes
@@ -122,7 +127,17 @@ end)
 **Right**: `:ets.update_counter(:table, :key, 1)`
 **Why**: Atomic operations prevent bottlenecks
 
-### Mistake 3: Implementing Everything at Once
+### Mistake 3: Creating Mocks Without Real API Testing
+**Wrong**: Writing Req.Test stubs based on API documentation
+**Right**: Test real API first, capture responses, then create mocks
+**Why**: Docs lie; real APIs have quirks, headers, edge cases
+
+### Mistake 4: Testing Rate Limits Against Real API
+**Wrong**: `Enum.each(1..1000, fn _ -> Req.get!(url) end)`
+**Right**: Manipulate ETS tables: `:ets.insert(:table, {:weight, 1199})`
+**Why**: Test the logic, not the API's patience
+
+### Mistake 5: Implementing Everything at Once
 **Wrong**: Creating all modules in one session
 **Right**: One module per session with tests
 **Why**: Incremental progress ensures quality
@@ -144,20 +159,57 @@ mix test --cover                 # >80% coverage
 - Memory growth: <1MB under load
 - ETS cleanup: Every 60 seconds
 
+## Architecture: Leveraging Req's Built-in Capabilities
+
+### Why We Don't Need OTP Supervision
+- **Connection Pooling**: Req uses Finch - no custom pool supervision needed
+- **Retry & Circuit Breaking**: Req has built-in retry with exponential backoff
+- **Middleware Pipeline**: Req's steps handle auth, rate limiting, telemetry
+- **Observability**: Req emits comprehensive telemetry events automatically
+
+### What Actually Needs GenServers
+- **Deribit.Auth** - OAuth token state management
+- **That's it!** Everything else is handled by Req or uses ETS tables
+
+### What Req Handles For Us
+- **Rate limiting** - Middleware step with ETS atomic ops (faster than GenServer)
+- **Authentication** - Request step for signing (stateless except OAuth)
+- **Error handling** - Retry logic with configurable strategies
+- **Monitoring** - Built-in telemetry for all HTTP operations
+
+### Application Supervisor
+```elixir
+def start(_type, _args) do
+  # Initialize ETS tables for rate limiting
+  init_ets_tables()
+  
+  children = [
+    # Finch provides connection pooling for Req
+    {Finch, name: ZenCex.Finch, pools: pool_config()}
+    # Deribit OAuth when needed (only stateful component)
+  ]
+  
+  # Minimal supervision - Req handles the complexity
+  Supervisor.start_link(children, strategy: :one_for_one)
+end
+```
+
 ## File Creation Template
 
 ```elixir
-defmodule ZenCex.Core.MODULE do
+defmodule ZenCex.Adapters.Exchange.Module do
   @moduledoc """
   One-line description.
   """
   
-  # Behaviors first
   @behaviour ZenCex.Behaviors.Something
   
-  # Public API (5-10 functions max)
-  def start_link(opts), do: GenServer.start_link(__MODULE__, opts)
+  # For stateless modules (most cases)
+  def init_tables do
+    :ets.new(:table_name, [:named_table, :public, :set])
+  end
   
+  # Public API (5-10 functions max)
   @impl true
   def callback_function(args) do
     # Implementation
@@ -168,28 +220,95 @@ defmodule ZenCex.Core.MODULE do
 end
 ```
 
+## CRITICAL: Testing Philosophy
+
+**[!] ALWAYS TEST AGAINST REAL APIs FIRST [!]**
+```
+1. Write integration tests against REAL exchange APIs (sparse, strategic)
+2. Verify actual behavior before creating any mocks
+3. Create Req.Test stubs based on captured real responses
+4. Keep minimal integration tests to validate mock accuracy
+```
+
+**Smart Testing Strategy:**
+- **Integration tests**: 1-2 real API calls per endpoint (capture responses)
+- **Unit tests**: Fast, comprehensive using verified mocks
+- **Rate limit tests**: Use ETS table manipulation, not real API hammering
+- **Error tests**: Req.Test to simulate timeouts, 429s, 503s
+
 ## Test File Template
 
 ```elixir
-defmodule ZenCex.Core.MODULETest do
+defmodule ZenCex.Adapters.Binance.RateLimiterTest do
   use ExUnit.Case, async: true
-  import Req.Test  # For unit tests
+  import Req.Test
   
-  describe "unit tests" do
+  # ONE strategic integration test to verify real behavior
+  @tag :integration
+  @tag :skip  # Run manually when needed: mix test --include integration
+  test "verify real Binance rate limit headers" do
+    # Make ONE real API call to understand headers
+    {:ok, response} = Binance.HTTP.get("/api/v3/time")
+    
+    # Capture the ACTUAL rate limit headers
+    assert response.headers["x-mbx-used-weight-1m"]
+    assert response.headers["x-mbx-order-count-1m"]
+    
+    # Save this structure for mocks
+    File.write!("test/fixtures/binance_headers.json", Jason.encode!(response.headers))
+  end
+  
+  # FAST unit tests using ETS manipulation
+  describe "rate limiting logic" do
     setup do
-      stub(:exchange, fn conn -> json(conn, %{}) end)
-      :ok
+      # Initialize ETS table for tests
+      Binance.RateLimiter.init_tables()
+      
+      # Mock Req to return saved headers
+      stub(:binance, fn conn ->
+        conn
+        |> put_resp_header("x-mbx-used-weight-1m", "50")
+        |> json(%{serverTime: System.os_time(:millisecond)})
+      end)
     end
     
-    test "happy path" do
-      assert :ok = Module.function()
+    test "allows requests under limit" do
+      # Manually set ETS counter
+      :ets.insert(:binance_rate_limits, {:weight, 500})
+      
+      assert {:ok, _} = Binance.HTTP.get("/api/v3/time")
+    end
+    
+    test "blocks requests over limit" do
+      # Fill the bucket manually - NO REAL API CALLS
+      :ets.insert(:binance_rate_limits, {:weight, 1199})
+      
+      assert {:error, :rate_limited} = Binance.HTTP.get("/api/v3/time")
+    end
+    
+    test "sliding window cleanup" do
+      # Insert old entries
+      now = System.os_time(:millisecond)
+      :ets.insert(:binance_rate_limits, {{:window, now - 61_000}, 100})
+      
+      # Trigger cleanup
+      Binance.RateLimiter.cleanup_old_entries()
+      
+      # Verify old entries removed
+      assert [] = :ets.lookup(:binance_rate_limits, {:window, now - 61_000})
     end
   end
   
-  describe "integration tests" do
-    @tag :integration
-    test "real API call" do
-      # Test against real API
+  # Test error scenarios with Req.Test
+  describe "error handling" do
+    test "handles 429 Too Many Requests" do
+      stub(:binance, fn conn ->
+        conn
+        |> put_status(429)
+        |> json(%{code: -1003, msg: "Too many requests"})
+      end)
+      
+      assert {:error, :rate_limited} = Binance.HTTP.get("/api/v3/time")
     end
   end
 end
