@@ -176,27 +176,29 @@ DERIBIT_CLIENT_SECRET=your_secret
 DERIBIT_HOST=test.deribit.com  # or www.deribit.com for production
 ```
 
-## Current Implementation Status
+## AI-Assisted Development Workflow
 
-### Completed Components
-- ✅ Core.Registry - Adapter registration and lookup
-- ✅ Binance.RateLimiter - ETS tables with atomic operations
-- ✅ Binance.Auth - HMAC-SHA256 as Req step
-- ✅ Initial test coverage for core modules
+This project uses a two-document AI workflow for implementation and review:
 
-### In Progress
-- 🔄 Removing Core.Supervisor (Task #2) - Use Req's features instead
-- 🔄 Refactoring to Req middleware steps
-- 🔄 Remaining exchange adapters (Kraken, Deribit)
-- 🔄 Integration tests leveraging Req.Test
+### Documentation Structure
+- **docs/AI-IMPLEMENTATION.md** - Task guide for AI Coders (237 lines)
+  - Current task assignment and progress tracking
+  - Quick pattern references (5-10 lines each)
+  - Common mistakes to avoid
+  - One-task-per-session rule enforcement
+  
+- **docs/AI-REVIEW.md** - Review checklist for AI Reviewers (900+ lines)
+  - Detailed requirements per task
+  - Full pattern implementations
+  - Performance and security validation
+  - Pass/fail criteria for each component
 
-### Documentation  
-- **docs/AI-IMPLEMENTATION.md** - Single source of truth for AI coders (283 lines)
-  - Combines all previous docs (was 2,346 lines across 4 files)
-  - One-task-per-session rule with current task tracking
-  - Essential patterns with minimal code examples
-  - Common AI coder mistakes and solutions
-  - Validation checklists and performance targets
+### Workflow
+1. **AI Coder** reads AI-IMPLEMENTATION.md and implements current task
+2. **AI Reviewer** validates using AI-REVIEW.md checklists
+3. **Human** supervises and approves changes
+
+For current task and progress, see AI-IMPLEMENTATION.md.
 
 ## Important Implementation Notes
 
@@ -214,6 +216,88 @@ DERIBIT_HOST=test.deribit.com  # or www.deribit.com for production
 - **Minimal processes**: Let Req handle complexity, we just configure it
 - **No WebSocket/Streaming**: REST-only by design, not a limitation
 - **No HFT Support**: Optimized for reliability, not microsecond latency
+
+### Req HTTP Client Best Practices (from latest docs)
+
+#### Step Implementation Patterns
+Req uses a composable step-based middleware system. Steps must follow these signatures:
+
+1. **Request Steps**: Take a request, return modified request OR `{request, response}` or `{request, exception}` to short-circuit
+   ```elixir
+   def my_request_step(request) do
+     # Normal flow: modify and return request
+     request
+     |> Req.Request.put_header("x-custom", "value")
+     
+     # OR halt with error
+     # Req.Request.halt(request, {:error, :my_error})
+     
+     # OR short-circuit with response
+     # {request, %Req.Response{status: 200, body: "cached"}}
+   end
+   ```
+
+2. **Response Steps**: Take `{request, response}`, return `{request, response}` or `{request, exception}`
+   ```elixir
+   def my_response_step({request, response}) do
+     # Parse and return modified response
+     {request, %{response | body: Jason.decode!(response.body)}}
+   end
+   ```
+
+3. **Error Steps**: Take `{request, exception}`, return `{request, exception}` or `{request, response}`
+   ```elixir
+   def my_error_step({request, exception}) do
+     # Convert error to response or propagate
+     {request, %Req.Response{status: 503, body: "Service unavailable"}}
+   end
+   ```
+
+#### Built-in Features to Leverage
+- **Authentication**: Use `auth: {:bearer, token}` or `auth: fn -> {:bearer, get_token()} end` for dynamic tokens
+- **Retry**: Built-in `:safe_transient` retry (GET/HEAD only) or custom retry functions  
+- **Finch Pooling**: Automatic connection pooling via `:finch` option
+- **Telemetry**: Automatic telemetry events, hook into `[:req, :request, :*]` events
+- **Compression**: Automatic gzip/deflate handling
+- **JSON**: Automatic encoding/decoding with `:json` option
+
+#### Private Field Usage  
+Use `request.private` for passing data between steps (reserved for libraries/frameworks):
+```elixir
+request
+|> Req.Request.put_private(:exchange, :binance)
+|> Req.Request.put_private(:zen_cex_operation, :place_order)
+```
+
+#### Step Ordering
+- Use `append_request_steps/2` to add steps at the end (common case)
+- Use `prepend_request_steps/2` to add steps before built-in steps
+- Order matters: auth → rate limit → retry → telemetry
+
+#### Error Handling with Req.Request.halt/2
+Use `halt/2` to stop pipeline execution:
+```elixir
+def circuit_breaker_step(request) do
+  if CircuitBreaker.open?(request.private[:exchange]) do
+    Req.Request.halt(request, {:error, :circuit_breaker_open})
+  else
+    request
+  end
+end
+```
+
+#### Performance Considerations
+- Steps should be lightweight and non-blocking
+- Use ETS for shared state (rate limits, circuit breakers)
+- Leverage Req's built-in features instead of reimplementing
+- Configure Finch pools appropriately for your load:
+  ```elixir
+  finch_options: [
+    conn_opts: [transport_opts: [timeout: 5_000]],
+    pool_timeout: 5_000,
+    receive_timeout: 15_000
+  ]
+  ```
 
 ## Testing Approach
 

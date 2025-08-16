@@ -23,30 +23,50 @@ be found at <https://hexdocs.pm/zen_cex>.
 
 ## Quick Start
 
-### For AI Coders
+### AI-Assisted Development Workflow
+
+This project uses a two-document AI workflow:
+
+1. **AI Coder**: Uses [docs/AI-IMPLEMENTATION.md](docs/AI-IMPLEMENTATION.md) (201 lines) to implement tasks
+2. **AI Reviewer**: Uses [docs/AI-REVIEW.md](docs/AI-REVIEW.md) (700+ lines) to validate implementations
+
+#### For AI Coders
 ```bash
-# Single command to start implementation
+# Start with the current task
 "Read docs/AI-IMPLEMENTATION.md and implement the current task"
 ```
 
-The AI implementation guide enforces:
-- ✅ One task per session rule
-- ✅ Essential patterns only (5 core patterns)
-- ✅ Current task tracking (Task #2: Core.HTTP)
-- ✅ Validation checklists
-- ✅ Common mistake prevention
+The implementation guide provides:
+- ✅ One task per session rule (critical for quality)
+- ✅ Current task assignment (Task #1: OrderSafety)
+- ✅ Quick pattern references (5-10 lines each)
+- ✅ Common mistakes to avoid
+- ✅ Clear success criteria
+
+#### For AI Reviewers
+```bash
+# Review completed implementations
+"Read docs/AI-REVIEW.md and validate the implementation"
+```
+
+The review guide provides:
+- ✅ Detailed checklists per task
+- ✅ Full pattern implementations
+- ✅ Performance targets
+- ✅ Security requirements
+- ✅ Pass/fail criteria
 
 ### For Human Developers
 
-1. **Read the streamlined guide**: [docs/AI-IMPLEMENTATION.md](docs/AI-IMPLEMENTATION.md) (242 lines)
-2. **Set up environment**:
+1. **Set up environment**:
    ```bash
    export BINANCE_API_KEY="your_key"
    export BINANCE_API_SECRET="your_secret"
    mix deps.get
    mix test
    ```
-3. **Follow the task sequence** in the guide
+2. **Follow the workflow**: Implementation → Review → Deploy
+3. **Monitor progress**: Check task completion in AI-IMPLEMENTATION.md
 
 ## Architecture Overview
 
