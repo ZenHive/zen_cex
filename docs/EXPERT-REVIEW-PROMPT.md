@@ -27,17 +27,8 @@ Please analyze this document for:
 ## Specific Areas for Expert Input
 
 ### 1. Req Library Usage & Feature Leverage
-Review our essential patterns in the document:
-- **Pattern 1**: Auth as Req request step - Is returning `{request, options}` tuple correct?
-- **Pattern 2**: Rate limiter as middleware - Should we halt the pipeline this way?
-- **Pattern 3**: ETS tables without GenServer - Does Req's pipeline make this viable?
-- **Pattern 4**: Req.Test for unit testing - Should we use this for deterministic tests?
-
-Are we missing critical Req features like:
-- Request/response steps for telemetry?
-- Custom retry strategies per exchange?
-- Connection pooling optimization?
-- Circuit breaker as middleware?
+Review our essential patterns in the document.
+Are we missing critical Req features?
 
 ### 2. CEX API Patterns
 Review the Exchange Requirements Table:
@@ -54,30 +45,18 @@ Questions:
 
 ### 3. Req-Centric Architecture
 Based on leveraging Req's features:
-- Is removing Core.Supervisor justified since Req provides pooling, retry, telemetry?
-- Do rate limiters work better as Req middleware with ETS than as GenServers?
-- Is having only Deribit.Auth as a GenServer correct (stateful OAuth)?
 - Are we properly utilizing Req's built-in capabilities?
 
-### 4. Leveraging Req's Built-in Capabilities
-We're removing OTP supervision because Req provides:
-- **Connection pooling** via Finch integration
-- **Retry logic** with exponential backoff
-- **Middleware pipeline** for auth, rate limiting, telemetry
-- **Built-in observability** through telemetry events
 
-Only Deribit.Auth needs GenServer (OAuth state). Is this the right approach?
-
-### 5. Common AI Coder Mistakes Section
-We document 4 common mistakes:
-1. Using Req for WebSocket (wrong - use zen_websocket)
-2. Manual request manipulation instead of Req functions
-3. Creating GenServers when simple modules suffice
-4. Implementing everything at once
+### 4. Common AI Coder Mistakes Section
+We document 3 common mistakes:
+1. Manual request manipulation instead of Req functions
+2. Creating GenServers when simple modules suffice
+3. Implementing everything at once
 
 Are these the right mistakes to highlight? What others should we add?
 
-### 6. Performance & Scalability
+### 5. Performance & Scalability
 Our targets:
 - Rate limiter: <1ms per check
 - 10,000 concurrent requests: <100ms
