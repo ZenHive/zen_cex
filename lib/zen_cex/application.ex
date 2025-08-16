@@ -15,7 +15,10 @@ defmodule ZenCex.Application do
       {Finch, name: ZenCex.Finch},
 
       # Order safety for idempotency checks (manages ETS table lifecycle)
-      ZenCex.Safety.OrderSafety
+      ZenCex.Safety.OrderSafety,
+
+      # Clock synchronization for accurate exchange timestamps
+      ZenCex.Safety.ClockSync
 
       # NOTE: Following Req-centric architecture:
       # - No Core.Supervisor needed (Req handles connection lifecycle)

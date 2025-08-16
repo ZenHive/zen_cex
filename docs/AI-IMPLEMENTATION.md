@@ -75,18 +75,19 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ## Current Task
 
-**Task #3**: Implement Core.HTTP with Req patterns and middleware
+**Task #7**: Binance.Auth - HMAC-SHA256 as Req step (Next task in Phase 2)
 
-**File**: `lib/zen_cex/core/http.ex`
+**File**: `lib/zen_cex/adapters/binance/auth.ex`
 
 **Key Requirements**:
-- Configure Req with Finch for connection pooling
-- Set up retry logic with exponential backoff
-- Configure appropriate timeouts (30s default, 5s for health checks)
-- Integrate auth and rate limiting as Req request/response steps
-- Emit telemetry events for monitoring
+- HMAC-SHA256 signature as Req request step
+- Signature as LAST query parameter
+- X-MBX-APIKEY header
+- recvWindow parameter
+- Timestamp with clock offset applied
+- Tests with real API responses
 
-**Full Requirements & Review Criteria**: See Task #3 in AI-REVIEW.md
+**Full Requirements & Review Criteria**: See Task #7 in AI-REVIEW.md
 
 ---
 
@@ -105,7 +106,7 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ### Phase 2: Binance Reference Implementation (5 tasks)
 ```
-[ ] Task 6: ClockSync with proactive NTP sync           <- Standalone
+[✅] Task 6: ClockSync with proactive NTP sync           <- COMPLETED
 [ ] Task 7: Binance.Auth - HMAC-SHA256 as Req step     ┐
 [ ] Task 8: Binance.RateLimiter - ETS tables           ├─ Natural group
 [ ] Task 9: Binance.Parser - Response parsing          └─ (auth chain)
