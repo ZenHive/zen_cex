@@ -4,7 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ZenCex is an Elixir library for centralized cryptocurrency exchange (CEX) REST API integrations, extracted from the BlockWatch Phoenix application. It provides a unified interface for interacting with multiple exchanges (Binance, Kraken, Deribit) through their REST APIs with a focus on trading operations.
+ZenCex is an Elixir library for centralized cryptocurrency exchange (CEX) REST API integrations, extracted from the BlockWatch Phoenix application. It provides a unified interface for interacting with multiple exchanges (Binance, Kraken, Deribit) through their REST APIs with a focus on reliable position management and trading operations.
+
+**IMPORTANT SCOPE**:
+- **REST APIs ONLY** - No WebSocket implementation planned or desired
+- **NOT for HFT** - This library is explicitly not for high-frequency trading
+- **Focus on Reliability** - Prioritizes fault-tolerance over microsecond latency
+- **Regular Trading Operations** - Position management, order execution, account queries
 
 **Relationship to BlockWatch**: This library was extracted to be a standalone, reusable package for CEX integrations across the Elixir ecosystem. The parent BlockWatch application (../blockwatch) is a Phoenix LiveView app for monitoring DeFi positions.
 
@@ -61,9 +67,9 @@ The test suite is organized into three categories:
 
 ## Architecture
 
-### Req-Centric Architecture Overview
+### Req-Centric REST Architecture Overview
 
-The library leverages **Req's built-in capabilities** instead of custom OTP supervision:
+The library leverages **Req's built-in capabilities** for REST API operations instead of custom OTP supervision:
 
 - **Core Modules** (`ZenCex.Core.*`): Thin coordination layer using Req middleware
 - **Behaviors** (`ZenCex.Behaviors.*`): Contracts for Req-based adapters
@@ -105,10 +111,10 @@ Each exchange adapter implements these modules:
    - Exchange-specific rate limiting logic
    - ETS-based atomic counters for performance
 
-4. **WebSocket** (`lib/zen_cex/adapters/{exchange}/websocket.ex`)
-   - Implements `Behaviors.WebSocket` behavior
-   - Public market data streams only
-   - Exchange-specific frame handling
+4. **WebSocket** - **NOT IMPLEMENTED**
+   - WebSocket support is explicitly out of scope
+   - This library focuses on REST APIs only
+   - For streaming data needs, use a different library
 
 ### Supervision Tree (Minimal - Leveraging Req)
 
@@ -123,13 +129,13 @@ ZenCex.Application
 # - HTTP operations (Req handles retry, telemetry)
 ```
 
-### Key Design Patterns (Req-Powered)
+### Key Design Patterns (Req-Powered REST)
 
 1. **Req's Built-in Features**: Connection pooling (Finch), retry logic, telemetry - no custom implementation needed
-2. **Req Middleware Steps**: Auth and rate limiting as composable request/response steps
+2. **Req Middleware Steps**: Auth and rate limiting as composable request/response steps  
 3. **ETS Without GenServers**: Atomic counters for rate limiting work better with Req's pipeline
 4. **Single-Flight Protection**: OAuth token refresh (only stateful operation)
-5. **WebSocket Separation**: zen_websocket for streams (Req doesn't support WebSocket)
+5. **REST-Only Focus**: All operations via REST APIs, no streaming protocols
 6. **Minimal Supervision**: Only Deribit OAuth needs a process - everything else is stateless
 
 ## Exchange-Specific Implementation Details
@@ -201,11 +207,13 @@ DERIBIT_HOST=test.deribit.com  # or www.deribit.com for production
 - Focus on utilizing Req's capabilities instead of reimplementing
 
 ### Key Architectural Decisions
-- **Req-centric design**: Leverage built-in pooling, retry, telemetry instead of custom OTP
+- **Req-centric REST design**: Leverage built-in pooling, retry, telemetry for REST APIs
 - **Stateless adapters**: Only Deribit OAuth needs GenServer for token state
 - **ETS with Req middleware**: Rate limiting as request steps with atomic counters
 - **No Core.Supervisor**: Req's Finch handles connection lifecycle
 - **Minimal processes**: Let Req handle complexity, we just configure it
+- **No WebSocket/Streaming**: REST-only by design, not a limitation
+- **No HFT Support**: Optimized for reliability, not microsecond latency
 
 ## Testing Approach
 

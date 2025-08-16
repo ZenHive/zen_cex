@@ -7,10 +7,10 @@
 
 ### Your Current Status
 - **Architecture**: Req-powered adapters with built-in pooling, retry, telemetry
-- **Progress**: 23% complete (7/37 tasks done) 
+- **Progress**: 23% complete (7/37 tasks done)
 - **Next Task**: Remove redundant OTP - Req handles pooling, retry, telemetry
 - **Priority**: Production hardening with idempotency, prioritization, multi-account
-- **Focus**: Production-ready patterns for high-frequency trading operations
+- **Focus**: Production-ready patterns for trading operations where elixir excels.
 
 ### Navigation
 1. Check "Current Task" section
@@ -43,7 +43,7 @@ def sign_request({request, options}) do
     request = request
     |> Req.Request.put_header("x-mbx-apikey", api_key)
     |> Req.Request.merge_options(params: signed_params)
-    
+
     {request, options}  # CRITICAL: Return tuple
   else
     {:error, reason} ->
@@ -58,21 +58,21 @@ end
 def rate_limit_step({request, options}) do
   exchange = request.private[:exchange]
   weight = calculate_weight(request)
-  
+
   # Sliding window with microsecond precision
   now = System.os_time(:microsecond)
   window_start = now - :timer.seconds(60)
-  
+
   # Atomic check and increment
   case check_and_consume_capacity(exchange, weight, window_start) do
-    :ok -> 
+    :ok ->
       {request, options}
     {:error, :capacity_exceeded, retry_after} ->
       # Add retry-after header for client awareness
       request = request
       |> Req.Request.halt()
       |> Req.Request.put_private(:retry_after, retry_after)
-      
+
       {request, Keyword.put(options, :error, {:rate_limited, retry_after})}
   end
 end
@@ -96,10 +96,10 @@ Req.Request.prepend_request_steps(req,
   circuit_breaker: fn {request, options} ->
     case check_circuit_state(request.url.host) do
       :closed -> {request, options}
-      :open -> 
+      :open ->
         request = Req.Request.halt(request)
         {request, Keyword.put(options, :error, :circuit_open)}
-      :half_open -> 
+      :half_open ->
         # Allow one request through for testing
         {request, Keyword.put(options, :circuit_test, true)}
     end
@@ -112,32 +112,32 @@ Req.Request.prepend_request_steps(req,
 # Production-ready coalescing without race conditions
 defmodule RequestCoalescer do
   use GenServer
-  
+
   def get(url, opts) do
     key = {url, opts[:params]}
     GenServer.call(__MODULE__, {:coalesce, key, fn -> Req.get(url, opts) end})
   end
-  
+
   def handle_call({:coalesce, key, fun}, from, state) do
     case Map.get(state, key) do
       nil ->
         # First request, execute in Task
         task = Task.async(fun)
         {:noreply, Map.put(state, key, {task, [from]})}
-        
+
       {task, waiters} ->
         # Add to waiters
         {:noreply, Map.put(state, key, {task, [from | waiters]})}
     end
   end
-  
+
   def handle_info({ref, result}, state) when is_reference(ref) do
     # Find and reply to all waiters
-    {key, {task, waiters}} = Enum.find(state, fn 
+    {key, {task, waiters}} = Enum.find(state, fn
       {_k, {%Task{ref: ^ref}, _}} -> true
       _ -> false
     end)
-    
+
     Enum.each(waiters, &GenServer.reply(&1, result))
     {:noreply, Map.delete(state, key)}
   end
@@ -149,17 +149,17 @@ end
 # Monitor exchange connectivity
 def health_check_step({request, options}) do
   start_time = System.monotonic_time(:millisecond)
-  
+
   # Continue with request
   result = {request, options}
-  
+
   # Record health metrics in response step
   response_step = fn {request, response} ->
     duration = System.monotonic_time(:millisecond) - start_time
     record_health_metric(request.url.host, duration, response.status)
     {request, response}
   end
-  
+
   options = Keyword.put(options, :response_step, response_step)
   {request, options}
 end
@@ -184,7 +184,7 @@ end
 def handle_telemetry_event([:req, :request, :stop], measurements, metadata, _config) do
   duration = measurements.duration
   exchange = metadata.request.private[:exchange]
-  
+
   # Record metrics
   :telemetry.execute(
     [:zen_cex, :api, :request],
@@ -198,7 +198,7 @@ end
 ```elixir
 def create_req_client(exchange) do
   config = get_exchange_config(exchange)
-  
+
   Req.new(
     base_url: config.base_url,
     # Exchange-specific retry strategy
@@ -231,7 +231,7 @@ end
 def stream_request(url, opts) do
   Stream.resource(
     fn -> init_pagination(url, opts) end,
-    fn state -> 
+    fn state ->
       case fetch_page(state) do
         {:ok, data, next_state} -> {[data], next_state}
         :done -> {:halt, state}
@@ -259,30 +259,30 @@ defmodule OrderPlacer do
   def place_order(exchange, params) do
     # Generate idempotency key
     idempotency_key = generate_idempotency_key(params)
-    
+
     # Check if we've sent this before
     case check_idempotency_cache(idempotency_key) do
-      {:ok, previous_result} -> 
+      {:ok, previous_result} ->
         {:ok, previous_result}
-        
+
       :not_found ->
         params = Map.put(params, :client_order_id, idempotency_key)
-        
+
         case send_order(exchange, params) do
           {:ok, result} ->
             cache_idempotency_result(idempotency_key, result)
             {:ok, result}
-            
+
           {:error, :timeout} ->
             # On timeout, query order status by client_order_id
             check_order_status(exchange, idempotency_key)
-            
+
           error ->
             error
         end
     end
   end
-  
+
   defp generate_idempotency_key(params) do
     # Include timestamp with 5-minute window
     window = div(System.os_time(:second), 300)
@@ -306,21 +306,21 @@ defmodule SmartRateLimiter do
     market_data: 5,       # Can be cached
     historical: 6         # Lowest priority
   }
-  
+
   def check_and_consume(exchange, endpoint, weight) do
     priority = @priorities[endpoint_type(endpoint)]
     capacity = get_remaining_capacity(exchange)
-    
+
     cond do
       # Always allow critical risk management
       priority == 1 and capacity > 0 -> :ok
-      
+
       # Reserve 20% capacity for high priority
       priority <= 3 and capacity > weight * 5 -> :ok
-      
+
       # Normal requests need 50% capacity
       capacity > max_capacity(exchange) * 0.5 -> :ok
-      
+
       # Reject low priority when constrained
       true -> {:error, :rate_limited, calculate_retry_after(exchange)}
     end
@@ -334,22 +334,22 @@ end
 defmodule MultiAccountManager do
   def get_credentials(exchange, request_type) do
     accounts = get_exchange_accounts(exchange)
-    
+
     # Round-robin with health awareness
     account = accounts
     |> Enum.filter(&account_healthy?/1)
     |> Enum.min_by(&get_account_usage(&1, request_type))
-    
+
     case account do
       nil -> {:error, :no_healthy_accounts}
       acc -> {:ok, acc.api_key, acc.secret}
     end
   end
-  
+
   defp account_healthy?(account) do
     case :ets.lookup(:account_health, account.id) do
       [{_, :healthy, _}] -> true
-      [{_, :degraded, last_check}] -> 
+      [{_, :degraded, last_check}] ->
         # Retry degraded accounts after 5 minutes
         System.os_time(:second) - last_check > 300
       _ -> false
@@ -364,7 +364,7 @@ end
 defmodule HealthMonitor do
   def record_request(exchange, endpoint, duration, status) do
     key = {exchange, endpoint, div(System.os_time(:second), 60)}
-    
+
     :ets.update_counter(:health_metrics, key, [
       {2, 1},                          # request count
       {3, duration},                   # total duration
@@ -372,20 +372,20 @@ defmodule HealthMonitor do
       {5, if(status == 429, do: 1, else: 0)}  # rate limit count
     ], {key, 0, 0, 0, 0})
   end
-  
+
   def get_endpoint_health(exchange, endpoint) do
     # Last 5 minutes
     keys = for i <- 0..4, do: {exchange, endpoint, div(System.os_time(:second), 60) - i}
-    
+
     stats = keys
     |> Enum.flat_map(&:ets.lookup(:health_metrics, &1))
     |> Enum.reduce({0, 0, 0, 0}, fn {_, count, duration, success, rate_limited}, acc ->
-      {elem(acc, 0) + count, 
+      {elem(acc, 0) + count,
        elem(acc, 1) + duration,
        elem(acc, 2) + success,
        elem(acc, 3) + rate_limited}
     end)
-    
+
     case stats do
       {0, _, _, _} -> :no_data
       {count, duration, success, rate_limited} ->
@@ -405,17 +405,17 @@ end
 # Leverage Req's built-in caching for market data
 def create_req_client(exchange) do
   config = get_exchange_config(exchange)
-  
+
   Req.new(
     base_url: config.base_url,
     # Built-in caching for GET requests
     cache: true,
     cache_dir: "/tmp/zen_cex_#{exchange}",
     cache_keys: &cache_key_generator/1,
-    
+
     # Advanced retry with jitter
     retry: [
-      delay: fn attempt -> 
+      delay: fn attempt ->
         base = :timer.seconds(attempt)
         jitter = :rand.uniform(1000)
         base + jitter
@@ -428,19 +428,19 @@ def create_req_client(exchange) do
         _ -> false
       end
     ],
-    
+
     # Compression
     compress_body: true,  # For large POST bodies
     decode_body: true,
-    
+
     # Custom error normalization
     decode_body: fn
       {:ok, %{status: status} = resp} when status in 400..599 ->
         normalize_exchange_error(resp)
-      other -> 
+      other ->
         other
     end,
-    
+
     # Backpressure control
     pool_timeout: 5_000,
     receive_timeout: 30_000,
@@ -453,7 +453,7 @@ end
 defp cache_key_generator(request) do
   # Cache market data for 1 second, account data not cached
   case request.url.path do
-    "/api/v3/ticker" <> _ -> 
+    "/api/v3/ticker" <> _ ->
       {request.url, request.options[:params], div(System.os_time(:second), 1)}
     "/api/v3/depth" <> _ ->
       {request.url, request.options[:params], div(System.os_time(:second), 1)}
@@ -496,7 +496,7 @@ end
 
 **Deribit:**
 - Test environment: test.deribit.com (completely separate, weekly reset)
-- OAuth tokens work across REST and WebSocket
+- OAuth tokens work across REST
 - Portfolio margin vs standard margin use different endpoints and calculations
 - Options assignment happens at 08:00 UTC, API unavailable for ~1 minute
 - Index price != mark price (critical for liquidation calculations)
@@ -513,43 +513,43 @@ defmodule ClockSync do
     case :ets.lookup(:clock_sync, {exchange, :last_sync}) do
       [{_, last_sync}] when System.os_time(:second) - last_sync < 300 ->
         :ok  # Recent sync, use cached offset
-        
+
       _ ->
         # Actively sync now
         sync_with_exchange(exchange)
     end
   end
-  
+
   defp sync_with_exchange(exchange) do
     case get_server_time(exchange) do
       {:ok, server_time} ->
         local_time = System.os_time(:millisecond)
         offset = server_time - local_time
-        
+
         # Store offset and last sync time
         :ets.insert(:clock_sync, [
           {{exchange, :offset}, offset},
           {{exchange, :last_sync}, System.os_time(:second)}
         ])
-        
+
         if abs(offset) > 1000 do
           Logger.warning("Clock skew detected for #{exchange}: #{offset}ms")
         end
-        
+
         {:ok, offset}
-        
-      {:error, reason} -> 
+
+      {:error, reason} ->
         # Use last known offset or fail if none
         case :ets.lookup(:clock_sync, {exchange, :offset}) do
-          [{_, saved_offset}] -> 
+          [{_, saved_offset}] ->
             Logger.warning("Using cached offset for #{exchange} due to: #{inspect(reason)}")
             {:ok, saved_offset}
-          [] -> 
+          [] ->
             {:error, :clock_sync_required}
         end
     end
   end
-  
+
   # Apply offset when signing requests
   def apply_time_offset(timestamp, exchange) do
     case :ets.lookup(:clock_sync, {exchange, :offset}) do
@@ -582,7 +582,7 @@ defp pool_config do
         ]
       ]
     ],
-    
+
     # Kraken: More conservative, HTTP/1.1
     {:https, "api.kraken.com", 443} => [
       size: 30,
@@ -592,7 +592,7 @@ defp pool_config do
         transport_opts: [timeout: 60_000]  # Kraken can be slow
       ]
     ],
-    
+
     # Deribit: OAuth-based, moderate volume
     {:https, "www.deribit.com", 443} => [
       size: 20,
@@ -661,7 +661,7 @@ end
 ## Common AI Coder Mistakes
 
 ### Mistake 1: Manual Request Manipulation
-**Wrong**: `request = %{request | headers: [...]}` 
+**Wrong**: `request = %{request | headers: [...]}`
 **Right**: `Req.Request.put_header(request, key, value)`
 **Why**: Use Req functions for proper pipeline integration
 
@@ -806,7 +806,7 @@ case place_order_with_timeout(params, timeout: 5_000) do
   {:error, :timeout} ->
     # Order might have succeeded - check by client_order_id
     check_order_status(params.client_order_id)
-  result -> 
+  result ->
     result
 end
 ```
@@ -848,14 +848,14 @@ end
 # Check exchange connectivity
 def health_status do
   exchanges = [:binance, :kraken, :deribit]
-  
+
   results = Enum.map(exchanges, fn exchange ->
     case test_connectivity(exchange) do
       {:ok, latency} -> {exchange, :healthy, latency}
       {:error, reason} -> {exchange, :unhealthy, reason}
     end
   end)
-  
+
   healthy_count = Enum.count(results, fn {_, status, _} -> status == :healthy end)
   {healthy_count, length(exchanges), results}
 end
@@ -964,7 +964,7 @@ mix test --cover                 # >80% coverage
 def start(_type, _args) do
   # Initialize ETS tables for rate limiting and caching
   init_ets_tables()
-  
+
   # Exchange-specific connection pools
   pools = %{
     "api.binance.com" => [size: 50, count: 2, protocol: :http2],
@@ -972,7 +972,7 @@ def start(_type, _args) do
     "www.deribit.com" => [size: 20, count: 1, protocol: :http2],
     "test.deribit.com" => [size: 10, count: 1, protocol: :http2]
   }
-  
+
   children = [
     # Finch provides connection pooling for Req
     {Finch, name: ZenCex.Finch, pools: pools},
@@ -981,10 +981,10 @@ def start(_type, _args) do
     # Only Deribit OAuth needs state (when using Deribit)
     # {ZenCex.Adapters.Deribit.Auth, []}
   ]
-  
+
   # Attach telemetry handlers
   attach_telemetry_handlers()
-  
+
   # Minimal supervision - Req handles the complexity
   Supervisor.start_link(children, strategy: :one_for_one)
 end
@@ -994,13 +994,13 @@ defp init_ets_tables do
   :ets.new(:binance_rate_limits, [:named_table, :public, :set, {:write_concurrency, true}])
   :ets.new(:kraken_rate_limits, [:named_table, :public, :set, {:write_concurrency, true}])
   :ets.new(:deribit_rate_limits, [:named_table, :public, :set, {:write_concurrency, true}])
-  
+
   # Request coalescing cache
   :ets.new(:request_cache, [:named_table, :public, :set])
-  
+
   # Circuit breaker states
   :ets.new(:circuit_breakers, [:named_table, :public, :set])
-  
+
   # Clock synchronization offsets
   :ets.new(:clock_sync, [:named_table, :public, :set])
 end
@@ -1013,20 +1013,20 @@ defmodule ZenCex.Adapters.Exchange.Module do
   @moduledoc """
   One-line description.
   """
-  
+
   @behaviour ZenCex.Behaviors.Something
-  
+
   # For stateless modules (most cases)
   def init_tables do
     :ets.new(:table_name, [:named_table, :public, :set])
   end
-  
+
   # Public API (5-10 functions max)
   @impl true
   def callback_function(args) do
     # Implementation
   end
-  
+
   # Private functions last
   defp helper_function(args), do: :ok
 end
@@ -1054,28 +1054,28 @@ end
 defmodule ZenCex.Adapters.Binance.RateLimiterTest do
   use ExUnit.Case, async: true
   import Req.Test
-  
+
   # ONE strategic integration test to verify real behavior
   @tag :integration
   @tag :skip  # Run manually when needed: mix test --include integration
   test "verify real Binance rate limit headers" do
     # Make ONE real API call to understand headers
     {:ok, response} = Binance.HTTP.get("/api/v3/time")
-    
+
     # Capture the ACTUAL rate limit headers
     assert response.headers["x-mbx-used-weight-1m"]
     assert response.headers["x-mbx-order-count-1m"]
-    
+
     # Save this structure for mocks
     File.write!("test/fixtures/binance_headers.json", Jason.encode!(response.headers))
   end
-  
+
   # FAST unit tests using ETS manipulation
   describe "rate limiting logic" do
     setup do
       # Initialize ETS table for tests
       Binance.RateLimiter.init_tables()
-      
+
       # Mock Req to return saved headers
       stub(:binance, fn conn ->
         conn
@@ -1083,34 +1083,34 @@ defmodule ZenCex.Adapters.Binance.RateLimiterTest do
         |> json(%{serverTime: System.os_time(:millisecond)})
       end)
     end
-    
+
     test "allows requests under limit" do
       # Manually set ETS counter
       :ets.insert(:binance_rate_limits, {:weight, 500})
-      
+
       assert {:ok, _} = Binance.HTTP.get("/api/v3/time")
     end
-    
+
     test "blocks requests over limit" do
       # Fill the bucket manually - NO REAL API CALLS
       :ets.insert(:binance_rate_limits, {:weight, 1199})
-      
+
       assert {:error, :rate_limited} = Binance.HTTP.get("/api/v3/time")
     end
-    
+
     test "sliding window cleanup" do
       # Insert old entries
       now = System.os_time(:millisecond)
       :ets.insert(:binance_rate_limits, {{:window, now - 61_000}, 100})
-      
+
       # Trigger cleanup
       Binance.RateLimiter.cleanup_old_entries()
-      
+
       # Verify old entries removed
       assert [] = :ets.lookup(:binance_rate_limits, {:window, now - 61_000})
     end
   end
-  
+
   # Test error scenarios with Req.Test
   describe "error handling" do
     test "handles 429 Too Many Requests" do
@@ -1119,7 +1119,7 @@ defmodule ZenCex.Adapters.Binance.RateLimiterTest do
         |> put_status(429)
         |> json(%{code: -1003, msg: "Too many requests"})
       end)
-      
+
       assert {:error, :rate_limited} = Binance.HTTP.get("/api/v3/time")
     end
   end
@@ -1131,7 +1131,7 @@ end
 ```bash
 # Required for tests
 export BINANCE_API_KEY="test_key"
-export BINANCE_API_SECRET="test_secret" 
+export BINANCE_API_SECRET="test_secret"
 export TEST_MODE="true"  # Uses Req.Test stubs
 ```
 
@@ -1142,27 +1142,27 @@ export TEST_MODE="true"  # Uses Req.Test stubs
 defmodule ZenCex.RateLimiter do
   @windows [
     {:second, 1_000},
-    {:minute, 60_000}, 
+    {:minute, 60_000},
     {:hour, 3_600_000}
   ]
-  
+
   def check_limits(exchange, endpoint, weight) do
     limits = get_limits(exchange, endpoint)
     now = System.os_time(:millisecond)
-    
+
     Enum.all?(@windows, fn {window, duration} ->
       window_start = now - duration
       current = get_usage(exchange, window, window_start)
       current + weight <= limits[window]
     end)
   end
-  
+
   defp get_usage(exchange, window, start_time) do
     # Sum weights in sliding window
     table = :"#{exchange}_rate_limits"
     :ets.select(table, [
-      {{{:request, :"$1"}, :"$2"}, 
-       [{:>, :"$1", start_time}], 
+      {{{:request, :"$1"}, :"$2"},
+       [{:>, :"$1", start_time}],
        [:"$2"]}
     ])
     |> Enum.sum()
@@ -1175,14 +1175,14 @@ end
 defmodule ZenCex.ConnectionManager do
   def create_client(exchange) do
     config = get_exchange_config(exchange)
-    
+
     Req.new()
     |> attach_base_config(config)
     |> attach_middleware(exchange)
     |> attach_telemetry()
     |> attach_circuit_breaker()
   end
-  
+
   defp attach_middleware(req, exchange) do
     req
     |> Req.Request.prepend_request_steps(
@@ -1197,7 +1197,7 @@ defmodule ZenCex.ConnectionManager do
       check_health: &update_health_status/1
     )
   end
-  
+
   defp attach_telemetry(req) do
     Req.Request.register_options(req, [
       :exchange,
@@ -1216,25 +1216,25 @@ defmodule ZenCex.Telemetry do
       # Request metrics
       counter("zen_cex.request.count", tags: [:exchange, :status]),
       summary("zen_cex.request.duration", tags: [:exchange, :endpoint]),
-      
-      # Rate limit metrics  
+
+      # Rate limit metrics
       gauge("zen_cex.rate_limit.usage", tags: [:exchange, :window]),
       counter("zen_cex.rate_limit.rejected", tags: [:exchange]),
-      
+
       # Circuit breaker metrics
       counter("zen_cex.circuit_breaker.opened", tags: [:exchange]),
       gauge("zen_cex.circuit_breaker.state", tags: [:exchange]),
-      
+
       # Health metrics
       gauge("zen_cex.health.latency", tags: [:exchange]),
       gauge("zen_cex.health.success_rate", tags: [:exchange]),
-      
+
       # Connection pool metrics
       gauge("zen_cex.pool.size", tags: [:exchange]),
       gauge("zen_cex.pool.queue_length", tags: [:exchange])
     ]
   end
-  
+
   def attach_handlers do
     :telemetry.attach_many(
       "zen-cex-req",

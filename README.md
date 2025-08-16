@@ -2,6 +2,8 @@
 
 A production-ready Elixir library for centralized cryptocurrency exchange (CEX) REST API integrations, featuring a plugin architecture with Req middleware pipeline for Binance, Kraken, and Deribit.
 
+**IMPORTANT**: This is a REST-only library designed for reliable position management and trading operations. It does NOT support High-Frequency Trading (HFT) or WebSocket streaming. For HFT or real-time market data streaming, please look elsewhere.
+
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed
@@ -48,7 +50,7 @@ The AI implementation guide enforces:
 
 ## Architecture Overview
 
-**Req-centric design** - Leveraging Req's built-in connection pooling, retry logic, and middleware pipeline instead of custom OTP supervision.
+**Req-centric REST-only design** - Leveraging Req's built-in connection pooling, retry logic, and middleware pipeline for REST API operations. No WebSocket or streaming support.
 
 ```
 lib/zen_cex/
@@ -66,10 +68,11 @@ lib/zen_cex/
 **Only GenServer needed**: Deribit OAuth token management (stateful)
 
 ### Key Technologies
-- **HTTP Client**: Req with middleware pipeline
-- **Rate Limiting**: ETS atomic counters
+- **HTTP Client**: Req with middleware pipeline (REST only)
+- **Rate Limiting**: ETS atomic counters for REST endpoints
 - **Testing**: Req.Test for unit tests, real APIs for integration
-- **Auth**: Exchange-specific (HMAC, Nonce, OAuth2)
+- **Auth**: Exchange-specific for REST APIs (HMAC, Nonce, OAuth2)
+- **Scope**: REST APIs only - no WebSocket, no FIX, no binary protocols
 
 ## Current Status
 
@@ -80,13 +83,15 @@ lib/zen_cex/
 
 ## Key Features
 
-- 🚀 **Plugin Architecture**: Isolated exchange adapters
-- ⚡ **High Performance**: 10,000+ concurrent requests in <100ms
+- 🚀 **Plugin Architecture**: Isolated exchange adapters for REST APIs
+- ⚡ **Reliable Performance**: 10,000+ concurrent REST requests in <100ms
 - 🔒 **Production Ready**: Circuit breakers, health monitoring, telemetry
 - 🧪 **Comprehensive Testing**: Unit (Req.Test) + Integration (real APIs)
 - 📊 **Rate Limiting**: Budget-based allocation with atomic operations
 - 🔄 **Request Coalescing**: Deduplication within time windows
 - 🏥 **Health Monitoring**: Clock sync validation, exchange status
+- ❌ **NOT for HFT**: This library is not designed for high-frequency trading
+- ❌ **No WebSocket**: REST APIs only, no streaming market data support
 
 ## Documentation
 
