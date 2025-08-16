@@ -319,3 +319,32 @@ The library follows Elixir conventions:
 - Uses telemetry for error reporting
 - Implements exponential backoff for transient failures
 - Logs warnings for rate limits and critical errors for health issues
+
+### TODO Comment Requirements
+
+**CRITICAL**: All temporary implementations and production references MUST be marked with TODO:
+- **Instead of**: "For now, we use...", "Currently...", "Temporarily..."
+- **Write**: "TODO: For now, we use...", "TODO: Currently...", "TODO: Temporarily..."
+- **Instead of**: "In production, this should...", "When deployed..."
+- **Write**: "TODO: In production, this should...", "TODO: When deployed..."
+- **Instead of**: "This is a workaround...", "Quick fix for..."
+- **Write**: "TODO: This is a workaround...", "TODO: Quick fix for..."
+
+This ensures `mix credo` can properly identify and track technical debt. Examples:
+```elixir
+# BAD: mix credo won't find this
+# For now, we're using a hardcoded timeout
+timeout = 5000
+
+# GOOD: mix credo will track this
+# TODO: For now, we're using a hardcoded timeout - should be configurable
+timeout = 5000
+
+# BAD: mix credo won't find this
+# In production, this should use environment variables
+api_key = "test_key"
+
+# GOOD: mix credo will track this
+# TODO: In production, this should use environment variables
+api_key = "test_key"
+```

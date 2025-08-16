@@ -7,10 +7,10 @@
 
 ### Your Current Status
 - **Architecture**: Req-powered adapters with built-in pooling, retry, telemetry
-- **Progress**: 23% complete (7/30 tasks done) 
+- **Progress**: 23% complete (7/37 tasks done) 
 - **Next Task**: Remove redundant OTP - Req handles pooling, retry, telemetry
-- **Priority**: Fully utilize Req's capabilities, avoid reimplementation
-- **Focus**: Production-ready patterns with proper observability
+- **Priority**: Production hardening with idempotency, prioritization, multi-account
+- **Focus**: Production-ready patterns for high-frequency trading operations
 
 ### Navigation
 1. Check "Current Task" section
@@ -107,28 +107,39 @@ Req.Request.prepend_request_steps(req,
 )
 ```
 
-### Pattern 5: Request Coalescing for Duplicate Calls
+### Pattern 5: Request Coalescing with GenServer Coordination
 ```elixir
-# Prevents duplicate simultaneous requests
-def get_with_coalescing(url, opts) do
-  key = {url, opts[:params]}
+# Production-ready coalescing without race conditions
+defmodule RequestCoalescer do
+  use GenServer
   
-  case :ets.lookup(:request_cache, key) do
-    [{^key, pid}] when is_pid(pid) ->
-      # Request in progress, wait for result
-      ref = Process.monitor(pid)
-      receive do
-        {:DOWN, ^ref, :process, ^pid, reason} ->
-          :ets.lookup(:request_cache, {:result, key})
-      end
-      
-    [] ->
-      # Start new request
-      :ets.insert(:request_cache, {key, self()})
-      result = Req.get(url, opts)
-      :ets.insert(:request_cache, {{:result, key}, result})
-      :ets.delete(:request_cache, key)
-      result
+  def get(url, opts) do
+    key = {url, opts[:params]}
+    GenServer.call(__MODULE__, {:coalesce, key, fn -> Req.get(url, opts) end})
+  end
+  
+  def handle_call({:coalesce, key, fun}, from, state) do
+    case Map.get(state, key) do
+      nil ->
+        # First request, execute in Task
+        task = Task.async(fun)
+        {:noreply, Map.put(state, key, {task, [from]})}
+        
+      {task, waiters} ->
+        # Add to waiters
+        {:noreply, Map.put(state, key, {task, [from | waiters]})}
+    end
+  end
+  
+  def handle_info({ref, result}, state) when is_reference(ref) do
+    # Find and reply to all waiters
+    {key, {task, waiters}} = Enum.find(state, fn 
+      {_k, {%Task{ref: ^ref}, _}} -> true
+      _ -> false
+    end)
+    
+    Enum.each(waiters, &GenServer.reply(&1, result))
+    {:noreply, Map.delete(state, key)}
   end
 end
 ```
@@ -241,13 +252,224 @@ stub(:binance, fn conn ->
 end)
 ```
 
+### Pattern 11: Idempotency for Order Placement
+```elixir
+# Critical for safe retries in production
+defmodule OrderPlacer do
+  def place_order(exchange, params) do
+    # Generate idempotency key
+    idempotency_key = generate_idempotency_key(params)
+    
+    # Check if we've sent this before
+    case check_idempotency_cache(idempotency_key) do
+      {:ok, previous_result} -> 
+        {:ok, previous_result}
+        
+      :not_found ->
+        params = Map.put(params, :client_order_id, idempotency_key)
+        
+        case send_order(exchange, params) do
+          {:ok, result} ->
+            cache_idempotency_result(idempotency_key, result)
+            {:ok, result}
+            
+          {:error, :timeout} ->
+            # On timeout, query order status by client_order_id
+            check_order_status(exchange, idempotency_key)
+            
+          error ->
+            error
+        end
+    end
+  end
+  
+  defp generate_idempotency_key(params) do
+    # Include timestamp with 5-minute window
+    window = div(System.os_time(:second), 300)
+    data = {window, params[:symbol], params[:side], params[:quantity], params[:price]}
+    :crypto.hash(:sha256, :erlang.term_to_binary(data))
+    |> Base.encode16(case: :lower)
+    |> binary_part(0, 16)  # Most exchanges limit client_order_id length
+  end
+end
+```
+
+### Pattern 12: Request Prioritization System
+```elixir
+# Tiered priority for production trading
+defmodule SmartRateLimiter do
+  @priorities %{
+    cancel_order: 1,      # Highest - risk management
+    place_order: 2,       # Trading
+    modify_order: 3,      # Adjustments
+    account_info: 4,      # Important queries
+    market_data: 5,       # Can be cached
+    historical: 6         # Lowest priority
+  }
+  
+  def check_and_consume(exchange, endpoint, weight) do
+    priority = @priorities[endpoint_type(endpoint)]
+    capacity = get_remaining_capacity(exchange)
+    
+    cond do
+      # Always allow critical risk management
+      priority == 1 and capacity > 0 -> :ok
+      
+      # Reserve 20% capacity for high priority
+      priority <= 3 and capacity > weight * 5 -> :ok
+      
+      # Normal requests need 50% capacity
+      capacity > max_capacity(exchange) * 0.5 -> :ok
+      
+      # Reject low priority when constrained
+      true -> {:error, :rate_limited, calculate_retry_after(exchange)}
+    end
+  end
+end
+```
+
+### Pattern 13: Multi-Account API Key Rotation
+```elixir
+# Distribute load across multiple API keys
+defmodule MultiAccountManager do
+  def get_credentials(exchange, request_type) do
+    accounts = get_exchange_accounts(exchange)
+    
+    # Round-robin with health awareness
+    account = accounts
+    |> Enum.filter(&account_healthy?/1)
+    |> Enum.min_by(&get_account_usage(&1, request_type))
+    
+    case account do
+      nil -> {:error, :no_healthy_accounts}
+      acc -> {:ok, acc.api_key, acc.secret}
+    end
+  end
+  
+  defp account_healthy?(account) do
+    case :ets.lookup(:account_health, account.id) do
+      [{_, :healthy, _}] -> true
+      [{_, :degraded, last_check}] -> 
+        # Retry degraded accounts after 5 minutes
+        System.os_time(:second) - last_check > 300
+      _ -> false
+    end
+  end
+end
+```
+
+### Pattern 14: Per-Endpoint Health Monitoring
+```elixir
+# Track health at endpoint granularity
+defmodule HealthMonitor do
+  def record_request(exchange, endpoint, duration, status) do
+    key = {exchange, endpoint, div(System.os_time(:second), 60)}
+    
+    :ets.update_counter(:health_metrics, key, [
+      {2, 1},                          # request count
+      {3, duration},                   # total duration
+      {4, if(status < 400, do: 1, else: 0)}, # success count
+      {5, if(status == 429, do: 1, else: 0)}  # rate limit count
+    ], {key, 0, 0, 0, 0})
+  end
+  
+  def get_endpoint_health(exchange, endpoint) do
+    # Last 5 minutes
+    keys = for i <- 0..4, do: {exchange, endpoint, div(System.os_time(:second), 60) - i}
+    
+    stats = keys
+    |> Enum.flat_map(&:ets.lookup(:health_metrics, &1))
+    |> Enum.reduce({0, 0, 0, 0}, fn {_, count, duration, success, rate_limited}, acc ->
+      {elem(acc, 0) + count, 
+       elem(acc, 1) + duration,
+       elem(acc, 2) + success,
+       elem(acc, 3) + rate_limited}
+    end)
+    
+    case stats do
+      {0, _, _, _} -> :no_data
+      {count, duration, success, rate_limited} ->
+        %{
+          avg_latency: div(duration, count),
+          success_rate: success / count,
+          rate_limit_rate: rate_limited / count,
+          requests_per_minute: count / 5
+        }
+    end
+  end
+end
+```
+
+### Pattern 15: Advanced Req Configuration with Caching
+```elixir
+# Leverage Req's built-in caching for market data
+def create_req_client(exchange) do
+  config = get_exchange_config(exchange)
+  
+  Req.new(
+    base_url: config.base_url,
+    # Built-in caching for GET requests
+    cache: true,
+    cache_dir: "/tmp/zen_cex_#{exchange}",
+    cache_keys: &cache_key_generator/1,
+    
+    # Advanced retry with jitter
+    retry: [
+      delay: fn attempt -> 
+        base = :timer.seconds(attempt)
+        jitter = :rand.uniform(1000)
+        base + jitter
+      end,
+      max_attempts: 3,
+      should_retry: fn
+        {:ok, %{status: 429}} -> {:delay, :timer.seconds(60)}
+        {:ok, %{status: 503}} -> true
+        {:error, %Mint.TransportError{}} -> true
+        _ -> false
+      end
+    ],
+    
+    # Compression
+    compress_body: true,  # For large POST bodies
+    decode_body: true,
+    
+    # Custom error normalization
+    decode_body: fn
+      {:ok, %{status: status} = resp} when status in 400..599 ->
+        normalize_exchange_error(resp)
+      other -> 
+        other
+    end,
+    
+    # Backpressure control
+    pool_timeout: 5_000,
+    receive_timeout: 30_000,
+    max_body: 10_485_760  # 10MB limit
+  )
+  |> attach_middleware(exchange)
+  |> attach_telemetry()
+end
+
+defp cache_key_generator(request) do
+  # Cache market data for 1 second, account data not cached
+  case request.url.path do
+    "/api/v3/ticker" <> _ -> 
+      {request.url, request.options[:params], div(System.os_time(:second), 1)}
+    "/api/v3/depth" <> _ ->
+      {request.url, request.options[:params], div(System.os_time(:second), 1)}
+    _ ->
+      nil  # Don't cache
+  end
+end
+```
+
 ## Exchange Requirements Table
 
 | Exchange | Auth Method | Critical Requirement | Common Error | Production Gotcha |
 |----------|------------|---------------------|-------------|-------------------|
-| Binance | HMAC-SHA256 | Signature LAST in params | Wrong param order | IP weight != UID weight; Listen keys expire after 60m |
-| Kraken | Nonce | Microsecond + counter | Using only microseconds | Different tiers (Starter/Pro); Some CSV responses |
-| Deribit | OAuth2 | Refresh 120s before expiry | Token expiration | Testnet weekly reset; Options have separate margins |
+| Binance | HMAC-SHA256 | Signature LAST in params | Wrong param order | IP weight != UID weight; User data streams expire after 30m (not 60m) |
+| Kraken | Nonce | Microsecond + counter | Using only microseconds | Ledger exports async; Edit orders = cancel+new for limits |
+| Deribit | OAuth2 | Refresh 120s before expiry | Token expiration | Options assignment at 08:00 UTC causes 1min downtime |
 | Bybit | HMAC-SHA256 | timestamp within 5s | Clock skew | Different endpoints for spot/derivatives |
 | OKX | HMAC-SHA256 | passphrase required | Missing passphrase | Simulated trading affects rate limits |
 
@@ -255,57 +477,85 @@ end)
 
 **Binance:**
 - IP weight limits differ from UID (user) limits
-- Weight system: simple requests = 1, complex = 5-50, OCO orders have special weights
+- Weight system: simple requests = 1, complex = 5-50, OCO orders consume 2x weight when both legs fill
 - Order rate limits separate from request rate limits
 - `recvWindow` default 5000ms, max 60000ms
-- Listen keys expire after 60 minutes without keepalive
+- User data streams expire after 30 minutes without keepalive (not 60)
 - Clock synchronization critical (±1000ms tolerance)
+- Testnet has different rate limits than production
 
 **Kraken:**
 - Nonce must be STRICTLY increasing (no duplicates ever)
 - Rate limit tiers: Starter (15/sec), Intermediate (20/sec), Pro (20/sec + higher burst)
+- Ledger exports are async - returns job ID, must poll for completion
+- Different decimal precision per pair (XBTUSD: 1, ADAUSD: 5)
+- Edit orders count as cancel + new for rate limiting
 - Some endpoints return CSV format (trades export)
-- WebSocket has separate rate limiting from REST
 - All private endpoints use POST with `application/x-www-form-urlencoded`
 - API secret can be base64-encoded or raw
 
 **Deribit:**
 - Test environment: test.deribit.com (completely separate, weekly reset)
 - OAuth tokens work across REST and WebSocket
+- Portfolio margin vs standard margin use different endpoints and calculations
+- Options assignment happens at 08:00 UTC, API unavailable for ~1 minute
+- Index price != mark price (critical for liquidation calculations)
 - Matching engine rate limits separate from API rate limits
-- Options have different margin calculations than futures
 - JSON-RPC style API even for REST endpoints
 - Single-flight protection critical for OAuth token refresh
 
-### Clock Synchronization Pattern
+### Active Clock Synchronization Pattern
 ```elixir
-# Critical for exchanges that reject time-skewed requests
-def ensure_time_sync(exchange) do
-  case get_server_time(exchange) do
-    {:ok, server_time} ->
-      local_time = System.os_time(:millisecond)
-      offset = server_time - local_time
-      
-      if abs(offset) > 1000 do
-        Logger.warning("Clock skew detected for #{exchange}: #{offset}ms")
-        :ets.insert(:clock_sync, {exchange, offset})
-      end
-      
-    {:error, _} -> 
-      # Use last known offset or 0
-      offset = case :ets.lookup(:clock_sync, exchange) do
-        [{^exchange, saved_offset}] -> saved_offset
-        [] -> 0
-      end
-      {ok, offset}
+# Proactively sync before auth requests
+defmodule ClockSync do
+  def ensure_time_sync(exchange) do
+    # Check if we need to refresh sync (every 5 minutes)
+    case :ets.lookup(:clock_sync, {exchange, :last_sync}) do
+      [{_, last_sync}] when System.os_time(:second) - last_sync < 300 ->
+        :ok  # Recent sync, use cached offset
+        
+      _ ->
+        # Actively sync now
+        sync_with_exchange(exchange)
+    end
   end
-end
-
-# Apply offset when signing requests
-def apply_time_offset(timestamp, exchange) do
-  case :ets.lookup(:clock_sync, exchange) do
-    [{^exchange, offset}] -> timestamp + offset
-    [] -> timestamp
+  
+  defp sync_with_exchange(exchange) do
+    case get_server_time(exchange) do
+      {:ok, server_time} ->
+        local_time = System.os_time(:millisecond)
+        offset = server_time - local_time
+        
+        # Store offset and last sync time
+        :ets.insert(:clock_sync, [
+          {{exchange, :offset}, offset},
+          {{exchange, :last_sync}, System.os_time(:second)}
+        ])
+        
+        if abs(offset) > 1000 do
+          Logger.warning("Clock skew detected for #{exchange}: #{offset}ms")
+        end
+        
+        {:ok, offset}
+        
+      {:error, reason} -> 
+        # Use last known offset or fail if none
+        case :ets.lookup(:clock_sync, {exchange, :offset}) do
+          [{_, saved_offset}] -> 
+            Logger.warning("Using cached offset for #{exchange} due to: #{inspect(reason)}")
+            {:ok, saved_offset}
+          [] -> 
+            {:error, :clock_sync_required}
+        end
+    end
+  end
+  
+  # Apply offset when signing requests
+  def apply_time_offset(timestamp, exchange) do
+    case :ets.lookup(:clock_sync, {exchange, :offset}) do
+      [{_, offset}] -> timestamp + offset
+      [] -> timestamp
+    end
   end
 end
 ```
@@ -358,42 +608,54 @@ end
 
 ## Task Implementation Sequence
 
-### Phase 1: Core + Binance (Current)
+### Phase 1: Core Foundation & Production Hardening
 ```bash
-# You are here: Task 2 - Simplifying architecture
+# Immediate priorities for production readiness
 [✅] Task 1: Core.Registry
 [🔄] Task 2: Simplify architecture (remove Core.Supervisor)  # <- CURRENT
-[ ] Task 3: Add telemetry integration for observability
-[ ] Task 4: Core.HTTP with Req steps and backpressure
-[ ] Task 5: Binance.Auth with proper error handling
-[ ] Task 6: Binance.RateLimiter with sliding window
-[ ] Task 7: Binance.Parser with body size limits
-[ ] Task 8: Integration tests against real API
-[ ] Task 9: Performance validation and benchmarks
+[ ] Task 3: Add telemetry integration (CRITICAL for observability)
+[ ] Task 4: Active clock synchronization (prevents auth failures)
+[ ] Task 5: Idempotency for order placement (prevents duplicate orders)
+[ ] Task 6: Request prioritization system (risk management first)
+[ ] Task 7: Request coalescing with GenServer (prevent API abuse)
+[ ] Task 8: Multi-account API key rotation (distribute load)
+[ ] Task 9: Per-endpoint health monitoring (granular visibility)
 ```
 
-### Phase 2: Testing + Other Exchanges
+### Phase 2: Binance Implementation with New Patterns
 ```bash
-[ ] Task 10-11: Req.Test framework with real response fixtures
-[ ] Task 12: Clock synchronization handling
-[ ] Task 13-15: Kraken adapter with nonce management
-[ ] Task 16-18: Deribit adapter with OAuth state
-[ ] Task 19: Request deduplication integration
+[ ] Task 10: Core.HTTP with Req steps, caching, and backpressure
+[ ] Task 11: Binance.Auth with proactive clock sync
+[ ] Task 12: Binance.RateLimiter with priority tiers
+[ ] Task 13: Binance.Parser with graceful degradation
+[ ] Task 14: Integration tests with golden file captures
+[ ] Task 15: Performance validation under load
 ```
 
-### Phase 3: Production Hardening
+### Phase 3: Additional Exchanges
 ```bash
-[ ] Task 20: Circuit breaker with exchange-specific thresholds
-[ ] Task 21: Health monitoring with SLA tracking
-[ ] Task 22: Stream processing for large datasets
-[ ] Task 23: Connection pool optimization per exchange
-[ ] Task 24: Multi-tier rate limiting implementation
+[ ] Task 16-18: Kraken adapter (nonce, async ledgers, decimal precision)
+[ ] Task 19-21: Deribit adapter (OAuth, portfolio margin, options)
+[ ] Task 22: Req.Test framework with captured responses
+```
+
+### Phase 4: Production Operations
+```bash
+[ ] Task 23: Circuit breaker with exchange-specific thresholds
+[ ] Task 24: Multi-tier rate limiting (second/minute/hour windows)
 [ ] Task 25: Memory protection and backpressure tuning
 [ ] Task 26: Load testing with 10K concurrent requests
-[ ] Task 27: Error recovery with exponential backoff
-[ ] Task 28: Production dashboard and alerting
-[ ] Task 29: Comprehensive troubleshooting guide
-[ ] Task 30: Performance benchmarks documentation
+[ ] Task 27: Error recovery with exponential backoff + jitter
+[ ] Task 28: Graceful degradation with stale data fallback
+[ ] Task 29: Connection pool dynamic adjustment
+[ ] Task 30: Comprehensive troubleshooting guide
+[ ] Task 31: Performance benchmarks documentation
+[ ] Task 32: Production deployment patterns
+[ ] Task 33: Monitoring and alerting setup
+[ ] Task 34: Order lifecycle management patterns
+[ ] Task 35: Partial fill reconciliation
+[ ] Task 36: Production incident runbooks
+[ ] Task 37: Security audit and credential rotation
 ```
 
 ## Common AI Coder Mistakes
@@ -447,6 +709,31 @@ end
 **Wrong**: Same pool configuration for all exchanges
 **Right**: Tune pools based on exchange characteristics
 **Why**: Binance handles 50+ concurrent, Kraken prefers fewer
+
+### Mistake 11: No Idempotency for Orders
+**Wrong**: Retrying order placement without client_order_id
+**Right**: Generate deterministic client_order_id for safe retries
+**Why**: Network timeout + retry = potential duplicate orders
+
+### Mistake 12: Ignoring Partial Fills
+**Wrong**: Assuming orders are fully filled or cancelled
+**Right**: Track fill quantity and handle partial execution
+**Why**: Large orders often partially fill in volatile markets
+
+### Mistake 13: Static Rate Limit Assumptions
+**Wrong**: Hardcoding rate limits from documentation
+**Right**: Read actual limits from response headers
+**Why**: Exchanges dynamically adjust limits based on tier/load
+
+### Mistake 14: No Graceful Degradation
+**Wrong**: Failing requests when rate limited
+**Right**: Serve stale cached data with warning
+**Why**: Better to show slightly old data than error
+
+### Mistake 15: Single API Key Usage
+**Wrong**: Using one API key for all operations
+**Right**: Rotate multiple keys for load distribution
+**Why**: Spreads rate limits and prevents single point of failure
 
 ## Troubleshooting Guide
 
@@ -507,6 +794,53 @@ signature = Binance.Auth.sign_request(params, secret)
 - Verify firewall settings
 - Monitor DNS resolution
 
+### Common Production Issues Not in Docs
+
+#### Issue: Order Rejected After Timeout
+**Symptoms**: Timeout on order placement, but order actually executed
+**Root Cause**: Network timeout shorter than exchange processing time
+**Solution**:
+```elixir
+# Always check order status after timeout
+case place_order_with_timeout(params, timeout: 5_000) do
+  {:error, :timeout} ->
+    # Order might have succeeded - check by client_order_id
+    check_order_status(params.client_order_id)
+  result -> 
+    result
+end
+```
+
+#### Issue: Nonce Already Used (Kraken)
+**Symptoms**: "Invalid nonce" errors after restart
+**Root Cause**: Nonce must always increase, even across restarts
+**Solution**:
+```elixir
+# Persist last nonce and add buffer on startup
+def init_nonce do
+  last_nonce = read_persisted_nonce()
+  buffer = 1000  # Safety buffer
+  :ets.insert(:nonces, {:kraken, last_nonce + buffer})
+end
+```
+
+#### Issue: Decimal Precision Errors
+**Symptoms**: Orders rejected for invalid quantity/price
+**Root Cause**: Each trading pair has specific decimal requirements
+**Solution**:
+```elixir
+# Cache and apply pair-specific precision
+def format_quantity(pair, quantity) do
+  precision = get_pair_precision(pair, :quantity)
+  Decimal.round(quantity, precision, :down)  # Always round down for quantities
+end
+```
+
+#### Issue: IP Whitelist Changes
+**Symptoms**: Sudden authentication failures in production
+**Root Cause**: Cloud provider IP rotation or failover
+**Solution**: Use API key restrictions by API permissions, not IP whitelist
+
 ### Health Check Monitoring
 
 #### Setting Up Health Checks
@@ -565,11 +899,14 @@ end
 - [ ] Request coalescing effectiveness measured
 
 ### Security
-- [ ] API keys stored securely
-- [ ] No credentials in logs
+- [ ] API keys stored securely in environment variables
+- [ ] No credentials in logs or error messages
 - [ ] TLS certificate validation enabled
-- [ ] Request signing verified
+- [ ] Request signing verified with test mode
 - [ ] Rate limiting protects against abuse
+- [ ] Idempotency keys prevent duplicate orders
+- [ ] Multi-account rotation for resilience
+- [ ] Clock sync prevents auth failures
 
 ## Validation Checklist
 
@@ -582,19 +919,22 @@ mix credo --strict               # Code quality
 mix test --cover                 # >80% coverage
 ```
 
-### Memory & Performance Targets
-- Rate limiter: <0.5ms per check (sub-millisecond)
-- 10,000 concurrent requests: <200ms total orchestration time
-- Memory growth: <2MB under sustained load
-- ETS cleanup: Every 30 seconds for sliding windows
-- Circuit breaker: <0.1ms decision time
+### Memory & Performance Targets (Updated)
+- Rate limiter: <0.1ms per check (100 microseconds)
+- 10,000 concurrent requests: <100ms total orchestration
+- Memory growth: <1MB under sustained load
+- ETS cleanup: Every 60 seconds for sliding windows
+- Circuit breaker: <0.01ms decision time (10 microseconds)
 - Health check: Max 5 second timeout with exponential backoff
-- Connection pool: 50-100 connections per exchange (configurable)
-- Request coalescing: 95% duplicate elimination
+- Connection pool: Dynamic 20-50 per exchange based on latency
+- Request coalescing: 99% duplicate elimination
 - Body size limit: 10MB default, streaming for larger
-- Telemetry overhead: <2% of request time
-- Clock sync check: Every 5 minutes per exchange
+- Telemetry overhead: <1% of request time
+- Clock sync: Proactive before auth requests + every 5 min check
 - OAuth refresh: 120 seconds before expiry
+- Idempotency window: 5 minutes for order operations
+- Priority queue overhead: <0.05ms per request
+- Multi-account rotation: <0.01ms selection time
 
 ## Architecture: Leveraging Req's Built-in Capabilities
 
@@ -605,8 +945,9 @@ mix test --cover                 # >80% coverage
 - **Observability**: Req emits comprehensive telemetry events automatically
 
 ### What Actually Needs GenServers
-- **Deribit.Auth** - OAuth token state management
-- **That's it!** Everything else is handled by Req or uses ETS tables
+- **Deribit.Auth** - OAuth token state management with single-flight refresh
+- **RequestCoalescer** - Coordinate duplicate request handling (one GenServer)
+- **That's it!** Everything else uses Req features or ETS atomic operations
 
 ### What Req Handles For Us
 - **Connection pooling** - Finch integration with HTTP/2 support
