@@ -40,6 +40,71 @@ You are a senior Elixir developer with:
 ### Pragmatic Simplicity
 We want pragmatic simplicity, not naive simplicity. This means choosing solutions that are simple but robust, maintainable but not overengineered, and practical for real-world use cases rather than theoretically perfect.
 
+## Testing Philosophy: Real APIs First
+
+**[!] TESTING POLICY [!]**
+--------------------------------------------------
+**ALWAYS test against REAL APIs first to understand behavior.**
+**NEVER create mocks without first testing real APIs.**
+**Document actual API responses and edge cases from real testing.**
+**Mocks must exactly match observed real API behavior.**
+This ensures reliable, production-ready code.
+--------------------------------------------------
+
+When implementing any feature:
+1. **Write integration tests against REAL exchange test APIs first**
+2. **Observe and document actual API behavior**
+3. **Only then create mocks based on real responses**
+4. **Mocks must exactly replicate observed behavior**
+
+### Smart Testing Against Real APIs (Don't DDoS!)
+
+**CRITICAL**: Test real APIs responsibly to avoid getting banned:
+
+```elixir
+# GOOD: Use test buckets with controlled concurrency
+test "rate limiter handles real API limits" do
+  # Test in buckets with controlled concurrency
+  results = 
+    1..20
+    |> Enum.chunk_every(5)  # Process in buckets of 5
+    |> Enum.flat_map(fn batch ->
+      batch
+      |> Task.async_stream(fn _ -> 
+        make_api_call()
+      end, max_concurrency: 2, timeout: 10_000)
+      |> Enum.map(fn {:ok, result} -> result end)
+    end)
+end
+
+# GOOD: Use exponential backoff between test groups
+test "handles burst requests" do
+  for {delay, batch_size} <- [{0, 2}, {100, 3}, {500, 5}] do
+    Process.sleep(delay) if delay > 0
+    
+    results = make_batch_requests(batch_size)
+    assert length(results) == batch_size
+  end
+end
+
+# BAD: Don't hammer the API
+test "bad test example" do
+  # DON'T DO THIS - will get you banned
+  for _ <- 1..1000 do
+    make_api_call()  # No rate limiting!
+  end
+end
+```
+
+**Testing Strategies**:
+- **Use test/sandbox endpoints** when available (Binance testnet, Deribit test environment)
+- **Batch requests** with controlled concurrency (max 2-3 concurrent)
+- **Space out test runs** with exponential backoff between groups
+- **Cache responses** for repeated test runs (invalidate after 1 hour)
+- **Tag integration tests** and run separately: `@tag :integration`
+- **Monitor rate limit headers** and respect them in tests
+- **Use small datasets** - test with 5-10 requests, not hundreds
+
 ## ⚠️ CRITICAL: Task Grouping Guidelines
 
 ### Phase-Based Sessions
@@ -75,19 +140,19 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ## Current Task
 
-**Task #8**: Binance.RateLimiter - ETS tables (Next task in Phase 2)
+**Task #9**: Binance.Parser - Response parsing (Next task in Phase 2)
 
-**File**: `lib/zen_cex/adapters/binance/rate_limiter.ex`
+**File**: `lib/zen_cex/adapters/binance/parser.ex`
 
 **Key Requirements**:
-- ETS with atomic counters
-- Sliding window implementation
-- Reads weight from response headers
-- Emergency bypass for cancel operations
-- Cleanup every 60 seconds
-- Performance < 100μs for checks
+- JSON response parsing
+- Normalizes to common format
+- Error code mapping
+- Type conversions (strings to Decimal)
+- Handles null/missing fields
+- Tests with fixture data
 
-**Full Requirements & Review Criteria**: See Task #8 in AI-REVIEW.md
+**Full Requirements & Review Criteria**: See Task #9 in AI-REVIEW.md
 
 ---
 
@@ -108,8 +173,8 @@ You may implement **related tasks within the same phase** when they are tightly 
 ```
 [✅] Task 6: ClockSync with proactive NTP sync           <- COMPLETED
 [✅] Task 7: Binance.Auth - HMAC-SHA256 as Req step     <- COMPLETED (5/5 ⭐)
-[ ] Task 8: Binance.RateLimiter - ETS tables           ┐
-[ ] Task 9: Binance.Parser - Response parsing          └─ Natural group
+[✅] Task 8: Binance.RateLimiter - ETS tables           <- COMPLETED ✨
+[ ] Task 9: Binance.Parser - Response parsing          <- NEXT
 [ ] Task 10: Integration tests with real API           <- Requires 7-9
 ```
 
@@ -216,30 +281,71 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ## Common Mistakes to Avoid
 
-1. **Using 5-minute idempotency window** → Use 30-minute sliding window with timestamps
-2. **Using Process.sleep** → Use Task.async or send_after
-3. **Bucket-based idempotency** → Use proper sliding window with timestamp storage
-4. **Hardcoded rate limits** → Learn from headers dynamically
-5. **Missing cleanup** → Clean ETS every 60 seconds, remove entries older than window
-6. **Wrong settlement delays** → Binance 100ms, Kraken 500ms, Deribit 200ms
-7. **No circuit breaker** → Add per-endpoint failure protection
-8. **Static nonce** → Must increase monotonically for Kraken
-9. **No telemetry** → Emit events for all operations
-10. **Blocking operations** → Keep everything async
-11. **Missing rollback** → Define rollback procedures for each operation
-12. **No version check** → Verify exchange API version compatibility
+1. **Creating mocks before testing real APIs** → ALWAYS test real APIs first, then create accurate mocks
+2. **DDoSing exchanges in tests** → Use buckets, concurrency limits, and exponential backoff
+3. **Using 5-minute idempotency window** → Use 30-minute sliding window with timestamps
+4. **Using Process.sleep** → Use Task.async or send_after
+5. **Bucket-based idempotency** → Use proper sliding window with timestamp storage
+6. **Hardcoded rate limits** → Learn from headers dynamically
+7. **Missing cleanup** → Clean ETS every 60 seconds, remove entries older than window
+8. **Wrong settlement delays** → Binance 100ms, Kraken 500ms, Deribit 200ms
+9. **No circuit breaker** → Add per-endpoint failure protection
+10. **Static nonce** → Must increase monotonically for Kraken
+11. **No telemetry** → Emit events for all operations
+12. **Blocking operations** → Keep everything async
+13. **Missing rollback** → Define rollback procedures for each operation
+14. **No version check** → Verify exchange API version compatibility
+15. **Uncontrolled test concurrency** → Max 2-3 parallel requests in tests
 
 ---
 
 ## Testing Requirements
 
+**CRITICAL: Test Against Real APIs First (Responsibly!)**
+- **ALWAYS** write integration tests against real APIs first
+- **NEVER** create mocks without first testing the real API
+- **DOCUMENT** observed API behavior from real testing
+- **ONLY** add mocks after fully understanding real API responses
+- **DON'T DDoS** - Use buckets, concurrency limits, and backoff
+
 For each module you implement:
-1. Unit tests for all public functions
-2. Integration test with mock exchange
-3. Error scenario tests (timeout, rate limit, auth failure)
-4. Performance test (verify <50μs for critical operations)
+1. **Integration tests with REAL API** (REQUIRED FIRST)
+   - Test against actual exchange test/sandbox endpoints
+   - Use controlled concurrency (max 2-3 parallel requests)
+   - Batch tests with delays between groups
+   - Document observed behavior and edge cases
+   - Capture real response formats and error codes
+   - Tag with `@tag :integration` for separate test runs
+2. **Unit tests** for pure functions (after integration tests)
+   - Extract mocks based on real API behavior
+   - Mocks must exactly match observed responses
+   - Run frequently without hitting real APIs
+3. **Error scenario tests** from real API behavior
+   - Test actual error responses you've observed
+   - Include rate limits, auth failures, timeouts
+   - Use cached responses when testing error handling
+4. **Performance tests** (verify <50μs for critical operations)
+   - Test performance with local data/mocks
+   - Don't performance test against real APIs
 
 Test file naming: `test/zen_cex/core/http_test.exs` (match module path)
+
+**Integration Test Template**:
+```elixir
+@tag :integration
+test "real API behavior with responsible testing" do
+  # Small batch with controlled concurrency
+  results = 
+    1..5  # Small dataset
+    |> Task.async_stream(&make_request/1, 
+         max_concurrency: 2,  # Limit parallel requests
+         timeout: 10_000)
+    |> Enum.to_list()
+  
+  # Document what you learned
+  assert {:ok, %{status: 200}} = hd(results)
+end
+```
 
 ### Performance Measurement Example:
 ```elixir
