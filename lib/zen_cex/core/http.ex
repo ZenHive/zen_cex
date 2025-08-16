@@ -3,20 +3,55 @@ defmodule ZenCex.Core.HTTP do
   Core HTTP module that configures Req with Finch for connection pooling
   and integrates auth and rate limiting as composable request/response steps.
 
-  This module provides:
-  - Connection pooling via Finch
-  - Exponential backoff with jitter
-  - Operation-specific timeouts
-  - Auth and rate limiting middleware
-  - Telemetry event emission
+  This module provides a Req-centric architecture for HTTP operations with:
+  - Connection pooling via Finch (named: ZenCex.Finch)
+  - Exponential backoff with jitter for retries
+  - Operation-specific timeouts based on use case
+  - Auth and rate limiting as composable Req middleware steps
+  - Comprehensive telemetry event emission for monitoring
+  - Error handling with proper Req step patterns
 
-  ## Operation Types
+  ## Architecture
 
-  - `:trading` - Order placement/cancellation (2s timeout)
-  - `:market` - Current market data queries (5s timeout)
-  - `:historical` - Historical data queries (30s timeout)
-  - `:health` - Health check endpoints (5s timeout)
-  - `:standard` - Default for unspecified operations (30s timeout)
+  The module follows Req's step-based middleware pattern:
+  1. **Request Steps**: Rate limiting and authentication (run before request)
+  2. **Response Steps**: Rate limit updates and telemetry (run after response)
+  3. **Error Steps**: Error telemetry and handling (run on exceptions)
+
+  ## Operation Types and Timeouts
+
+  Different operation types have optimized timeout configurations:
+  - `:trading` - Order placement/cancellation (2s timeout) - Critical path
+  - `:market` - Current market data queries (5s timeout) - Real-time data
+  - `:historical` - Historical data queries (30s timeout) - Large datasets
+  - `:health` - Health check endpoints (5s timeout) - Status monitoring
+  - `:standard` - Default for unspecified operations (30s timeout) - General use
+
+  ## Req Step Integration
+
+  The module integrates with adapters through the Registry:
+  - Rate limiting: Calls `adapter.rate_limiter().check_and_increment/1`
+  - Authentication: Calls `adapter.auth().sign_request/1` 
+  - Updates: Calls `adapter.rate_limiter().update_from_response/1`
+
+  ## Telemetry Events
+
+  Emits telemetry events for monitoring:
+  - `[:zen_cex, :request, :complete]` - Successful requests with duration
+  - `[:zen_cex, :request, :error]` - Failed requests with error details
+  - `[:zen_cex, :rate_limit, :exceeded]` - Rate limit violations
+
+  ## Examples
+
+      # Basic trading request
+      request = ZenCex.Core.HTTP.base_request(:binance, :trading)
+      
+      # Health check (no auth/rate limiting)
+      health_request = ZenCex.Core.HTTP.health_check_request(:kraken)
+      
+      # Custom configuration
+      request = ZenCex.Core.HTTP.base_request(:deribit, :market)
+      |> Req.merge(skip_rate_limit: true)
   """
 
   @doc """
@@ -44,6 +79,7 @@ defmodule ZenCex.Core.HTTP do
       iex> request.options[:receive_timeout]
       30000
   """
+  @spec base_request(atom(), atom()) :: Req.Request.t()
   def base_request(exchange, operation_type \\ :standard) do
     adapter = ZenCex.Core.Registry.get_adapter!(exchange)
 
@@ -81,6 +117,7 @@ defmodule ZenCex.Core.HTTP do
   ## Returns
   A configured `Req.Request` struct optimized for health checks
   """
+  @spec health_check_request(atom()) :: Req.Request.t()
   def health_check_request(exchange) do
     base_request(exchange, :health)
     |> Req.merge(skip_auth: true, skip_rate_limit: true)
@@ -88,6 +125,7 @@ defmodule ZenCex.Core.HTTP do
 
   # Request Steps (run before the request is sent)
 
+  @spec rate_limit_step(Req.Request.t()) :: Req.Request.t() | {Req.Request.t(), Req.Response.t()}
   defp rate_limit_step(request) do
     if request.options[:skip_rate_limit] do
       request
@@ -124,6 +162,7 @@ defmodule ZenCex.Core.HTTP do
     end
   end
 
+  @spec auth_step(Req.Request.t()) :: Req.Request.t()
   defp auth_step(request) do
     if request.options[:skip_auth] do
       request
@@ -141,6 +180,8 @@ defmodule ZenCex.Core.HTTP do
 
   # Response Steps (run after response is received)
 
+  @spec update_rate_limit_step({Req.Request.t(), Req.Response.t()}) ::
+          {Req.Request.t(), Req.Response.t()}
   defp update_rate_limit_step({request, response}) do
     if request.options[:skip_rate_limit] do
       {request, response}
@@ -162,6 +203,7 @@ defmodule ZenCex.Core.HTTP do
 
   # Error Steps (run when an error occurs)
 
+  @spec telemetry_error_step({Req.Request.t(), Exception.t()}) :: {Req.Request.t(), Exception.t()}
   defp telemetry_error_step({request, exception}) do
     exchange = request.options[:exchange]
     operation_type = request.options[:operation_type]
@@ -183,6 +225,7 @@ defmodule ZenCex.Core.HTTP do
 
   # Telemetry attachment
 
+  @spec attach_telemetry(Req.Request.t()) :: Req.Request.t()
   defp attach_telemetry(request) do
     # Attach to Req's built-in telemetry events
     request_ref = make_ref()
@@ -193,6 +236,8 @@ defmodule ZenCex.Core.HTTP do
     |> Req.Request.append_response_steps(zen_cex_telemetry_response: &telemetry_response_step/1)
   end
 
+  @spec telemetry_response_step({Req.Request.t(), Req.Response.t()}) ::
+          {Req.Request.t(), Req.Response.t()}
   defp telemetry_response_step({request, response}) do
     start_time = Req.Request.get_private(request, :zen_cex_start_time)
     duration = System.monotonic_time() - start_time
@@ -220,6 +265,7 @@ defmodule ZenCex.Core.HTTP do
 
   # Helper functions
 
+  @spec get_timeout(atom()) :: non_neg_integer()
   defp get_timeout(operation_type) do
     case operation_type do
       :trading -> 2_000
@@ -230,12 +276,14 @@ defmodule ZenCex.Core.HTTP do
     end
   end
 
+  @spec exponential_backoff_with_jitter(non_neg_integer()) :: non_neg_integer()
   defp exponential_backoff_with_jitter(n) do
     base_ms = min(1000 * 2 ** min(n, 10), 60_000)
     jitter_ms = :rand.uniform(500)
     min(base_ms + jitter_ms, 60_000)
   end
 
+  @spec get_endpoint(Req.Request.t()) :: String.t()
   defp get_endpoint(%Req.Request{} = request) do
     uri =
       if request.url do
@@ -253,6 +301,7 @@ defmodule ZenCex.Core.HTTP do
     uri.path || "/"
   end
 
+  @spec emit_rate_limit_telemetry(atom(), String.t(), non_neg_integer() | nil) :: :ok
   defp emit_rate_limit_telemetry(exchange, endpoint, retry_after_ms \\ nil) do
     metadata = %{
       exchange: exchange,
