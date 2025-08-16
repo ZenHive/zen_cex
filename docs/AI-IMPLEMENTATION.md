@@ -7,10 +7,10 @@
 
 ### Your Current Status
 - **Architecture**: Req-powered adapters with built-in pooling, retry, telemetry
-- **Progress**: 8% complete (2/25 tasks done)
+- **Progress**: 13% complete (2/15 core tasks done)
 - **Next Task**: Remove redundant OTP - Req handles pooling, retry, telemetry
-- **Priority**: Production hardening with idempotency, clock sync, dynamic rate limits
-- **Focus**: Production-ready REST-only patterns for reliable trading operations.
+- **Priority**: Proactive clock sync, circuit breakers, dynamic rate limit learning
+- **Focus**: Production-ready REST-only patterns for reliable trading operations
 
 ### Navigation
 1. Check "Current Task" section
@@ -41,15 +41,15 @@ def sign_request({request, options} = req_tuple) do
        {:ok, signed_request} <- apply_signature(request, credentials) do
     {signed_request, options}
   else
-    {:error, :missing_credentials} = error ->
-      # Provide context for debugging
-      error_request = Req.Request.halt(request, error)
-      {error_request, Keyword.put(options, :error_context, :auth_failed)}
+    {:error, :missing_credentials} ->
+      # Use Req.Request.put_private for internal state
+      request = request
+      |> Req.Request.halt({:error, :missing_credentials})
+      |> Req.Request.put_private(:auth_attempted_at, System.os_time(:millisecond))
+      {request, options}
     
-    {:error, reason} = error ->
-      # Tag other errors appropriately
-      error_request = Req.Request.halt(request, error)
-      {error_request, Keyword.put(options, :error_type, :signature_failed)}
+    {:error, reason} ->
+      {Req.Request.halt(request, {:error, {:signature_failed, reason}}), options}
   end
 end
 ```
@@ -202,10 +202,26 @@ def create_req_client(exchange) do
 
   Req.new(
     base_url: config.base_url,
-    # Use Req's built-in retry with jitter
-    retry: :safe_transient,  # Handles 429, 5xx, timeouts automatically
-    retry_delay: &exponential_backoff_with_jitter/1,
-    max_retries: get_max_retries(exchange),
+    # Smart retry configuration
+    retry: [
+      delay: &smart_backoff/1,
+      max_attempts: 3,
+      rescue_errors: [Mint.TransportError, Finch.Error]  # Be specific
+    ],
+    # Connection configuration with SNI and keepalive
+    connect_options: [
+      timeout: 10_000,
+      protocols: [:http2, :http1],  # Prefer HTTP/2, fallback to HTTP/1
+      transport_opts: [
+        # SNI for exchanges using CloudFlare
+        server_name_indication: String.to_charlist(exchange_hostname(exchange)),
+        # Keep alive for persistent connections
+        tcp_keepalive: true,
+        tcp_keepidle: 30_000,
+        tcp_keepintvl: 1_000,
+        tcp_keepcnt: 3
+      ]
+    ],
     # Native caching for market data
     cache: true,
     cache_dir: System.tmp_dir!() <> "/zen_cex_#{exchange}",
@@ -218,6 +234,7 @@ def create_req_client(exchange) do
     # Body size limits
     max_body: 10_485_760  # 10MB limit
   )
+  |> Req.Request.register_options([:exchange, :request_priority, :idempotency_key])
   |> attach_middleware(exchange)
   |> attach_telemetry()
   |> Req.Request.prepend_error_steps(
@@ -225,22 +242,31 @@ def create_req_client(exchange) do
   )
 end
 
-defp exponential_backoff_with_jitter(attempt) do
-  base = :timer.seconds(attempt)
-  jitter = :rand.uniform(1000)
-  base + jitter
+defp smart_backoff(attempt) do
+  base = Integer.pow(2, attempt) * 1000
+  jitter = :rand.uniform(base)
+  min(base + jitter, 30_000)  # Cap at 30 seconds
 end
 ```
 
-### Pattern 9: Dynamic Rate Limit Adjustment
+### Pattern 9: Dynamic Rate Limit Learning
 ```elixir
-# Update rate limits from response headers
+# Learn actual endpoint weights from response headers
 def update_rate_limits_from_response(exchange, response) do
+  endpoint = response.private[:endpoint]
+  
   case exchange do
     :binance ->
       used = Req.Response.get_header(response, "x-mbx-used-weight-1m")
       limit = Req.Response.get_header(response, "x-mbx-used-weight-limit-1m")
-      :ets.insert(:binance_rate_limits, {:current_usage, String.to_integer(used)})
+      
+      # Learn the actual weight for this endpoint
+      if used && endpoint do
+        actual_weight = String.to_integer(used)
+        learn_endpoint_weight(endpoint, actual_weight)
+      end
+      
+      :ets.insert(:binance_rate_limits, {:current_usage, String.to_integer(used || "0")})
       :ets.insert(:binance_rate_limits, {:current_limit, String.to_integer(limit || "1200")})
     
     :kraken ->
@@ -253,6 +279,12 @@ def update_rate_limits_from_response(exchange, response) do
       remaining = Req.Response.get_header(response, "x-ratelimit-remaining")
       :ets.insert(:deribit_rate_limits, {:remaining, String.to_integer(remaining || "10")})
   end
+end
+
+# Track actual vs documented weights
+defp learn_endpoint_weight(endpoint, actual_weight) do
+  key = {:learned_weight, endpoint}
+  :ets.insert(:rate_limit_learning, {key, actual_weight, System.os_time(:second)})
 end
 ```
 
@@ -308,36 +340,31 @@ defmodule OrderPlacer do
 end
 ```
 
-### Pattern 12: Request Prioritization System
+### Pattern 12: Simplified Request Prioritization (REST-Optimized)
 ```elixir
-# Tiered priority for production trading
-defmodule SmartRateLimiter do
+# Simple priority levels for REST trading
+defmodule RequestPriority do
   @priorities %{
-    cancel_order: 1,      # Highest - risk management
-    place_order: 2,       # Trading
-    modify_order: 3,      # Adjustments
-    account_info: 4,      # Important queries
-    market_data: 5,       # Can be cached
-    historical: 6         # Lowest priority
+    high: [:cancel_order, :close_position],    # Risk management
+    normal: [:place_order, :modify_order],      # Trading operations
+    low: [:market_data, :account_info]          # Cacheable queries
   }
 
-  def check_and_consume(exchange, endpoint, weight) do
-    priority = @priorities[endpoint_type(endpoint)]
-    capacity = get_remaining_capacity(exchange)
-
-    cond do
-      # Always allow critical risk management
-      priority == 1 and capacity > 0 -> :ok
-
-      # Reserve 20% capacity for high priority
-      priority <= 3 and capacity > weight * 5 -> :ok
-
-      # Normal requests need 50% capacity
-      capacity > max_capacity(exchange) * 0.5 -> :ok
-
-      # Reject low priority when constrained
-      true -> {:error, :rate_limited, calculate_retry_after(exchange)}
+  def check_priority(endpoint, current_capacity_ratio) do
+    priority = get_priority(endpoint)
+    
+    case {priority, current_capacity_ratio} do
+      {:high, ratio} when ratio > 0.1 -> :ok     # Always allow if >10% capacity
+      {:normal, ratio} when ratio > 0.3 -> :ok    # Need 30% capacity
+      {:low, ratio} when ratio > 0.5 -> :ok       # Need 50% capacity
+      _ -> {:error, :rate_limited}
     end
+  end
+  
+  defp get_priority(endpoint) do
+    Enum.find_value(@priorities, :normal, fn {level, endpoints} ->
+      if endpoint in endpoints, do: level
+    end)
   end
 end
 ```
@@ -414,12 +441,64 @@ defmodule HealthMonitor do
 end
 ```
 
-### Pattern 15: Proactive NTP Clock Synchronization
+### Pattern 15: Graceful Shutdown and State Persistence
 ```elixir
-# Proactive NTP sync prevents auth failures
+# Critical for production - don't lose learned state
+defmodule ZenCex.Application do
+  def stop(_state) do
+    # Drain in-flight requests
+    Logger.info("Draining in-flight requests...")
+    Finch.close(ZenCex.Finch)
+    
+    # Persist learned rate limits
+    persist_rate_limit_knowledge()
+    
+    # Save nonce state for Kraken
+    persist_nonce_state()
+    
+    # Save clock sync offsets
+    persist_clock_offsets()
+    
+    Logger.info("Graceful shutdown complete")
+    :ok
+  end
+  
+  defp persist_rate_limit_knowledge do
+    learned_weights = :ets.tab2list(:rate_limit_learning)
+    File.write!("priv/learned_weights.etf", :erlang.term_to_binary(learned_weights))
+  end
+  
+  defp persist_nonce_state do
+    case :ets.lookup(:nonces, :kraken) do
+      [{:kraken, nonce}] -> 
+        File.write!("priv/kraken_nonce", to_string(nonce))
+      _ -> :ok
+    end
+  end
+  
+  defp persist_clock_offsets do
+    offsets = :ets.match(:clock_sync, {{:"$1", :offset}, :"$2"})
+    File.write!("priv/clock_offsets.etf", :erlang.term_to_binary(offsets))
+  end
+end
+```
+
+### Pattern 16: Proactive Clock Synchronization (Critical for Auth)
+```elixir
+# Sync on startup and periodically - prevents auth failures
 defmodule ClockSync do
   @ntp_servers ~w(time.google.com time.cloudflare.com pool.ntp.org)
   @sync_interval :timer.minutes(5)
+
+  # Call this on application startup
+  def init_sync do
+    # Proactively sync with all exchanges on startup
+    [:binance, :kraken, :deribit]
+    |> Enum.each(&sync_with_exchange/1)
+    
+    # Schedule periodic sync
+    Process.send_after(self(), :periodic_sync, @sync_interval)
+  end
 
   def ensure_time_sync(exchange) do
     case :ets.lookup(:clock_sync, {exchange, :last_sync}) do
@@ -477,42 +556,52 @@ end
 
 | Exchange | Auth Method | Critical Requirement | Common Error | Production Gotcha |
 |----------|------------|---------------------|-------------|-------------------|
-| Binance | HMAC-SHA256 | Signature LAST in params | Wrong param order | IP weight != UID weight; User data streams expire after 30m (not 60m); Dynamic rate limits in headers |
-| Kraken | Nonce + HMAC | Microsecond + counter; Base64 secret | Using only microseconds | Ledger exports async; Edit orders = cancel+new; Some endpoints return CSV; All private use POST |
-| Deribit | OAuth2 | Refresh 120s before expiry | Token expiration | Options assignment at 08:00 UTC causes 1min downtime; JSON-RPC even for REST |
-| Bybit | HMAC-SHA256 | timestamp within 5s; Different base URLs | Clock skew | api.bybit.com (spot) vs api-testnet.bybit.com (derivatives) |
-| OKX | HMAC + Passphrase | passphrase required in headers | Missing passphrase | Simulated trading affects rate limits; Requires OK-ACCESS-PASSPHRASE header |
+| Binance | HMAC-SHA256 | Signature LAST in params | Wrong param order | Spot vs Futures have different URLs/limits; listenKey expires 60m (not 30m); OCO orders = 2x weight |
+| Kraken | Nonce + HMAC | Microsecond + counter; Base64 secret | Using only microseconds | "EOrder:Insufficient funds" can occur AFTER acceptance; Edit = cancel+new; "Busy" errors need backoff |
+| Deribit | OAuth2 | Refresh 120s before expiry | Token expiration | Mark price lags during volatility; Weekly test reset Sunday 08:00 UTC; Portfolio margin different endpoints |
+| Bybit | HMAC-SHA256 | timestamp within 5s; Different base URLs | Clock skew | api.bybit.com (spot) vs api-testnet.bybit.com (derivatives); Different signatures per product |
+| OKX | HMAC + Passphrase | passphrase required in headers | Missing passphrase | Demo trading affects production rate limits; Requires OK-ACCESS-PASSPHRASE header |
+| Coinbase | JWT | JWT token with RS256 | HMAC instead of JWT | Completely different auth than other exchanges; Uses JWT not HMAC |
 
 ### Critical Exchange Quirks
 
 **Binance:**
-- IP weight limits differ from UID (user) limits
-- Weight system: simple requests = 1, complex = 5-50, OCO orders consume 2x weight when both legs fill
-- Order rate limits separate from request rate limits
-- `recvWindow` default 5000ms, max 60000ms
-- User data streams expire after 30 minutes without keepalive (not 60)
+- **CRITICAL**: Spot (api.binance.com) vs Futures (fapi.binance.com) have completely different rate limits
+- IP weight limits differ from UID (user) limits - track both separately
+- Weight system: simple requests = 1, complex = 5-50, OCO orders consume 2x weight when partially filled
+- Order rate limits separate from request rate limits (can be rate limited on orders but not requests)
+- `recvWindow` default 5000ms, max 60000ms for timestamp validation
+- `listenKey` for user data streams expires after 60 minutes (not 30 as often documented)
 - Clock synchronization critical (±1000ms tolerance)
+- Market data endpoints don't count against user rate limits (use for monitoring)
 - Testnet has different rate limits than production
 
 **Kraken:**
-- Nonce must be STRICTLY increasing (no duplicates ever)
+- **CRITICAL**: "EOrder:Insufficient funds" can occur AFTER order acceptance due to async margin check
+- Nonce must be STRICTLY increasing (no duplicates ever) - persist across restarts
 - Rate limit tiers: Starter (15/sec), Intermediate (20/sec), Pro (20/sec + higher burst)
+- "EGeneral:Busy" errors require exponential backoff - NOT counted as rate limit
 - Ledger exports are async - returns job ID, must poll for completion
-- Different decimal precision per pair (XBTUSD: 1, ADAUSD: 5)
-- Edit orders count as cancel + new for rate limiting
-- Some endpoints return CSV format (trades export)
+- Different decimal precision per pair (XBTUSD: 1, ADAUSD: 5) - cache per pair
+- Edit orders count as cancel + new for rate limiting purposes
+- Some endpoints return CSV format (trades export) - need special parsing
 - All private endpoints use POST with `application/x-www-form-urlencoded`
-- API secret can be base64-encoded or raw
+- API secret can be base64-encoded or raw (handle both)
+- Some pairs use inverted pricing (XXBTZUSD vs XBTUSD)
+- Withdrawals require 2FA token in API call (not just API key)
 
 **Deribit:**
-- Test environment: test.deribit.com (completely separate, weekly reset)
-- OAuth tokens work across REST
-- Portfolio margin vs standard margin use different endpoints and calculations
-- Options assignment happens at 08:00 UTC, API unavailable for ~1 minute
+- **CRITICAL**: Mark price updates can lag during high volatility - causes incorrect liquidation calculations
+- Test environment: test.deribit.com (completely separate, resets positions weekly Sunday 08:00 UTC)
+- OAuth tokens work across REST - single token for all operations
+- Portfolio margin vs standard margin use different endpoints and calculations entirely
+- Options assignment happens daily at 08:00 UTC, API unavailable for ~1 minute
 - Index price != mark price (critical for liquidation calculations)
 - Matching engine rate limits separate from API rate limits
-- JSON-RPC style API even for REST endpoints
+- JSON-RPC style API even for REST endpoints (wrap all calls)
 - Single-flight protection critical for OAuth token refresh
+- "maintenance" field in ticker response can halt trading without warning
+- Combo orders (multi-leg) have different margin requirements than individual legs
 
 ### Exchange-Specific Authentication Patterns
 ```elixir
@@ -603,50 +692,37 @@ defp pool_config do
 end
 ```
 
-## Task Implementation Sequence (Simplified: 25 Tasks)
+## Task Implementation Sequence (REST-Optimized: 15 Tasks)
 
-### Phase 1: Core Foundation (5 tasks)
+### Phase 1: Core Foundation (4 tasks)
 ```bash
 [✅] Task 1: Core.Registry - Adapter registration and validation
 [🔄] Task 2: Remove Core.Supervisor - Use Req's built-in features  # <- CURRENT
-[ ] Task 3: Req-native telemetry integration
-[ ] Task 4: Proactive NTP clock sync with caching
-[ ] Task 5: Idempotency with conflict resolution
+[ ] Task 3: Proactive clock sync with NTP (critical for auth)
+[ ] Task 4: Basic telemetry hooks with Req events
 ```
 
-### Phase 2: Binance Implementation (5 tasks)
+### Phase 2: Binance Reference Implementation (3 tasks)
 ```bash
-[ ] Task 6: Core.HTTP with proper Req patterns
-[ ] Task 7: Binance.Auth with clock sync
-[ ] Task 8: Binance.RateLimiter with dynamic header updates
-[ ] Task 9: Integration tests with fixture capture
-[ ] Task 10: Load testing validation
+[ ] Task 5: Core.HTTP with Req patterns and middleware
+[ ] Task 6: Binance complete adapter (Auth, RateLimiter, Parser)
+[ ] Task 7: Integration tests with real API + fixture capture
 ```
 
-### Phase 3: Additional Exchanges (10 tasks)
+### Phase 3: Production Essentials (4 tasks)
 ```bash
-# Kraken (5 tasks)
-[ ] Task 11: Kraken.Auth with nonce management
-[ ] Task 12: Kraken.RateLimiter with tier detection
-[ ] Task 13: Kraken.Parser for CSV and JSON
-[ ] Task 14: Kraken decimal precision handling
-[ ] Task 15: Kraken integration tests
-
-# Deribit (5 tasks)
-[ ] Task 16: Deribit.Auth GenServer with OAuth
-[ ] Task 17: Deribit.RateLimiter for matching engine
-[ ] Task 18: Deribit JSON-RPC adapter
-[ ] Task 19: Portfolio margin calculations
-[ ] Task 20: Deribit integration tests
+[ ] Task 8: Circuit breaker as Req error step
+[ ] Task 9: Idempotency for order operations
+[ ] Task 10: Dynamic rate limit learning from headers
+[ ] Task 11: Health monitoring with per-endpoint tracking
 ```
 
-### Phase 4: Production Hardening (5 tasks)
+### Phase 4: Additional Exchanges (4 tasks)
 ```bash
-[ ] Task 21: Circuit breaker with Req error steps
-[ ] Task 22: Request coalescing GenServer
-[ ] Task 23: Health monitoring and alerting
-[ ] Task 24: Security audit and credential rotation
-[ ] Task 25: Production runbooks and troubleshooting
+[ ] Task 12: Kraken adapter (nonce management, CSV parsing)
+[ ] Task 13: Deribit OAuth adapter (token refresh, JSON-RPC)
+[ ] Task 14: Multi-account rotation for resilience
+[ ] Task 15: Production runbook and troubleshooting guide
 ```
 
 ## Common AI Coder Mistakes
@@ -726,6 +802,31 @@ end
 **Right**: Handle OKX passphrase, Bybit URL split, Kraken POST-only
 **Why**: Each exchange has unique quirks that break auth
 
+### Mistake 16: Not Handling Partial Fills
+**Wrong**: Assuming orders are fully filled or cancelled
+**Right**: Track `executed_qty` and handle partial execution states
+**Why**: Large orders often partially fill in volatile markets
+
+### Mistake 17: Missing Graceful Shutdown
+**Wrong**: Letting supervisor terminate processes immediately
+**Right**: Implement `terminate/2` to drain requests and persist state
+**Why**: In-flight requests fail and learned rate limits are lost
+
+### Mistake 18: Testing Rate Limits Against Real API
+**Wrong**: `Enum.each(1..1000, fn _ -> make_request() end)`
+**Right**: Manipulate ETS tables to simulate rate limit scenarios
+**Why**: Gets you banned and wastes time
+
+### Mistake 19: Not Learning Actual Endpoint Weights
+**Wrong**: Using documented weights from API docs
+**Right**: Track actual weights from response headers
+**Why**: Documentation often wrong or outdated
+
+### Mistake 20: Reactive Clock Sync Only
+**Wrong**: Syncing time only after auth failures
+**Right**: Proactive sync on startup and every 5 minutes
+**Why**: Prevents auth failures instead of reacting to them
+
 ## Troubleshooting Guide
 
 ### Common Production Errors
@@ -785,7 +886,7 @@ signature = Binance.Auth.sign_request(params, secret)
 - Verify firewall settings
 - Monitor DNS resolution
 
-### Common Production Issues Not in Docs
+### Common Production Failures (Not in Exchange Docs)
 
 #### Issue: Order Rejected After Timeout
 **Symptoms**: Timeout on order placement, but order actually executed
@@ -831,6 +932,39 @@ end
 **Symptoms**: Sudden authentication failures in production
 **Root Cause**: Cloud provider IP rotation or failover
 **Solution**: Use API key restrictions by API permissions, not IP whitelist
+
+#### Issue: Exchange Maintenance Without Notice
+**Symptoms**: Sudden spike in timeouts or 503 errors
+**Root Cause**: Unannounced exchange maintenance
+**Solution**:
+```elixir
+# Monitor maintenance field in responses
+def check_maintenance(response) do
+  case response.body["maintenance"] do
+    true -> {:error, :exchange_maintenance}
+    _ -> :ok
+  end
+end
+```
+
+#### Issue: Decimal Truncation Causing Rejections
+**Symptoms**: Orders rejected for "invalid quantity" despite seeming correct
+**Root Cause**: Different precision requirements per trading pair
+**Solution**:
+```elixir
+# Cache precision per pair and always round DOWN for quantities
+def format_for_pair(pair, quantity, price) do
+  %{qty_precision: qp, price_precision: pp} = get_pair_info(pair)
+  qty = Decimal.round(quantity, qp, :down)  # Always round down
+  price = Decimal.round(price, pp, :half_up)  # Normal rounding for price
+  {qty, price}
+end
+```
+
+#### Issue: Rate Limit Death Spiral
+**Symptoms**: Once rate limited, keeps getting worse
+**Root Cause**: Retries consuming more rate limit capacity
+**Solution**: Implement backpressure and request prioritization (Pattern 12)
 
 ### Health Check Monitoring
 
@@ -911,19 +1045,21 @@ mix test --cover                 # >80% coverage
 ```
 
 ### Memory & Performance Targets (REST-Optimized)
-- Rate limiter: <1ms per check (sufficient for REST)
-- 10,000 concurrent requests: <100ms total orchestration
-- Memory growth: <1MB under sustained load
+- Rate limiter: <5ms per check (plenty fast for REST)
+- Concurrent requests: 100-500 (realistic for REST trading)
+- Memory growth: <10MB under sustained load (reasonable for caching)
 - ETS cleanup: Every 60 seconds for sliding windows
-- Circuit breaker: <0.1ms decision time
+- Circuit breaker: <1ms decision time
 - Health check: Max 5 second timeout with exponential backoff
-- Connection pool: 20-50 per exchange (Finch-managed)
-- Request coalescing: 95% duplicate elimination (good enough)
+- Connection pool: 10-30 per exchange (optimal for REST)
+- Request coalescing: Market data only (not needed for orders)
 - Body size limit: 10MB default
-- Telemetry overhead: <1% of request time
+- Telemetry overhead: <2% of request time
 - Clock sync: Proactive NTP + exchange sync every 5 min
 - OAuth refresh: 120 seconds before expiry
 - Idempotency window: 5 minutes for order operations
+- Graceful shutdown: Max 30 seconds to drain requests
+- Nonce persistence: Required for Kraken continuity
 
 ## Architecture: Leveraging Req's Built-in Capabilities
 
@@ -1251,13 +1387,38 @@ end
 4. Report: "Task N complete. Next: Task N+1"
 5. **STOP** - Do not continue
 
+## Key Production Improvements Summary
+
+### Critical Additions from Review
+1. **Proactive Clock Sync**: Sync on startup, not just on failure
+2. **Rate Limit Learning**: Track actual vs documented weights
+3. **Graceful Shutdown**: Persist learned state (Pattern 15)
+4. **Exchange Quirks**: Detailed production gotchas per exchange
+5. **Partial Fill Handling**: Essential for large orders
+6. **Decimal Precision Cache**: Per-pair requirements
+7. **Maintenance Detection**: Monitor for unannounced downtime
+
+### REST-Only Optimizations
+- Reduced from 25 to 15 focused tasks
+- Relaxed performance targets (100-500 concurrent requests)
+- Simplified request prioritization (high/normal/low)
+- Market data coalescing only (not for orders)
+- Smaller connection pools (10-30 per exchange)
+
+### Architecture Confirmation
+- Current REST design won't block future WebSocket additions
+- WebSocket can be completely independent module when needed
+- No preparatory work required now for future streaming
+
 ## Quick Reference
 
 - **Req steps**: Return `{request, options}` tuple
-- **Halt pipeline**: `Req.Request.halt(request)`
+- **Halt pipeline**: `Req.Request.halt(request, error)`
+- **Private state**: `Req.Request.put_private/3`
 - **ETS atomic**: `:ets.update_counter/3`
 - **Test stubs**: `import Req.Test; stub/2`
+- **Clock sync**: Proactive on startup + every 5 min
 - **One task**: Complete, validate, stop
 
 ---
-**Remember**: This guide is your single source of truth. Ignore other docs.
+**Remember**: This guide is your single source of truth. Test against real APIs first, mock second.
