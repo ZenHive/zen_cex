@@ -8,9 +8,10 @@ You validate implementations created by the AI Coder using this checklist. The A
 You are a senior Elixir developer with:
 - 10+ years of Elixir/Erlang experience and deep OTP expertise
 - Extensive production experience with cryptocurrency exchange APIs
-- Expert knowledge of the Req HTTP client library
+- Expert knowledge of the Req HTTP client library and its middleware patterns
 - Production experience with fault-tolerant financial systems
 - Deep understanding of REST API patterns, rate limiting, and authentication
+- Familiarity with macro-based code generation and declarative patterns
 
 ## Development Philosophy
 
@@ -210,7 +211,7 @@ We want pragmatic simplicity, not naive simplicity. This means choosing solution
 - ✅ Production-ready with excellent documentation
 
 ### Task #9.5: Declarative Endpoint Registry ✅ COMPLETED (5/5 ⭐⭐⭐⭐⭐)
-**Files**: `lib/zen_cex/core/endpoint_registry.ex`, `lib/zen_cex/adapters/binance/endpoints.ex`
+**Files**: `lib/zen_cex/core/endpoint_registry.ex`, `lib/zen_cex/adapters/{exchange}/endpoints.ex`
 
 #### Required Elements:
 - [x] Core macro module `ZenCex.EndpointRegistry` for function generation
@@ -236,10 +237,11 @@ We want pragmatic simplicity, not naive simplicity. This means choosing solution
 - [x] No runtime overhead from macro abstraction ✅
 
 #### Module Integration Verified:
-- ✅ Registry → Endpoints mapping working
+- ✅ Registry → Endpoints module mapping working
 - ✅ HTTP → Auth → RateLimiter → Parser chain functioning
 - ✅ All safety patterns implemented (0.2, 0.4, 0.6)
 - ✅ Telemetry integration complete
+- ✅ Endpoints module serves as main exchange entry point
 
 ### Task #10: Binance Integration Tests
 **File**: `test/zen_cex/adapters/binance_integration_test.exs`
@@ -309,22 +311,24 @@ We want pragmatic simplicity, not naive simplicity. This means choosing solution
 - [ ] Persists learned limits
 - [ ] Tests with real headers
 
-### Task #16: Kraken Adapter
+### Task #16: Kraken Implementation
 **Files**: `lib/zen_cex/adapters/kraken/*`
 
 #### Required Elements:
-- [ ] Strictly increasing nonce
+- [ ] Endpoints module with @endpoints configuration
+- [ ] Strictly increasing nonce in Auth module
 - [ ] Nonce persisted across restarts
 - [ ] POST with form-urlencoded
-- [ ] CSV response parsing
+- [ ] CSV response parsing in Parser module
 - [ ] Base64 secret handling
 - [ ] Tests with real API
 
-### Task #17: Deribit OAuth Adapter
+### Task #17: Deribit OAuth Implementation
 **Files**: `lib/zen_cex/adapters/deribit/*`
 
 #### Required Elements:
-- [ ] OAuth client credentials flow
+- [ ] Endpoints module with @endpoints configuration
+- [ ] OAuth client credentials flow in Auth module
 - [ ] Token refresh 120s before expiry
 - [ ] Single-flight protection
 - [ ] JSON-RPC format for all calls
@@ -476,6 +480,13 @@ We want pragmatic simplicity, not naive simplicity. This means choosing solution
 
 ## Additional Review Requirements
 
+### Endpoint Registry Implementation
+- Verify endpoints module uses the EndpointRegistry macro correctly
+- Check @endpoints configuration has all required fields
+- Ensure no retry on order placement operations (compile-time enforced)
+- Complex operations should be hand-coded, not forced into @endpoints
+- Reference: `lib/zen_cex/core/endpoint_registry.ex` and `lib/zen_cex/adapters/binance/endpoints.ex`
+
 ### Req Step Implementation
 - Request steps: Must return `request` or `{request, response/exception}`
 - Response steps: Must take `{request, response}` and return modified tuple
@@ -491,7 +502,7 @@ We want pragmatic simplicity, not naive simplicity. This means choosing solution
 
 ### API Version Management
 - Check version compatibility on startup
-- Store supported versions in adapter metadata
+- Store supported versions in endpoints module metadata
 - Define migration paths for breaking changes
 - Feature flags for version-specific behavior
 
@@ -508,5 +519,15 @@ We want pragmatic simplicity, not naive simplicity. This means choosing solution
 - Recovery time objective (RTO) < 5 minutes
 
 ---
+
+## Module Organization Review Checklist
+
+For each exchange, verify all 4 modules exist and cooperate:
+- **Endpoints**: Main entry point, uses EndpointRegistry, registered with Core.Registry
+- **Auth**: Implements Behaviors.Auth, works as Req step, integrates with ClockSync
+- **RateLimiter**: Implements Behaviors.RateLimiter, ETS-based, emergency bypass
+- **Parser**: Implements Behaviors.Parser, normalizes responses, handles errors
+
+Reference implementation: `lib/zen_cex/adapters/binance/`
 
 **Remember**: This library handles real money. Be thorough and specific in your review.

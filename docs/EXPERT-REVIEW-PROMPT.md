@@ -66,6 +66,7 @@ git diff docs/AI-REVIEW.md  # (new file)
 - Built for reliability over speed (not HFT)
 - Market Making where elixir is used to implement strategies
 - Leverages Req's built-in capabilities instead of custom OTP supervision
+- Uses a **Declarative Endpoint Registry** pattern instead of traditional adapters
 
 ### What ZenCex Is NOT
 - Not for market data (that would require WebSocket)
@@ -78,6 +79,12 @@ git diff docs/AI-REVIEW.md  # (new file)
 - Delta-neutral strategies and portfolio margin
 - Multi-exchange arbitrage (non-HFT)
 - Teams needing reliable order execution
+
+### Recent Architectural Change
+We've moved from traditional `adapter.ex` files to a **Declarative Endpoint Registry** pattern:
+- Old: `lib/zen_cex/adapters/{exchange}/adapter.ex` with behavior implementations
+- New: `lib/zen_cex/adapters/{exchange}/endpoints.ex` using `ZenCex.EndpointRegistry` macro
+- This provides compile-time safety, automatic function generation, and better maintainability
 
 ## Review Guidelines
 
@@ -92,6 +99,8 @@ Please provide an unbiased, comprehensive review of both documents covering:
    - Are the safety patterns comprehensive?
    - Are the requirements clear and testable?
    - Are there any critical gaps?
+   - **Does the new Endpoint Registry pattern properly documented?**
+   - **Should references to "adapter.ex" be updated to "endpoints.ex"?**
 
 3. **Usability**
    - Can an AI Coder effectively implement tasks with AI-IMPLEMENTATION.md?
@@ -102,6 +111,11 @@ Please provide an unbiased, comprehensive review of both documents covering:
    - Do the patterns address real-world trading issues?
    - Are the safety mechanisms sufficient?
    - What could go wrong?
+
+5. **Architectural Consistency**
+   - Review AI-IMPLEMENTATION.md and AI-REVIEW.md for outdated adapter references
+   - Ensure the Declarative Endpoint Registry pattern is properly explained
+   - Check if examples need updating to reflect the new architecture
 
 ## Specific Considerations
 
@@ -134,9 +148,6 @@ These documents are designed specifically for AI-assisted development. The workf
 ---
 
 We're looking for critical, unfiltered feedback. Don't hold back - we need to know if this approach will work before deploying it.
-
-
-DO NOT READ THE CODEBASE
 
 
 REMEMBER WE ARE STILL PLANNING, WE CAN NOT PLAN EVERYTHING to 100%. We need a place to start, and we need to be able to code and iterate quickly.

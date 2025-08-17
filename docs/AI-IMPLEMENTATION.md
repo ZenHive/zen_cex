@@ -8,9 +8,10 @@ You implement tasks from this document. An AI Reviewer will validate your work u
 You are a senior Elixir developer with:
 - 10+ years of Elixir/Erlang experience and deep OTP expertise
 - Extensive production experience with cryptocurrency exchange APIs
-- Expert knowledge of the Req HTTP client library
+- Expert knowledge of the Req HTTP client library and its middleware patterns
 - Production experience with fault-tolerant financial systems
 - Deep understanding of REST API patterns, rate limiting, and authentication
+- Familiarity with macro-based code generation and declarative patterns
 
 ## Development Philosophy
 
@@ -188,7 +189,7 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 **Suggested Groupings**:
 - Task 6 alone (foundational)
-- Tasks 7-9 together (complete Binance adapter core)
+- Tasks 7-9 together (complete Binance exchange modules)
 - Task 9.5 alone (endpoint registry pattern)
 - Task 10 alone (comprehensive testing)
 
@@ -208,8 +209,8 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ### Phase 4: Additional Exchanges (5 tasks)
 ```
-[ ] Task 16: Kraken adapter (complete implementation)    <- Standalone
-[ ] Task 17: Deribit OAuth adapter (complete impl)       <- Standalone
+[ ] Task 16: Kraken implementation (complete exchange)   <- Standalone
+[ ] Task 17: Deribit OAuth implementation (complete)     <- Standalone
 [ ] Task 18: Health monitoring with endpoint tracking   ┐
 [ ] Task 19: Multi-account rotation for resilience      ├─ Operations
 [ ] Task 20: Production runbook with exchange quirks    └─ group
@@ -240,6 +241,18 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ## Quick Pattern References
 
+### Declarative Endpoint Registry Pattern
+- See `lib/zen_cex/core/endpoint_registry.ex` for macro documentation
+- See `lib/zen_cex/adapters/binance/endpoints.ex` for reference implementation
+- Key rule: NEVER set `retry: true` for order placement operations
+- Use @endpoints for standard operations, hand-code complex ones (OCO orders, etc.)
+
+### Req Step Implementation Patterns
+- Request steps: Return `request` OR `{request, response/exception}` to halt
+- Response steps: Take `{request, response}`, return modified tuple
+- Error steps: Take `{request, exception}`, return tuple or convert to response
+- See `lib/zen_cex/adapters/binance/auth.ex` for reference implementation
+
 ### Safety Patterns (0.x)
 ```elixir
 # 0.1 Clock Sync: Sync every 5 min, store offset in ETS
@@ -254,6 +267,12 @@ You may implement **related tasks within the same phase** when they are tightly 
 # 0.10 Rotation: 5-min overlap, weighted selection, automatic failover
 # 0.11 Data Integrity: Validate responses, ETS snapshot recovery, state reconstruction
 ```
+
+### Module Organization Patterns
+- Each exchange has 4 cooperating modules: Endpoints, Auth, RateLimiter, Parser
+- Endpoints module is the main entry point (uses EndpointRegistry macro)
+- Core.Registry maps exchange name to its Endpoints module
+- See `lib/zen_cex/adapters/binance/` for reference implementation
 
 ### Core Patterns (1.x)
 ```elixir
@@ -275,8 +294,8 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ### Exchange Requirements Quick Reference
 
-| Exchange | Auth | Critical Requirement | Common Gotcha |
-|----------|------|---------------------|---------------|
+| Exchange | Auth Method | Critical Requirement | Common Gotcha |
+|----------|-------------|---------------------|---------------|
 | Binance | HMAC | Signature LAST in params | Spot vs Futures different URLs/limits |
 | Kraken | Nonce+HMAC | Microsecond timestamp + counter | Async margin check after accept |
 | Deribit | OAuth2 | Refresh 120s before expiry | Mark price lags in volatility |
@@ -291,7 +310,7 @@ You may implement **related tasks within the same phase** when they are tightly 
 ## Common Mistakes to Avoid
 
 1. **Creating mocks before testing real APIs** → ALWAYS test real APIs first, then create accurate mocks
-2. **DDoSing exchanges in tests** → Use buckets, concurrency limits, and exponential backoff
+2. **DDoSing exchanges in tests** → Use max 5-10 requests with controlled concurrency
 3. **Using 5-minute idempotency window** → Use 30-minute sliding window with timestamps
 4. **Using Process.sleep** → Use Task.async or send_after
 5. **Bucket-based idempotency** → Use proper sliding window with timestamp storage
@@ -339,22 +358,12 @@ For each module you implement:
 
 Test file naming: `test/zen_cex/core/http_test.exs` (match module path)
 
-**Integration Test Template**:
-```elixir
-@tag :integration
-test "real API behavior with responsible testing" do
-  # Small batch with controlled concurrency
-  results =
-    1..5  # Small dataset
-    |> Task.async_stream(&make_request/1,
-         max_concurrency: 2,  # Limit parallel requests
-         timeout: 10_000)
-    |> Enum.to_list()
-
-  # Document what you learned
-  assert {:ok, %{status: 200}} = hd(results)
-end
-```
+**Integration Test Guidelines**:
+- Tag with `@tag :integration` for separate test runs
+- Maximum 5-10 requests per test
+- Use `Task.async_stream` with `max_concurrency: 2`
+- Add 1-second delays between test groups
+- See `test/zen_cex/adapters/binance_integration_test.exs` for patterns
 
 ### Performance Measurement Example:
 ```elixir
@@ -454,10 +463,16 @@ mix format
 ## Architecture Notes
 
 - **Req-centric**: Use Req's built-in features, don't reinvent
+- **Declarative endpoints**: Use @endpoints configuration for standard operations
 - **Minimal GenServers**: Only Deribit OAuth needs state
 - **ETS for performance**: Atomic operations for counters
 - **Safety first**: Idempotency, validation, reconciliation
 - **REST only**: No WebSocket, no market data
+
+### Endpoint Registry vs Hand-Coded Functions
+- Use @endpoints for: standard CRUD, simple queries, predictable patterns
+- Hand-code for: OCO orders, multi-step operations, special validation
+- See Binance.Endpoints for examples of both approaches
 
 ## Future Enhancements (Not in Current Scope)
 
