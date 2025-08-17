@@ -29,10 +29,10 @@ defmodule ZenCex.Core.HTTP do
 
   ## Req Step Integration
 
-  The module integrates with adapters through the Registry:
-  - Rate limiting: Calls `adapter.rate_limiter().check_and_increment/1`
-  - Authentication: Calls `adapter.auth().sign_request/1` 
-  - Updates: Calls `adapter.rate_limiter().update_from_response/1`
+  The module integrates with exchange modules through the Registry:
+  - Rate limiting: Calls exchange's `rate_limiter().check_and_increment/1`
+  - Authentication: Calls exchange's `auth().sign_request/1` 
+  - Updates: Calls exchange's `rate_limiter().update_from_response/1`
 
   ## Telemetry Events
 

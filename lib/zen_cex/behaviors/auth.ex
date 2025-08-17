@@ -66,7 +66,7 @@ defmodule ZenCex.Behaviors.Auth do
   @callback validate_credentials(keyword() | map()) :: :ok | {:error, term()}
 
   @doc """
-  Returns the authentication method used by this adapter.
+  Returns the authentication method used by this exchange.
 
   ## Returns
     - `:hmac_sha256` - For HMAC-SHA256 (Binance)
