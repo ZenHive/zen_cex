@@ -168,7 +168,7 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ### Phase 1: Core Foundation (5 tasks)
 ```
-[✅] Task 1: Core.Registry - Adapter registration and validation
+[✅] Task 1: Core.Registry - Exchange registration and validation
 [✅] Task 2: Remove Core.Supervisor - Use Req's built-in features
 [✅] Task 3: Core.HTTP with Req patterns and middleware  <- COMPLETED
 [✅] Task 4: Basic telemetry hooks with Req events       <- COMPLETED
@@ -282,7 +282,7 @@ You may implement **related tasks within the same phase** when they are tightly 
 # ETS tables: Use atomic operations with :ets.update_counter/3
 # Circuit breaker: Per-endpoint tracking, exponential backoff on half-open
 # Network partitions: Detect via timeout patterns, fallback to cached responses
-# API versioning: Store version in adapter metadata, migration strategy required
+# API versioning: Store version in module metadata, migration strategy required
 ```
 
 ### Trading Patterns (2.x)
