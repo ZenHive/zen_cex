@@ -1,9 +1,9 @@
 {
   "data": {
     "symbol": "ETHUSDT",
-    "price": "4430.06000000"
+    "price": "4464.83000000"
   },
-  "captured_at": 1755401460493,
+  "captured_at": 1755415725023,
   "zen_cex_version": "0.1.0",
   "test_environment": "binance_testnet"
 }

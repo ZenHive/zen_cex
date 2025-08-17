@@ -1,15 +1,36 @@
 defmodule ZenCex.Adapters.Binance.Endpoints do
   @moduledoc """
-  Declarative endpoint configuration for Binance REST API.
+  Core endpoint configuration for Binance REST API.
 
-  Uses the EndpointRegistry macro to generate standard CRUD functions
-  while allowing hand-written implementations for complex operations.
+  This module contains the essential endpoints that cover 80% of typical trading operations.
+  Uses the EndpointRegistry macro to generate standard CRUD functions while allowing
+  hand-written implementations for complex operations.
+
+  ## Core vs Extended Endpoints
+
+  This module includes only **core endpoints** that are essential for:
+  - Account management (balances)
+  - Order management (place, cancel, query)
+  - Position tracking (spot and futures)
+  - Market data (ticker prices)
+  - System utilities (server time)
+
+  Extended endpoints (margin trading, savings, staking, etc.) will be implemented
+  in separate feature modules under `endpoints/` when needed.
+
+  ## API Types
+
+  Each endpoint explicitly declares its `api_type` for clarity:
+  - `:spot` - Spot trading endpoints (default)
+  - `:futures` - USD-M Futures endpoints
+  - `:sapi` - Wallet and account management (future)
+  - `:coin_futures` - Coin-M Futures (future)
 
   ## ⚠️ CRITICAL: Environment Configuration
 
   **ALL endpoints respect the `BINANCE_TESTNET` environment variable:**
-  - When `BINANCE_TESTNET=true`: Uses testnet (https://testnet.binance.vision)
-  - Otherwise: Uses production (https://api.binance.com) - **REAL MONEY**
+  - When `BINANCE_TESTNET=true`: Uses testnet URLs
+  - Otherwise: Uses production URLs - **REAL MONEY**
 
   ### Check Current Environment
 
@@ -24,17 +45,25 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   - **Use different API keys** for testnet vs production
   - **Verify environment before trading** - production uses real money!
 
-  ## Generated Functions
+  ## Core Functions (Generated)
 
-  The following functions are automatically generated from @endpoints:
-  - `get_balances/1` - Fetch account balances
-  - `get_positions/1` - Fetch futures positions  
+  ### Account Management
+  - `get_balances/1` - Fetch account balances (Spot)
+
+  ### Order Management  
   - `place_order/1` - Place a new order ⚠️ **NEVER RETRIED**
   - `cancel_order/1` - Cancel an existing order
   - `get_order/1` - Query order status
   - `get_open_orders/1` - List open orders
-  - `get_ticker/1` - Get ticker price
-  - `get_server_time/1` - Get server timestamp
+
+  ### Position Tracking
+  - `get_positions/1` - Fetch futures positions (Futures API)
+
+  ### Market Data
+  - `get_ticker/1` - Get ticker price (Public)
+
+  ### System
+  - `get_server_time/1` - Get server timestamp (Public)
 
   ## Complex Operations (Hand-written)
 
@@ -108,6 +137,32 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
     base_url(current_env())
   end
 
+  @doc """
+  Returns the appropriate base URL for a specific API type.
+
+  Binance has different base URLs for different product types:
+  - Spot/Margin: api.binance.com / testnet.binance.vision
+  - USD-M Futures: fapi.binance.com / testnet.binancefuture.com
+  - Coin-M Futures: dapi.binance.com / testnet.binancefuture.com
+  - Portfolio Margin: papi.binance.com / (no testnet yet)
+
+  ## Examples
+
+      iex> base_url(:prod, :spot)
+      "https://api.binance.com"
+      
+      iex> base_url(:test, :futures)
+      "https://testnet.binancefuture.com"
+  """
+  @spec base_url(atom(), atom()) :: String.t()
+  def base_url(env, :spot), do: base_url(env)
+  def base_url(:prod, :futures), do: "https://fapi.binance.com"
+  def base_url(:test, :futures), do: "https://testnet.binancefuture.com"
+  # TODO: Add coin_futures and portfolio when needed
+  # def base_url(:prod, :coin_futures), do: "https://dapi.binance.com"
+  # def base_url(:test, :coin_futures), do: "https://testnet.binancefuture.com"
+  # def base_url(:prod, :portfolio), do: "https://papi.binance.com"
+
   # Module references for Core.HTTP integration
   @doc "Returns the auth module for this exchange"
   def auth, do: ZenCex.Adapters.Binance.Auth
@@ -139,6 +194,8 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
     # Account endpoints
     %{
       operation: :get_balances,
+      # Explicit for clarity
+      api_type: :spot,
       method: :get,
       path: "/api/v3/account",
       requires_auth: true,
@@ -158,6 +215,8 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
     # Trading endpoints
     %{
       operation: :place_order,
+      # Spot trading endpoint
+      api_type: :spot,
       method: :post,
       path: "/api/v3/order",
       requires_auth: true,
@@ -184,6 +243,8 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
     },
     %{
       operation: :cancel_order,
+      # Spot trading endpoint
+      api_type: :spot,
       method: :delete,
       path: "/api/v3/order",
       requires_auth: true,
@@ -203,6 +264,8 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
     },
     %{
       operation: :get_order,
+      # Spot trading endpoint
+      api_type: :spot,
       method: :get,
       path: "/api/v3/order",
       requires_auth: true,
@@ -222,6 +285,8 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
     },
     %{
       operation: :get_open_orders,
+      # Spot trading endpoint
+      api_type: :spot,
       method: :get,
       path: "/api/v3/openOrders",
       requires_auth: true,
@@ -242,6 +307,8 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
     # Futures endpoints
     %{
       operation: :get_positions,
+      # USD-M Futures API
+      api_type: :futures,
       method: :get,
       path: "/fapi/v2/positionRisk",
       requires_auth: true,
@@ -252,7 +319,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
       weight: 5,
       timeout: 10_000,
       doc: """
-      Fetches current futures positions.
+      Fetches current futures positions from USD-M Futures API.
 
       Returns all open positions with unrealized PnL.
       """
@@ -261,6 +328,8 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
     # Market data (public)
     %{
       operation: :get_ticker,
+      # Spot market data
+      api_type: :spot,
       method: :get,
       path: "/api/v3/ticker/price",
       requires_auth: false,
@@ -281,6 +350,8 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
     # Time endpoint (for clock sync)
     %{
       operation: :get_server_time,
+      # Available on all APIs, using spot for consistency
+      api_type: :spot,
       method: :get,
       path: "/api/v3/time",
       requires_auth: false,
@@ -306,6 +377,8 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   An OCO order combines a limit order and a stop-limit order.
   When one executes, the other is automatically cancelled.
 
+  **API Type**: `:spot` - OCO orders are only available for spot trading.
+
   ## Parameters
   - symbol: Trading pair
   - side: "BUY" or "SELL"
@@ -327,7 +400,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
     request =
       Req.new(
         method: :post,
-        url: base_url() <> "/api/v3/order/oco",
+        url: base_url(current_env(), :spot) <> "/api/v3/order/oco",
         json: transform_oco_params(clean_params),
         receive_timeout: 5_000
       )
@@ -359,6 +432,8 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
 
   More efficient than individual cancellations for bulk operations.
 
+  **API Type**: `:spot` - Batch cancellation for spot orders.
+
   ## Parameters
   - symbol: Trading pair
   - order_ids: List of order IDs to cancel
@@ -385,7 +460,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
     request =
       Req.new(
         method: :delete,
-        url: base_url() <> "/api/v3/openOrders",
+        url: base_url(current_env(), :spot) <> "/api/v3/openOrders",
         json: %{
           symbol: symbol,
           orderIdList: Jason.encode!(order_ids)

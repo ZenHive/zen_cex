@@ -2,6 +2,25 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## IMPORTANT: Date Awareness
+
+**Always check today's date** from the environment context (`<env>` section) when:
+- Working with dates, timestamps, or time-based operations
+- Calculating date ranges or intervals
+- Referencing "recent" or "current" documentation
+- Searching for the latest version of documentation or APIs
+- Creating or updating date-sensitive code
+
+**For Web Searches**:
+- **NEVER use "2024" when searching for current/latest documentation**
+- **ALWAYS use the current year from the `<env>` section (e.g., if today is 2025-08-17, use "2025")**
+- Examples:
+  - ❌ BAD: "Binance API rate limits 2024 documentation"
+  - ✅ GOOD: "Binance API rate limits 2025 documentation" (when in 2025)
+  - ✅ GOOD: "Binance API rate limits latest documentation"
+
+The current date is provided in the `<env>` section as "Today's date: YYYY-MM-DD". Use this for all date-related operations and searches.
+
 ## Project Overview
 
 ZenCex is an Elixir library for centralized cryptocurrency exchange (CEX) REST API integrations, extracted from the BlockWatch Phoenix application. It provides a unified interface for interacting with multiple exchanges (Binance, Kraken, Deribit) through their REST APIs with a focus on reliable position management and trading operations.
@@ -73,6 +92,7 @@ Tidewave provides an MCP server for enhanced Elixir development capabilities. It
 
 ```bash
 # Start Tidewave server on port 4000
+# BUT CHECK FIRST IF IT IS RUNNING ALWAYS
 mix tidewave
 
 # The server runs continuously - keep it running during development
@@ -261,7 +281,7 @@ ZenCex.Application
 ### Key Design Patterns (Req-Powered REST)
 
 1. **Req's Built-in Features**: Connection pooling (Finch), retry logic, telemetry - no custom implementation needed
-2. **Req Middleware Steps**: Auth and rate limiting as composable request/response steps  
+2. **Req Middleware Steps**: Auth and rate limiting as composable request/response steps
 3. **ETS Without GenServers**: Atomic counters for rate limiting work better with Req's pipeline
 4. **Single-Flight Protection**: OAuth token refresh (only stateful operation)
 5. **REST-Only Focus**: All operations via REST APIs, no streaming protocols
@@ -295,7 +315,7 @@ Required for authenticated operations:
 BINANCE_API_KEY=your_key
 BINANCE_API_SECRET=your_secret
 
-# Kraken  
+# Kraken
 KRAKEN_API_KEY=your_key
 KRAKEN_API_SECRET=your_secret
 
@@ -315,12 +335,19 @@ This project uses a two-document AI workflow for implementation and review:
   - Quick pattern references (5-10 lines each)
   - Common mistakes to avoid
   - One-task-per-session rule enforcement
-  
+
 - **docs/AI-REVIEW.md** - Review checklist for AI Reviewers (900+ lines)
   - Detailed requirements per task
   - Full pattern implementations
   - Performance and security validation
   - Pass/fail criteria for each component
+
+- **docs/TASKLIST_BINANCE_REFACTOR.md** - Binance Multi-API Refactoring Plan
+  - Comprehensive plan for supporting Binance's multiple API types (Spot, Futures, etc.)
+  - Smart URL routing approach to avoid file size explosion
+  - Rate limiter refactoring requirements (separate limits per API type)
+  - Feature-based endpoint organization strategy
+  - Current status: Phase 1 completed, Phase 3.2 (rate limiter) is CRITICAL next step
 
 ### Workflow
 1. **AI Coder** reads AI-IMPLEMENTATION.md and implements current task
@@ -374,10 +401,10 @@ Req uses a composable step-based middleware system. Steps must follow these sign
      # Normal flow: modify and return request
      request
      |> Req.Request.put_header("x-custom", "value")
-     
+
      # OR halt with error
      # Req.Request.halt(request, {:error, :my_error})
-     
+
      # OR short-circuit with response
      # {request, %Req.Response{status: 200, body: "cached"}}
    end
@@ -401,13 +428,13 @@ Req uses a composable step-based middleware system. Steps must follow these sign
 
 #### Built-in Features to Leverage
 - **Authentication**: Use `auth: {:bearer, token}` or `auth: fn -> {:bearer, get_token()} end` for dynamic tokens
-- **Retry**: Built-in `:safe_transient` retry (GET/HEAD only) or custom retry functions  
+- **Retry**: Built-in `:safe_transient` retry (GET/HEAD only) or custom retry functions
 - **Finch Pooling**: Automatic connection pooling via `:finch` option
 - **Telemetry**: Automatic telemetry events, hook into `[:req, :request, :*]` events
 - **Compression**: Automatic gzip/deflate handling
 - **JSON**: Automatic encoding/decoding with `:json` option
 
-#### Private Field Usage  
+#### Private Field Usage
 Use `request.private` for passing data between steps (reserved for libraries/frameworks):
 ```elixir
 request
@@ -469,7 +496,7 @@ When adding new features:
 
 ### Coverage Targets
 - Overall: 80% minimum
-- Critical paths: 95% minimum  
+- Critical paths: 95% minimum
 - GenServer modules: 100% with proper error handling tests
 
 ## Module Dependencies
@@ -512,9 +539,9 @@ Following BlockWatch's Elixir best practices:
   if condition do
     socket = assign(socket, :val, val)
   end
-  
+
   # VALID: rebind the result
-  socket = 
+  socket =
     if condition do
       assign(socket, :val, val)
     end

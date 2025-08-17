@@ -141,19 +141,40 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ## Current Task
 
-**Task #11**: CircuitBreaker as Req Error Step
+**Task #10.5**: Binance Multi-API Refactoring
 
-**File**: `lib/zen_cex/core/circuit_breaker.ex`
+**File**: See `docs/TASKLIST_BINANCE_REFACTOR.md` for full plan
 
-**Key Requirements**:
-- States: Closed, Open, Half-Open
-- Opens after 5 consecutive failures
-- Half-open after 1 minute
-- Per-endpoint tracking (not just per exchange)
-- Integrated as Req error step
-- Tests for state transitions
+**Priority Focus - Phase 3.2**: Rate Limiter Refactoring (CRITICAL)
+- Separate ETS tables per API type (spot, sapi, futures, coin_futures)
+- Different rate limits per API type:
+  - Spot (/api): 12,000 IP / 6,000 UID per minute
+  - SAPI (/sapi): 12,000 IP / 180,000 UID per minute  
+  - Futures (/fapi): 2,400 per minute (much lower!)
+  - Coin Futures (/dapi): 2,400 per minute
+- Parse different headers per API type
+- Pass `api_type` from endpoints to rate limiter
+- Update `check_and_increment` to use correct table based on endpoint path
 
-**Full Requirements & Review Criteria**: See Task #11 in AI-REVIEW.md
+**Status**: Phase 1 completed (multi-API URL support). Phase 3.2 is CRITICAL next step.
+
+**Full Requirements & Plan**: See `docs/TASKLIST_BINANCE_REFACTOR.md`
+
+## Recently Completed
+
+**Task #10**: Binance Integration Tests ✅ COMPLETED (5/5 ⭐⭐⭐⭐⭐)
+
+**Outstanding achievements**:
+- 11 comprehensive integration tests against real Binance testnet API
+- 13 high-quality fixtures generated with real API responses  
+- Smart rate limiting with controlled concurrency to respect API limits
+- Complete error scenario testing with authentic error formats
+- Full order lifecycle testing (place → query → cancel)
+- Professional test runner script with safety guards
+- Perfect adherence to "Real APIs First" testing philosophy
+- Production-ready environment configuration with safety warnings
+
+This implementation exceeded all requirements and provides an exemplary foundation for creating accurate mocks in subsequent tasks.
 
 ---
 
@@ -170,7 +191,7 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 **Suggested Grouping**: Tasks 3-5 form the core HTTP infrastructure and can be implemented together.
 
-### Phase 2: Binance Reference Implementation (6 tasks)
+### Phase 2: Binance Reference Implementation (7 tasks)
 ```
 [✅] Task 6: ClockSync with proactive NTP sync           <- COMPLETED
 [✅] Task 7: Binance.Auth - HMAC-SHA256 as Req step     <- COMPLETED
@@ -178,6 +199,7 @@ You may implement **related tasks within the same phase** when they are tightly 
 [✅] Task 9: Binance.Parser - Response parsing          <- COMPLETED
 [✅] Task 9.5: Declarative Endpoint Registry            <- COMPLETED
 [✅] Task 10: Integration tests with real API           <- COMPLETED
+[ ] Task 10.5: Binance Multi-API Refactoring           <- CURRENT
 ```
 
 **Suggested Groupings**:
@@ -188,7 +210,7 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ### Phase 3: Production Safety (5 tasks)
 ```
-[ ] Task 11: CircuitBreaker as Req error step          <- NEXT
+[ ] Task 11: CircuitBreaker as Req error step          <- NEXT (after 10.5)
 [ ] Task 12: PositionReconciliation with drift         ├─ Safety group
 [ ] Task 13: EmergencyBypass for rate limiting         └─ (resilience)
 [ ] Task 14: OrderLifecycle state machine               <- Standalone

@@ -249,6 +249,7 @@ defmodule ZenCex.EndpointRegistry do
     timeout = Map.get(endpoint, :timeout, @default_timeout)
     weight = Map.get(endpoint, :weight, 1)
     params_transformer = Map.get(endpoint, :params_transformer)
+    api_type = Map.get(endpoint, :api_type)
     doc = Map.get(endpoint, :doc, "Executes the #{operation} operation")
 
     # Generate the function name
@@ -281,6 +282,20 @@ defmodule ZenCex.EndpointRegistry do
             max_retries: Keyword.get(opts, :max_retries, unquote(max_retries)),
             retry_on: unquote(retry_on)
           }
+
+          # Add api_type if present
+          endpoint_config =
+            unquote(
+              if api_type do
+                quote do
+                  Map.put(endpoint_config, :api_type, unquote(api_type))
+                end
+              else
+                quote do
+                  endpoint_config
+                end
+              end
+            )
 
           # Transform params if transformer provided
           final_params =
@@ -386,11 +401,19 @@ defmodule ZenCex.EndpointRegistry do
             # Determine operation type from config
             operation_type = map_to_operation_type(config)
 
+            # Determine base URL based on api_type if present
+            base_url =
+              if Map.has_key?(config, :api_type) and function_exported?(adapter, :base_url, 2) do
+                adapter.base_url(adapter.current_env(), config.api_type)
+              else
+                adapter.base_url()
+              end
+
             # Use Core.HTTP to create the base request with all middleware
             ZenCex.Core.HTTP.base_request(adapter.__exchange__(), operation_type)
             |> Req.merge(
               method: config.method,
-              url: adapter.base_url() <> config.path,
+              url: base_url <> config.path,
               params: if(config.method == :get, do: params, else: nil),
               json: if(config.method != :get, do: params, else: nil),
               receive_timeout: config.timeout,

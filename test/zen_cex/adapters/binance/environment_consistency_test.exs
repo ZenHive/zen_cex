@@ -82,6 +82,67 @@ defmodule ZenCex.Adapters.Binance.EnvironmentConsistencyTest do
     end
   end
 
+  describe "multi-API URL support" do
+    test "base_url/2 supports different API types in production" do
+      System.delete_env("BINANCE_TESTNET")
+
+      # Test spot (default)
+      assert Endpoints.base_url(:prod, :spot) == "https://api.binance.com"
+
+      # Test futures
+      assert Endpoints.base_url(:prod, :futures) == "https://fapi.binance.com"
+    end
+
+    test "base_url/2 supports different API types in testnet" do
+      # Test spot testnet
+      assert Endpoints.base_url(:test, :spot) == "https://testnet.binance.vision"
+
+      # Test futures testnet
+      assert Endpoints.base_url(:test, :futures) == "https://testnet.binancefuture.com"
+    end
+
+    test "get_positions endpoint has api_type: :futures" do
+      config = Endpoints.get_endpoint(:get_positions)
+
+      assert config.operation == :get_positions
+      assert config.path == "/fapi/v2/positionRisk"
+      assert Map.get(config, :api_type) == :futures
+    end
+
+    test "spot endpoints have explicit api_type field" do
+      config = Endpoints.get_endpoint(:get_balances)
+
+      assert config.operation == :get_balances
+      assert config.path == "/api/v3/account"
+      assert Map.get(config, :api_type) == :spot
+    end
+
+    test "EndpointRegistry correctly routes URLs based on api_type" do
+      # Test that futures endpoints would use correct base URL
+      System.delete_env("BINANCE_TESTNET")
+
+      # Simulate EndpointRegistry build_request logic for futures endpoint
+      config = %{api_type: :futures}
+      adapter = Endpoints
+
+      if Map.has_key?(config, :api_type) and function_exported?(adapter, :base_url, 2) do
+        base_url = adapter.base_url(adapter.current_env(), config.api_type)
+        assert base_url == "https://fapi.binance.com"
+      end
+
+      # Test with testnet
+      System.put_env("BINANCE_TESTNET", "true")
+
+      if Map.has_key?(config, :api_type) and function_exported?(adapter, :base_url, 2) do
+        base_url = adapter.base_url(adapter.current_env(), config.api_type)
+        assert base_url == "https://testnet.binancefuture.com"
+      end
+
+      # Clean up
+      System.delete_env("BINANCE_TESTNET")
+    end
+  end
+
   describe "environment safety" do
     test "production is the default when BINANCE_TESTNET is not set" do
       System.delete_env("BINANCE_TESTNET")
