@@ -240,8 +240,8 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
 
     # Determine type based on endpoint
     # Authenticated endpoints that count against UID limits typically require signing
-    # For now, we'll use IP for all public endpoints and UID for signed endpoints
-    # In a real implementation, this would check if the request is signed
+    # TODO: For now, we'll use IP for all public endpoints and UID for signed endpoints
+    # TODO: In a real implementation, this would check if the request is signed
     request_type = determine_request_type(endpoint)
 
     new_request = %{

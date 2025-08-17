@@ -196,7 +196,7 @@ defmodule ZenCex.Core.TelemetryTest do
       )
 
       # Create a request (it won't actually execute, but telemetry should be configured)
-      request = ZenCex.Core.HTTP.base_request(:kraken, :trading)
+      request = ZenCex.Core.HTTP.base_request(:binance, :trading)
 
       # Verify telemetry metadata is attached to the request
       assert Req.Request.get_private(request, :zen_cex_request_ref) != nil

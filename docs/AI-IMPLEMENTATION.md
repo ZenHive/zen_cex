@@ -65,12 +65,12 @@ When implementing any feature:
 # GOOD: Use test buckets with controlled concurrency
 test "rate limiter handles real API limits" do
   # Test in buckets with controlled concurrency
-  results = 
+  results =
     1..20
     |> Enum.chunk_every(5)  # Process in buckets of 5
     |> Enum.flat_map(fn batch ->
       batch
-      |> Task.async_stream(fn _ -> 
+      |> Task.async_stream(fn _ ->
         make_api_call()
       end, max_concurrency: 2, timeout: 10_000)
       |> Enum.map(fn {:ok, result} -> result end)
@@ -81,7 +81,7 @@ end
 test "handles burst requests" do
   for {delay, batch_size} <- [{0, 2}, {100, 3}, {500, 5}] do
     Process.sleep(delay) if delay > 0
-    
+
     results = make_batch_requests(batch_size)
     assert length(results) == batch_size
   end
@@ -140,22 +140,30 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ## Current Task
 
-**Task #10**: Binance Integration Tests (Next task in Phase 2)
+**Task #10**: Binance Integration Tests with Real API
 
 **File**: `test/zen_cex/adapters/binance_integration_test.exs`
 
 **Key Requirements**:
-- Tests against real testnet
-- Captures responses for fixtures
-- Tests error scenarios
-- Uses Req.Test for mocking
-- Fixture version control
+- Tests against real Binance testnet API
+- Captures actual responses for fixture generation
+- Tests error scenarios (rate limits, auth failures, invalid params)
+- Uses Req.Test for creating reliable mocks based on real behavior
+- Documents observed API quirks and edge cases
+- Fixture version control for response format changes
+
+**Testing Strategy**:
+- Use controlled concurrency (max 2-3 parallel requests)
+- Batch tests with delays between groups
+- Cache responses for repeated test runs
+- Tag with `@tag :integration` for separate test runs
+- Monitor rate limit headers and respect them
 
 **Full Requirements & Review Criteria**: See Task #10 in AI-REVIEW.md
 
 ---
 
-## Task Sequence (20 Tasks Total)
+## Task Sequence (21 Tasks Total)
 
 ### Phase 1: Core Foundation (5 tasks)
 ```
@@ -168,18 +176,20 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 **Suggested Grouping**: Tasks 3-5 form the core HTTP infrastructure and can be implemented together.
 
-### Phase 2: Binance Reference Implementation (5 tasks)
+### Phase 2: Binance Reference Implementation (6 tasks)
 ```
 [✅] Task 6: ClockSync with proactive NTP sync           <- COMPLETED
-[✅] Task 7: Binance.Auth - HMAC-SHA256 as Req step     <- COMPLETED (5/5 ⭐)
-[✅] Task 8: Binance.RateLimiter - ETS tables           <- COMPLETED ✨
-[✅] Task 9: Binance.Parser - Response parsing          <- COMPLETED (5/5 ⭐⭐⭐⭐⭐)
+[✅] Task 7: Binance.Auth - HMAC-SHA256 as Req step     <- COMPLETED
+[✅] Task 8: Binance.RateLimiter - ETS tables           <- COMPLETED
+[✅] Task 9: Binance.Parser - Response parsing          <- COMPLETED
+[✅] Task 9.5: Declarative Endpoint Registry            <- COMPLETED
 [ ] Task 10: Integration tests with real API           <- NEXT
 ```
 
 **Suggested Groupings**:
 - Task 6 alone (foundational)
-- Tasks 7-9 together (complete Binance adapter)
+- Tasks 7-9 together (complete Binance adapter core)
+- Task 9.5 alone (endpoint registry pattern)
 - Task 10 alone (comprehensive testing)
 
 ### Phase 3: Production Safety (5 tasks)
@@ -334,13 +344,13 @@ Test file naming: `test/zen_cex/core/http_test.exs` (match module path)
 @tag :integration
 test "real API behavior with responsible testing" do
   # Small batch with controlled concurrency
-  results = 
+  results =
     1..5  # Small dataset
-    |> Task.async_stream(&make_request/1, 
+    |> Task.async_stream(&make_request/1,
          max_concurrency: 2,  # Limit parallel requests
          timeout: 10_000)
     |> Enum.to_list()
-  
+
   # Document what you learned
   assert {:ok, %{status: 200}} = hd(results)
 end

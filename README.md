@@ -70,19 +70,27 @@ The review guide provides:
 
 ## Architecture Overview
 
-**Req-centric REST-only design** - Leveraging Req's built-in connection pooling, retry logic, and middleware pipeline for REST API operations. No WebSocket or streaming support.
+**Adapter Pattern with Req-centric REST Design** - Each exchange adapter consists of multiple cooperating modules that collectively adapt external APIs to ZenCex's unified interface.
 
 ```
 lib/zen_cex/
-├── core/           # Thin coordination layer
-│   ├── registry.ex # Adapter registration
-│   └── http.ex     # Req client setup
-├── behaviors/      # Adapter contracts
-└── adapters/       # Exchange implementations (stateless)
-    ├── binance/    # HMAC-SHA256, ETS rate limiting
-    ├── kraken/     # Nonce-based, HTTP/1.1 only
-    └── deribit/    # OAuth2 (only GenServer needed)
+├── core/                    # Thin coordination layer
+│   ├── registry.ex         # Maps exchanges to endpoint modules
+│   ├── http.ex            # Req client with middleware pipeline
+│   └── endpoint_registry.ex # Macro for declarative endpoints
+├── behaviors/              # Contracts for adapter modules
+└── adapters/               # Exchange adapters (collection of modules)
+    ├── binance/            # Binance adapter modules
+    │   ├── endpoints.ex    # Main entry point (uses EndpointRegistry)
+    │   ├── auth.ex        # HMAC-SHA256 authentication
+    │   ├── rate_limiter.ex # ETS-based rate limiting
+    │   └── parser.ex      # Response normalization
+    ├── kraken/            # (Future: Nonce-based, HTTP/1.1)
+    └── deribit/           # (Future: OAuth2 with GenServer)
 ```
+
+### Why "Adapters"?
+The `Adapters` namespace accurately reflects that these modules work together to adapt external exchange APIs to ZenCex's interface. Each adapter is not just endpoints, but a complete integration package.
 
 **Why minimal supervision**: Req provides connection pooling (Finch), retry with backoff, telemetry, and middleware pipeline
 **Only GenServer needed**: Deribit OAuth token management (stateful)
@@ -96,10 +104,10 @@ lib/zen_cex/
 
 ## Current Status
 
-- **Progress**: 29% complete (7/24 tasks)
-- **Current Task**: #2 - Remove Core.Supervisor (use Req's built-in features)
-- **Architecture**: Req-powered adapters with middleware pipeline
-- **Next Priority**: Leverage Req instead of reimplementing its features
+- **Architecture**: Declarative Endpoint Registry with Req middleware pipeline
+- **Binance**: Fully implemented with EndpointRegistry pattern
+- **Kraken/Deribit**: Planned, following the same adapter structure
+- **Focus**: REST APIs only - no WebSocket/streaming support
 
 ## Key Features
 

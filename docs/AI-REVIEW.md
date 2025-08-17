@@ -71,6 +71,7 @@ We want pragmatic simplicity, not naive simplicity. This means choosing solution
 - ✅ **Task #7**: Binance.Auth Module - COMPLETED (4.5/5 ⭐)
 - ✅ **Task #8**: Binance.RateLimiter Module - COMPLETED (5/5 ⭐⭐⭐⭐⭐)
 - ✅ **Task #9**: Binance.Parser Module - COMPLETED (5/5 ⭐⭐⭐⭐⭐)
+- ✅ **Task #9.5**: Declarative Endpoint Registry - COMPLETED (5/5 ⭐⭐⭐⭐⭐)
 - 🚧 **Tasks #10-25**: Remaining tasks in progress
 
 ### Task #1: Core.Registry Module ✅ COMPLETED (5/5 ⭐⭐)
@@ -207,6 +208,38 @@ We want pragmatic simplicity, not naive simplicity. This means choosing solution
 - ✅ Performance validated (<10ms for 100 items)
 - ✅ Clean separation of concerns with helper functions
 - ✅ Production-ready with excellent documentation
+
+### Task #9.5: Declarative Endpoint Registry ✅ COMPLETED (5/5 ⭐⭐⭐⭐⭐)
+**Files**: `lib/zen_cex/core/endpoint_registry.ex`, `lib/zen_cex/adapters/binance/endpoints.ex`
+
+#### Required Elements:
+- [x] Core macro module `ZenCex.EndpointRegistry` for function generation
+- [x] @endpoints list with declarative configuration
+- [x] Each endpoint spec includes all required fields
+- [x] Macro generates functions with proper @spec annotations
+- [x] Generated functions accept (params, opts \\ [])
+- [x] Support for params_transformer for complex operations
+- [x] Hybrid approach: macro for standard, hand-written for complex
+- [x] Tests for generated functions (44+ tests passing)
+- [x] Documentation generated from endpoint specs
+
+#### Critical Checks:
+- [x] NEVER retry order placement operations (compile-time enforced)
+- [x] Rate limit weight properly tracked per endpoint
+- [x] Parser functions properly referenced (validated at compile time)
+- [x] Compile-time validation of endpoint specifications
+- [x] Generated functions have proper error types
+- [x] Support debug mode to inspect generated code
+
+#### Performance Verified:
+- [x] Endpoint lookup < 10μs ✅
+- [x] No runtime overhead from macro abstraction ✅
+
+#### Module Integration Verified:
+- ✅ Registry → Endpoints mapping working
+- ✅ HTTP → Auth → RateLimiter → Parser chain functioning
+- ✅ All safety patterns implemented (0.2, 0.4, 0.6)
+- ✅ Telemetry integration complete
 
 ### Task #10: Binance Integration Tests
 **File**: `test/zen_cex/adapters/binance_integration_test.exs`

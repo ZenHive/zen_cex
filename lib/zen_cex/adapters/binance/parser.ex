@@ -267,6 +267,156 @@ defmodule ZenCex.Adapters.Binance.Parser do
     {:error, :not_implemented}
   end
 
+  @doc """
+  Parses a list of orders from the Binance API.
+
+  ## Examples
+
+      response = [
+        %{
+          "symbol" => "BTCUSDT",
+          "orderId" => 123456,
+          "side" => "BUY",
+          "type" => "LIMIT",
+          "status" => "FILLED"
+        }
+      ]
+      {:ok, orders} = parse_orders_list(response)
+  """
+  @spec parse_orders_list(list() | term()) :: {:ok, list()} | {:error, atom()}
+  def parse_orders_list(response) when is_list(response) do
+    orders = Enum.map(response, &parse_order/1)
+
+    # Check if any parsing failed
+    case Enum.find(orders, &match?({:error, _}, &1)) do
+      {:error, _} = error -> error
+      nil -> {:ok, Enum.map(orders, fn {:ok, order} -> order end)}
+    end
+  end
+
+  def parse_orders_list(_), do: {:error, :invalid_format}
+
+  @doc """
+  Parses ticker price data from the Binance API.
+
+  ## Examples
+
+      # Single ticker
+      response = %{"symbol" => "BTCUSDT", "price" => "50000.00"}
+      {:ok, ticker} = parse_ticker(response)
+
+      # Multiple tickers
+      response = [
+        %{"symbol" => "BTCUSDT", "price" => "50000.00"},
+        %{"symbol" => "ETHUSDT", "price" => "3000.00"}
+      ]
+      {:ok, tickers} = parse_ticker(response)
+  """
+  @spec parse_ticker(map() | list() | term()) :: {:ok, map() | list()} | {:error, atom()}
+  def parse_ticker(%{"symbol" => symbol, "price" => price}) do
+    {:ok,
+     %{
+       symbol: symbol,
+       price: Decimal.new(price)
+     }}
+  end
+
+  def parse_ticker(response) when is_list(response) do
+    tickers =
+      Enum.map(response, fn %{"symbol" => symbol, "price" => price} ->
+        %{symbol: symbol, price: Decimal.new(price)}
+      end)
+
+    {:ok, tickers}
+  end
+
+  def parse_ticker(_), do: {:error, :invalid_format}
+
+  @doc """
+  Parses server time response from the Binance API.
+
+  ## Examples
+
+      response = %{"serverTime" => 1234567890000}
+      {:ok, %{server_time: 1234567890000}} = parse_server_time(response)
+  """
+  @spec parse_server_time(map() | term()) :: {:ok, map()} | {:error, atom()}
+  def parse_server_time(%{"serverTime" => time}) do
+    {:ok, %{server_time: time}}
+  end
+
+  def parse_server_time(_), do: {:error, :invalid_format}
+
+  @doc """
+  Parses One-Cancels-Other (OCO) order response from the Binance API.
+
+  ## Examples
+
+      response = %{
+        "orderListId" => 123,
+        "orders" => [
+          %{"orderId" => 456, "side" => "BUY", "type" => "LIMIT"},
+          %{"orderId" => 789, "side" => "BUY", "type" => "STOP_LOSS_LIMIT"}
+        ],
+        "listOrderStatus" => "EXECUTING",
+        "transactionTime" => 1234567890000
+      }
+      {:ok, oco} = parse_oco_response(response)
+  """
+  @spec parse_oco_response(map() | term()) :: {:ok, map()} | {:error, atom()}
+  def parse_oco_response(%{"orderListId" => list_id, "orders" => orders} = response) do
+    {:ok,
+     %{
+       order_list_id: list_id,
+       orders:
+         Enum.map(orders, fn order ->
+           case parse_order(order) do
+             {:ok, parsed} -> parsed
+             # Fallback to raw if parsing fails
+             _ -> order
+           end
+         end),
+       list_status: response["listOrderStatus"],
+       transaction_time: response["transactionTime"]
+     }}
+  end
+
+  def parse_oco_response(_), do: {:error, :invalid_oco_format}
+
+  @doc """
+  Parses batch cancel response from the Binance API.
+
+  Returns a list of results where each element is either
+  `{:ok, order}` for successful cancellations or
+  `{:error, error_info}` for failed cancellations.
+
+  ## Examples
+
+      response = [
+        %{"orderId" => 123, "status" => "CANCELED"},
+        %{"code" => -2011, "msg" => "Unknown order"}
+      ]
+      {:ok, results} = parse_batch_cancel_response(response)
+  """
+  @spec parse_batch_cancel_response(list() | term()) :: {:ok, list()} | {:error, atom()}
+  def parse_batch_cancel_response(response) when is_list(response) do
+    results =
+      Enum.map(response, fn
+        %{"code" => code, "msg" => msg} ->
+          {:error, %{code: code, message: msg}}
+
+        order ->
+          case parse_order(order) do
+            {:ok, parsed} -> {:ok, parsed}
+            error -> error
+          end
+      end)
+
+    {:ok, results}
+  end
+
+  def parse_batch_cancel_response(_), do: {:error, :invalid_batch_response}
+
   # Private helper functions
 
   defp parse_spot_balances_as_positions(balances) when is_list(balances) do

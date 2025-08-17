@@ -406,17 +406,23 @@ defmodule ZenCex.Safety.ClockSync do
     end
   end
 
-  defp parse_binance_time(body) do
+  defp parse_binance_time(body) when is_map(body) do
     # Binance returns: {"serverTime": 1640995200000}
-    case Jason.decode(body) do
-      {:ok, %{"serverTime" => server_time}} when is_integer(server_time) ->
+    # Note: Req automatically decodes JSON, so body is already a map
+    case body do
+      %{"serverTime" => server_time} when is_integer(server_time) ->
         {:ok, server_time}
 
-      {:ok, data} ->
+      data ->
         {:error, {:invalid_response, data}}
+    end
+  end
 
-      {:error, reason} ->
-        {:error, {:json_decode_error, reason}}
+  defp parse_binance_time(body) when is_binary(body) do
+    # Fallback for string body (shouldn't happen with Req, but kept for compatibility)
+    case Jason.decode(body) do
+      {:ok, decoded} -> parse_binance_time(decoded)
+      {:error, reason} -> {:error, {:json_decode_error, reason}}
     end
   end
 

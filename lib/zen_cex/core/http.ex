@@ -58,6 +58,9 @@ defmodule ZenCex.Core.HTTP do
       |> Req.merge(skip_rate_limit: true)
   """
 
+  # Jitter range for exponential backoff in milliseconds
+  @jitter_range_ms 500
+
   @doc """
   Creates a base Req request configured for the specified exchange and operation type.
 
@@ -85,7 +88,7 @@ defmodule ZenCex.Core.HTTP do
   """
   @spec base_request(atom(), atom()) :: Req.Request.t()
   def base_request(exchange, operation_type \\ :standard) do
-    adapter = ZenCex.Core.Registry.get_adapter!(exchange)
+    endpoints = ZenCex.Core.Registry.get_endpoints!(exchange)
 
     receive_timeout = get_timeout(operation_type)
 
@@ -104,7 +107,7 @@ defmodule ZenCex.Core.HTTP do
     |> Req.Request.append_response_steps(zen_cex_update_rate_limit: &update_rate_limit_step/1)
     |> Req.Request.append_error_steps(zen_cex_telemetry: &telemetry_error_step/1)
     |> Req.merge(
-      base_url: adapter.base_url(:prod),
+      base_url: endpoints.base_url(:prod),
       finch: ZenCex.Finch,
       retry: :safe_transient,
       retry_delay: &exponential_backoff_with_jitter/1,
@@ -141,16 +144,19 @@ defmodule ZenCex.Core.HTTP do
       request
     else
       exchange = request.options[:exchange]
-      adapter = ZenCex.Core.Registry.get_adapter!(exchange)
+      endpoints = ZenCex.Core.Registry.get_endpoints!(exchange)
 
       # Get the rate limiter module
-      rate_limiter = adapter.rate_limiter()
+      rate_limiter = endpoints.rate_limiter()
 
       # Extract endpoint from URL
       endpoint = get_endpoint(request)
 
-      # Check rate limit
-      case rate_limiter.check_and_increment(endpoint) do
+      # Get weight from request.private if set by endpoint registry, otherwise default to 1
+      weight = get_in(request.private, [:rate_limit_weight]) || 1
+
+      # Check rate limit with weight
+      case rate_limiter.check_and_increment(endpoint, weight) do
         :ok ->
           request
 
@@ -178,16 +184,14 @@ defmodule ZenCex.Core.HTTP do
       request
     else
       exchange = request.options[:exchange]
-      adapter = ZenCex.Core.Registry.get_adapter!(exchange)
+      endpoints = ZenCex.Core.Registry.get_endpoints!(exchange)
 
       # Get the auth module
-      auth = adapter.auth()
+      auth = endpoints.auth()
 
-      # Get credentials from request options if provided (for testing)
-      auth_credentials = request.options[:auth_credentials] || %{}
-
-      # Sign the request with optional credentials
-      auth.sign_request(request, auth_credentials)
+      # Call the unified apply_auth function
+      # The auth module will handle getting credentials from options or environment
+      auth.apply_auth(request)
     end
   end
 
@@ -200,10 +204,10 @@ defmodule ZenCex.Core.HTTP do
       {request, response}
     else
       exchange = request.options[:exchange]
-      adapter = ZenCex.Core.Registry.get_adapter!(exchange)
+      endpoints = ZenCex.Core.Registry.get_endpoints!(exchange)
 
       # Get the rate limiter module
-      rate_limiter = adapter.rate_limiter()
+      rate_limiter = endpoints.rate_limiter()
 
       # Update rate limit tracking from response headers
       if function_exported?(rate_limiter, :update_from_response, 1) do
@@ -292,7 +296,7 @@ defmodule ZenCex.Core.HTTP do
   @spec exponential_backoff_with_jitter(non_neg_integer()) :: non_neg_integer()
   defp exponential_backoff_with_jitter(n) do
     base_ms = min(1000 * 2 ** min(n, 10), 60_000)
-    jitter_ms = :rand.uniform(500)
+    jitter_ms = :rand.uniform(@jitter_range_ms)
     min(base_ms + jitter_ms, 60_000)
   end
 

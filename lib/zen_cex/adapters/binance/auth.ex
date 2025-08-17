@@ -31,6 +31,46 @@ defmodule ZenCex.Adapters.Binance.Auth do
   @max_recv_window_ms 60_000
 
   @doc """
+  Simplified auth function for use with endpoint registry and Core.HTTP.
+
+  This function reads credentials from environment variables or request options
+  and applies Binance authentication to the request.
+
+  ## Parameters
+    * `request` - The Req.Request struct to sign
+    
+  ## Returns
+    * Modified request with Binance authentication applied
+    
+  ## Examples
+
+      # Called by Core.HTTP auth_step
+      request |> apply_auth()
+  """
+  @spec apply_auth(Req.Request.t()) :: Req.Request.t()
+  def apply_auth(request) do
+    # Get credentials from request options or environment
+    api_key =
+      get_in(request.options, [:auth_credentials, :api_key]) ||
+        System.get_env("BINANCE_API_KEY")
+
+    api_secret =
+      get_in(request.options, [:auth_credentials, :api_secret]) ||
+        System.get_env("BINANCE_API_SECRET")
+
+    # Default to spot API type (could be made configurable via request.private)
+    api_type = get_in(request.private, [:api_type]) || :spot
+
+    if api_key && api_secret do
+      sign_request(request, api_type, api_key, api_secret)
+    else
+      # Return request unchanged if no credentials available
+      # Core.HTTP will handle the error appropriately
+      request
+    end
+  end
+
+  @doc """
   Signs a Req request with Binance HMAC-SHA256 authentication.
 
   This function works as a Req request step, adding:
