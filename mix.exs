@@ -45,12 +45,14 @@ defmodule ZenCex.MixProject do
       {:telemetry, "~> 1.0"},
 
       # Testing & development
-      {:plug, "~> 1.0", only: :test},
+      {:plug, "~> 1.0", only: [:dev, :test]},
       {:mock, "~> 0.3.8", only: :test},
       {:excoveralls, "~> 0.18", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-      {:ex_doc, "~> 0.34", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false},
+      {:tidewave, "~> 0.2", only: :dev},
+      {:bandit, "~> 1.0", only: :dev},
     ]
   end
 
@@ -60,7 +62,9 @@ defmodule ZenCex.MixProject do
   defp aliases do
     [
       test: ["test"],
-      "test.cover": ["coveralls.html"]
+      "test.cover": ["coveralls.html"],
+      tidewave:
+        "run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4000) end)'"
     ]
   end
 end
