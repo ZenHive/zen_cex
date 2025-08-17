@@ -120,63 +120,6 @@ defmodule ZenCex.Adapters.BinanceIntegrationTest do
       # Add delay before next test
       Process.sleep(@inter_request_delay_ms)
     end
-
-    @tag :requires_network
-    test "get_ticker/1 - captures real ticker data and validates parsing" do
-      Logger.info("Testing ticker endpoint with various symbols")
-
-      test_cases = [
-        # Single ticker
-        %{symbol: "BTCUSDT", description: "single BTC ticker"},
-        # High-volume pair
-        %{symbol: "ETHUSDT", description: "single ETH ticker"},
-        # All tickers (no symbol parameter)
-        %{description: "all tickers"}
-      ]
-
-      Enum.each(test_cases, fn test_case ->
-        params = if Map.has_key?(test_case, :symbol), do: %{symbol: test_case.symbol}, else: %{}
-
-        Logger.info("  Testing: #{test_case.description}")
-
-        case Endpoints.get_ticker(params) do
-          {:ok, result} ->
-            if Map.has_key?(test_case, :symbol) do
-              # Single ticker response
-              assert %{symbol: symbol, price: price} = result
-              assert symbol == test_case.symbol
-              assert %Decimal{} = price
-              assert Decimal.gt?(price, Decimal.new("0"))
-
-              # Save fixture
-              save_fixture("get_ticker_#{String.downcase(test_case.symbol)}.json", result)
-            else
-              # Multiple tickers response
-              assert is_list(result)
-              assert length(result) > 0
-
-              # Validate first ticker structure
-              first_ticker = List.first(result)
-              assert %{symbol: symbol, price: price} = first_ticker
-              assert is_binary(symbol)
-              assert %Decimal{} = price
-
-              # Save sample of tickers for fixture
-              sample_tickers = Enum.take(result, 5)
-              save_fixture("get_ticker_all_sample.json", sample_tickers)
-            end
-
-            Logger.info("    ✓ Valid response structure")
-
-          {:error, reason} ->
-            Logger.error("    ✗ Failed: #{inspect(reason)}")
-            flunk("Ticker request failed for #{test_case.description}: #{inspect(reason)}")
-        end
-
-        # Delay between symbol requests
-        Process.sleep(@inter_request_delay_ms)
-      end)
-    end
   end
 
   describe "authenticated endpoints (testnet credentials)" do
@@ -448,30 +391,6 @@ defmodule ZenCex.Adapters.BinanceIntegrationTest do
   end
 
   describe "error scenarios with real API responses" do
-    @tag :requires_network
-    test "invalid symbol error - captures real error format" do
-      Logger.info("Testing invalid symbol error response")
-
-      params = %{symbol: "INVALIDBTC"}
-
-      case Endpoints.get_ticker(params) do
-        {:ok, _result} ->
-          flunk("Expected error for invalid symbol, but got success")
-
-        {:error, reason} ->
-          # Capture real error format
-          save_fixture("error_invalid_symbol.json", %{error: reason, symbol: "INVALIDBTC"})
-
-          Logger.info("✓ Captured invalid symbol error: #{inspect(reason)}")
-
-          # Validate it's the expected error type
-          assert reason in [:invalid_symbol] or
-                   match?({:exchange_error, _}, reason)
-      end
-
-      Process.sleep(@inter_request_delay_ms)
-    end
-
     @tag :requires_network
     test "authentication error - captures real auth failure response" do
       Logger.info("Testing authentication error with invalid credentials")

@@ -1,7 +1,9 @@
 # Binance Multi-API Refactoring Task List
 
 ## Overview
-Support Binance's multiple API types (Spot, Futures, etc.) using a unified approach with smart URL routing, avoiding file size explosion while maintaining clarity.
+Support Binance's multiple API types (Spot, Futures, etc.) for **trading operations only** using a unified approach with smart URL routing, avoiding file size explosion while maintaining clarity.
+
+**IMPORTANT SCOPE**: This library is for trading operations only - NO market data, price feeds, or order books.
 
 ## Current Directory Structure
 ```
@@ -25,14 +27,13 @@ lib/zen_cex/adapters/binance/
 ├── parser.ex                  # Common parsing functions (shared)
 ├── rate_limiter.ex           # Rate limiting (shared across all APIs)
 ├── rate_limiter_cleanup.ex   # ETS table cleanup
-└── endpoints/                 # Feature-based endpoint modules (as needed)
-    ├── spot_trading.ex        # Spot order management (~50 endpoints)
-    ├── spot_market.ex         # Market data, tickers (~70 endpoints)
-    ├── spot_account.ex        # Balances, account info (~30 endpoints)
-    ├── futures_trading.ex     # Futures orders (~40 endpoints)
-    ├── futures_account.ex     # Positions, margin (~20 endpoints)
-    ├── margin.ex              # Margin trading (~30 endpoints)
-    └── savings.ex             # Earn/Savings products (if needed)
+└── endpoints/                 # Trading-focused endpoint modules (as needed)
+    ├── spot_trading.ex        # Spot order management (~30 endpoints)
+    ├── spot_account.ex        # Balances, account info (~20 endpoints)
+    ├── futures_trading.ex     # Futures orders (~25 endpoints)
+    ├── futures_account.ex     # Positions, margin (~15 endpoints)
+    ├── margin_trading.ex      # Margin orders & positions (~20 endpoints)
+    └── margin_account.ex      # Margin balances & loans (~15 endpoints)
 
 test/zen_cex/adapters/binance/
 ├── environment_consistency_test.exs  # Tests for env variable handling
@@ -87,21 +88,21 @@ test/zen_cex/adapters/binance/
 **Implementation Results**: 
 - All endpoints now have explicit `api_type` field (:spot or :futures)
 - Module documentation clearly identifies core vs extended endpoints
-- Core set covers: account, orders, positions, market data, system utilities
+- Core set covers: account management, order operations, position tracking, system utilities
 - Hand-written complex operations also specify their API type
 - All tests pass (215 total)
 
-### 2.2 Feature-Based Endpoint Modules
+### 2.2 Feature-Based Endpoint Modules (Trading Operations Only)
 - [ ] Create `lib/zen_cex/adapters/binance/endpoints/` directory
-- [ ] Split endpoints by feature domain:
-  - [ ] `spot_trading.ex` - Order management endpoints
-  - [ ] `spot_market.ex` - Market data, tickers
-  - [ ] `spot_account.ex` - Balances, account info
-  - [ ] `futures_trading.ex` - Futures orders
-  - [ ] `futures_account.ex` - Positions, margin
-  - [ ] `margin.ex` - Margin trading specific
-  - [ ] `savings.ex` - Earn/Savings products (if needed)
+- [ ] Split endpoints by trading feature domain:
+  - [ ] `spot_trading.ex` - Spot order placement, modification, cancellation
+  - [ ] `spot_account.ex` - Spot balances, account info, trade history
+  - [ ] `futures_trading.ex` - Futures order management
+  - [ ] `futures_account.ex` - Positions, margin requirements, PnL
+  - [ ] `margin_trading.ex` - Margin orders, borrowing, repayment
+  - [ ] `margin_account.ex` - Margin balances, loan status
 - [ ] Main `endpoints.ex` delegates to feature modules
+- [ ] **EXCLUDE**: Market data, price feeds, order books, tickers
 
 ### 2.3 Endpoint Discovery
 - [ ] Add `list_available_endpoints/0` function
@@ -187,9 +188,10 @@ test/zen_cex/adapters/binance/
 - [x] Spot trading works with correct testnet URL  
 - [x] Futures endpoint can use different testnet URL (via `api_type`)
 - [x] Shared auth/rate limiting works across API types
-- [ ] File size manageable with feature-based splitting
+- [ ] File size manageable with trading-focused feature splitting
 - [x] No breaking changes for existing users
-- [ ] Clear documentation for adding new endpoints
+- [ ] Clear documentation for adding new trading endpoints
+- [ ] Library remains focused on trading operations only (no market data)
 
 ## Implementation Status
 ### Completed ✅
@@ -220,6 +222,25 @@ test/zen_cex/adapters/binance/
 - Phase 5: 1-2 hours
 - Phase 6: Optional/as needed
 - **Total**: ~8-12 hours remaining (increased due to rate limiter complexity)
+
+## Scope Clarification
+
+### What This Library DOES (Trading Operations)
+- ✅ Order management (place, modify, cancel)
+- ✅ Position tracking (balances, margins, PnL)
+- ✅ Account operations (withdrawals, deposits, transfers)
+- ✅ Risk management (liquidation prices, margin requirements)
+- ✅ Trade history and execution reports
+
+### What This Library DOES NOT Do
+- ❌ Market data (price feeds, tickers)
+- ❌ Order book depth
+- ❌ Trade streams or tick data
+- ❌ Candlestick/OHLC data
+- ❌ Real-time price updates
+- ❌ Market making or HFT operations
+
+**Rationale**: This is a trading operations library focused on order execution and account management, not a market data library. For market data needs, use a dedicated market data service or WebSocket library.
 
 ## Key Learnings
 - Binance uses same API key across all API types (simplifies auth)

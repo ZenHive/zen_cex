@@ -12,7 +12,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   - Account management (balances)
   - Order management (place, cancel, query)
   - Position tracking (spot and futures)
-  - Market data (ticker prices)
+  - Trade history and execution reports
   - System utilities (server time)
 
   Extended endpoints (margin trading, savings, staking, etc.) will be implemented
@@ -59,9 +59,6 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   ### Position Tracking
   - `get_positions/1` - Fetch futures positions (Futures API)
 
-  ### Market Data
-  - `get_ticker/1` - Get ticker price (Public)
-
   ### System
   - `get_server_time/1` - Get server timestamp (Public)
 
@@ -74,7 +71,11 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   """
   use ZenCex.EndpointRegistry, adapter: __MODULE__
 
-  alias ZenCex.Adapters.Binance.{Parser, Auth, RateLimiter}
+  alias ZenCex.Adapters.Binance.{Auth, Parser, RateLimiter}
+
+  # Configuration constants
+  @default_recv_window 5000
+  @max_batch_cancel_weight 10
 
   # Define exchange identifier
   def __exchange__, do: :binance
@@ -179,14 +180,14 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
     # Always get full response
     |> Map.put(:newOrderRespType, "FULL")
     |> Map.put(:timestamp, System.system_time(:millisecond))
-    |> Map.put(:recvWindow, 5000)
+    |> Map.put(:recvWindow, @default_recv_window)
   end
 
   @doc false
   def transform_oco_params(%{} = params) do
     params
     |> Map.put(:timestamp, System.system_time(:millisecond))
-    |> Map.put(:recvWindow, 5000)
+    |> Map.put(:recvWindow, @default_recv_window)
     |> Map.put(:newOrderRespType, "FULL")
   end
 
@@ -325,28 +326,6 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
       """
     },
 
-    # Market data (public)
-    %{
-      operation: :get_ticker,
-      # Spot market data
-      api_type: :spot,
-      method: :get,
-      path: "/api/v3/ticker/price",
-      requires_auth: false,
-      response_parser: &Parser.parse_ticker/1,
-      error_mapping: &Parser.parse_error/1,
-      retry_on: [:timeout],
-      max_retries: 2,
-      weight: 1,
-      timeout: 5_000,
-      doc: """
-      Gets current ticker price for a symbol.
-
-      ## Parameters
-      - symbol: Trading pair (optional, returns all if not specified)
-      """
-    },
-
     # Time endpoint (for clock sync)
     %{
       operation: :get_server_time,
@@ -451,8 +430,8 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
 
     # Batch operations need special handling
     # Also has different weight calculation
-    # Weight increases with batch size, max 10
-    weight = min(length(order_ids), 10)
+    # Weight increases with batch size
+    weight = min(length(order_ids), @max_batch_cancel_weight)
 
     # Extract credentials from params if provided
     {credentials, _clean_params} = extract_credentials(params)
@@ -494,9 +473,6 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   @doc false
   @spec rate_limit_step(Req.Request.t()) :: Req.Request.t() | {Req.Request.t(), Req.Response.t()}
   defp rate_limit_step(request) do
-    # Ensure rate limiter is initialized (idempotent operation)
-    RateLimiter.init()
-
     # Extract endpoint from request URL
     endpoint =
       if request.url do

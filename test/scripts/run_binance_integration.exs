@@ -145,7 +145,6 @@ defmodule BinanceIntegrationRunner do
 
     1. Public Endpoints (no auth required)
        • get_server_time/0 - Clock synchronization test
-       • get_ticker/1 - Market data retrieval (BTCUSDT, ETHUSDT, all tickers)
 
     2. Authenticated Endpoints (testnet credentials)  
        • get_balances/0 - Account balance retrieval

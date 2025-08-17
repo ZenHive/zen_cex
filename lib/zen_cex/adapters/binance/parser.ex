@@ -297,42 +297,6 @@ defmodule ZenCex.Adapters.Binance.Parser do
   def parse_orders_list(_), do: {:error, :invalid_format}
 
   @doc """
-  Parses ticker price data from the Binance API.
-
-  ## Examples
-
-      # Single ticker
-      response = %{"symbol" => "BTCUSDT", "price" => "50000.00"}
-      {:ok, ticker} = parse_ticker(response)
-
-      # Multiple tickers
-      response = [
-        %{"symbol" => "BTCUSDT", "price" => "50000.00"},
-        %{"symbol" => "ETHUSDT", "price" => "3000.00"}
-      ]
-      {:ok, tickers} = parse_ticker(response)
-  """
-  @spec parse_ticker(map() | list() | term()) :: {:ok, map() | list()} | {:error, atom()}
-  def parse_ticker(%{"symbol" => symbol, "price" => price}) do
-    {:ok,
-     %{
-       symbol: symbol,
-       price: Decimal.new(price)
-     }}
-  end
-
-  def parse_ticker(response) when is_list(response) do
-    tickers =
-      Enum.map(response, fn %{"symbol" => symbol, "price" => price} ->
-        %{symbol: symbol, price: Decimal.new(price)}
-      end)
-
-    {:ok, tickers}
-  end
-
-  def parse_ticker(_), do: {:error, :invalid_format}
-
-  @doc """
   Parses server time response from the Binance API.
 
   ## Examples

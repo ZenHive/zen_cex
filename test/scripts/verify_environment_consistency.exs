@@ -74,7 +74,6 @@ generated_functions = [
   {:cancel_order, 1},
   {:get_order, 1},
   {:get_open_orders, 1},
-  {:get_ticker, 1},
   {:get_server_time, 1}
 ]
 

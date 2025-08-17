@@ -25,7 +25,7 @@ defmodule ZenCex.Adapters.Binance.EndpointsTest do
       endpoints = Endpoints.all_endpoints()
 
       assert is_list(endpoints)
-      assert length(endpoints) == 8
+      assert length(endpoints) == 7
 
       operations = Enum.map(endpoints, & &1.operation)
       assert :get_balances in operations
@@ -175,13 +175,6 @@ defmodule ZenCex.Adapters.Binance.EndpointsTest do
   end
 
   describe "public endpoints" do
-    test "ticker endpoint doesn't require auth" do
-      config = Endpoints.get_endpoint(:get_ticker)
-
-      assert config.requires_auth == false
-      assert config.weight == 1
-    end
-
     test "server time endpoint doesn't require auth" do
       config = Endpoints.get_endpoint(:get_server_time)
 
