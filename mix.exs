@@ -52,7 +52,7 @@ defmodule ZenCex.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:tidewave, "~> 0.2", only: :dev},
-      {:bandit, "~> 1.0", only: :dev},
+      {:bandit, "~> 1.0", only: :dev}
     ]
   end
 

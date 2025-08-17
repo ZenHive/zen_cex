@@ -65,6 +65,119 @@ The test suite is organized into three categories:
 - **Integration tests**: `*_integration_test.exs` - Test against real exchange APIs
 - **Performance tests**: `*_performance_test.exs` - Benchmark high-load scenarios
 
+## Tidewave MCP (Model Context Protocol)
+
+Tidewave provides an MCP server for enhanced Elixir development capabilities. It allows Claude Code to directly interact with your Elixir project through specialized tools.
+
+### Starting Tidewave
+
+```bash
+# Start Tidewave server on port 4000
+mix tidewave
+
+# The server runs continuously - keep it running during development
+```
+
+### Available MCP Tools
+
+When Tidewave is running, Claude Code has access to these `mcp__tidewave__` prefixed tools:
+
+1. **`mcp__tidewave__project_eval`** - Execute Elixir code in project context
+   - Runs code with full project dependencies loaded
+   - Returns both the result and any IO output
+   - Includes IEx helpers (e.g., `exports(Module)`)
+   - Supports timeout configuration
+   - **PREFER THIS over shell commands for Elixir evaluation**
+
+2. **`mcp__tidewave__get_docs`** - Get documentation for modules/functions
+   - Works for project modules and dependencies
+   - Accepts Module, Module.function, or Module.function/arity
+   - Returns formatted documentation with examples
+
+3. **`mcp__tidewave__get_source_location`** - Find source code locations
+   - Returns file path and line number for any reference
+   - Works for project code and dependencies
+   - Useful for navigating to implementation details
+
+4. **`mcp__tidewave__search_package_docs`** - Search Hex documentation
+   - Searches documentation for project dependencies
+   - Useful for finding usage examples and API details
+   - Can filter by specific packages
+
+5. **`mcp__tidewave__get_package_location`** - Get dependency locations
+   - Returns file paths for installed dependencies
+   - Helps locate dependency source code
+
+6. **`mcp__tidewave__get_logs`** - View application logs
+   - Filter by log level (debug, info, warning, error, etc.)
+   - Tail recent log entries
+   - Excludes logs from other tool calls
+
+7. **`mcp__tidewave__list_liveview_pages`** - List active LiveViews
+   - Shows currently connected LiveView sessions
+   - Useful for Phoenix LiveView development
+
+### Development Workflow with Tidewave
+
+**IMPORTANT**: When Tidewave is available, prefer using MCP tools over starting the Phoenix server:
+
+```elixir
+# Instead of: iex -S mix or mix phx.server
+# Use: mcp__tidewave__project_eval to test code
+
+# Example: Test a module function
+mcp__tidewave__project_eval(code: """
+  ZenCex.Core.Registry.list_exchanges()
+""")
+
+# Example: Inspect module exports
+mcp__tidewave__project_eval(code: """
+  exports(ZenCex.Core.HTTP)
+""")
+
+# Example: Test with specific timeout
+mcp__tidewave__project_eval(
+  code: "Process.sleep(1000); :ok",
+  timeout: 2000
+)
+```
+
+### Benefits of Using Tidewave
+
+1. **No Manual Server Management** - No need to start/stop IEx sessions
+2. **Direct Code Execution** - Test functions without creating temporary files
+3. **Full Project Context** - All dependencies and modules available
+4. **Integrated Documentation** - Access docs without leaving the development flow
+5. **Real-time Logs** - Monitor application behavior during testing
+6. **Faster Iteration** - Immediate feedback without server restarts
+
+### Common Tidewave Patterns
+
+```elixir
+# Check module compilation
+mcp__tidewave__project_eval(code: "Code.ensure_loaded?(ZenCex.Core.HTTP)")
+
+# Inspect ETS tables
+mcp__tidewave__project_eval(code: ":ets.all() |> Enum.map(&:ets.info(&1, :name))")
+
+# Test rate limiter
+mcp__tidewave__project_eval(code: """
+  alias ZenCex.Adapters.Binance.RateLimiter
+  RateLimiter.check_and_increment(:spot_request)
+""")
+
+# Check application environment
+mcp__tidewave__project_eval(code: "Application.get_all_env(:zen_cex)")
+```
+
+### Troubleshooting Tidewave
+
+If Tidewave connection issues occur:
+1. Ensure Tidewave is running: `mix tidewave`
+2. Check for port conflicts on 4000
+3. Verify dependencies with `mix deps.get`
+4. Check logs with `mcp__tidewave__get_logs(tail: 20, level: "error")`
+
 ## Architecture
 
 ### Req-Centric REST Architecture Overview
@@ -72,8 +185,10 @@ The test suite is organized into three categories:
 The library leverages **Req's built-in capabilities** for REST API operations instead of custom OTP supervision:
 
 - **Core Modules** (`ZenCex.Core.*`): Thin coordination layer using Req middleware
-- **Behaviors** (`ZenCex.Behaviors.*`): Contracts for Req-based adapters
-- **Adapters** (`ZenCex.Adapters.{Binance,Kraken,Deribit}.*`): Stateless modules (except Deribit OAuth)
+- **Behaviors** (`ZenCex.Behaviors.*`): Contracts that exchange adapters must implement
+- **Adapters** (`ZenCex.Adapters.*`): Exchange-specific implementations organized by exchange
+  - Each exchange adapter consists of multiple cooperating modules
+  - The namespace reflects that these modules collectively "adapt" external APIs to ZenCex
 
 ### Core Module Structure
 
@@ -83,8 +198,8 @@ The library leverages **Req's built-in capabilities** for REST API operations in
    - Only supervises Deribit.Auth GenServer (OAuth state)
 
 2. **Core.Registry** (`lib/zen_cex/core/registry.ex`)
-   - Compile-time validation of adapters
-   - Runtime adapter lookup and validation
+   - Maps exchange names to endpoint modules
+   - Runtime validation and loading
    - Exchange listing and capability queries
 
 3. **Core.HTTP** (`lib/zen_cex/core/http.ex`)
@@ -92,14 +207,15 @@ The library leverages **Req's built-in capabilities** for REST API operations in
    - Adds auth and rate limiting as Req request/response steps
    - Leverages Req's middleware pipeline instead of custom coordination
 
-### Adapter Components
+### Adapter Structure
 
-Each exchange adapter implements these modules:
+Each exchange adapter in `ZenCex.Adapters.{Exchange}.*` consists of these cooperating modules:
 
-1. **Adapter Module** (`lib/zen_cex/adapters/{exchange}/adapter.ex`)
-   - Entry point implementing `Behaviors.Adapter`
-   - Coordinates all exchange-specific functionality
-   - Returns child specs for supervision
+1. **Endpoints Module** (`lib/zen_cex/adapters/{exchange}/endpoints.ex`)
+   - **Primary entry point** for the adapter
+   - Uses `ZenCex.EndpointRegistry` macro for declarative endpoint definitions
+   - Contains both generated functions (from `@endpoints`) and hand-written complex operations
+   - Registered with `Core.Registry` as the exchange's main interface
 
 2. **Auth Module** (`lib/zen_cex/adapters/{exchange}/auth.ex`)
    - Implements `Behaviors.Auth` behavior
@@ -111,10 +227,23 @@ Each exchange adapter implements these modules:
    - Exchange-specific rate limiting logic
    - ETS-based atomic counters for performance
 
-4. **WebSocket** - **NOT IMPLEMENTED**
+4. **Parser Module** (`lib/zen_cex/adapters/{exchange}/parser.ex`)
+   - Implements `Behaviors.Parser` behavior
+   - Normalizes exchange-specific responses to common formats
+   - Handles type conversions and error mapping
+
+5. **WebSocket** - **NOT IMPLEMENTED**
    - WebSocket support is explicitly out of scope
    - This library focuses on REST APIs only
    - For streaming data needs, use a different library
+
+### Why "Adapters" Namespace?
+
+The `Adapters` namespace accurately describes the role of these modules:
+- They **adapt** external exchange APIs to ZenCex's unified interface
+- Each adapter is a **collection of modules** working together (not just endpoints)
+- The pattern follows the Adapter design pattern from software architecture
+- Future protocol support (if added) would still fit logically under this namespace
 
 ### Supervision Tree (Minimal - Leveraging Req)
 
@@ -202,20 +331,37 @@ For current task and progress, see AI-IMPLEMENTATION.md.
 
 ## Important Implementation Notes
 
+### Endpoint Registry Pattern
+
+The library uses a declarative endpoint registry pattern for REST APIs:
+- Define endpoints using `@endpoints` configuration with required fields
+- Automatic function generation for standard CRUD operations
+- Hand-written implementations for complex operations (OCO orders, batch operations)
+- Compile-time validation prevents dangerous patterns (e.g., retries on order placement)
+- See `lib/zen_cex/core/endpoint_registry.ex` for macro documentation
+
+#### Debug Mode
+To see generated code during development:
+```elixir
+use ZenCex.EndpointRegistry, :debug
+```
+
+This will print the generated AST to help understand what functions are created.
+
 ### Current Status
 - Req-centric architecture leveraging built-in features
-- Removing redundant OTP supervision (Task #2 in progress)
-- Binance adapter being refactored to use Req steps
+- Declarative endpoint registry implemented for Binance
 - Focus on utilizing Req's capabilities instead of reimplementing
 
 ### Key Architectural Decisions
 - **Req-centric REST design**: Leverage built-in pooling, retry, telemetry for REST APIs
-- **Stateless adapters**: Only Deribit OAuth needs GenServer for token state
+- **Stateless endpoints**: Only Deribit OAuth needs GenServer for token state
 - **ETS with Req middleware**: Rate limiting as request steps with atomic counters
 - **No Core.Supervisor**: Req's Finch handles connection lifecycle
 - **Minimal processes**: Let Req handle complexity, we just configure it
 - **No WebSocket/Streaming**: REST-only by design, not a limitation
 - **No HFT Support**: Optimized for reliability, not microsecond latency
+- **Declarative Endpoint Registry**: Macro-based endpoint generation to reduce boilerplate
 
 ### Req HTTP Client Best Practices (from latest docs)
 
@@ -329,11 +475,21 @@ When adding new features:
 ## Module Dependencies
 
 Critical internal dependencies to be aware of:
-- Adapters register with `Core.Registry` at compile time
-- `Core.HTTP` delegates to adapter-specific implementations
-- `Deribit.Auth` runs as a GenServer for OAuth token management
-- Each adapter's RateLimiter manages its own ETS tables
-- All modules emit telemetry events for monitoring
+- **Registry Pattern**: Endpoints modules (main adapter entry points) register with `Core.Registry` at compile time
+- **Delegation Chain**: `Core.HTTP` → `Core.Registry` → `Adapters.{Exchange}.Endpoints` → specific adapter modules
+- **Stateful Components**: Only `Deribit.Auth` runs as a GenServer for OAuth token management
+- **Rate Limiting**: Each adapter's RateLimiter manages its own ETS tables independently
+- **Telemetry**: All modules emit telemetry events for monitoring and debugging
+
+### Module Cooperation Example
+
+When calling `Binance.Endpoints.get_balances/1`:
+1. The Endpoints module defines the operation via `@endpoints`
+2. Core.HTTP creates the Req request with middleware
+3. Binance.Auth signs the request with HMAC-SHA256
+4. Binance.RateLimiter checks and updates rate limits
+5. Binance.Parser normalizes the response
+6. Telemetry events are emitted at each stage
 
 ## Performance Characteristics
 
