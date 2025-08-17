@@ -1,0 +1,21 @@
+{
+  "data": {
+    "error": {
+      "message": "Mandatory parameter 'symbol' was not sent, was empty/null, or malformed.",
+      "type": "exchange_error"
+    },
+    "params": {
+      "type": "LIMIT",
+      "symbol": "BTCUSDT",
+      "api_key": "[SANITIZED]",
+      "api_secret": "[SANITIZED]",
+      "side": "BUY",
+      "price": "1000.00",
+      "quantity": "0.001",
+      "timeInForce": "GTC"
+    }
+  },
+  "captured_at": 1755401453223,
+  "zen_cex_version": "0.1.0",
+  "test_environment": "binance_testnet"
+}

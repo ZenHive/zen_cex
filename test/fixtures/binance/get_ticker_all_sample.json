@@ -1,0 +1,27 @@
+{
+  "data": [
+    {
+      "symbol": "ETHBTC",
+      "price": "0.03769000"
+    },
+    {
+      "symbol": "LTCBTC",
+      "price": "0.00102300"
+    },
+    {
+      "symbol": "BNBBTC",
+      "price": "0.00717900"
+    },
+    {
+      "symbol": "NEOBTC",
+      "price": "0.00005390"
+    },
+    {
+      "symbol": "QTUMETH",
+      "price": "0.00049000"
+    }
+  ],
+  "captured_at": 1755401461595,
+  "zen_cex_version": "0.1.0",
+  "test_environment": "binance_testnet"
+}

@@ -1,0 +1,9 @@
+{
+  "data": {
+    "error": "invalid_symbol",
+    "symbol": "INVALIDBTC"
+  },
+  "captured_at": 1755401443728,
+  "zen_cex_version": "0.1.0",
+  "test_environment": "binance_testnet"
+}

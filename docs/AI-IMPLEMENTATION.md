@@ -141,26 +141,19 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ## Current Task
 
-**Task #10**: Binance Integration Tests with Real API
+**Task #11**: CircuitBreaker as Req Error Step
 
-**File**: `test/zen_cex/adapters/binance_integration_test.exs`
+**File**: `lib/zen_cex/core/circuit_breaker.ex`
 
 **Key Requirements**:
-- Tests against real Binance testnet API
-- Captures actual responses for fixture generation
-- Tests error scenarios (rate limits, auth failures, invalid params)
-- Uses Req.Test for creating reliable mocks based on real behavior
-- Documents observed API quirks and edge cases
-- Fixture version control for response format changes
+- States: Closed, Open, Half-Open
+- Opens after 5 consecutive failures
+- Half-open after 1 minute
+- Per-endpoint tracking (not just per exchange)
+- Integrated as Req error step
+- Tests for state transitions
 
-**Testing Strategy**:
-- Use controlled concurrency (max 2-3 parallel requests)
-- Batch tests with delays between groups
-- Cache responses for repeated test runs
-- Tag with `@tag :integration` for separate test runs
-- Monitor rate limit headers and respect them
-
-**Full Requirements & Review Criteria**: See Task #10 in AI-REVIEW.md
+**Full Requirements & Review Criteria**: See Task #11 in AI-REVIEW.md
 
 ---
 
@@ -184,7 +177,7 @@ You may implement **related tasks within the same phase** when they are tightly 
 [✅] Task 8: Binance.RateLimiter - ETS tables           <- COMPLETED
 [✅] Task 9: Binance.Parser - Response parsing          <- COMPLETED
 [✅] Task 9.5: Declarative Endpoint Registry            <- COMPLETED
-[ ] Task 10: Integration tests with real API           <- NEXT
+[✅] Task 10: Integration tests with real API           <- COMPLETED
 ```
 
 **Suggested Groupings**:
@@ -195,7 +188,7 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ### Phase 3: Production Safety (5 tasks)
 ```
-[ ] Task 11: CircuitBreaker as Req error step          ┐
+[ ] Task 11: CircuitBreaker as Req error step          <- NEXT
 [ ] Task 12: PositionReconciliation with drift         ├─ Safety group
 [ ] Task 13: EmergencyBypass for rate limiting         └─ (resilience)
 [ ] Task 14: OrderLifecycle state machine               <- Standalone

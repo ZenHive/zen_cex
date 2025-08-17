@@ -5,21 +5,43 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   Uses the EndpointRegistry macro to generate standard CRUD functions
   while allowing hand-written implementations for complex operations.
 
+  ## ⚠️ CRITICAL: Environment Configuration
+
+  **ALL endpoints respect the `BINANCE_TESTNET` environment variable:**
+  - When `BINANCE_TESTNET=true`: Uses testnet (https://testnet.binance.vision)
+  - Otherwise: Uses production (https://api.binance.com) - **REAL MONEY**
+
+  ### Check Current Environment
+
+      iex> ZenCex.Adapters.Binance.Endpoints.current_env()
+      :prod  # or :test
+      
+      iex> ZenCex.Adapters.Binance.Endpoints.base_url()
+      "https://api.binance.com"  # or testnet URL
+
+  ### Safety Guidelines
+  - **Production is the default** - unset or any value except "true" uses production
+  - **Use different API keys** for testnet vs production
+  - **Verify environment before trading** - production uses real money!
+
   ## Generated Functions
 
   The following functions are automatically generated from @endpoints:
   - `get_balances/1` - Fetch account balances
-  - `get_positions/1` - Fetch futures positions
-  - `place_order/1` - Place a new order
+  - `get_positions/1` - Fetch futures positions  
+  - `place_order/1` - Place a new order ⚠️ **NEVER RETRIED**
   - `cancel_order/1` - Cancel an existing order
   - `get_order/1` - Query order status
   - `get_open_orders/1` - List open orders
   - `get_ticker/1` - Get ticker price
+  - `get_server_time/1` - Get server timestamp
 
   ## Complex Operations (Hand-written)
 
-  - `place_oco_order/1` - One-Cancels-Other order
-  - `batch_cancel_orders/1` - Cancel multiple orders
+  - `place_oco_order/1` - One-Cancels-Other order ⚠️ **NEVER RETRIED**
+  - `batch_cancel_orders/1` - Cancel multiple orders (weight based on batch size)
+
+  All functions above respect the `BINANCE_TESTNET` environment variable.
   """
   use ZenCex.EndpointRegistry, adapter: __MODULE__
 
@@ -31,6 +53,60 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   # Base URL configuration
   def base_url(:prod), do: "https://api.binance.com"
   def base_url(:test), do: "https://testnet.binance.vision"
+
+  @doc """
+  Returns the current environment based on BINANCE_TESTNET environment variable.
+
+  ## Returns
+  - `:test` if `BINANCE_TESTNET=true` 
+  - `:prod` otherwise (default)
+
+  ## Examples
+      
+      iex> System.put_env("BINANCE_TESTNET", "true")
+      iex> current_env()
+      :test
+      
+      iex> System.delete_env("BINANCE_TESTNET")
+      iex> current_env()
+      :prod
+      
+  ## Safety Note
+  Production is the default. Only exactly "true" enables testnet.
+  Any other value (including "TRUE", "1", "yes") defaults to production.
+  """
+  @spec current_env() :: :prod | :test
+  def current_env do
+    case System.get_env("BINANCE_TESTNET") do
+      "true" -> :test
+      _ -> :prod
+    end
+  end
+
+  @doc """
+  Returns the base URL for the current environment.
+
+  Automatically selects between production and testnet based on 
+  the BINANCE_TESTNET environment variable.
+
+  ## Examples
+
+      iex> System.delete_env("BINANCE_TESTNET")
+      iex> base_url()
+      "https://api.binance.com"
+      
+      iex> System.put_env("BINANCE_TESTNET", "true")
+      iex> base_url()
+      "https://testnet.binance.vision"
+      
+  ## ⚠️ WARNING
+  This function is used by ALL endpoints (both generated and hand-written).
+  Changing the environment affects all API calls.
+  """
+  @spec base_url() :: String.t()
+  def base_url do
+    base_url(current_env())
+  end
 
   # Module references for Core.HTTP integration
   @doc "Returns the auth module for this exchange"
@@ -251,7 +327,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
     request =
       Req.new(
         method: :post,
-        url: base_url(:prod) <> "/api/v3/order/oco",
+        url: base_url() <> "/api/v3/order/oco",
         json: transform_oco_params(clean_params),
         receive_timeout: 5_000
       )
@@ -309,7 +385,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
     request =
       Req.new(
         method: :delete,
-        url: base_url(:prod) <> "/api/v3/openOrders",
+        url: base_url() <> "/api/v3/openOrders",
         json: %{
           symbol: symbol,
           orderIdList: Jason.encode!(order_ids)

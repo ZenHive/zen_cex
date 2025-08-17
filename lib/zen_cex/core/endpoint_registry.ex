@@ -390,21 +390,19 @@ defmodule ZenCex.EndpointRegistry do
             ZenCex.Core.HTTP.base_request(adapter.__exchange__(), operation_type)
             |> Req.merge(
               method: config.method,
-              url: adapter.base_url(:prod) <> config.path,
+              url: adapter.base_url() <> config.path,
               params: if(config.method == :get, do: params, else: nil),
               json: if(config.method != :get, do: params, else: nil),
-              timeout: config.timeout,
-              # Store endpoint metadata for rate limiting and telemetry
-              private: %{
-                rate_limit_weight: config.weight,
-                endpoint_config: config,
-                endpoint_operation: config.operation
-              },
+              receive_timeout: config.timeout,
               # Control auth based on endpoint config
               skip_auth: not config.requires_auth,
               # We handle retry at the endpoint level
               retry: false
             )
+            # Store endpoint metadata for rate limiting and telemetry
+            |> Req.Request.put_private(:rate_limit_weight, config.weight)
+            |> Req.Request.put_private(:endpoint_config, config)
+            |> Req.Request.put_private(:endpoint_operation, config.operation)
           end
 
           defp map_to_operation_type(config) do

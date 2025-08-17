@@ -1,0 +1,11 @@
+{
+  "data": {
+    "error": {
+      "message": "Mandatory parameter 'symbol' was not sent, was empty/null, or malformed.",
+      "type": "exchange_error"
+    }
+  },
+  "captured_at": 1755401456316,
+  "zen_cex_version": "0.1.0",
+  "test_environment": "binance_testnet"
+}
