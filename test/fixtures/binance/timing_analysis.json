@@ -1,11 +1,11 @@
 {
   "data": {
-    "timestamp": 1755415735553,
-    "system_time": 1755415735553,
-    "server_time": 1755415735562,
-    "drift_ms": 9
+    "timestamp": 1755422051557,
+    "system_time": 1755422051557,
+    "server_time": 1755422051510,
+    "drift_ms": -47
   },
-  "captured_at": 1755415735553,
+  "captured_at": 1755422051557,
   "zen_cex_version": "0.1.0",
   "test_environment": "binance_testnet"
 }

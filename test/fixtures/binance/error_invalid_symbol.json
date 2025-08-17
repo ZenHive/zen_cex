@@ -3,7 +3,7 @@
     "error": "invalid_symbol",
     "symbol": "INVALIDBTC"
   },
-  "captured_at": 1755415731378,
+  "captured_at": 1755416104410,
   "zen_cex_version": "0.1.0",
   "test_environment": "binance_testnet"
 }

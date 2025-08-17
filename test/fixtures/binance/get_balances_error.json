@@ -4,9 +4,9 @@
       "message": "Too many parameters; expected '4' and received '5'.",
       "type": "exchange_error"
     },
-    "timestamp": 1755415716746
+    "timestamp": 1755422037073
   },
-  "captured_at": 1755415716747,
+  "captured_at": 1755422037073,
   "zen_cex_version": "0.1.0",
   "test_environment": "binance_testnet"
 }

@@ -18,6 +18,9 @@ defmodule ZenCex.Adapters.Binance.RateLimiterCleanup do
 
   @impl true
   def init(_opts) do
+    # Initialize the rate limiter ETS table on startup
+    RateLimiter.init()
+
     # Schedule first cleanup
     schedule_cleanup()
     {:ok, %{}}
