@@ -9,12 +9,12 @@ defmodule ZenCex.Adapters.Binance.Spot do
   - Batch operations
   """
 
-  use ZenCex.EndpointRegistry
+  alias ZenCex.Adapters.Binance.Parser
+  alias ZenCex.Core.HTTP
+  require Logger
 
-  alias ZenCex.Adapters.Binance.{Auth, Parser, RateLimiter}
-
-  @endpoints [
-    %{
+  @endpoints_config %{
+    get_balances: %{
       operation: :get_balances,
       method: :get,
       path: "/api/v3/account",
@@ -27,7 +27,7 @@ defmodule ZenCex.Adapters.Binance.Spot do
       response_parser: &Parser.parse_balances/1,
       error_mapping: &Parser.parse_error/1
     },
-    %{
+    place_order: %{
       operation: :place_order,
       method: :post,
       path: "/api/v3/order",
@@ -42,7 +42,7 @@ defmodule ZenCex.Adapters.Binance.Spot do
       response_parser: &Parser.parse_order/1,
       error_mapping: &Parser.parse_error/1
     },
-    %{
+    cancel_order: %{
       operation: :cancel_order,
       method: :delete,
       path: "/api/v3/order",
@@ -57,7 +57,7 @@ defmodule ZenCex.Adapters.Binance.Spot do
       response_parser: &Parser.parse_order/1,
       error_mapping: &Parser.parse_error/1
     },
-    %{
+    get_order: %{
       operation: :get_order,
       method: :get,
       path: "/api/v3/order",
@@ -70,38 +70,39 @@ defmodule ZenCex.Adapters.Binance.Spot do
       response_parser: &Parser.parse_order/1,
       error_mapping: &Parser.parse_error/1
     }
-  ]
+  }
 
   @doc """
-  Returns the exchange name for this adapter.
+  Get account balances.
   """
-  def __exchange__, do: :binance
-
-  @doc """
-  Returns the auth module for this adapter.
-  """
-  def auth, do: Auth
-
-  @doc """
-  Returns the rate limiter module for this adapter.
-  """
-  def rate_limiter, do: RateLimiter
-
-  @doc """
-  Returns the parser module for this adapter.
-  """
-  def parser, do: Parser
-
-  @doc """
-  Returns the base URL for spot trading.
-  """
-  def base_url do
-    env = ZenCex.Adapters.Binance.Endpoints.current_env()
-    ZenCex.Adapters.Binance.Endpoints.base_url(env, :spot)
+  @spec get_balances(map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def get_balances(params \\ %{}, opts \\ []) do
+    execute_request(:get_balances, params, opts)
   end
 
-  def base_url(env), do: ZenCex.Adapters.Binance.Endpoints.base_url(env, :spot)
-  def base_url(env, _api_type), do: ZenCex.Adapters.Binance.Endpoints.base_url(env, :spot)
+  @doc """
+  Place a new order.
+  """
+  @spec place_order(map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def place_order(params \\ %{}, opts \\ []) do
+    execute_request(:place_order, params, opts)
+  end
+
+  @doc """
+  Cancel an existing order.
+  """
+  @spec cancel_order(map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def cancel_order(params \\ %{}, opts \\ []) do
+    execute_request(:cancel_order, params, opts)
+  end
+
+  @doc """
+  Get order details.
+  """
+  @spec get_order(map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def get_order(params \\ %{}, opts \\ []) do
+    execute_request(:get_order, params, opts)
+  end
 
   @doc """
   Complex operation: Place One-Cancels-Other order.
@@ -121,5 +122,69 @@ defmodule ZenCex.Adapters.Binance.Spot do
     # TODO: Implement batch cancellation
     # This cancels multiple orders in a single API call
     {:error, :not_implemented}
+  end
+
+  @doc """
+  Returns the endpoint configuration for the given operation.
+  """
+  @spec get_endpoint(atom()) :: map() | nil
+  def get_endpoint(operation) do
+    Map.get(@endpoints_config, operation)
+  end
+
+  @doc """
+  Returns all endpoints defined in this module.
+  """
+  @spec all_endpoints() :: [map()]
+  def all_endpoints do
+    Map.values(@endpoints_config)
+  end
+
+  # Private helper to execute requests
+  defp execute_request(operation, params, opts) do
+    config = Map.get(@endpoints_config, operation)
+
+    base_url =
+      ZenCex.Adapters.Binance.Endpoints.base_url(
+        ZenCex.Adapters.Binance.Endpoints.current_env(),
+        :spot
+      )
+
+    # Determine operation type for Core.HTTP
+    operation_type =
+      cond do
+        operation in [:place_order, :cancel_order] -> :trading
+        operation == :get_order -> :standard
+        true -> :standard
+      end
+
+    # Build request using Core.HTTP patterns
+    request =
+      HTTP.base_request(:binance, operation_type)
+      |> Req.merge(
+        method: config.method,
+        url: base_url <> config.path,
+        params: if(config.method == :get, do: params, else: nil),
+        json: if(config.method != :get, do: params, else: nil),
+        receive_timeout: Keyword.get(opts, :timeout, config.timeout),
+        skip_auth: not config.requires_auth,
+        retry: false
+      )
+      |> Req.Request.put_private(:rate_limit_weight, config.weight)
+      |> Req.Request.put_private(:endpoint_config, config)
+      |> Req.Request.put_private(:endpoint_operation, operation)
+
+    # Execute request and handle response
+    case Req.request(request) do
+      {:ok, %Req.Response{status: status, body: body}} when status in 200..299 ->
+        config.response_parser.(body)
+
+      {:ok, %Req.Response{body: body}} ->
+        config.error_mapping.(body)
+
+      {:error, exception} ->
+        Logger.error("Request failed: #{inspect(exception)}")
+        {:error, exception}
+    end
   end
 end

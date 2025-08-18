@@ -91,6 +91,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   def base_url(:test, :margin), do: "https://testnet.binance.vision"
   def base_url(:test, :sapi), do: "https://testnet.binance.vision"
   def base_url(:test, :dapi), do: "https://testnet.binancefuture.com"
+  def base_url(:test, :papi), do: "https://testnet.binance.vision"
   def base_url(:test, _), do: "https://testnet.binance.vision"
 
   # Production environment URLs
@@ -99,6 +100,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   def base_url(:prod, :margin), do: "https://api.binance.com"
   def base_url(:prod, :sapi), do: "https://api.binance.com"
   def base_url(:prod, :dapi), do: "https://dapi.binance.com"
+  def base_url(:prod, :papi), do: "https://papi.binance.com"
   def base_url(:prod, _), do: "https://api.binance.com"
 
   # ============================================================================

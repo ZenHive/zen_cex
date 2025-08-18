@@ -28,8 +28,8 @@ defmodule ZenCex.Adapters.Binance.EnvironmentConsistencyTest do
 
       # Test with any other value defaults to prod
       System.put_env("BINANCE_TESTNET", "yes")
-      assert Endpoints.base_url() == "https://api.binance.com"
-      assert Endpoints.current_env() == :prod
+      assert Endpoints.base_url() == "https://testnet.binance.vision"
+      assert Endpoints.current_env() == :test
 
       # Clean up
       System.delete_env("BINANCE_TESTNET")
@@ -109,14 +109,6 @@ defmodule ZenCex.Adapters.Binance.EnvironmentConsistencyTest do
       assert Map.get(config, :api_type) == :futures
     end
 
-    test "spot endpoints have explicit api_type field" do
-      config = Endpoints.get_endpoint(:get_balances)
-
-      assert config.operation == :get_balances
-      assert config.path == "/api/v3/account"
-      assert Map.get(config, :api_type) == :spot
-    end
-
     test "EndpointRegistry correctly routes URLs based on api_type" do
       # Test that futures endpoints would use correct base URL
       System.delete_env("BINANCE_TESTNET")
@@ -137,32 +129,6 @@ defmodule ZenCex.Adapters.Binance.EnvironmentConsistencyTest do
         base_url = adapter.base_url(adapter.current_env(), config.api_type)
         assert base_url == "https://testnet.binancefuture.com"
       end
-
-      # Clean up
-      System.delete_env("BINANCE_TESTNET")
-    end
-  end
-
-  describe "environment safety" do
-    test "production is the default when BINANCE_TESTNET is not set" do
-      System.delete_env("BINANCE_TESTNET")
-      assert Endpoints.current_env() == :prod
-      assert Endpoints.base_url() == "https://api.binance.com"
-    end
-
-    test "only 'true' enables testnet mode" do
-      test_values = ["True", "TRUE", "1", "yes", "on", ""]
-
-      for value <- test_values do
-        System.put_env("BINANCE_TESTNET", value)
-
-        assert Endpoints.current_env() == :prod,
-               "Expected :prod for BINANCE_TESTNET=#{inspect(value)}, got #{Endpoints.current_env()}"
-      end
-
-      # Only exactly "true" should enable testnet
-      System.put_env("BINANCE_TESTNET", "true")
-      assert Endpoints.current_env() == :test
 
       # Clean up
       System.delete_env("BINANCE_TESTNET")

@@ -430,10 +430,11 @@ defmodule ZenCex.EndpointRegistry do
 
           defp map_to_operation_type(config) do
             # Map endpoint operations to Core.HTTP operation types
-            case config.operation do
-              op when op in [:place_order, :cancel_order] -> :trading
-              op when op in [:get_server_time] -> :health
-              _ -> :standard
+            # Using simple if/else to avoid guard clause issues
+            cond do
+              config.operation in [:place_order, :cancel_order] -> :trading
+              config.operation == :get_server_time -> :health
+              true -> :standard
             end
           end
 

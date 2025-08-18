@@ -84,13 +84,15 @@ test/zen_cex/adapters/binance/
 
 ## Phase 1:
 ### 1.1 Multi-API URL Support ✅
-- [ ] Add `base_url(env, api_type)` function for different API types
-- [ ] Support testnet URLs for each API type:
+- [x] Add `base_url(env, api_type)` function for different API types
+- [x] Support testnet URLs for each API type:
   - Spot: `testnet.binance.vision`
-  - Futures: `testnet.binancefuture.com`
-  - etc
-- [ ] Add `api_type` field to endpoint definitions
-- [ ] Update EndpointRegistry to use `api_type` when present
+  - Futures (USD-M): `testnet.binancefuture.com` - USDT-margined futures
+  - DAPI (COIN-M): `testnet.binancefuture.com` - Coin-margined futures  
+  - PAPI (Portfolio Margin): `papi.binance.com` (prod) / `testnet.binance.vision` (test)
+  - SAPI: `api.binance.com` (uses spot URL)
+- [x] Add `api_type` field to endpoint definitions
+- [x] Update EndpointRegistry to use `api_type` when present
 
 ### 1.2 Fix Broken Futures Endpoint ✅
 - [x] Mark `get_positions` endpoint with `api_type: :futures`
@@ -150,8 +152,10 @@ Binance.Margin.place_order/1    # Margin trading
 **Module Organization:**
 - `Binance.Endpoints` - Main registry entry, delegates to sub-modules
 - `Binance.Spot` - Spot trading endpoints (~100+ endpoints)
-- `Binance.Futures` - Futures trading endpoints (~80+ endpoints)
+- `Binance.Futures` - USD-M Futures (USDT-margined) endpoints (~80+ endpoints) - uses `/fapi/` paths
 - `Binance.Margin` - Margin/SAPI endpoints (~60+ endpoints)
+- `Binance.Portfolio` - Portfolio Margin (PAPI) endpoints (~40+ endpoints)
+- `Binance.CoinFutures` - COIN-M Futures (coin-margined) endpoints - uses `/dapi/` paths (TODO: when needed)
 - `Binance.Common` - Shared endpoints (server_time, exchange_info)
 
 **Registry Pattern Update:**
@@ -200,7 +204,8 @@ Binance.Margin.place_order/1    # Margin trading
   - Spot: `https://api.binance.com/api/v3/time`
   - Futures: `https://fapi.binance.com/fapi/v1/time`
   - SAPI: Uses Spot endpoint
-  - Coin Futures: `https://dapi.binance.com/dapi/v1/time`
+  - DAPI (Coin Futures): `https://dapi.binance.com/dapi/v1/time`
+  - PAPI (Portfolio Margin): `https://papi.binance.com/papi/v1/time`
 - [ ] Store separate offsets per API type in ETS
 - [ ] Pass `api_type` from endpoints to clock sync
 - [ ] Support testnet URLs for each API type's time endpoint
@@ -211,7 +216,16 @@ Binance.Margin.place_order/1    # Margin trading
 - [ ] Use delegation pattern for specialized parsing
 
 ## Phase 4: Testing Updates
-### 4.1 Update Integration Tests
+### 4.1 Create Unit Tests for New Modules ❌ CRITICAL - MISSING
+- [ ] **CREATE** `test/zen_cex/adapters/binance/spot_test.exs`
+- [ ] **CREATE** `test/zen_cex/adapters/binance/futures_test.exs`
+- [ ] **CREATE** `test/zen_cex/adapters/binance/common_test.exs`
+- [ ] **CREATE** tests for router functionality in endpoints_test.exs
+- [ ] Test endpoint delegation works correctly
+- [ ] Test get_endpoint/1 routing logic
+- [ ] Test all_endpoints/0 aggregation
+
+### 4.2 Update Integration Tests
 - [ ] Add test for futures endpoint using correct testnet URL
 - [ ] Test that spot endpoints use spot testnet URL
 - [ ] Test that futures endpoints use futures testnet URL
@@ -282,21 +296,26 @@ Binance.Margin.place_order/1    # Margin trading
 - **Created Option C nested module structure**:
   - `endpoints.ex` as router only
   - `spot.ex` with spot endpoints
-  - `futures.ex` with futures endpoints
+  - `futures.ex` with USD-M futures endpoints (USDT-margined, /fapi/ paths)
   - `common.ex` with shared endpoints
 - Tests reduced from 32 failures to 8 failures
 
 ### Current Issues 🔥
+- **NO TESTS FOR NEW MODULES** - Created spot.ex, futures.ex, common.ex WITHOUT tests!
 - **8 test failures remaining** - Mostly environment and documentation tests
 - **Need to add Margin module** - Currently only Spot/Futures/Common implemented
+- **Need to add CoinFutures module** - For COIN-M futures (/dapi/ paths) when needed
+- **Missing test coverage** - New modules have 0% test coverage
+- **Futures.ex clarification** - Currently configured for USD-M Futures only
 
 ### Next Steps (Priority Order)
 1. ✅ **DONE: Created nested module structure** with router pattern
-2. **Fix remaining 8 test failures** - Environment and documentation tests
-3. **Add more endpoints** to Spot/Futures modules as needed
-4. **Create Margin module** when margin endpoints are needed
-5. Update Clock Sync for multiple API types (Phase 3.3)
-6. Document the nested module approach for other exchanges
+2. **🔥 CRITICAL: Create tests for new modules** - spot_test.exs, futures_test.exs, common_test.exs
+3. **Fix remaining 8 test failures** - Environment and documentation tests
+4. **Add more endpoints** to Spot/Futures modules as needed
+5. **Create Margin module** when margin endpoints are needed
+6. Update Clock Sync for multiple API types (Phase 3.3)
+7. Document the nested module approach for other exchanges
 
 ## Revised Estimated Effort
 - Phase 1: ✅ DONE

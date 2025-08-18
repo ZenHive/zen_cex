@@ -21,38 +21,6 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
       end
     end
 
-    test "authenticates with Spot API", %{api_key: api_key, api_secret: api_secret} do
-      # First get server time to sync
-      time_request =
-        Req.new(
-          base_url: "https://api.binance.com",
-          url: "/api/v3/time"
-        )
-
-      {:ok, time_response} = Req.get(time_request)
-      assert time_response.status == 200
-      server_time = time_response.body["serverTime"]
-
-      # Now test authenticated endpoint with our auth module
-      request =
-        Req.new(
-          base_url: "https://api.binance.com",
-          url: "/api/v3/account",
-          params: %{
-            "timestamp" => server_time,
-            "recvWindow" => "5000"
-          }
-        )
-        |> Auth.sign_request(:spot, api_key, api_secret)
-
-      {:ok, response} = Req.get(request)
-
-      # Should get 200 with valid auth
-      assert response.status == 200
-      assert Map.has_key?(response.body, "balances")
-      assert Map.has_key?(response.body, "permissions")
-    end
-
     test "authenticates with USD-M Futures API", %{api_key: api_key, api_secret: api_secret} do
       # First get server time
       time_request =

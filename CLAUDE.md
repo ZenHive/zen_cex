@@ -485,27 +485,156 @@ end
   ]
   ```
 
-## Testing Approach
+## Testing Strategy: Real APIs Only (TESTNET ONLY)
 
-The codebase follows Test-Driven Development (TDD) with three test categories:
+### Simple Rule: ALL Tests Must Use Real TESTNET APIs
 
-1. **Unit Tests**: Pure functions, no external dependencies
-2. **Integration Tests**: Real API calls with test credentials (REQUIRED FIRST)
-3. **Performance Tests**: Load testing and benchmarking
+We test against real exchange testnet/sandbox APIs. Period.
+No mocks. No fixtures. No simulation. Just real testnet APIs.
+**NEVER use production APIs in tests.**
 
-**CRITICAL: Test Against Real APIs First**
-- **ALWAYS** test against real APIs first to understand actual behavior
-- **NEVER** create mocks without first testing the real API
-- **DOCUMENT** observed API behavior from real testing
-- **ONLY** add mocks after fully understanding real API responses
+### Test Categories
 
-When adding new features:
-1. Write failing integration tests against REAL APIs first
-2. Understand and document actual API behavior
-3. Implement minimal code to pass tests
-4. Refactor while keeping tests green
-5. Extract unit tests with mocks ONLY after validating real behavior
-6. Mocks must exactly match observed real API behavior
+1. **Unit Tests** (`*_test.exs`)
+   - Test pure functions only (parsers, calculations)
+   - No API calls needed
+
+2. **Integration Tests** (`*_integration_test.exs`)
+   - Test against REAL testnet/sandbox APIs only
+   - Tag with `@tag :integration`
+   - **FAIL if credentials missing** - Don't skip/hide missing tests
+   - **FAIL if not using testnet** - Prevent production API calls
+   - Must document actual API responses
+
+### Testnet URLs (ENFORCED IN TESTS)
+
+```elixir
+# These are the ONLY allowed URLs in test environment
+@test_hosts %{
+  binance: "testnet.binance.vision",
+  kraken: "api.kraken.com",  # Uses different endpoints for testnet
+  deribit: "test.deribit.com"
+}
+
+# Tests MUST verify testnet usage
+assert Application.get_env(:zen_cex, :binance_host) == "testnet.binance.vision"
+```
+
+### Running Tests
+
+```bash
+# Run unit tests only (fast, no API)
+mix test --exclude integration
+
+# Run ALL tests including real API tests (requires TESTNET credentials)
+BINANCE_TESTNET=true BINANCE_API_KEY=xxx BINANCE_API_SECRET=yyy mix test
+
+# Run specific exchange integration tests
+mix test --only integration:binance
+
+# Check what integration tests exist (should FAIL without credentials)
+mix test --only integration
+```
+
+### Writing Integration Tests
+
+```elixir
+defmodule ZenCex.Adapters.BinanceIntegrationTest do
+  use ExUnit.Case
+
+  @moduletag :integration
+  @moduletag :binance
+
+  setup do
+    # ENFORCE testnet usage - fail if production URL detected
+    host = Application.get_env(:zen_cex, :binance_host)
+    unless host == "testnet.binance.vision" do
+      raise "TESTNET REQUIRED: Got #{host}, expected testnet.binance.vision"
+    end
+    
+    # FAIL if no credentials - don't hide missing tests
+    api_key = System.get_env("BINANCE_TESTNET_API_KEY") || 
+      raise "BINANCE_TESTNET_API_KEY required for integration tests"
+    
+    api_secret = System.get_env("BINANCE_TESTNET_API_SECRET") || 
+      raise "BINANCE_TESTNET_API_SECRET required for integration tests"
+    
+    {:ok, api_key: api_key, api_secret: api_secret}
+  end
+
+  test "get_balances returns real testnet balances" do
+    # This calls the REAL Binance testnet API
+    assert {:ok, balances} = Binance.Endpoints.get_balances()
+    assert is_list(balances)
+    
+    # Document actual response structure from TESTNET
+    # Binance testnet returns: [%{"asset" => "BTC", "free" => "0.0", "locked" => "0.0"}, ...]
+  end
+
+  test "place_order with invalid symbol returns real error" do
+    # This gets REAL error from Binance TESTNET
+    assert {:error, reason} = Binance.Endpoints.place_order(%{
+      symbol: "INVALID",
+      side: "BUY",
+      quantity: "1"
+    })
+
+    # Document what Binance TESTNET actually returns
+    # Binance testnet error: {"code": -1121, "msg": "Invalid symbol."}
+    assert reason =~ "Invalid symbol" or reason == {:invalid_symbol, _}
+  end
+end
+```
+
+### Benefits
+
+- **Dead simple rule**: Real testnet APIs or no test
+- **No bad mocks**: Can't mock what you haven't seen
+- **Self-documenting**: Tests show real behavior
+- **Forces integration testing**: Tests fail loudly without credentials
+- **Production safety**: Tests fail if not using testnet
+- **Fast local dev**: `--exclude integration` for unit tests only
+
+### Environment Variable Naming
+
+**CRITICAL**: Use `_TESTNET_` in environment variable names to prevent confusion:
+
+```bash
+# GOOD - Clear these are testnet credentials
+BINANCE_TESTNET_API_KEY=xxx
+BINANCE_TESTNET_API_SECRET=yyy
+KRAKEN_TESTNET_API_KEY=xxx
+DERIBIT_TESTNET_CLIENT_ID=xxx
+
+# BAD - Ambiguous, could be production
+BINANCE_API_KEY=xxx  # NEVER use in tests
+BINANCE_SECRET=yyy   # NEVER use in tests
+```
+
+### CI Configuration
+
+```yaml
+# For CI: Either provide TESTNET credentials or explicitly exclude integration tests
+- name: Run tests
+  env:
+    MIX_ENV: test
+    BINANCE_TESTNET_API_KEY: ${{ secrets.BINANCE_TESTNET_KEY }}
+    BINANCE_TESTNET_API_SECRET: ${{ secrets.BINANCE_TESTNET_SECRET }}
+  run: |
+    # Option 1: With testnet credentials (recommended)
+    mix test
+    
+    # Option 2: Unit tests only (explicit choice)
+    mix test --exclude integration
+```
+
+### Production Safety Checklist
+
+- [ ] All integration tests verify testnet URL in setup
+- [ ] Environment variables include `_TESTNET_` in name
+- [ ] Config files set testnet URLs for test environment
+- [ ] Tests fail loudly if production URL detected
+- [ ] No production credentials in test fixtures or examples
 
 ### Coverage Targets
 - Overall: 80% minimum

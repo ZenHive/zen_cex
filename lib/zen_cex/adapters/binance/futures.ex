@@ -8,57 +8,79 @@ defmodule ZenCex.Adapters.Binance.Futures do
   - Margin and leverage controls
   """
 
-  use ZenCex.EndpointRegistry
+  alias ZenCex.Adapters.Binance.Parser
+  alias ZenCex.Core.HTTP
+  require Logger
 
-  alias ZenCex.Adapters.Binance.{Auth, Parser, RateLimiter}
-
-  @endpoints [
-    %{
-      operation: :get_positions,
-      method: :get,
-      path: "/fapi/v2/positionRisk",
-      # Uses futures API
-      api_type: :futures,
-      requires_auth: true,
-      weight: 5,
-      # 5 second timeout for position query
-      timeout: 5_000,
-      max_retries: 2,
-      retry_on: [:rate_limited, :timeout],
-      response_parser: &Parser.parse_positions/1,
-      error_mapping: &Parser.parse_error/1
-    }
-  ]
+  @endpoint_config %{
+    operation: :get_positions,
+    method: :get,
+    path: "/fapi/v2/positionRisk",
+    # Uses futures API
+    api_type: :futures,
+    requires_auth: true,
+    weight: 5,
+    # 5 second timeout for position query
+    timeout: 5_000,
+    max_retries: 2,
+    retry_on: [:rate_limited, :timeout],
+    response_parser: &Parser.parse_positions/1,
+    error_mapping: &Parser.parse_error/1
+  }
 
   @doc """
-  Returns the exchange name for this adapter.
+  Get futures positions.
   """
-  def __exchange__, do: :binance
+  @spec get_positions(map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def get_positions(params \\ %{}, opts \\ []) do
+    config = @endpoint_config
 
-  @doc """
-  Returns the auth module for this adapter.
-  """
-  def auth, do: Auth
+    base_url =
+      ZenCex.Adapters.Binance.Endpoints.base_url(
+        ZenCex.Adapters.Binance.Endpoints.current_env(),
+        :futures
+      )
 
-  @doc """
-  Returns the rate limiter module for this adapter.
-  """
-  def rate_limiter, do: RateLimiter
+    # Build request using Core.HTTP patterns
+    request =
+      HTTP.base_request(:binance, :standard)
+      |> Req.merge(
+        method: config.method,
+        url: base_url <> config.path,
+        params: if(config.method == :get, do: params, else: nil),
+        json: if(config.method != :get, do: params, else: nil),
+        receive_timeout: Keyword.get(opts, :timeout, config.timeout),
+        skip_auth: not config.requires_auth,
+        retry: false
+      )
+      |> Req.Request.put_private(:rate_limit_weight, config.weight)
+      |> Req.Request.put_private(:endpoint_config, config)
+      |> Req.Request.put_private(:endpoint_operation, config.operation)
 
-  @doc """
-  Returns the parser module for this adapter.
-  """
-  def parser, do: Parser
+    # Execute request and handle response
+    case Req.request(request) do
+      {:ok, %Req.Response{status: status, body: body}} when status in 200..299 ->
+        config.response_parser.(body)
 
-  @doc """
-  Returns the base URL for futures trading.
-  Always uses futures-specific URLs.
-  """
-  def base_url do
-    env = ZenCex.Adapters.Binance.Endpoints.current_env()
-    ZenCex.Adapters.Binance.Endpoints.base_url(env, :futures)
+      {:ok, %Req.Response{body: body}} ->
+        config.error_mapping.(body)
+
+      {:error, exception} ->
+        Logger.error("Request failed: #{inspect(exception)}")
+        {:error, exception}
+    end
   end
 
-  def base_url(env), do: ZenCex.Adapters.Binance.Endpoints.base_url(env, :futures)
-  def base_url(env, _api_type), do: ZenCex.Adapters.Binance.Endpoints.base_url(env, :futures)
+  @doc """
+  Returns the endpoint configuration for the given operation.
+  """
+  @spec get_endpoint(atom()) :: map() | nil
+  def get_endpoint(:get_positions), do: @endpoint_config
+  def get_endpoint(_), do: nil
+
+  @doc """
+  Returns all endpoints defined in this module.
+  """
+  @spec all_endpoints() :: [map()]
+  def all_endpoints, do: [@endpoint_config]
 end
