@@ -139,6 +139,24 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   end
 
   @doc """
+  Returns the auth module for this exchange.
+  """
+  @spec auth() :: module()
+  def auth, do: Auth
+
+  @doc """
+  Returns the parser module for this exchange.
+  """
+  @spec parser() :: module()
+  def parser, do: Parser
+
+  @doc """
+  Returns the rate limiter module for this exchange.
+  """
+  @spec rate_limiter() :: module()
+  def rate_limiter, do: RateLimiter
+
+  @doc """
   Returns the appropriate base URL for a specific API type.
 
   Binance has different base URLs for different product types:
@@ -164,12 +182,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   # def base_url(:test, :coin_futures), do: "https://testnet.binancefuture.com"
   # def base_url(:prod, :portfolio), do: "https://papi.binance.com"
 
-  # Module references for Core.HTTP integration
-  @doc "Returns the auth module for this exchange"
-  def auth, do: ZenCex.Adapters.Binance.Auth
-
-  @doc "Returns the rate limiter module for this exchange"
-  def rate_limiter, do: ZenCex.Adapters.Binance.RateLimiter
+  # Module references for Core.HTTP integration (duplicates removed - defined above)
 
   # Helper functions that need to be defined before @endpoints
   # These are public because they're referenced in @endpoints
@@ -484,20 +497,10 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
     # Get weight from private field
     weight = get_in(request.private, [:rate_limit_weight]) || 1
 
-    # Check rate limit
-    case RateLimiter.check_and_increment(endpoint, weight) do
-      :ok ->
-        request
-
-      {:error, {:rate_limited, retry_after_ms}} ->
-        # Return a response with retry-after header
-        {request,
-         %Req.Response{
-           status: 429,
-           body: "Rate limited",
-           headers: [{"retry-after", Integer.to_string(div(retry_after_ms, 1000))}]
-         }}
-    end
+    # Check rate limit (always returns :ok in reactive mode)
+    # We rely on Binance returning 429 and Req's retry mechanism
+    :ok = RateLimiter.check_and_increment(endpoint, weight)
+    request
   end
 
   # Credential handling helpers

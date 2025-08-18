@@ -356,6 +356,19 @@ This project uses a two-document AI workflow for implementation and review:
 
 For current task and progress, see AI-IMPLEMENTATION.md.
 
+### Documentation Writing Guidelines
+
+When writing or updating docs/* files:
+- **Be concise**: Use bullet points and short sentences
+- **Avoid repetition**: Reference other docs instead of duplicating
+- **Task updates only**: Update task status with single line (e.g., "✅ Task #10 COMPLETED")
+- **No verbose explanations**: State facts, skip lengthy justifications
+- **Use tables**: For comparisons and quick reference data
+- **Minimal examples**: 3-5 lines max, only when essential
+- **Skip preambles**: Get straight to the point
+- **No redundant sections**: If it's in CLAUDE.md, don't repeat in docs/
+- **Trust the AI Expert Developer**: It knows how to write software - skip HOW-to explanations, focus on WHAT is needed
+
 ## Important Implementation Notes
 
 ### Endpoint Registry Pattern

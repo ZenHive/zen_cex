@@ -6,38 +6,38 @@
       {
         "status": "ok",
         "value": {
-          "server_time": 1755422047584
+          "server_time": 1755497785839
         }
       },
       {
         "status": "ok",
         "value": {
-          "server_time": 1755422047768
+          "server_time": 1755497786025
         }
       },
       {
         "status": "ok",
         "value": {
-          "server_time": 1755422047953
+          "server_time": 1755497786210
         }
       },
       {
         "status": "ok",
         "value": {
-          "server_time": 1755422048138
+          "server_time": 1755497786396
         }
       },
       {
         "status": "ok",
         "value": {
-          "server_time": 1755422048322
+          "server_time": 1755497786584
         }
       }
     ],
     "successes": 5,
     "rate_limit_errors": 0
   },
-  "captured_at": 1755422048471,
+  "captured_at": 1755497786678,
   "zen_cex_version": "0.1.0",
   "test_environment": "binance_testnet"
 }

@@ -432,7 +432,6 @@ defmodule ZenCex.EndpointRegistry do
             # Map endpoint operations to Core.HTTP operation types
             case config.operation do
               op when op in [:place_order, :cancel_order] -> :trading
-              op when op in [:get_ticker] -> :market
               op when op in [:get_server_time] -> :health
               _ -> :standard
             end

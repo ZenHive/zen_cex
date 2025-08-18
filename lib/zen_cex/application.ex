@@ -18,14 +18,11 @@ defmodule ZenCex.Application do
       ZenCex.Safety.OrderSafety,
 
       # Clock synchronization for accurate exchange timestamps
-      ZenCex.Safety.ClockSync,
-
-      # Binance rate limiter cleanup process
-      ZenCex.Adapters.Binance.RateLimiterCleanup
+      ZenCex.Safety.ClockSync
 
       # NOTE: Following Req-centric architecture:
       # - No Core.Supervisor needed (Req handles connection lifecycle)
-      # - Rate limiting via ETS tables with atomic operations (no GenServer)
+      # - Rate limiting is now reactive (no ETS tracking or cleanup needed)
       # - Auth as stateless Req middleware steps (except Deribit OAuth)
       # - TODO: Add Deribit.Auth GenServer when OAuth is implemented
     ]

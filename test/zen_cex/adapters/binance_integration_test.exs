@@ -81,8 +81,7 @@ defmodule ZenCex.Adapters.BinanceIntegrationTest do
         # Ensure fixtures directory exists
         File.mkdir_p!(@fixtures_dir)
 
-        # Initialize rate limiter
-        ZenCex.Adapters.Binance.RateLimiter.init()
+        # Rate limiter initializes ETS tables on-demand, no explicit init needed
 
         {:ok, api_key: api_key, api_secret: api_secret}
     end
