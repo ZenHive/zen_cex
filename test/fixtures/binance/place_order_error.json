@@ -8,14 +8,14 @@
       "type": "LIMIT",
       "symbol": "BTCUSDT",
       "api_key": "[SANITIZED]",
-      "side": "BUY",
       "api_secret": "[SANITIZED]",
+      "timeInForce": "GTC",
       "price": "1000.00",
-      "quantity": "0.001",
-      "timeInForce": "GTC"
+      "side": "BUY",
+      "quantity": "0.001"
     }
   },
-  "captured_at": 1755497781661,
+  "captured_at": 1755523893921,
   "zen_cex_version": "0.1.0",
   "test_environment": "binance_testnet"
 }

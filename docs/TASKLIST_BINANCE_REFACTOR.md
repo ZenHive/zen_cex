@@ -1,17 +1,36 @@
-# Binance Multi-API Refactoring Task List
+# Binance Multi-API Task List
 
 ## Overview
 Support Binance's multiple API types (Spot, Futures, etc.) for **trading operations only** using a unified approach with smart URL routing, avoiding file size explosion while maintaining clarity.
 
 **IMPORTANT SCOPE**: This library is for trading operations only - NO market data, price feeds, or order books.
 
-## Current Directory Structure
+## Current Directory Structure (Actual Files)
 ```
-lib/zen_cex/adapters/binance/
-├── auth.ex                    # HMAC-SHA256 authentication (shared)
-├── endpoints.ex               # Main endpoint definitions (unified)
-├── parser.ex                  # Response parsing (shared)
-└── rate_limiter.ex           # ✅ COMPLETED: Pragmatic rate limiter (monitors, doesn't block)
+lib/zen_cex/
+├── application.ex                    # OTP application
+├── adapters/
+│   └── binance/
+│       ├── auth.ex                   # HMAC-SHA256 authentication
+│       ├── parser.ex                 # Response parsing
+│       └── rate_limiter.ex          # ✅ COMPLETED: Reactive rate limiter
+├── behaviors/
+│   ├── auth.ex                      # Auth behavior contract
+│   ├── parser.ex                    # Parser behavior contract
+│   └── rate_limiter.ex             # RateLimiter behavior contract
+├── core/
+│   ├── endpoint_registry.ex        # Macro for endpoint generation
+│   ├── http.ex                     # Req-based HTTP client
+│   ├── registry.ex                 # Exchange registry
+│   └── telemetry.ex                # Telemetry events
+└── safety/
+    ├── clock_sync.ex                # Time synchronization
+    └── order_safety.ex              # Order validation
+
+MISSING FILES:
+❌ lib/zen_cex/adapters/binance/endpoints.ex    # Main entry point
+❌ lib/zen_cex/adapters/deribit/*.ex            # No Deribit files
+❌ lib/zen_cex/adapters/kraken/*.ex             # No Kraken files
 
 test/zen_cex/adapters/binance/
 ├── environment_consistency_test.exs  # Tests for env variable handling
@@ -46,30 +65,32 @@ test/zen_cex/adapters/binance/
     └── margin_integration_test.exs
 ```
 
-## Current Problems
-- [x] ~~All endpoints mixed in single module (`binance/endpoints.ex`)~~ **Decision: Keep unified**
-- [x] ~~Futures endpoint (`/fapi/v2/positionRisk`) using wrong base URL in testnet~~ **Partially fixed**
-- [ ] No clear separation between API types in endpoint definitions
-- [x] ~~Environment variable `BINANCE_TESTNET` doesn't handle different testnet URLs~~ **Fixed with `base_url(env, api_type)`**
-- [ ] Endpoint file will become too large as we add more endpoints (300+ potential endpoints)
-- [x] ~~Rate limiter shares limits across all API types~~ **✅ FIXED: Separate limits per API type**
-
 ## Revised Approach: Unified with Smart Organization
 
-### Key Decisions Made
+### Key Decisions Made (Updated with Business Analysis)
 1. **Keep unified adapter per exchange** (following OKX/Bybit model)
-2. **Single API key/secret** shared across all Binance API types
-3. **Smart URL routing** based on endpoint path or explicit `api_type`
-4. **Feature-based splitting** only when file gets too large
+2. **Single Registry entry** `binance => Binance.Endpoints` for all API types
+3. **Single API key/secret** shared across all Binance API types
+4. **Smart URL routing** based on endpoint path or explicit `api_type`
+5. **Feature-based splitting** only when file gets too large
+6. **DRY Principle** - Auth.ex handles ALL auth params (timestamp, recvWindow, signature), RateLimiter.ex handles rate limiting, and Parser.ex handles response parsing
+7. **User simplicity over architectural purity** - Hide API complexity from library users
 
-## Phase 1: Fix Current Issues ✅ COMPLETED (5/5 ⭐)
+### Architecture Decision Rationale
+- **Developer Experience**: Users just want to trade, not understand exchange internals
+- **Zero Breaking Changes**: Existing code continues working unchanged
+- **80% Use Case**: Most users use either Spot OR Futures, not both
+- **Maintenance**: Shared modules (auth, parser, rate_limiter) in same namespace
+
+## Phase 1:
 ### 1.1 Multi-API URL Support ✅
-- [x] Add `base_url(env, api_type)` function for different API types
-- [x] Support testnet URLs for each API type:
+- [ ] Add `base_url(env, api_type)` function for different API types
+- [ ] Support testnet URLs for each API type:
   - Spot: `testnet.binance.vision`
   - Futures: `testnet.binancefuture.com`
-- [x] Add `api_type` field to endpoint definitions
-- [x] Update EndpointRegistry to use `api_type` when present
+  - etc
+- [ ] Add `api_type` field to endpoint definitions
+- [ ] Update EndpointRegistry to use `api_type` when present
 
 ### 1.2 Fix Broken Futures Endpoint ✅
 - [x] Mark `get_positions` endpoint with `api_type: :futures`
@@ -77,23 +98,70 @@ test/zen_cex/adapters/binance/
 
 **Review Results**: Implementation complete and correct. All tests pass (215 total). Smart URL routing works perfectly - endpoints without `api_type` use default spot URLs, endpoints with `api_type` use appropriate API-specific URLs.
 
-## Phase 2: Organize for Scale ✅ COMPLETED
-### 2.1 Core Endpoints Module ✅
-- [x] Keep current `endpoints.ex` with 20-30 most-used endpoints (10 core endpoints)
-- [x] Document which endpoints are "core" vs "extended" 
-- [x] Ensure core endpoints cover 80% of typical use cases
-- [x] Add explicit `api_type` field to all endpoints for clarity
-
-**Implementation Results**: 
-- All endpoints now have explicit `api_type` field (:spot or :futures)
-- Module documentation clearly identifies core vs extended endpoints
-- Core set covers: account management, order operations, position tracking, system utilities
-- Hand-written complex operations also specify their API type
-- All tests pass (215 total)
+## Phase 2: Build Endpoints System From Scratch ✅ COMPLETED
+### 2.1 Create New Endpoints System ✅ DONE
+- [x] **CREATE** `endpoints.ex` - Router module registered with Core.Registry
+- [x] **CREATE** nested modules instead of directory structure:
+  - [x] `spot.ex` - Spot trading endpoints (get_balances, place_order, etc.)
+  - [x] `futures.ex` - Futures trading endpoints (get_positions)
+  - [x] `common.ex` - Shared endpoints (get_server_time)
+- [x] Main `endpoints.ex` delegates all functions to sub-modules
+- [x] Added all required fields: timeout, retry_on, response_parser, error_mapping
 
 ### 2.2 Feature-Based Endpoint Modules (Trading Operations Only)
-- [ ] Create `lib/zen_cex/adapters/binance/endpoints/` directory
-- [ ] Split endpoints by trading feature domain:
+
+**CRITICAL PREREQUISITES - MUST DO FIRST:**
+- [x] **UNDERSTAND THE EXISTING ARCHITECTURE** ✅
+- [x] **REVIEW** existing adapter modules and identify common patterns ✅
+- [x] **DOCUMENT HERE in this doc** existing adapter modules and identify common patterns ✅
+
+### Documented Architecture Patterns
+
+#### Core Architecture (Req-Centric REST)
+- **Application**: Minimal supervision - only Deribit.Auth GenServer, ETS tables, Finch pool
+- **Registry**: Compile-time exchange→endpoints mapping with runtime validation
+- **HTTP Core**: Req middleware pipeline with operation-specific timeouts (2-30s)
+- **Endpoint Registry Macro**: Declarative function generation from `@endpoints` config
+
+#### Adapter Pattern (4-Module Cooperation)
+Each exchange adapter has these cooperating modules:
+1. **Endpoints** - Main entry point, uses EndpointRegistry macro, registered with Core.Registry
+2. **Auth** - Implements Behaviors.Auth, exchange-specific signing (HMAC/OAuth)
+3. **RateLimiter** - Implements Behaviors.RateLimiter, reactive monitoring with ETS
+4. **Parser** - Implements Behaviors.Parser, normalizes responses to common format
+
+#### Key Implementation Details
+- **Req Steps**: rate_limit → auth → request → update_limits → telemetry
+- **Multi-API Support**: `api_type` field routes to correct base URL (spot/futures)
+- **Safety**: Compile-time validation prevents dangerous patterns (no retry on orders)
+- **Stateless**: Only OAuth needs GenServer, everything else uses ETS/Req pipeline
+
+#### Refactored Module Structure (Option C: Nested Modules)
+Given Binance's massive API size (300+ endpoints), using nested modules for clarity:
+
+**New Structure:**
+```elixir
+# Clear namespace separation
+Binance.Spot.place_order/1      # Spot trading
+Binance.Futures.place_order/1   # Futures trading  
+Binance.Margin.place_order/1    # Margin trading
+```
+
+**Module Organization:**
+- `Binance.Endpoints` - Main registry entry, delegates to sub-modules
+- `Binance.Spot` - Spot trading endpoints (~100+ endpoints)
+- `Binance.Futures` - Futures trading endpoints (~80+ endpoints)
+- `Binance.Margin` - Margin/SAPI endpoints (~60+ endpoints)
+- `Binance.Common` - Shared endpoints (server_time, exchange_info)
+
+**Registry Pattern Update:**
+- Keep single registry entry: `binance => Binance.Endpoints`
+- Endpoints module delegates to appropriate sub-module based on function
+- Maintains backward compatibility while adding clarity
+
+**IMPLEMENTATION TASKS (POSTPONE UNTIL 2.1 COMPLETE):**
+- [ ] Create `lib/zen_cex/adapters/binance/endpoints/` directory (when needed)
+- [ ] Split endpoints by trading feature domain (only when file size demands it):
   - [ ] `spot_trading.ex` - Spot order placement, modification, cancellation
   - [ ] `spot_account.ex` - Spot balances, account info, trade history
   - [ ] `futures_trading.ex` - Futures order management
@@ -102,6 +170,10 @@ test/zen_cex/adapters/binance/
   - [ ] `margin_account.ex` - Margin balances, loan status
 - [ ] Main `endpoints.ex` delegates to feature modules
 - [ ] **EXCLUDE**: Market data, price feeds, order books, tickers
+- [ ] **CRITICAL**: Each module MUST have real API integration tests
+  - [ ] Test against Binance testnet with real credentials
+  - [ ] Document actual API behavior from real testing
+  - [ ] Only add mocks after validating real API responses
 
 ### 2.3 Endpoint Discovery
 - [ ] Add `list_available_endpoints/0` function
@@ -147,7 +219,7 @@ test/zen_cex/adapters/binance/
 
 ### 4.2 Rate Limiter Tests ✅ COMPLETED
 - [x] Test header monitoring and warning thresholds
-- [x] Test emergency bypass for cancel operations  
+- [x] Test emergency bypass for cancel operations
 - [x] Test integration with real Binance API (smart, minimal requests)
 
 ### 4.3 Clock Sync Tests (NEW)
@@ -193,7 +265,7 @@ test/zen_cex/adapters/binance/
 
 ## Success Criteria
 - [x] All tests pass
-- [x] Spot trading works with correct testnet URL  
+- [x] Spot trading works with correct testnet URL
 - [x] Futures endpoint can use different testnet URL (via `api_type`)
 - [x] Shared auth/rate limiting works across API types
 - [ ] File size manageable with trading-focused feature splitting
@@ -205,19 +277,30 @@ test/zen_cex/adapters/binance/
 ### Completed ✅
 - Multi-API URL routing with `base_url(env, api_type)`
 - Support for different testnet URLs per API type
-- `api_type` field in endpoint definitions
-- EndpointRegistry support for `api_type`
-- Backward compatibility maintained
+- Rate limiter simplified to reactive monitoring
+- Understood architecture and parameter handling
+- **Created Option C nested module structure**:
+  - `endpoints.ex` as router only
+  - `spot.ex` with spot endpoints
+  - `futures.ex` with futures endpoints
+  - `common.ex` with shared endpoints
+- Tests reduced from 32 failures to 8 failures
+
+### Current Issues 🔥
+- **8 test failures remaining** - Mostly environment and documentation tests
+- **Need to add Margin module** - Currently only Spot/Futures/Common implemented
 
 ### Next Steps (Priority Order)
-1. ~~Simplify rate limiter to reactive monitoring~~ ✅ COMPLETED
-2. Update Clock Sync for multiple API types (Phase 3.3)
-3. ~~Test with real API~~ ✅ COMPLETED (integration tests pass)
-4. Document the pragmatic approach for other exchanges
+1. ✅ **DONE: Created nested module structure** with router pattern
+2. **Fix remaining 8 test failures** - Environment and documentation tests
+3. **Add more endpoints** to Spot/Futures modules as needed
+4. **Create Margin module** when margin endpoints are needed
+5. Update Clock Sync for multiple API types (Phase 3.3)
+6. Document the nested module approach for other exchanges
 
 ## Revised Estimated Effort
 - Phase 1: ✅ DONE
-- Phase 2: ✅ DONE 
+- Phase 2: ✅ DONE (nested module structure implemented)
 - Phase 3: **Partially complete**
   - 3.1: ✅ DONE (auth, parser in place)
   - 3.2: ✅ DONE (rate limiter simplified)
