@@ -130,7 +130,18 @@ test/zen_cex/adapters/binance/
 - [ ] Pass `api_type` from endpoints to rate limiter
 - [ ] Update `check_and_increment` to use correct table based on endpoint path
 
-### 3.3 Parser Organization
+### 3.3 Clock Sync Refactoring (NEW)
+- [ ] Update `ClockSync.fetch_server_time/1` to support different API types
+- [ ] Different time endpoints per API type:
+  - Spot: `https://api.binance.com/api/v3/time`
+  - Futures: `https://fapi.binance.com/fapi/v1/time`
+  - SAPI: Uses Spot endpoint
+  - Coin Futures: `https://dapi.binance.com/dapi/v1/time`
+- [ ] Store separate offsets per API type in ETS
+- [ ] Pass `api_type` from endpoints to clock sync
+- [ ] Support testnet URLs for each API type's time endpoint
+
+### 3.4 Parser Organization
 - [ ] Keep common parsing in main `parser.ex`
 - [ ] Add feature-specific parsing in endpoint modules if needed
 - [ ] Use delegation pattern for specialized parsing
@@ -148,7 +159,13 @@ test/zen_cex/adapters/binance/
 - [ ] Test different header parsing per API type
 - [ ] Test enforcement of different limits (futures has much lower limit)
 
-### 4.3 Add Feature Module Tests
+### 4.3 Clock Sync Tests (NEW)
+- [ ] Test separate time sync per API type
+- [ ] Test that each API type uses correct time endpoint
+- [ ] Test offset storage per API type
+- [ ] Test testnet time endpoints work correctly
+
+### 4.4 Add Feature Module Tests
 - [ ] Test endpoint delegation pattern
 - [ ] Test that feature modules integrate with registry
 - [ ] Test endpoint discovery functions
@@ -211,17 +228,19 @@ test/zen_cex/adapters/binance/
 ## Revised Estimated Effort
 - Phase 1: ✅ DONE (1 hour)
 - Phase 2: 2-3 hours (when adding more endpoints)
-- Phase 3: **3-4 hours** (rate limiter refactor is complex)
+- Phase 3: **4-5 hours** (rate limiter & clock sync refactor)
   - 3.1: ✅ DONE (auth, parser already in place)
   - 3.2: 3-4 hours (rate limiter refactor - CRITICAL)
-  - 3.3: Already in place
-- Phase 4: **2-3 hours** (additional rate limiter tests)
+  - 3.3: 1 hour (clock sync refactor)
+  - 3.4: Already in place
+- Phase 4: **3-4 hours** (additional tests)
   - 4.1: 1 hour
   - 4.2: 1-2 hours (rate limiter tests)
-  - 4.3: 1 hour
+  - 4.3: 30 minutes (clock sync tests)
+  - 4.4: 1 hour
 - Phase 5: 1-2 hours
 - Phase 6: Optional/as needed
-- **Total**: ~8-12 hours remaining (increased due to rate limiter complexity)
+- **Total**: ~10-14 hours remaining (includes rate limiter & clock sync complexity)
 
 ## Scope Clarification
 
@@ -250,6 +269,7 @@ test/zen_cex/adapters/binance/
 - **CRITICAL: Each API type has completely separate rate limits that must be tracked independently**
 - Futures API has much stricter limits (2,400/min) vs Spot (12,000/min)
 - Different API types use different rate limit headers (X-MBX vs X-SAPI)
+- Each API type has its own time endpoint for clock synchronization
 
 ## Dependencies
 - No external dependencies

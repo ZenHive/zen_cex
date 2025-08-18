@@ -178,7 +178,7 @@ This implementation exceeded all requirements and provides an exemplary foundati
 
 ---
 
-## Task Sequence (21 Tasks Total)
+## Task Sequence (28 Tasks Total)
 
 ### Phase 1: Core Foundation (5 tasks)
 ```
@@ -208,41 +208,58 @@ This implementation exceeded all requirements and provides an exemplary foundati
 - Task 9.5 alone (endpoint registry pattern)
 - Task 10 alone (comprehensive testing)
 
-### Phase 3: Production Safety (5 tasks)
+### Phase 3: Reliability & Observability (3 tasks)
 ```
-[ ] Task 11: CircuitBreaker as Req error step          <- NEXT (after 10.5)
-[ ] Task 12: PositionReconciliation with drift         ├─ Safety group
-[ ] Task 13: EmergencyBypass for rate limiting         └─ (resilience)
-[ ] Task 14: OrderLifecycle state machine               <- Standalone
-[ ] Task 15: Dynamic rate limit learning                <- Enhancement
+[ ] Task 11: Circuit Breaker with req_fuse             <- NEXT (after 10.5)
+[ ] Task 12: Enhanced Telemetry Documentation          ├─ Observability
+[ ] Task 13: Debug Mode with curl_req                  └─ group
 ```
 
 **Suggested Groupings**:
-- Tasks 11-13 together (core safety mechanisms)
-- Task 14 alone (complex state machine)
-- Task 15 alone (optimization)
+- Tasks 11-13 together (reliability and monitoring improvements)
+- All three tasks form a cohesive observability enhancement
 
-### Phase 4: Additional Exchanges (5 tasks)
+**Task 11: Circuit Breaker** - Add req_fuse (optional dep) for per-exchange circuit breaking. Opt-in config, emit telemetry, return 503 when blown.
+
+**Task 12: Telemetry Docs** - Document Req/Finch events, create example handlers, add monitoring guide to README.
+
+**Task 13: Debug Mode** - Add curl_req (dev only) for debugging failed requests, export as curl commands.
+
+### Phase 4: Production Safety (5 tasks)
 ```
-[ ] Task 16: Kraken implementation (complete exchange)   <- Standalone
-[ ] Task 17: Deribit OAuth implementation (complete)     <- Standalone
-[ ] Task 18: Health monitoring with endpoint tracking   ┐
-[ ] Task 19: Multi-account rotation for resilience      ├─ Operations
-[ ] Task 20: Production runbook with exchange quirks    └─ group
+[ ] Task 14: OrderSafety enhancements                  <- Safety core
+[ ] Task 15: PositionReconciliation with drift         ├─ Safety group
+[ ] Task 16: EmergencyBypass for rate limiting         └─ (resilience)
+[ ] Task 17: OrderLifecycle state machine               <- Standalone
+[ ] Task 18: Dynamic rate limit learning                <- Enhancement
 ```
 
 **Suggested Groupings**:
-- Task 16 alone (complete exchange)
-- Task 17 alone (complete exchange)
-- Tasks 18-20 together (operational excellence)
+- Tasks 14-16 together (core safety mechanisms)
+- Task 17 alone (complex state machine)
+- Task 18 alone (optimization)
 
-### Phase 5: WebSocket Implementation (Future - Not Current Scope)
+### Phase 5: Additional Exchanges (5 tasks)
 ```
-[ ] Task 21: WebSocket connection manager with reconnection
-[ ] Task 22: Real-time order status updates and fills
-[ ] Task 23: Live position tracking with balance updates
-[ ] Task 24: Market data streaming (order book, trades)
-[ ] Task 25: Automatic reconciliation with drift detection
+[ ] Task 19: Kraken implementation (complete exchange)   <- Standalone
+[ ] Task 20: Deribit OAuth implementation (complete)     <- Standalone
+[ ] Task 21: Health monitoring with endpoint tracking   ┐
+[ ] Task 22: Multi-account rotation for resilience      ├─ Operations
+[ ] Task 23: Production runbook with exchange quirks    └─ group
+```
+
+**Suggested Groupings**:
+- Task 19 alone (complete exchange)
+- Task 20 alone (complete exchange)
+- Tasks 21-23 together (operational excellence)
+
+### Phase 6: WebSocket Implementation (Future - Not Current Scope)
+```
+[ ] Task 24: WebSocket connection manager with reconnection
+[ ] Task 25: Real-time order status updates and fills
+[ ] Task 26: Live position tracking with balance updates
+[ ] Task 27: Market data streaming (order book, trades)
+[ ] Task 28: Automatic reconciliation with drift detection
 ```
 
 **Note**: WebSocket tasks are planned but explicitly out of scope for the current REST-only implementation. These features include:
