@@ -4,6 +4,8 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
   alias ZenCex.Adapters.Binance.Endpoints
   alias ZenCex.Adapters.Binance.Spot
 
+  require Logger
+
   @moduletag :integration
   @moduletag :binance
 
@@ -67,7 +69,7 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
       assert {:ok, response} = Spot.get_time()
       # Should contain server time - document actual structure
       assert is_map(response)
-      IO.inspect(response, label: "TESTNET get_time response")
+      Logger.debug("TESTNET get_time response: #{inspect(response)}")
     end
   end
 
@@ -75,13 +77,13 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
     test "get_balances returns testnet account balances" do
       assert {:ok, response} = Spot.get_balances()
       assert is_list(response) or is_map(response)
-      IO.inspect(response, label: "TESTNET get_balances response", limit: 3)
+      Logger.debug("TESTNET get_balances response: #{inspect(response, limit: 3)}")
     end
 
     test "get_commission_rates returns commission info" do
       # This might fail if missing symbol parameter - document actual requirement
       result = Spot.get_commission_rates()
-      IO.inspect(result, label: "TESTNET get_commission_rates response")
+      Logger.debug("TESTNET get_commission_rates response: #{inspect(result)}")
 
       case result do
         {:ok, response} ->
@@ -97,7 +99,7 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
     test "get_order_history with default params" do
       # May fail without symbol - document requirement
       result = Spot.get_order_history()
-      IO.inspect(result, label: "TESTNET get_order_history response")
+      Logger.debug("TESTNET get_order_history response: #{inspect(result)}")
 
       case result do
         {:ok, response} ->
@@ -110,7 +112,7 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
 
     test "get_openOrders returns open orders" do
       result = Spot.get_openOrders()
-      IO.inspect(result, label: "TESTNET get_openOrders response")
+      Logger.debug("TESTNET get_openOrders response: #{inspect(result)}")
 
       case result do
         {:ok, response} ->
@@ -124,7 +126,7 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
     test "get_trade_history with default params" do
       # Will likely fail without symbol - document requirement  
       result = Spot.get_trade_history()
-      IO.inspect(result, label: "TESTNET get_trade_history response")
+      Logger.debug("TESTNET get_trade_history response: #{inspect(result)}")
 
       case result do
         {:ok, response} ->
@@ -137,7 +139,7 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
 
     test "get_oco_history returns OCO order history" do
       result = Spot.get_oco_history()
-      IO.inspect(result, label: "TESTNET get_oco_history response")
+      Logger.debug("TESTNET get_oco_history response: #{inspect(result)}")
 
       case result do
         {:ok, response} ->
@@ -158,7 +160,7 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
       result = Spot.place_order(%{symbol: "INVALID", side: "BUY", quantity: "0"})
 
       assert {:error, reason} = result
-      IO.inspect(reason, label: "TESTNET place_order error response")
+      Logger.debug("TESTNET place_order error response: #{inspect(reason)}")
 
       # Document what Binance testnet actually returns for invalid orders
       # The error is returned as a tuple {:exchange_error, message}
@@ -170,14 +172,14 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
       result = Spot.cancel_order(%{symbol: "BTCUSDT", orderId: 99_999_999})
 
       assert {:error, reason} = result
-      IO.inspect(reason, label: "TESTNET cancel_order error response")
+      Logger.debug("TESTNET cancel_order error response: #{inspect(reason)}")
     end
 
     test "get_order with invalid order returns error" do
       result = Spot.get_order(%{symbol: "BTCUSDT", orderId: 99_999_999})
 
       assert {:error, reason} = result
-      IO.inspect(reason, label: "TESTNET get_order error response")
+      Logger.debug("TESTNET get_order error response: #{inspect(reason)}")
     end
   end
 
@@ -186,14 +188,14 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
       result = Spot.cancel_orderList(%{symbol: "BTCUSDT", orderListId: 99_999_999})
 
       assert {:error, reason} = result
-      IO.inspect(reason, label: "TESTNET cancel_orderList error response")
+      Logger.debug("TESTNET cancel_orderList error response: #{inspect(reason)}")
     end
 
     test "get_orderList with invalid order list returns error" do
       result = Spot.get_orderList(%{orderListId: 99_999_999})
 
       assert {:error, reason} = result
-      IO.inspect(reason, label: "TESTNET get_orderList error response")
+      Logger.debug("TESTNET get_orderList error response: #{inspect(reason)}")
     end
 
     # NOTE: OCO placement tests would be dangerous - we only test error cases
@@ -208,7 +210,7 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
 
       result = Spot."place_orderList/oco"(invalid_params)
       assert {:error, reason} = result
-      IO.inspect(reason, label: "TESTNET place OCO error response")
+      Logger.debug("TESTNET place OCO error response: #{inspect(reason)}")
     end
   end
 
@@ -216,7 +218,7 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
     test "cancel_all_orders returns appropriate response" do
       # This is safer - cancels any existing orders but won't place new ones
       result = Spot.cancel_all_orders(%{symbol: "BTCUSDT"})
-      IO.inspect(result, label: "TESTNET cancel_all_orders response")
+      Logger.debug("TESTNET cancel_all_orders response: #{inspect(result)}")
 
       case result do
         {:ok, response} ->
@@ -237,7 +239,7 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
 
       result = Spot.get_balances()
       assert {:error, reason} = result
-      IO.inspect(reason, label: "TESTNET auth error format")
+      Logger.debug("TESTNET auth error format: #{inspect(reason)}")
 
       # Restore original key
       if original_key, do: System.put_env("BINANCE_TESTNET_API_KEY", original_key)
@@ -266,7 +268,7 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
         end)
 
       if length(rate_limited) > 0 do
-        IO.inspect(rate_limited, label: "TESTNET rate limit responses")
+        Logger.debug("TESTNET rate limit responses: #{inspect(rate_limited)}")
       end
     end
   end

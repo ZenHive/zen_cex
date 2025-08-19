@@ -234,7 +234,7 @@ defmodule ZenCex.Core.Telemetry do
           :telemetry.handler_config()
         ) :: :ok
   def log_auth_failure(_event, _measurements, metadata, _config) do
-    Logger.error("Auth failure for #{metadata.exchange} using #{metadata.auth_method}: #{metadata.reason}")
+    Logger.error("Auth failure for #{metadata.exchange} using #{metadata.auth_method}: #{inspect(metadata.reason)}")
 
     :ok
   end
