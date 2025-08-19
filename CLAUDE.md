@@ -552,43 +552,18 @@ When running tests that connect to real testnet APIs, some tests may fail on the
 
 ### Writing Integration Tests
 
+**Use the IntegrationCase test helper** for simpler, more maintainable integration tests:
+
 ```elixir
 defmodule ZenCex.Adapters.BinanceIntegrationTest do
-  use ExUnit.Case
+  # The IntegrationCase handles all testnet enforcement automatically
+  use ZenCex.IntegrationCase, exchange: :binance, api_type: :spot
   
-  alias ZenCex.Adapters.Binance.Endpoints
-
-  @moduletag :integration
-  @moduletag :binance
-
-  setup do
-    # ENFORCE testnet usage - fail if production environment detected
-    env = Endpoints.current_env()
-    
-    if env != :test do
-      raise "TESTNET REQUIRED: Environment is #{env}, expected :test. Set BINANCE_TESTNET=true"
-    end
-    
-    # Verify base URL is actually testnet
-    base_url = Endpoints.base_url()
-    
-    if base_url != "https://testnet.binance.vision" do
-      raise "TESTNET URL REQUIRED: Got #{base_url}, expected https://testnet.binance.vision"
-    end
-    
-    # FAIL if no credentials - don't hide missing tests
-    api_key = System.get_env("BINANCE_TESTNET_API_KEY") || 
-      raise "BINANCE_TESTNET_API_KEY required for integration tests"
-    
-    api_secret = System.get_env("BINANCE_TESTNET_API_SECRET") || 
-      raise "BINANCE_TESTNET_API_SECRET required for integration tests"
-    
-    {:ok, api_key: api_key, api_secret: api_secret}
-  end
+  alias ZenCex.Adapters.Binance.Spot
 
   test "get_balances returns real testnet balances" do
     # This calls the REAL Binance testnet API
-    assert {:ok, balances} = Binance.Endpoints.get_balances()
+    assert {:ok, balances} = Spot.get_balances()
     assert is_list(balances)
     
     # Document actual response structure from TESTNET
@@ -597,7 +572,7 @@ defmodule ZenCex.Adapters.BinanceIntegrationTest do
 
   test "place_order with invalid symbol returns real error" do
     # This gets REAL error from Binance TESTNET
-    assert {:error, reason} = Binance.Endpoints.place_order(%{
+    assert {:error, reason} = Spot.place_order(%{
       symbol: "INVALID",
       side: "BUY",
       quantity: "1"
@@ -607,8 +582,22 @@ defmodule ZenCex.Adapters.BinanceIntegrationTest do
     # Binance testnet error: {"code": -1121, "msg": "Invalid symbol."}
     assert reason =~ "Invalid symbol" or reason == {:invalid_symbol, _}
   end
+  
+  # Use the with_env macro for testing env variable changes
+  test "authentication errors are properly formatted" do
+    with_env [{"BINANCE_TESTNET_API_KEY", "invalid_key"}] do
+      assert {:error, _} = Spot.get_balances()
+    end
+  end
 end
 ```
+
+The `IntegrationCase` provides:
+- Automatic testnet enforcement (fails if production detected)
+- Credential validation with helpful error messages
+- Connectivity testing
+- Module tags for test filtering
+- `with_env` macro for temporary environment changes
 
 ### Benefits
 

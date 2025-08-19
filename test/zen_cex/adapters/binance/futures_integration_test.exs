@@ -8,60 +8,12 @@ defmodule ZenCex.Adapters.Binance.FuturesIntegrationTest do
   - API type detection works correctly
   """
 
-  use ExUnit.Case
+  use ZenCex.IntegrationCase, exchange: :binance, api_type: :usdm_futures
 
   import ExUnit.CaptureLog
 
-  alias ZenCex.Adapters.Binance.Endpoints
   alias ZenCex.Adapters.Binance.Futures
   alias ZenCex.Adapters.Binance.RateLimiter
-
-  @moduletag :integration
-  @moduletag :binance
-  @moduletag :futures
-
-  # Test against REAL Binance Futures Testnet API ONLY
-  @futures_testnet_host "testnet.binancefuture.com"
-
-  setup_all do
-    # ENFORCE testnet usage - fail if production environment detected
-    env = Endpoints.current_env()
-
-    if env != :test do
-      raise "TESTNET REQUIRED: Environment is #{env}, expected :test. Set BINANCE_TESTNET=true"
-    end
-
-    # Verify USD-M futures base URL is actually testnet
-    futures_url = Endpoints.base_url(:test, :usdm_futures)
-
-    if futures_url != "https://#{@futures_testnet_host}" do
-      raise "TESTNET URL REQUIRED: Got #{futures_url}, expected https://#{@futures_testnet_host}"
-    end
-
-    # FAIL if no credentials - don't hide missing tests
-    api_key =
-      System.get_env("BINANCE_TESTNET_API_KEY") ||
-        raise """
-        BINANCE_TESTNET_API_KEY required for integration tests.
-
-        Get testnet credentials at: https://testnet.binance.vision/
-        Then run: export BINANCE_TESTNET_API_KEY=your_key
-        """
-
-    api_secret =
-      System.get_env("BINANCE_TESTNET_API_SECRET") ||
-        raise """
-        BINANCE_TESTNET_API_SECRET required for integration tests.
-
-        Get testnet credentials at: https://testnet.binance.vision/
-        Then run: export BINANCE_TESTNET_API_SECRET=your_secret
-        """
-
-    # Note: Futures testnet may require separate account activation
-    # Visit https://testnet.binancefuture.com to activate futures on your testnet account
-
-    {:ok, api_key: api_key, api_secret: api_secret}
-  end
 
   setup do
     # Reset rate limiter state before each test

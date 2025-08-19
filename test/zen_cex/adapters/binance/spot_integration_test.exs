@@ -1,62 +1,9 @@
 defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
-  use ExUnit.Case
+  use ZenCex.IntegrationCase, exchange: :binance, api_type: :spot
 
-  alias ZenCex.Adapters.Binance.Endpoints
   alias ZenCex.Adapters.Binance.Spot
 
   require Logger
-
-  @moduletag :integration
-  @moduletag :binance
-
-  # Test against REAL Binance Testnet API ONLY
-  @testnet_host "testnet.binance.vision"
-
-  setup_all do
-    # ENFORCE testnet usage - fail if production environment detected
-    env = Endpoints.current_env()
-
-    if env != :test do
-      raise "TESTNET REQUIRED: Environment is #{env}, expected :test. Set BINANCE_TESTNET=true"
-    end
-
-    # Verify base URL is actually testnet
-    base_url = Endpoints.base_url(env)
-
-    if base_url != "https://#{@testnet_host}" do
-      raise "TESTNET URL REQUIRED: Got #{base_url}, expected https://#{@testnet_host}"
-    end
-
-    # FAIL if no credentials - don't hide missing tests
-    api_key =
-      System.get_env("BINANCE_TESTNET_API_KEY") ||
-        raise """
-        BINANCE_TESTNET_API_KEY required for integration tests.
-
-        Get testnet credentials at: https://testnet.binance.vision/
-        Then run: export BINANCE_TESTNET_API_KEY=your_key
-        """
-
-    api_secret =
-      System.get_env("BINANCE_TESTNET_API_SECRET") ||
-        raise """
-        BINANCE_TESTNET_API_SECRET required for integration tests.
-
-        Get testnet credentials at: https://testnet.binance.vision/
-        Then run: export BINANCE_TESTNET_API_SECRET=your_secret
-        """
-
-    # Verify we can connect to testnet
-    case Spot.get_ping() do
-      {:ok, _} ->
-        :ok
-
-      {:error, reason} ->
-        raise "Cannot connect to Binance testnet: #{inspect(reason)}"
-    end
-
-    {:ok, api_key: api_key, api_secret: api_secret}
-  end
 
   describe "health check endpoints" do
     test "get_ping returns successful response" do
@@ -234,15 +181,11 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
   describe "error handling validation" do
     test "authentication errors are properly formatted" do
       # Temporarily break auth to test error formatting
-      original_key = System.get_env("BINANCE_TESTNET_API_KEY")
-      System.put_env("BINANCE_TESTNET_API_KEY", "invalid_key")
-
-      result = Spot.get_balances()
-      assert {:error, reason} = result
-      Logger.debug("TESTNET auth error format: #{inspect(reason)}")
-
-      # Restore original key
-      if original_key, do: System.put_env("BINANCE_TESTNET_API_KEY", original_key)
+      with_env [{"BINANCE_TESTNET_API_KEY", "invalid_key"}] do
+        result = Spot.get_balances()
+        assert {:error, reason} = result
+        Logger.debug("TESTNET auth error format: #{inspect(reason)}")
+      end
     end
 
     test "rate limit errors are properly handled" do
