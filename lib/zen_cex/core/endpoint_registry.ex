@@ -475,63 +475,21 @@ defmodule ZenCex.EndpointRegistry do
   @spec generate_request_executor() :: Macro.t()
   defp generate_request_executor do
     quote do
+      unquote(generate_main_executor())
+      unquote(generate_request_builders())
+      unquote(generate_retry_handlers())
+    end
+  end
+
+  # Generate the main execution pipeline
+  defp generate_main_executor do
+    quote do
       defp execute_endpoint_request(config, params, opts, adapter) do
         config
         |> build_request(params, adapter)
         |> merge_user_options(opts)
         |> apply_retry_logic(config)
         |> execute_request()
-      end
-
-      defp build_request(config, params, adapter) do
-        base_url = determine_base_url(config, adapter)
-        operation_type = map_to_operation_type(config)
-
-        adapter.__exchange__()
-        |> HTTP.base_request(operation_type)
-        |> configure_request(config, params, base_url)
-        |> add_request_metadata(config)
-      end
-
-      defp determine_base_url(config, adapter) do
-        if Map.has_key?(config, :api_type) and function_exported?(adapter, :base_url, 2) do
-          adapter.base_url(adapter.current_env(), config.api_type)
-        else
-          adapter.base_url()
-        end
-      end
-
-      defp configure_request(request, config, params, base_url) do
-        Req.merge(request,
-          method: config.method,
-          url: base_url <> config.path,
-          params: if(config.method == :get, do: params),
-          json: if(config.method == :get, do: nil, else: params),
-          receive_timeout: config.timeout,
-          skip_auth: not config.requires_auth,
-          retry: false
-        )
-      end
-
-      defp add_request_metadata(request, config) do
-        request
-        |> Req.Request.put_private(:rate_limit_weight, config.weight)
-        |> Req.Request.put_private(:endpoint_config, config)
-        |> Req.Request.put_private(:endpoint_operation, config.operation)
-      end
-
-      defp merge_user_options(request, opts) do
-        Req.merge(request, opts)
-      end
-
-      defp apply_retry_logic(request, config) do
-        if config.max_retries > 0 and length(config.retry_on) > 0 do
-          Req.Request.prepend_error_steps(request,
-            endpoint_retry: &handle_retry(&1, config)
-          )
-        else
-          request
-        end
       end
 
       defp execute_request(request) do
@@ -546,36 +504,166 @@ defmodule ZenCex.EndpointRegistry do
             error
         end
       end
+    end
+  end
 
-      defp map_to_operation_type(config) do
-        cond do
-          config.operation in [:place_order, :cancel_order] -> :trading
-          config.operation == :get_server_time -> :health
-          true -> :standard
+  # Generate request building functions
+  defp generate_request_builders do
+    quote do
+      unquote(generate_request_pipeline())
+      unquote(generate_url_helpers())
+      unquote(generate_request_configuration())
+      unquote(generate_operation_mapping())
+    end
+  end
+
+  # Generate the main request building pipeline
+  defp generate_request_pipeline do
+    quote do
+      defp build_request(config, params, adapter) do
+        base_url = determine_base_url(config, adapter)
+        operation_type = map_to_operation_type(config)
+
+        adapter.__exchange__()
+        |> HTTP.base_request(operation_type)
+        |> configure_request(config, params, base_url)
+        |> add_request_metadata(config)
+      end
+
+      defp merge_user_options(request, opts) do
+        Req.merge(request, opts)
+      end
+    end
+  end
+
+  # Generate URL determination helpers
+  defp generate_url_helpers do
+    quote do
+      defp determine_base_url(config, adapter) do
+        if supports_multi_api?(config, adapter) do
+          adapter.base_url(adapter.current_env(), config.api_type)
+        else
+          adapter.base_url()
         end
       end
 
-      # These functions are no longer needed - Core.HTTP handles auth and rate limiting
+      defp supports_multi_api?(config, adapter) do
+        Map.has_key?(config, :api_type) and function_exported?(adapter, :base_url, 2)
+      end
+    end
+  end
 
+  # Generate request configuration functions
+  defp generate_request_configuration do
+    quote do
+      defp configure_request(request, config, params, base_url) do
+        {request_params, request_json} = build_request_data(config.method, params)
+
+        Req.merge(request,
+          method: config.method,
+          url: base_url <> config.path,
+          params: request_params,
+          json: request_json,
+          receive_timeout: config.timeout,
+          skip_auth: not config.requires_auth,
+          retry: false
+        )
+      end
+
+      defp build_request_data(:get, params), do: {params, nil}
+      defp build_request_data(_, params), do: {nil, params}
+
+      defp add_request_metadata(request, config) do
+        request
+        |> Req.Request.put_private(:rate_limit_weight, config.weight)
+        |> Req.Request.put_private(:endpoint_config, config)
+        |> Req.Request.put_private(:endpoint_operation, config.operation)
+      end
+    end
+  end
+
+  # Generate operation type mapping
+  defp generate_operation_mapping do
+    quote do
+      defp map_to_operation_type(%{operation: operation}) do
+        case operation do
+          op when op in [:place_order, :cancel_order] -> :trading
+          :get_server_time -> :health
+          _ -> :standard
+        end
+      end
+    end
+  end
+
+  # Generate retry handling functions
+  defp generate_retry_handlers do
+    quote do
+      unquote(generate_retry_logic())
+      unquote(generate_retry_helpers())
+    end
+  end
+
+  # Generate retry application logic
+  defp generate_retry_logic do
+    quote do
+      defp apply_retry_logic(request, config) do
+        if should_enable_retry?(config) do
+          enable_retry(request, config)
+        else
+          request
+        end
+      end
+
+      defp should_enable_retry?(config) do
+        config.max_retries > 0 and length(config.retry_on) > 0
+      end
+
+      defp enable_retry(request, config) do
+        Req.Request.prepend_error_steps(request,
+          endpoint_retry: &handle_retry(&1, config)
+        )
+      end
+    end
+  end
+
+  # Generate retry decision helpers
+  defp generate_retry_helpers do
+    quote do
+      unquote(generate_retry_handler())
+      unquote(generate_exception_classifier())
+    end
+  end
+
+  # Generate the main retry handling logic
+  defp generate_retry_handler do
+    quote do
       defp handle_retry({request, exception}, config) do
-        # Check if we should retry this error
-        should_retry =
-          case exception do
-            %Req.Response{status: 429} -> :rate_limited in config.retry_on
-            %Req.Response{status: 503} -> :timeout in config.retry_on
-            %Req.Response{status: 504} -> :timeout in config.retry_on
-            %Mint.TransportError{} -> :timeout in config.retry_on
-            _ -> false
-          end
-
-        if should_retry do
-          # Let Req's retry mechanism handle it
+        if should_retry_exception?(exception, config.retry_on) do
           {request, exception}
         else
-          # Don't retry - use halt/2 with exception
           {Req.Request.halt(request, exception), exception}
         end
       end
+
+      defp should_retry_exception?(exception, retry_on) do
+        exception
+        |> classify_exception()
+        |> should_retry_error_type?(retry_on)
+      end
+
+      defp should_retry_error_type?(error_type, retry_on) do
+        error_type in retry_on
+      end
+    end
+  end
+
+  # Generate exception classification functions
+  defp generate_exception_classifier do
+    quote do
+      defp classify_exception(%Req.Response{status: 429}), do: :rate_limited
+      defp classify_exception(%Req.Response{status: status}) when status in [503, 504], do: :timeout
+      defp classify_exception(%Mint.TransportError{}), do: :timeout
+      defp classify_exception(_), do: :other
     end
   end
 
