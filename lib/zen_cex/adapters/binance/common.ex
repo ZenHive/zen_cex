@@ -25,9 +25,9 @@ defmodule ZenCex.Adapters.Binance.Common do
 
   @doc """
   Get server time from the exchange.
-  
+
   ## Error Scenarios
-  
+
   - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded
   - `{:error, %Mint.TransportError{}}` - Network connectivity issues
   """
@@ -35,7 +35,7 @@ defmodule ZenCex.Adapters.Binance.Common do
   def get_server_time(opts \\ []) do
     config = @endpoint_config
     base_url = ZenCex.Adapters.Binance.Endpoints.base_url()
-    
+
     # Server time is a health check endpoint
     RequestHelper.execute_request(config, %{}, opts, base_url, :binance, :health)
   end

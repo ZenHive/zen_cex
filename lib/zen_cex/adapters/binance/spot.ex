@@ -73,9 +73,9 @@ defmodule ZenCex.Adapters.Binance.Spot do
 
   @doc """
   Get account balances.
-  
+
   ## Error Scenarios
-  
+
   - `{:error, {:unauthorized, "API-key format invalid."}}` - Invalid API key
   - `{:error, {:forbidden, "Timestamp for this request is outside of the recvWindow."}}` - Time sync issue
   - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded
@@ -87,9 +87,9 @@ defmodule ZenCex.Adapters.Binance.Spot do
 
   @doc """
   Place a new order.
-  
+
   ## Error Scenarios
-  
+
   - `{:error, {:invalid_symbol, "Invalid symbol."}}` - Invalid trading pair
   - `{:error, {:insufficient_balance, "Account has insufficient balance"}}` - Not enough funds
   - `{:error, {:min_notional, "MIN_NOTIONAL not met"}}` - Order value too small
@@ -102,9 +102,9 @@ defmodule ZenCex.Adapters.Binance.Spot do
 
   @doc """
   Cancel an existing order.
-  
+
   ## Error Scenarios
-  
+
   - `{:error, {:unknown_order, "Order does not exist."}}` - Order not found
   - `{:error, {:order_filled, "Order already filled"}}` - Cannot cancel filled order
   - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded
@@ -116,9 +116,9 @@ defmodule ZenCex.Adapters.Binance.Spot do
 
   @doc """
   Get order details.
-  
+
   ## Error Scenarios
-  
+
   - `{:error, {:unknown_order, "Order does not exist."}}` - Order not found
   - `{:error, {:invalid_symbol, "Invalid symbol."}}` - Invalid trading pair
   - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded

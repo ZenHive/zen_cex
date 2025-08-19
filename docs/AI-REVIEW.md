@@ -48,6 +48,22 @@ We want pragmatic simplicity, not naive simplicity. This means choosing solution
 3. **Validate Requirements** systematically
 4. **Report Results**: ✅ PASS | ❌ FAIL | ⚠️ WARNING
 
+## Testing Strategy: Real TESTNET APIs Only
+
+**[!] SIMPLE RULE: ALL Tests Must Use Real TESTNET APIs [!]**
+--------------------------------------------------
+**Test against real exchange testnet/sandbox APIs. Period.**
+**No mocks. No fixtures. No simulation. Just real testnet APIs.**
+**NEVER use production APIs in tests.**
+--------------------------------------------------
+
+### Critical Testing Requirements
+1. **Unit Tests** (`*_test.exs`) - Test pure functions only, no API calls
+2. **Integration Tests** (`*_integration_test.exs`) - REAL testnet APIs only
+3. **Tests must FAIL if testnet credentials missing** - No silent skipping
+4. **Tests must FAIL if production URL detected** - Enforce testnet usage
+5. **Environment variables must use `_TESTNET_` naming** - Clear distinction from production
+
 ## ⚠️ CRITICAL SAFETY REQUIREMENTS ⚠️
 
 **This library handles real money. Every bug can cause financial losses.**
@@ -200,7 +216,7 @@ We want pragmatic simplicity, not naive simplicity. This means choosing solution
 - [x] Error code mapping (11 codes mapped)
 - [x] Type conversions (strings to Decimal)
 - [x] Handles null/missing fields
-- [x] Tests with fixture data (25 comprehensive tests)
+- [x] Tests with real testnet responses (25 comprehensive tests)
 
 #### Verified Implementation:
 - ✅ Complete implementation of all parser behavior callbacks
@@ -247,11 +263,12 @@ We want pragmatic simplicity, not naive simplicity. This means choosing solution
 **File**: `test/zen_cex/adapters/binance_integration_test.exs`
 
 #### Required Elements:
-- [ ] Tests against real testnet
-- [ ] Captures responses for fixtures
-- [ ] Tests error scenarios
-- [ ] Uses Req.Test for mocking
-- [ ] Fixture version control
+- [ ] Tests against real testnet only
+- [ ] Tests FAIL if credentials missing (no silent skipping)
+- [ ] Tests ENFORCE testnet URL (fail if production detected)
+- [ ] Tests error scenarios with real testnet responses
+- [ ] Environment variables use `_TESTNET_` naming convention
+- [ ] Documents actual testnet API responses
 
 ### Task #11: CircuitBreaker as Req Error Step
 **File**: `lib/zen_cex/core/circuit_breaker.ex`
@@ -422,6 +439,9 @@ We want pragmatic simplicity, not naive simplicity. This means choosing solution
 5. **Missing rollback procedures** for operations
 6. **No API version checking** on startup
 7. **Missing network partition handling**
+8. **Using mocks or fixtures** (must use real testnet APIs)
+9. **Tests that skip when credentials missing** (must fail loudly)
+10. **Production URLs in tests** (must enforce testnet URLs)
 
 ### Major Issues (Fix Required)
 1. Wrong exchange settlement delays

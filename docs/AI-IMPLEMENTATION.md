@@ -41,70 +41,54 @@ You are a senior Elixir developer with:
 ### Pragmatic Simplicity
 We want pragmatic simplicity, not naive simplicity. This means choosing solutions that are simple but robust, maintainable but not overengineered, and practical for real-world use cases rather than theoretically perfect.
 
-## Testing Philosophy: Real APIs First
+## Testing Strategy: Real TESTNET APIs Only
 
-**[!] TESTING POLICY [!]**
+**[!] SIMPLE RULE: ALL Tests Must Use Real TESTNET APIs [!]**
 --------------------------------------------------
-**ALWAYS test against REAL APIs first to understand behavior.**
-**NEVER create mocks without first testing real APIs.**
-**Document actual API responses and edge cases from real testing.**
-**Mocks must exactly match observed real API behavior.**
-This ensures reliable, production-ready code.
+**Test against real exchange testnet/sandbox APIs. Period.**
+**No mocks. No fixtures. No simulation. Just real testnet APIs.**
+**NEVER use production APIs in tests.**
 --------------------------------------------------
 
-When implementing any feature:
-1. **Write integration tests against REAL exchange test APIs first**
-2. **Observe and document actual API behavior**
-3. **Only then create mocks based on real responses**
-4. **Mocks must exactly replicate observed behavior**
+### Test Categories
 
-### Smart Testing Against Real APIs (Don't DDoS!)
+1. **Unit Tests** (`*_test.exs`)
+   - Test pure functions only (parsers, calculations)
+   - No API calls needed
 
-**CRITICAL**: Test real APIs responsibly to avoid getting banned:
+2. **Integration Tests** (`*_integration_test.exs`)
+   - Test against REAL testnet/sandbox APIs only
+   - Tag with `@tag :integration`
+   - **FAIL if credentials missing** - Don't skip/hide missing tests
+   - **FAIL if not using testnet** - Prevent production API calls
+   - Must document actual API responses
+
+### Testnet URLs (ENFORCED IN TESTS)
 
 ```elixir
-# GOOD: Use test buckets with controlled concurrency
-test "rate limiter handles real API limits" do
-  # Test in buckets with controlled concurrency
-  results =
-    1..20
-    |> Enum.chunk_every(5)  # Process in buckets of 5
-    |> Enum.flat_map(fn batch ->
-      batch
-      |> Task.async_stream(fn _ ->
-        make_api_call()
-      end, max_concurrency: 2, timeout: 10_000)
-      |> Enum.map(fn {:ok, result} -> result end)
-    end)
-end
+# These are the ONLY allowed URLs in test environment
+@test_hosts %{
+  binance: "testnet.binance.vision",
+  kraken: "api.kraken.com",  # Uses different endpoints for testnet
+  deribit: "test.deribit.com"
+}
 
-# GOOD: Use exponential backoff between test groups
-test "handles burst requests" do
-  for {delay, batch_size} <- [{0, 2}, {100, 3}, {500, 5}] do
-    Process.sleep(delay) if delay > 0
-
-    results = make_batch_requests(batch_size)
-    assert length(results) == batch_size
-  end
-end
-
-# BAD: Don't hammer the API
-test "bad test example" do
-  # DON'T DO THIS - will get you banned
-  for _ <- 1..1000 do
-    make_api_call()  # No rate limiting!
-  end
-end
+# Tests MUST verify testnet usage
+assert Application.get_env(:zen_cex, :binance_host) == "testnet.binance.vision"
 ```
 
-**Testing Strategies**:
-- **Use test/sandbox endpoints** when available (Binance testnet, Deribit test environment)
-- **Batch requests** with controlled concurrency (max 2-3 concurrent)
-- **Space out test runs** with exponential backoff between groups
-- **Cache responses** for repeated test runs (invalidate after 1 hour)
-- **Tag integration tests** and run separately: `@tag :integration`
-- **Monitor rate limit headers** and respect them in tests
-- **Use small datasets** - test with 5-10 requests, not hundreds
+### Environment Variable Naming
+
+**CRITICAL**: Use `_TESTNET_` in environment variable names:
+
+```bash
+# GOOD - Clear these are testnet credentials
+BINANCE_TESTNET_API_KEY=xxx
+BINANCE_TESTNET_API_SECRET=yyy
+
+# BAD - Ambiguous, could be production
+BINANCE_API_KEY=xxx  # NEVER use in tests
+```
 
 ## ⚠️ CRITICAL: Task Grouping Guidelines
 
@@ -166,15 +150,13 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 **Outstanding achievements**:
 - 11 comprehensive integration tests against real Binance testnet API
-- 13 high-quality fixtures generated with real API responses  
-- Smart rate limiting with controlled concurrency to respect API limits
-- Complete error scenario testing with authentic error formats
-- Full order lifecycle testing (place → query → cancel)
-- Professional test runner script with safety guards
-- Perfect adherence to "Real APIs First" testing philosophy
-- Production-ready environment configuration with safety warnings
-
-This implementation exceeded all requirements and provides an exemplary foundation for creating accurate mocks in subsequent tasks.
+- Tests FAIL loudly without testnet credentials (no silent skipping)
+- Tests ENFORCE testnet URL usage (fail if production detected)
+- Complete error scenario testing with authentic testnet responses
+- Full order lifecycle testing (place → query → cancel) on testnet
+- Environment variables use `_TESTNET_` naming convention
+- Perfect adherence to "Real TESTNET APIs Only" testing philosophy
+- Production safety with testnet-only enforcement
 
 ---
 
@@ -341,7 +323,7 @@ This implementation exceeded all requirements and provides an exemplary foundati
 
 ## Common Mistakes to Avoid
 
-1. **Creating mocks before testing real APIs** → ALWAYS test real APIs first, then create accurate mocks
+1. **Using mocks or fixtures** → ALWAYS test real testnet APIs, no mocks needed
 2. **DDoSing exchanges in tests** → Use max 5-10 requests with controlled concurrency
 3. **Using 5-minute idempotency window** → Use 30-minute sliding window with timestamps
 4. **Using Process.sleep** → Use Task.async or send_after
@@ -361,32 +343,38 @@ This implementation exceeded all requirements and provides an exemplary foundati
 
 ## Testing Requirements
 
-**CRITICAL: Test Against Real APIs First (Responsibly!)**
-- **ALWAYS** write integration tests against real APIs first
-- **NEVER** create mocks without first testing the real API
-- **DOCUMENT** observed API behavior from real testing
-- **ONLY** add mocks after fully understanding real API responses
-- **DON'T DDoS** - Use buckets, concurrency limits, and backoff
+**SIMPLE RULE: Real TESTNET APIs or No Test**
+- **ALL** integration tests use real testnet/sandbox APIs
+- **NO** mocks, fixtures, or simulations
+- **FAIL** loudly if testnet credentials missing
+- **FAIL** if production URLs detected in tests
+- **DOCUMENT** actual testnet API responses
 
 For each module you implement:
-1. **Integration tests with REAL API** (REQUIRED FIRST)
-   - Test against actual exchange test/sandbox endpoints
-   - Use controlled concurrency (max 2-3 parallel requests)
-   - Batch tests with delays between groups
-   - Document observed behavior and edge cases
-   - Capture real response formats and error codes
-   - Tag with `@tag :integration` for separate test runs
-2. **Unit tests** for pure functions (after integration tests)
-   - Extract mocks based on real API behavior
-   - Mocks must exactly match observed responses
-   - Run frequently without hitting real APIs
-3. **Error scenario tests** from real API behavior
-   - Test actual error responses you've observed
-   - Include rate limits, auth failures, timeouts
-   - Use cached responses when testing error handling
+1. **Unit tests** (`*_test.exs`)
+   - Test pure functions only
+   - No API calls needed
+   - Fast, no credentials required
+
+2. **Integration tests** (`*_integration_test.exs`)
+   - Test against REAL testnet APIs only
+   - Tag with `@tag :integration`
+   - Enforce testnet URL in setup
+   - Fail if credentials missing (no skipping)
+   - Document actual testnet responses
+
+3. **Running tests**
+   ```bash
+   # Unit tests only (fast)
+   mix test --exclude integration
+   
+   # All tests (requires testnet credentials)
+   BINANCE_TESTNET_API_KEY=xxx BINANCE_TESTNET_API_SECRET=yyy mix test
+   ```
+
 4. **Performance tests** (verify <50μs for critical operations)
-   - Test performance with local data/mocks
-   - Don't performance test against real APIs
+   - Test performance locally without API calls
+   - Use benchee for accurate measurements
 
 Test file naming: `test/zen_cex/core/http_test.exs` (match module path)
 

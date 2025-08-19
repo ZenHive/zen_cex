@@ -29,9 +29,9 @@ defmodule ZenCex.Adapters.Binance.Futures do
 
   @doc """
   Get futures positions.
-  
+
   ## Error Scenarios
-  
+
   - `{:error, {:insufficient_margin, "Insufficient margin"}}` - Not enough margin for position
   - `{:error, {:position_not_found, "Position does not exist"}}` - No position for symbol
   - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded
