@@ -8,8 +8,7 @@ defmodule ZenCex.Adapters.Binance.Futures do
   - Margin and leverage controls
   """
 
-  alias ZenCex.Adapters.Binance.Parser
-  alias ZenCex.Core.HTTP
+  alias ZenCex.Adapters.Binance.{Parser, RequestHelper}
   require Logger
 
   @endpoint_config %{
@@ -30,6 +29,12 @@ defmodule ZenCex.Adapters.Binance.Futures do
 
   @doc """
   Get futures positions.
+  
+  ## Error Scenarios
+  
+  - `{:error, {:insufficient_margin, "Insufficient margin"}}` - Not enough margin for position
+  - `{:error, {:position_not_found, "Position does not exist"}}` - No position for symbol
+  - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded
   """
   @spec get_positions(map(), keyword()) :: {:ok, map()} | {:error, term()}
   def get_positions(params \\ %{}, opts \\ []) do
@@ -41,34 +46,7 @@ defmodule ZenCex.Adapters.Binance.Futures do
         :futures
       )
 
-    # Build request using Core.HTTP patterns
-    request =
-      HTTP.base_request(:binance, :standard)
-      |> Req.merge(
-        method: config.method,
-        url: base_url <> config.path,
-        params: if(config.method == :get, do: params, else: nil),
-        json: if(config.method != :get, do: params, else: nil),
-        receive_timeout: Keyword.get(opts, :timeout, config.timeout),
-        skip_auth: not config.requires_auth,
-        retry: false
-      )
-      |> Req.Request.put_private(:rate_limit_weight, config.weight)
-      |> Req.Request.put_private(:endpoint_config, config)
-      |> Req.Request.put_private(:endpoint_operation, config.operation)
-
-    # Execute request and handle response
-    case Req.request(request) do
-      {:ok, %Req.Response{status: status, body: body}} when status in 200..299 ->
-        config.response_parser.(body)
-
-      {:ok, %Req.Response{body: body}} ->
-        config.error_mapping.(body)
-
-      {:error, exception} ->
-        Logger.error("Request failed: #{inspect(exception)}")
-        {:error, exception}
-    end
+    RequestHelper.execute_request(config, params, opts, base_url, :binance, :standard)
   end
 
   @doc """

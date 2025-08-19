@@ -141,7 +141,7 @@ defmodule ZenCex.Adapters.Binance.RateLimiterApiTypeTest do
       # We'll simulate high usage and verify cancel operations would pass
 
       # Simulate high usage by incrementing counter directly
-      # (In production this would come from response headers)
+      # (TODO: In production this would come from response headers)
       for _ <- 1..1000 do
         RateLimiter.check_and_increment("/api/v3/ticker", 1)
       end

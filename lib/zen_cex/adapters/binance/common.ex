@@ -6,8 +6,7 @@ defmodule ZenCex.Adapters.Binance.Common do
   server time, exchange info, etc.
   """
 
-  alias ZenCex.Adapters.Binance.Parser
-  alias ZenCex.Core.HTTP
+  alias ZenCex.Adapters.Binance.{Parser, RequestHelper}
   require Logger
 
   @endpoint_config %{
@@ -26,38 +25,19 @@ defmodule ZenCex.Adapters.Binance.Common do
 
   @doc """
   Get server time from the exchange.
+  
+  ## Error Scenarios
+  
+  - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded
+  - `{:error, %Mint.TransportError{}}` - Network connectivity issues
   """
   @spec get_server_time() :: {:ok, map()} | {:error, term()}
   def get_server_time(opts \\ []) do
     config = @endpoint_config
     base_url = ZenCex.Adapters.Binance.Endpoints.base_url()
-
-    # Build request using Core.HTTP patterns
-    request =
-      HTTP.base_request(:binance, :health)
-      |> Req.merge(
-        method: config.method,
-        url: base_url <> config.path,
-        receive_timeout: Keyword.get(opts, :timeout, config.timeout),
-        skip_auth: not config.requires_auth,
-        retry: false
-      )
-      |> Req.Request.put_private(:rate_limit_weight, config.weight)
-      |> Req.Request.put_private(:endpoint_config, config)
-      |> Req.Request.put_private(:endpoint_operation, config.operation)
-
-    # Execute request and handle response
-    case Req.request(request) do
-      {:ok, %Req.Response{status: status, body: body}} when status in 200..299 ->
-        config.response_parser.(body)
-
-      {:ok, %Req.Response{body: body}} ->
-        config.error_mapping.(body)
-
-      {:error, exception} ->
-        Logger.error("Request failed: #{inspect(exception)}")
-        {:error, exception}
-    end
+    
+    # Server time is a health check endpoint
+    RequestHelper.execute_request(config, %{}, opts, base_url, :binance, :health)
   end
 
   @doc """

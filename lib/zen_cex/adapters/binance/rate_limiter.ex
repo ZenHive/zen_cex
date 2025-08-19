@@ -77,7 +77,7 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
 
     # Check Futures API weight (uses same header as spot but different context)
     # TODO: We'd need to detect from the request URL whether it's futures
-    # For now, futures monitoring is handled by the spot check above
+    # TODO: For now, futures monitoring is handled by the spot check above
 
     :ok
   end

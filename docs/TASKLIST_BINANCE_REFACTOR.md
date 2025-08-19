@@ -297,16 +297,31 @@ Binance.Margin.place_order/1    # Margin trading
   - `endpoints.ex` as router only
   - `spot.ex` with spot endpoints
   - `futures.ex` with USD-M futures endpoints (USDT-margined, /fapi/ paths)
+- **Fixed Dialyzer errors** (latest commit)
+- **Extracted RequestHelper** to eliminate code duplication
+- **Added error documentation** for all endpoint functions
+
+### Active TODOs from Code
+These TODOs were found in the codebase and need tracking:
+- [ ] `lib/zen_cex/safety/clock_sync.ex:392` - Use test/prod host from config
+- [ ] `lib/zen_cex/adapters/binance/spot.ex:122` - Implement batch cancellation
+- [ ] `lib/zen_cex/adapters/binance/spot.ex:112` - Implement OCO order placement  
+- [ ] `lib/zen_cex/adapters/binance/rate_limiter.ex:79` - Detect futures from request URL for proper rate limit tracking
+- [ ] `lib/zen_cex/adapters/binance/parser.ex:266` - WebSocket market data parsing (deferred - out of scope)
+- [ ] `test/zen_cex/safety/clock_sync_test.exs` - Multiple tests skipped until adapters implemented
+- [ ] `test/zen_cex/core/http_test.exs:9` - Implement test against real testnet API
+- [ ] `lib/zen_cex/core/registry.ex:29` - Implement Deribit endpoints
+- [ ] `lib/zen_cex/core/registry.ex` - Implement Kraken endpoints
   - `common.ex` with shared endpoints
 - Tests reduced from 32 failures to 8 failures
 
 ### Current Issues 🔥
 - **NO TESTS FOR NEW MODULES** - Created spot.ex, futures.ex, common.ex WITHOUT tests!
 - **8 test failures remaining** - Mostly environment and documentation tests
-- **Need to add Margin module** - Currently only Spot/Futures/Common implemented
+- **Need to add Margin module** - TODO: Currently only Spot/Futures/Common implemented
 - **Need to add CoinFutures module** - For COIN-M futures (/dapi/ paths) when needed
 - **Missing test coverage** - New modules have 0% test coverage
-- **Futures.ex clarification** - Currently configured for USD-M Futures only
+- **Futures.ex clarification** - TODO: Currently configured for USD-M Futures only
 
 ### Next Steps (Priority Order)
 1. ✅ **DONE: Created nested module structure** with router pattern

@@ -9,8 +9,7 @@ defmodule ZenCex.Adapters.Binance.Spot do
   - Batch operations
   """
 
-  alias ZenCex.Adapters.Binance.Parser
-  alias ZenCex.Core.HTTP
+  alias ZenCex.Adapters.Binance.{Parser, RequestHelper}
   require Logger
 
   @endpoints_config %{
@@ -74,6 +73,12 @@ defmodule ZenCex.Adapters.Binance.Spot do
 
   @doc """
   Get account balances.
+  
+  ## Error Scenarios
+  
+  - `{:error, {:unauthorized, "API-key format invalid."}}` - Invalid API key
+  - `{:error, {:forbidden, "Timestamp for this request is outside of the recvWindow."}}` - Time sync issue
+  - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded
   """
   @spec get_balances(map(), keyword()) :: {:ok, map()} | {:error, term()}
   def get_balances(params \\ %{}, opts \\ []) do
@@ -82,6 +87,13 @@ defmodule ZenCex.Adapters.Binance.Spot do
 
   @doc """
   Place a new order.
+  
+  ## Error Scenarios
+  
+  - `{:error, {:invalid_symbol, "Invalid symbol."}}` - Invalid trading pair
+  - `{:error, {:insufficient_balance, "Account has insufficient balance"}}` - Not enough funds
+  - `{:error, {:min_notional, "MIN_NOTIONAL not met"}}` - Order value too small
+  - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded
   """
   @spec place_order(map(), keyword()) :: {:ok, map()} | {:error, term()}
   def place_order(params \\ %{}, opts \\ []) do
@@ -90,6 +102,12 @@ defmodule ZenCex.Adapters.Binance.Spot do
 
   @doc """
   Cancel an existing order.
+  
+  ## Error Scenarios
+  
+  - `{:error, {:unknown_order, "Order does not exist."}}` - Order not found
+  - `{:error, {:order_filled, "Order already filled"}}` - Cannot cancel filled order
+  - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded
   """
   @spec cancel_order(map(), keyword()) :: {:ok, map()} | {:error, term()}
   def cancel_order(params \\ %{}, opts \\ []) do
@@ -98,6 +116,12 @@ defmodule ZenCex.Adapters.Binance.Spot do
 
   @doc """
   Get order details.
+  
+  ## Error Scenarios
+  
+  - `{:error, {:unknown_order, "Order does not exist."}}` - Order not found
+  - `{:error, {:invalid_symbol, "Invalid symbol."}}` - Invalid trading pair
+  - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded
   """
   @spec get_order(map(), keyword()) :: {:ok, map()} | {:error, term()}
   def get_order(params \\ %{}, opts \\ []) do
@@ -158,33 +182,6 @@ defmodule ZenCex.Adapters.Binance.Spot do
         true -> :standard
       end
 
-    # Build request using Core.HTTP patterns
-    request =
-      HTTP.base_request(:binance, operation_type)
-      |> Req.merge(
-        method: config.method,
-        url: base_url <> config.path,
-        params: if(config.method == :get, do: params, else: nil),
-        json: if(config.method != :get, do: params, else: nil),
-        receive_timeout: Keyword.get(opts, :timeout, config.timeout),
-        skip_auth: not config.requires_auth,
-        retry: false
-      )
-      |> Req.Request.put_private(:rate_limit_weight, config.weight)
-      |> Req.Request.put_private(:endpoint_config, config)
-      |> Req.Request.put_private(:endpoint_operation, operation)
-
-    # Execute request and handle response
-    case Req.request(request) do
-      {:ok, %Req.Response{status: status, body: body}} when status in 200..299 ->
-        config.response_parser.(body)
-
-      {:ok, %Req.Response{body: body}} ->
-        config.error_mapping.(body)
-
-      {:error, exception} ->
-        Logger.error("Request failed: #{inspect(exception)}")
-        {:error, exception}
-    end
+    RequestHelper.execute_request(config, params, opts, base_url, :binance, operation_type)
   end
 end
