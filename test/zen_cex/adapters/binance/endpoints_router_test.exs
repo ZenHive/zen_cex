@@ -1,8 +1,10 @@
 defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
   use ExUnit.Case, async: true
 
+  alias ZenCex.Adapters.Binance.Common
   alias ZenCex.Adapters.Binance.Endpoints
-  alias ZenCex.Adapters.Binance.{Common, Spot, Futures}
+  alias ZenCex.Adapters.Binance.Futures
+  alias ZenCex.Adapters.Binance.Spot
 
   describe "router delegation patterns" do
     test "common endpoints delegate to Common module" do
@@ -46,7 +48,7 @@ defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
   describe "get_endpoint/1 routing" do
     test "routes common operations to Common module" do
       endpoint = Endpoints.get_endpoint(:get_server_time)
-      assert endpoint != nil
+      assert endpoint
       assert endpoint.operation == :get_server_time
 
       # Should match Common module's config
@@ -69,7 +71,7 @@ defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
 
     test "routes futures operations to Futures module" do
       endpoint = Endpoints.get_endpoint(:get_positions)
-      assert endpoint != nil
+      assert endpoint
       assert endpoint.operation == :get_positions
 
       # Should match Futures module's config

@@ -20,9 +20,9 @@ defmodule ZenCex.Adapters.Binance.Auth do
   timestamps that account for clock drift between local system and Binance servers.
   This prevents authentication failures due to timestamp skew.
   """
-  require Logger
-
   alias ZenCex.Safety.ClockSync
+
+  require Logger
 
   @type api_type :: :spot | :margin | :usdm_futures | :coinm_futures | :portfolio
 
@@ -51,6 +51,7 @@ defmodule ZenCex.Adapters.Binance.Auth do
   """
   @spec apply_auth(Req.Request.t()) :: Req.Request.t()
   def apply_auth(request) do
+    require Logger
     # Get credentials from request options or environment
     api_key =
       get_in(request.options, [:auth_credentials, :api_key]) ||
@@ -61,11 +62,7 @@ defmodule ZenCex.Adapters.Binance.Auth do
         System.get_env("BINANCE_API_SECRET")
 
     # TODO: Remove debug logging
-    require Logger
-
-    Logger.debug(
-      "Binance Auth: api_key present: #{api_key != nil}, api_secret present: #{api_secret != nil}"
-    )
+    Logger.debug("Binance Auth: api_key present: #{api_key != nil}, api_secret present: #{api_secret != nil}")
 
     if api_key == nil do
       Logger.debug("Binance Auth: No API key found in options or env")
@@ -167,7 +164,7 @@ defmodule ZenCex.Adapters.Binance.Auth do
 
     # Update the URL with the signed query string
     base_url = URI.to_string(%{url | query: nil})
-    if query_string != "", do: "#{base_url}?#{query_string}", else: base_url
+    if query_string == "", do: base_url, else: "#{base_url}?#{query_string}"
   end
 
   # Build query string with Binance-required parameter ordering:
@@ -265,7 +262,8 @@ defmodule ZenCex.Adapters.Binance.Auth do
     query_string = build_query_string(params)
 
     # Generate HMAC-SHA256 signature
-    :crypto.mac(:hmac, :sha256, api_secret, query_string)
+    :hmac
+    |> :crypto.mac(:sha256, api_secret, query_string)
     |> Base.encode16(case: :lower)
   end
 

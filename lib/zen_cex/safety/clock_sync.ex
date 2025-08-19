@@ -35,10 +35,10 @@ defmodule ZenCex.Safety.ClockSync do
 
   use GenServer
 
-  require Logger
-
   alias ZenCex.Core.HTTP
   alias ZenCex.Core.Registry
+
+  require Logger
 
   @table_name :clock_offsets
   # Sync every 5 minutes
@@ -200,7 +200,7 @@ defmodule ZenCex.Safety.ClockSync do
   @impl true
   def init(opts) do
     # Create ETS table if it doesn't exist
-    unless table_exists?() do
+    if !table_exists?() do
       :ets.new(@table_name, [
         :named_table,
         :public,
@@ -226,9 +226,7 @@ defmodule ZenCex.Safety.ClockSync do
   def handle_info(:initial_sync, state) do
     case sync_all_exchanges_internal() do
       results when map_size(results) > 0 ->
-        Logger.info(
-          "ClockSync: Initial synchronization completed for #{map_size(results)} exchanges"
-        )
+        Logger.info("ClockSync: Initial synchronization completed for #{map_size(results)} exchanges")
 
         emit_telemetry(:initial_sync_complete, %{exchange_count: map_size(results)})
 
@@ -248,9 +246,7 @@ defmodule ZenCex.Safety.ClockSync do
         match?({:ok, _}, result)
       end)
 
-    Logger.debug(
-      "ClockSync: Periodic sync completed for #{successful_count}/#{map_size(results)} exchanges"
-    )
+    Logger.debug("ClockSync: Periodic sync completed for #{successful_count}/#{map_size(results)} exchanges")
 
     emit_telemetry(:periodic_sync_complete, %{
       total_exchanges: map_size(results),
@@ -278,9 +274,7 @@ defmodule ZenCex.Safety.ClockSync do
     exchanges = Registry.list_exchanges()
 
     offsets =
-      exchanges
-      |> Enum.map(fn exchange -> {exchange, get_offset(exchange)} end)
-      |> Enum.into(%{})
+      Map.new(exchanges, fn exchange -> {exchange, get_offset(exchange)} end)
 
     stats = %{
       exchanges: exchanges,
@@ -307,7 +301,7 @@ defmodule ZenCex.Safety.ClockSync do
     results =
       tasks
       |> Task.await_many(@sync_timeout_ms)
-      |> Enum.into(%{})
+      |> Map.new()
 
     results
   end
@@ -361,7 +355,8 @@ defmodule ZenCex.Safety.ClockSync do
     case get_time_endpoint_url(exchange) do
       {:ok, url} ->
         request =
-          HTTP.health_check_request(exchange)
+          exchange
+          |> HTTP.health_check_request()
           |> Req.merge(url: url, receive_timeout: @sync_timeout_ms)
 
         case Req.request(request) do

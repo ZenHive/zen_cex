@@ -1,16 +1,17 @@
 defmodule ZenCex.Core.EndpointRegistryMacroTest do
-  use ExUnit.Case, async: true
-
   @moduledoc """
   Tests for macro expansion and code generation of EndpointRegistry.
   These tests ensure the macro generates correct code and prevents regressions.
   """
+
+  use ExUnit.Case, async: true
 
   describe "macro expansion validation" do
     test "generates correct function signatures" do
       # Compile a test module and capture the generated code
       {:module, TestMacroExpansion, _bytecode, _} =
         defmodule TestMacroExpansion do
+          @moduledoc false
           use ZenCex.EndpointRegistry, adapter: __MODULE__
 
           def __exchange__, do: :test
@@ -65,18 +66,20 @@ defmodule ZenCex.Core.EndpointRegistryMacroTest do
 
       # Define helper module with parser functions (must be outside the test module)
       defmodule TelemetryTestParser do
+        @moduledoc false
         def parse_response(_), do: {:ok, :parsed}
         def parse_error(_), do: {:error, :mapped}
       end
 
       # Define test module with telemetry
       defmodule TelemetryTestModule do
+        @moduledoc false
         use ZenCex.EndpointRegistry, adapter: __MODULE__
 
         def __exchange__, do: :telemetry_test
-        def base_url(), do: "https://test.com"
+        def base_url, do: "https://test.com"
         def base_url(_env, _api_type), do: "https://test.com"
-        def current_env(), do: :test
+        def current_env, do: :test
         def auth, do: TestAuth
         def rate_limiter, do: TestRateLimiter
 
@@ -106,8 +109,7 @@ defmodule ZenCex.Core.EndpointRegistryMacroTest do
       assert result == {:ok, :parsed}
 
       # Verify telemetry events were emitted
-      assert_receive {:telemetry_event, [:zen_cex, :endpoint, :start], %{system_time: _},
-                      metadata}
+      assert_receive {:telemetry_event, [:zen_cex, :endpoint, :start], %{system_time: _}, metadata}
 
       assert metadata.exchange == :telemetry_test
       assert metadata.operation == :telemetry_test_op
@@ -182,6 +184,7 @@ defmodule ZenCex.Core.EndpointRegistryMacroTest do
     test "params transformer is applied correctly" do
       # Define helper module with transformer functions
       defmodule TransformerTestHelpers do
+        @moduledoc false
         def parse_response(params), do: {:ok, params}
         def parse_error(error), do: error
         def transform_params(params), do: Map.put(params, :transformed, true)
@@ -191,9 +194,9 @@ defmodule ZenCex.Core.EndpointRegistryMacroTest do
         use ZenCex.EndpointRegistry, adapter: __MODULE__
 
         def __exchange__, do: :transformer_test
-        def base_url(), do: "https://test.com"
+        def base_url, do: "https://test.com"
         def base_url(_env, _api_type), do: "https://test.com"
-        def current_env(), do: :test
+        def current_env, do: :test
         def auth, do: TestAuth
         def rate_limiter, do: TestRateLimiter
 
@@ -320,6 +323,7 @@ defmodule ZenCex.Core.EndpointRegistryMacroTest do
   describe "edge cases" do
     test "empty endpoints list generates only helper functions" do
       defmodule EmptyEndpoints do
+        @moduledoc false
         use ZenCex.EndpointRegistry, adapter: __MODULE__
 
         def __exchange__, do: :empty

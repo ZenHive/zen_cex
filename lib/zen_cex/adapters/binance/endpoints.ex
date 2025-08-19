@@ -23,13 +23,15 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   - Common functions → Binance.Common
   """
 
-  alias ZenCex.Adapters.Binance.{Auth, Parser, RateLimiter}
+  alias ZenCex.Adapters.Binance.Auth
+  alias ZenCex.Adapters.Binance.Common
+  alias ZenCex.Adapters.Binance.Futures
+  alias ZenCex.Adapters.Binance.Parser
+  alias ZenCex.Adapters.Binance.RateLimiter
 
   # These will be created as separate modules
-  alias ZenCex.Adapters.Binance.Spot
-  alias ZenCex.Adapters.Binance.Futures
   # alias ZenCex.Adapters.Binance.Margin
-  alias ZenCex.Adapters.Binance.Common
+  alias ZenCex.Adapters.Binance.Spot
 
   @doc """
   Returns the exchange name for this adapter.

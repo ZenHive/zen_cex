@@ -1,8 +1,11 @@
 defmodule ZenCex.Behaviors.AuthTest do
   use ExUnit.Case, async: true
 
+  alias ZenCex.Behaviors.Auth
+
   defmodule HMACAuth do
-    @behaviour ZenCex.Behaviors.Auth
+    @moduledoc false
+    @behaviour Auth
 
     @impl true
     def sign_request(request, opts) do
@@ -47,7 +50,8 @@ defmodule ZenCex.Behaviors.AuthTest do
   end
 
   defmodule OAuthAuth do
-    @behaviour ZenCex.Behaviors.Auth
+    @moduledoc false
+    @behaviour Auth
 
     @impl true
     def sign_request(request, opts) do

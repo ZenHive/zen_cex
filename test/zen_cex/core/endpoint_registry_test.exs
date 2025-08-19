@@ -3,6 +3,7 @@ defmodule ZenCex.Core.EndpointRegistryTest do
 
   # Test module that uses the EndpointRegistry
   defmodule TestEndpoints do
+    @moduledoc false
     use ZenCex.EndpointRegistry, adapter: __MODULE__
 
     def __exchange__, do: :test_exchange
@@ -214,6 +215,7 @@ defmodule ZenCex.Core.EndpointRegistryTest do
     test "debug mode can be enabled" do
       # Test that debug mode doesn't break compilation
       defmodule DebugEndpoints do
+        @moduledoc false
         use ZenCex.EndpointRegistry, debug: true, adapter: __MODULE__
 
         # Required adapter functions

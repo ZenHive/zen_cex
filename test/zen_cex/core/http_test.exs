@@ -1,6 +1,7 @@
 defmodule ZenCex.Core.HTTPTest do
   use ExUnit.Case, async: false
 
+  alias ZenCex.Adapters.Binance.Endpoints
   alias ZenCex.Core.HTTP
 
   @moduletag :integration
@@ -9,16 +10,16 @@ defmodule ZenCex.Core.HTTPTest do
   setup do
     # ENFORCE testnet usage - fail if production URL detected
     # Check the actual environment detection mechanism
-    env = ZenCex.Adapters.Binance.Endpoints.current_env()
+    env = Endpoints.current_env()
 
-    unless env == :test do
+    if env != :test do
       raise "TESTNET REQUIRED: Environment is #{env}, expected :test. Set BINANCE_TESTNET=true"
     end
 
     # Also verify the base URL is actually testnet
-    base_url = ZenCex.Adapters.Binance.Endpoints.base_url(env)
+    base_url = Endpoints.base_url(env)
 
-    unless base_url == "https://testnet.binance.vision" do
+    if base_url != "https://testnet.binance.vision" do
       raise "TESTNET URL REQUIRED: Got #{base_url}, expected https://testnet.binance.vision"
     end
 
@@ -47,7 +48,8 @@ defmodule ZenCex.Core.HTTPTest do
     test "makes real request to Binance testnet ping endpoint" do
       # Create and execute a real request
       request =
-        HTTP.base_request(:binance, :health)
+        :binance
+        |> HTTP.base_request(:health)
         |> Req.merge(
           url: "/api/v3/ping",
           # Public endpoint
@@ -63,7 +65,8 @@ defmodule ZenCex.Core.HTTPTest do
 
     test "makes real request to get server time from testnet" do
       request =
-        HTTP.base_request(:binance, :market)
+        :binance
+        |> HTTP.base_request(:market)
         |> Req.merge(
           url: "/api/v3/time",
           # Public endpoint
@@ -95,7 +98,8 @@ defmodule ZenCex.Core.HTTPTest do
 
     test "successfully pings Binance testnet without auth" do
       request =
-        HTTP.health_check_request(:binance)
+        :binance
+        |> HTTP.health_check_request()
         |> Req.merge(url: "/api/v3/ping")
 
       # Should work without credentials
@@ -113,7 +117,8 @@ defmodule ZenCex.Core.HTTPTest do
 
       # Make a request that should update rate limits
       request =
-        HTTP.base_request(:binance, :market)
+        :binance
+        |> HTTP.base_request(:market)
         |> Req.merge(
           url: "/api/v3/ticker/price",
           params: [symbol: "BTCUSDT"],
@@ -125,7 +130,7 @@ defmodule ZenCex.Core.HTTPTest do
 
       # Check that rate limit headers were present and processed
       headers_map = Map.new(response.headers)
-      assert headers_map["x-mbx-used-weight-1m"] != nil
+      assert headers_map["x-mbx-used-weight-1m"]
 
       # Verify rate limiter tracked the usage
       status = RateLimiter.get_status("/api/v3/ticker/price")
@@ -137,7 +142,8 @@ defmodule ZenCex.Core.HTTPTest do
   describe "error handling with real testnet API" do
     test "handles 404 from invalid endpoint" do
       request =
-        HTTP.base_request(:binance, :market)
+        :binance
+        |> HTTP.base_request(:market)
         |> Req.merge(
           url: "/api/v3/invalid_endpoint_that_does_not_exist",
           skip_auth: true
@@ -149,7 +155,8 @@ defmodule ZenCex.Core.HTTPTest do
 
     test "handles invalid symbol error from real API" do
       request =
-        HTTP.base_request(:binance, :market)
+        :binance
+        |> HTTP.base_request(:market)
         |> Req.merge(
           url: "/api/v3/ticker/price",
           params: [symbol: "INVALIDPAIR"],
@@ -171,14 +178,13 @@ defmodule ZenCex.Core.HTTPTest do
 
       if is_nil(api_key) or is_nil(api_secret) do
         # Fail loudly if no credentials for integration test
-        flunk(
-          "BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET required for authenticated tests"
-        )
+        flunk("BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET required for authenticated tests")
       end
 
       # If we have credentials, test authenticated endpoint
       request =
-        HTTP.base_request(:binance, :account)
+        :binance
+        |> HTTP.base_request(:account)
         |> Req.merge(
           url: "/api/v3/account",
           auth_credentials: %{
@@ -214,7 +220,8 @@ defmodule ZenCex.Core.HTTPTest do
 
       # Make real request
       request =
-        HTTP.base_request(:binance, :market)
+        :binance
+        |> HTTP.base_request(:market)
         |> Req.merge(
           url: "/api/v3/ping",
           skip_auth: true

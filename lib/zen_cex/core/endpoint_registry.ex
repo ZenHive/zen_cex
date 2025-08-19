@@ -65,6 +65,10 @@ defmodule ZenCex.EndpointRegistry do
     debug = Keyword.get(opts, :debug, false)
 
     quote do
+      alias ZenCex.Core.HTTP
+
+      require Logger
+
       @before_compile unquote(__MODULE__)
       @endpoint_registry_adapter unquote(adapter)
       @endpoint_registry_debug unquote(debug)
@@ -72,8 +76,6 @@ defmodule ZenCex.EndpointRegistry do
       Module.register_attribute(__MODULE__, :endpoints, accumulate: false)
 
       # Import needed for generated functions
-      alias ZenCex.Core.HTTP
-      require Logger
     end
   end
 
@@ -134,24 +136,22 @@ defmodule ZenCex.EndpointRegistry do
     required_keys = [:operation, :method, :path, :response_parser, :error_mapping]
 
     Enum.each(required_keys, fn key ->
-      unless Map.has_key?(endpoint, key) do
+      if !Map.has_key?(endpoint, key) do
         raise CompileError,
-          description:
-            "#{module}: Endpoint #{inspect(endpoint[:operation])} missing required key: #{key}"
+          description: "#{module}: Endpoint #{inspect(endpoint[:operation])} missing required key: #{key}"
       end
     end)
 
     # Validate method
-    unless endpoint.method in [:get, :post, :put, :delete, :patch] do
+    if endpoint.method not in [:get, :post, :put, :delete, :patch] do
       raise CompileError,
-        description:
-          "#{module}: Invalid HTTP method #{inspect(endpoint.method)} for #{endpoint.operation}"
+        description: "#{module}: Invalid HTTP method #{inspect(endpoint.method)} for #{endpoint.operation}"
     end
 
     # Validate parsers are provided
     # At compile time, we can check if they're capture expressions or anonymous functions
     # We accept both &Module.function/1 and fn x -> ... end forms
-    unless endpoint.response_parser do
+    if !endpoint.response_parser do
       raise CompileError,
         description: "#{module}: response_parser must be provided"
     end
@@ -159,14 +159,13 @@ defmodule ZenCex.EndpointRegistry do
     # Additional validation for parser format
     parser = endpoint.response_parser
 
-    unless match?({:&, _, _}, parser) or match?({:fn, _, _}, parser) or
-             is_function(parser, 1) do
+    if !(match?({:&, _, _}, parser) or match?({:fn, _, _}, parser) or
+           is_function(parser, 1)) do
       raise CompileError,
-        description:
-          "#{module}: response_parser must be a function reference with arity 1 (e.g., &Module.function/1)"
+        description: "#{module}: response_parser must be a function reference with arity 1 (e.g., &Module.function/1)"
     end
 
-    unless endpoint.error_mapping do
+    if !endpoint.error_mapping do
       raise CompileError,
         description: "#{module}: error_mapping must be provided"
     end
@@ -174,11 +173,10 @@ defmodule ZenCex.EndpointRegistry do
     # Additional validation for error mapping format
     error_map = endpoint.error_mapping
 
-    unless match?({:&, _, _}, error_map) or match?({:fn, _, _}, error_map) or
-             is_function(error_map, 1) do
+    if !(match?({:&, _, _}, error_map) or match?({:fn, _, _}, error_map) or
+           is_function(error_map, 1)) do
       raise CompileError,
-        description:
-          "#{module}: error_mapping must be a function reference with arity 1 (e.g., &Module.function/1)"
+        description: "#{module}: error_mapping must be a function reference with arity 1 (e.g., &Module.function/1)"
     end
 
     # Validate retry configuration
@@ -193,8 +191,7 @@ defmodule ZenCex.EndpointRegistry do
 
       if max_retries > 0 do
         raise CompileError,
-          description:
-            "#{module}: Order placement operations MUST NOT have retries (found max_retries: #{max_retries})"
+          description: "#{module}: Order placement operations MUST NOT have retries (found max_retries: #{max_retries})"
       end
     end
   end
@@ -285,237 +282,280 @@ defmodule ZenCex.EndpointRegistry do
   end
 
   defp generate_operation_function(endpoint, adapter, module) do
-    operation = endpoint.operation
-    method = endpoint.method
-    path = endpoint.path
-    requires_auth = Map.get(endpoint, :requires_auth, true)
-    response_parser = endpoint.response_parser
-    error_mapping = endpoint.error_mapping
-    retry_on = Map.get(endpoint, :retry_on, [])
-    max_retries = Map.get(endpoint, :max_retries, @default_retries)
-    timeout = Map.get(endpoint, :timeout, @default_timeout)
-    weight = Map.get(endpoint, :weight, 1)
-    params_transformer = Map.get(endpoint, :params_transformer)
-    api_type = Map.get(endpoint, :api_type)
-    doc = Map.get(endpoint, :doc, "Executes the #{operation} operation")
+    config = extract_endpoint_config(endpoint)
 
-    # Generate the function name
-    func_name = operation
-
-    # Generate the main function and its /2 variant
     [
-      # Main function with default opts
-      quote do
-        @doc unquote(doc)
-        @spec unquote(func_name)(map()) ::
-                {:ok, term()} | {:error, term()}
-        def unquote(func_name)(params \\ %{}) do
-          unquote(func_name)(params, [])
-        end
-      end,
-
-      # Function with opts
-      quote do
-        @spec unquote(func_name)(map(), keyword()) ::
-                {:ok, term()} | {:error, term()}
-        def unquote(func_name)(params, opts) do
-          endpoint_config = %{
-            operation: unquote(operation),
-            method: unquote(method),
-            path: unquote(path),
-            requires_auth: unquote(requires_auth),
-            weight: unquote(weight),
-            timeout: Keyword.get(opts, :timeout, unquote(timeout)),
-            max_retries: Keyword.get(opts, :max_retries, unquote(max_retries)),
-            retry_on: unquote(retry_on),
-            response_parser: unquote(Macro.escape(Map.get(endpoint, :response_parser))),
-            error_mapping: unquote(Macro.escape(Map.get(endpoint, :error_mapping)))
-          }
-
-          # Add api_type if present
-          endpoint_config =
-            unquote(
-              if api_type do
-                quote do
-                  Map.put(endpoint_config, :api_type, unquote(api_type))
-                end
-              else
-                quote do
-                  endpoint_config
-                end
-              end
-            )
-
-          # Transform params if transformer provided
-          final_params =
-            unquote(
-              if params_transformer do
-                quote do
-                  unquote(params_transformer).(params)
-                end
-              else
-                quote do
-                  params
-                end
-              end
-            )
-
-          # Start telemetry span
-          start_time = System.monotonic_time()
-
-          start_metadata = %{
-            exchange: unquote(adapter).__exchange__(),
-            operation: unquote(operation),
-            endpoint: unquote(path)
-          }
-
-          :telemetry.execute(
-            [:zen_cex, :endpoint, :start],
-            %{system_time: System.system_time()},
-            start_metadata
-          )
-
-          # Execute the request (pass opts to allow for auth_credentials)
-          result =
-            case execute_endpoint_request(endpoint_config, final_params, opts, unquote(adapter)) do
-              {:ok, response} ->
-                # Parse the response
-                unquote(response_parser).(response)
-
-              {:error, %Req.Response{status: status, body: body}} when status >= 400 ->
-                # Map exchange-specific errors
-                unquote(error_mapping).(body)
-
-              {:error, reason} ->
-                # Pass through other errors
-                {:error, reason}
-            end
-
-          # End telemetry span
-          duration = System.monotonic_time() - start_time
-
-          {event_name, metadata} =
-            case result do
-              {:ok, _} ->
-                {[:zen_cex, :endpoint, :success], Map.put(start_metadata, :status, :ok)}
-
-              {:error, reason} ->
-                {[:zen_cex, :endpoint, :error],
-                 Map.merge(start_metadata, %{status: :error, reason: reason})}
-            end
-
-          :telemetry.execute(
-            event_name,
-            %{duration: duration},
-            metadata
-          )
-
-          result
-        end
-      end,
-
-      # Private helper for request execution (shared by all generated functions)
-      # Check if the function is already defined (either public or private)
-      # This prevents duplicate definitions when modules are recompiled
-      if not Module.defines?(module, {:execute_endpoint_request, 4}) and
-           not function_exported?(module, :execute_endpoint_request, 4) do
-        quote do
-          defp execute_endpoint_request(config, params, opts, adapter) do
-            # Build the request with opts passed through
-            request =
-              build_request(config, params, adapter)
-              |> Req.merge(opts)
-
-            # Add retry logic based on config
-            request =
-              if config.max_retries > 0 and length(config.retry_on) > 0 do
-                Req.Request.prepend_error_steps(request,
-                  endpoint_retry: &handle_retry(&1, config)
-                )
-              else
-                request
-              end
-
-            # Execute the request
-            case Req.request(request) do
-              {:ok, %Req.Response{status: status} = response} when status in 200..299 ->
-                {:ok, response.body}
-
-              {:ok, response} ->
-                {:error, response}
-
-              {:error, _} = error ->
-                error
-            end
-          end
-
-          defp build_request(config, params, adapter) do
-            # Determine operation type from config
-            operation_type = map_to_operation_type(config)
-
-            # Determine base URL based on api_type if present
-            base_url =
-              if Map.has_key?(config, :api_type) and function_exported?(adapter, :base_url, 2) do
-                adapter.base_url(adapter.current_env(), config.api_type)
-              else
-                adapter.base_url()
-              end
-
-            # Use Core.HTTP to create the base request with all middleware
-            ZenCex.Core.HTTP.base_request(adapter.__exchange__(), operation_type)
-            |> Req.merge(
-              method: config.method,
-              url: base_url <> config.path,
-              params: if(config.method == :get, do: params, else: nil),
-              json: if(config.method != :get, do: params, else: nil),
-              receive_timeout: config.timeout,
-              # Control auth based on endpoint config
-              skip_auth: not config.requires_auth,
-              # We handle retry at the endpoint level
-              retry: false
-            )
-            # Store endpoint metadata for rate limiting and telemetry
-            |> Req.Request.put_private(:rate_limit_weight, config.weight)
-            |> Req.Request.put_private(:endpoint_config, config)
-            |> Req.Request.put_private(:endpoint_operation, config.operation)
-          end
-
-          defp map_to_operation_type(config) do
-            # Map endpoint operations to Core.HTTP operation types
-            # Using simple if/else to avoid guard clause issues
-            cond do
-              config.operation in [:place_order, :cancel_order] -> :trading
-              config.operation == :get_server_time -> :health
-              true -> :standard
-            end
-          end
-
-          # These functions are no longer needed - Core.HTTP handles auth and rate limiting
-
-          defp handle_retry({request, exception}, config) do
-            # Check if we should retry this error
-            should_retry =
-              case exception do
-                %Req.Response{status: 429} -> :rate_limited in config.retry_on
-                %Req.Response{status: 503} -> :timeout in config.retry_on
-                %Req.Response{status: 504} -> :timeout in config.retry_on
-                %Mint.TransportError{} -> :timeout in config.retry_on
-                _ -> false
-              end
-
-            if should_retry do
-              # Let Req's retry mechanism handle it
-              {request, exception}
-            else
-              # Don't retry - use halt/2 with exception
-              {Req.Request.halt(request, exception), exception}
-            end
-          end
-        end
-      else
-        []
-      end
+      generate_main_function(config),
+      generate_opts_function(config, adapter),
+      generate_helper_functions(module)
     ]
+    |> List.flatten()
+    |> Enum.filter(&(&1 != nil))
+  end
+
+  defp extract_endpoint_config(endpoint) do
+    %{
+      operation: endpoint.operation,
+      method: endpoint.method,
+      path: endpoint.path,
+      requires_auth: Map.get(endpoint, :requires_auth, true),
+      response_parser: endpoint.response_parser,
+      error_mapping: endpoint.error_mapping,
+      retry_on: Map.get(endpoint, :retry_on, []),
+      max_retries: Map.get(endpoint, :max_retries, @default_retries),
+      timeout: Map.get(endpoint, :timeout, @default_timeout),
+      weight: Map.get(endpoint, :weight, 1),
+      params_transformer: Map.get(endpoint, :params_transformer),
+      api_type: Map.get(endpoint, :api_type),
+      doc: Map.get(endpoint, :doc, "Executes the #{endpoint.operation} operation")
+    }
+  end
+
+  defp generate_main_function(config) do
+    func_name = config.operation
+    doc = config.doc
+
+    quote do
+      @doc unquote(doc)
+      @spec unquote(func_name)(map()) ::
+              {:ok, term()} | {:error, term()}
+      def unquote(func_name)(params \\ %{}) do
+        unquote(func_name)(params, [])
+      end
+    end
+  end
+
+  defp generate_opts_function(config, adapter) do
+    func_name = config.operation
+
+    quote do
+      @spec unquote(func_name)(map(), keyword()) ::
+              {:ok, term()} | {:error, term()}
+      def unquote(func_name)(params, opts) do
+        endpoint_config =
+          build_endpoint_config(
+            unquote(Macro.escape(config)),
+            opts
+          )
+
+        final_params =
+          transform_params(
+            params,
+            unquote(Macro.escape(config.params_transformer))
+          )
+
+        execute_with_telemetry(
+          endpoint_config,
+          final_params,
+          opts,
+          unquote(adapter),
+          unquote(Macro.escape(config.response_parser)),
+          unquote(Macro.escape(config.error_mapping))
+        )
+      end
+    end
+  end
+
+  defp generate_helper_functions(_module) do
+    # Always generate helper functions - they use defp so won't conflict
+    # The Elixir compiler will handle duplicate private function definitions
+    [
+      generate_config_builder(),
+      generate_params_transformer(),
+      generate_telemetry_executor(),
+      generate_request_executor()
+    ]
+  end
+
+  defp generate_config_builder do
+    quote do
+      defp build_endpoint_config(base_config, opts) do
+        config = %{
+          operation: base_config.operation,
+          method: base_config.method,
+          path: base_config.path,
+          requires_auth: base_config.requires_auth,
+          weight: base_config.weight,
+          timeout: Keyword.get(opts, :timeout, base_config.timeout),
+          max_retries: Keyword.get(opts, :max_retries, base_config.max_retries),
+          retry_on: base_config.retry_on,
+          response_parser: base_config.response_parser,
+          error_mapping: base_config.error_mapping
+        }
+
+        if base_config[:api_type] do
+          Map.put(config, :api_type, base_config.api_type)
+        else
+          config
+        end
+      end
+    end
+  end
+
+  defp generate_params_transformer do
+    quote do
+      defp transform_params(params, nil), do: params
+      defp transform_params(params, transformer), do: transformer.(params)
+    end
+  end
+
+  defp generate_telemetry_executor do
+    quote do
+      defp execute_with_telemetry(config, params, opts, adapter, response_parser, error_mapping) do
+        start_time = System.monotonic_time()
+
+        start_metadata = %{
+          exchange: adapter.__exchange__(),
+          operation: config.operation,
+          endpoint: config.path
+        }
+
+        :telemetry.execute(
+          [:zen_cex, :endpoint, :start],
+          %{system_time: System.system_time()},
+          start_metadata
+        )
+
+        result =
+          execute_and_parse(
+            config,
+            params,
+            opts,
+            adapter,
+            response_parser,
+            error_mapping
+          )
+
+        emit_telemetry_result(result, start_time, start_metadata)
+        result
+      end
+
+      defp execute_and_parse(config, params, opts, adapter, response_parser, error_mapping) do
+        case execute_endpoint_request(config, params, opts, adapter) do
+          {:ok, response} ->
+            response_parser.(response)
+
+          {:error, %Req.Response{status: status, body: body}} when status >= 400 ->
+            error_mapping.(body)
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+      end
+
+      defp emit_telemetry_result(result, start_time, start_metadata) do
+        duration = System.monotonic_time() - start_time
+
+        {event_name, metadata} =
+          case result do
+            {:ok, _} ->
+              {[:zen_cex, :endpoint, :success], Map.put(start_metadata, :status, :ok)}
+
+            {:error, reason} ->
+              {[:zen_cex, :endpoint, :error], Map.merge(start_metadata, %{status: :error, reason: reason})}
+          end
+
+        :telemetry.execute(event_name, %{duration: duration}, metadata)
+      end
+    end
+  end
+
+  defp generate_request_executor do
+    quote do
+      defp execute_endpoint_request(config, params, opts, adapter) do
+        # Build the request with opts passed through
+        request =
+          config
+          |> build_request(params, adapter)
+          |> Req.merge(opts)
+
+        # Add retry logic based on config
+        request =
+          if config.max_retries > 0 and length(config.retry_on) > 0 do
+            Req.Request.prepend_error_steps(request,
+              endpoint_retry: &handle_retry(&1, config)
+            )
+          else
+            request
+          end
+
+        # Execute the request
+        case Req.request(request) do
+          {:ok, %Req.Response{status: status} = response} when status in 200..299 ->
+            {:ok, response.body}
+
+          {:ok, response} ->
+            {:error, response}
+
+          {:error, _} = error ->
+            error
+        end
+      end
+
+      defp build_request(config, params, adapter) do
+        # Determine operation type from config
+        operation_type = map_to_operation_type(config)
+
+        # Determine base URL based on api_type if present
+        base_url =
+          if Map.has_key?(config, :api_type) and function_exported?(adapter, :base_url, 2) do
+            adapter.base_url(adapter.current_env(), config.api_type)
+          else
+            adapter.base_url()
+          end
+
+        # Use Core.HTTP to create the base request with all middleware
+        adapter.__exchange__()
+        |> ZenCex.Core.HTTP.base_request(operation_type)
+        |> Req.merge(
+          method: config.method,
+          url: base_url <> config.path,
+          params: if(config.method == :get, do: params),
+          json: if(config.method == :get, do: nil, else: params),
+          receive_timeout: config.timeout,
+          # Control auth based on endpoint config
+          skip_auth: not config.requires_auth,
+          # We handle retry at the endpoint level
+          retry: false
+        )
+        # Store endpoint metadata for rate limiting and telemetry
+        |> Req.Request.put_private(:rate_limit_weight, config.weight)
+        |> Req.Request.put_private(:endpoint_config, config)
+        |> Req.Request.put_private(:endpoint_operation, config.operation)
+      end
+
+      defp map_to_operation_type(config) do
+        # Map endpoint operations to Core.HTTP operation types
+        # Using simple if/else to avoid guard clause issues
+        cond do
+          config.operation in [:place_order, :cancel_order] -> :trading
+          config.operation == :get_server_time -> :health
+          true -> :standard
+        end
+      end
+
+      # These functions are no longer needed - Core.HTTP handles auth and rate limiting
+
+      defp handle_retry({request, exception}, config) do
+        # Check if we should retry this error
+        should_retry =
+          case exception do
+            %Req.Response{status: 429} -> :rate_limited in config.retry_on
+            %Req.Response{status: 503} -> :timeout in config.retry_on
+            %Req.Response{status: 504} -> :timeout in config.retry_on
+            %Mint.TransportError{} -> :timeout in config.retry_on
+            _ -> false
+          end
+
+        if should_retry do
+          # Let Req's retry mechanism handle it
+          {request, exception}
+        else
+          # Don't retry - use halt/2 with exception
+          {Req.Request.halt(request, exception), exception}
+        end
+      end
+    end
   end
 
   defp print_debug_output(ast, module) do

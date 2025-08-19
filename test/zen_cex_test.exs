@@ -1,5 +1,6 @@
 defmodule ZenCexTest do
   use ExUnit.Case
+
   doctest ZenCex
 
   test "module has correct documentation" do

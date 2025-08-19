@@ -361,8 +361,7 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
     test "parses standard Binance error codes" do
       error_cases = [
         {%{"code" => -1121, "msg" => "Invalid symbol"}, {:error, :invalid_symbol}},
-        {%{"code" => -2010, "msg" => "Account has insufficient balance"},
-         {:error, :insufficient_balance}},
+        {%{"code" => -2010, "msg" => "Account has insufficient balance"}, {:error, :insufficient_balance}},
         {%{"code" => -1013, "msg" => "Invalid quantity"}, {:error, :invalid_quantity}},
         {%{"code" => 429, "msg" => "Too many requests"}, {:error, :rate_limited}},
         {%{"code" => -1022, "msg" => "Signature not valid"}, {:error, :signature_not_valid}},

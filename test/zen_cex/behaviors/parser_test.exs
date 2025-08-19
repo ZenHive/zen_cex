@@ -2,6 +2,7 @@ defmodule ZenCex.Behaviors.ParserTest do
   use ExUnit.Case, async: true
 
   defmodule TestParser do
+    @moduledoc false
     @behaviour ZenCex.Behaviors.Parser
 
     @impl true

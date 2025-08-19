@@ -8,7 +8,9 @@ defmodule ZenCex.Adapters.Binance.Common do
 
   use ZenCex.EndpointRegistry, adapter: ZenCex.Adapters.Binance.Endpoints
 
-  alias ZenCex.Adapters.Binance.{Parser, RequestHelper}
+  alias ZenCex.Adapters.Binance.Parser
+  alias ZenCex.Adapters.Binance.RequestHelper
+
   require Logger
 
   @endpoints [

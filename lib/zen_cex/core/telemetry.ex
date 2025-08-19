@@ -78,6 +78,8 @@ defmodule ZenCex.Core.Telemetry do
   - `[:req, :request, :exception]`
   """
 
+  alias ZenCex.Core.Telemetry
+
   require Logger
 
   @doc """
@@ -100,27 +102,27 @@ defmodule ZenCex.Core.Telemetry do
       {
         "zen-cex-log-slow-requests",
         [:zen_cex, :request, :complete],
-        &ZenCex.Core.Telemetry.log_slow_request/4
+        &Telemetry.log_slow_request/4
       },
       {
         "zen-cex-log-errors",
         [:zen_cex, :request, :error],
-        &ZenCex.Core.Telemetry.log_error/4
+        &Telemetry.log_error/4
       },
       {
         "zen-cex-log-rate-limits",
         [:zen_cex, :rate_limit, :exceeded],
-        &ZenCex.Core.Telemetry.log_rate_limit/4
+        &Telemetry.log_rate_limit/4
       },
       {
         "zen-cex-log-auth-failures",
         [:zen_cex, :auth, :failure],
-        &ZenCex.Core.Telemetry.log_auth_failure/4
+        &Telemetry.log_auth_failure/4
       },
       {
         "zen-cex-req-integration",
         [:req, :request, :stop],
-        &ZenCex.Core.Telemetry.handle_req_stop/4
+        &Telemetry.handle_req_stop/4
       }
     ]
 
@@ -185,9 +187,7 @@ defmodule ZenCex.Core.Telemetry do
   def log_slow_request(_event, %{duration: duration}, metadata, _config) do
     # > 1 second in microseconds
     if duration > 1_000_000 do
-      Logger.warning(
-        "Slow request to #{metadata.exchange} #{metadata.endpoint}: #{div(duration, 1000)}ms"
-      )
+      Logger.warning("Slow request to #{metadata.exchange} #{metadata.endpoint}: #{div(duration, 1000)}ms")
     end
 
     :ok
@@ -201,9 +201,7 @@ defmodule ZenCex.Core.Telemetry do
           :telemetry.handler_config()
         ) :: :ok
   def log_error(_event, _measurements, metadata, _config) do
-    Logger.error(
-      "Request error for #{metadata.exchange} #{metadata.endpoint}: #{inspect(metadata.error)}"
-    )
+    Logger.error("Request error for #{metadata.exchange} #{metadata.endpoint}: #{inspect(metadata.error)}")
 
     :ok
   end
@@ -223,9 +221,7 @@ defmodule ZenCex.Core.Telemetry do
         ""
       end
 
-    Logger.warning(
-      "Rate limit exceeded for #{metadata.exchange} #{metadata.endpoint}#{retry_msg}"
-    )
+    Logger.warning("Rate limit exceeded for #{metadata.exchange} #{metadata.endpoint}#{retry_msg}")
 
     :ok
   end
@@ -238,9 +234,7 @@ defmodule ZenCex.Core.Telemetry do
           :telemetry.handler_config()
         ) :: :ok
   def log_auth_failure(_event, _measurements, metadata, _config) do
-    Logger.error(
-      "Auth failure for #{metadata.exchange} using #{metadata.auth_method}: #{metadata.reason}"
-    )
+    Logger.error("Auth failure for #{metadata.exchange} using #{metadata.auth_method}: #{metadata.reason}")
 
     :ok
   end

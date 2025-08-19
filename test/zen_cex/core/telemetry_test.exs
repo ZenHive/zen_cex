@@ -117,8 +117,7 @@ defmodule ZenCex.Core.TelemetryTest do
         %{exchange: :binance, operation_type: :trading, endpoint: "/api/v3/order", status: 200}
       )
 
-      assert_receive {^ref, :request_complete, [:zen_cex, :request, :complete], measurements,
-                      metadata}
+      assert_receive {^ref, :request_complete, [:zen_cex, :request, :complete], measurements, metadata}
 
       assert measurements.duration == 1500
       assert measurements.count == 1
@@ -154,8 +153,7 @@ defmodule ZenCex.Core.TelemetryTest do
         %{exchange: :binance, endpoint: "/api/v3/order", retry_after_ms: 5000}
       )
 
-      assert_receive {^ref, :rate_limit, [:zen_cex, :rate_limit, :exceeded], measurements,
-                      metadata}
+      assert_receive {^ref, :rate_limit, [:zen_cex, :rate_limit, :exceeded], measurements, metadata}
 
       assert measurements.count == 1
       assert metadata.exchange == :binance
@@ -199,8 +197,8 @@ defmodule ZenCex.Core.TelemetryTest do
       request = ZenCex.Core.HTTP.base_request(:binance, :trading)
 
       # Verify telemetry metadata is attached to the request
-      assert Req.Request.get_private(request, :zen_cex_request_ref) != nil
-      assert Req.Request.get_private(request, :zen_cex_start_time) != nil
+      assert Req.Request.get_private(request, :zen_cex_request_ref)
+      assert Req.Request.get_private(request, :zen_cex_start_time)
 
       # Clean up
       :telemetry.detach("test-http-integration")

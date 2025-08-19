@@ -1,8 +1,10 @@
 defmodule ZenCex.Adapters.Binance.AuthTest do
   use ExUnit.Case, async: false
-  require Logger
 
   alias ZenCex.Adapters.Binance.Auth
+  alias ZenCex.Adapters.Binance.Endpoints
+
+  require Logger
 
   @moduletag :binance_auth
   @moduletag :integration
@@ -24,16 +26,16 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
   describe "real API integration tests" do
     setup do
       # ENFORCE testnet usage - fail if production environment detected
-      env = ZenCex.Adapters.Binance.Endpoints.current_env()
+      env = Endpoints.current_env()
 
-      unless env == :test do
+      if env != :test do
         raise "TESTNET REQUIRED: Environment is #{env}, expected :test. Set BINANCE_TESTNET=true"
       end
 
       # Verify base URL is actually testnet
-      base_url = ZenCex.Adapters.Binance.Endpoints.base_url(env)
+      base_url = Endpoints.base_url(env)
 
-      unless base_url == "https://testnet.binance.vision" do
+      if base_url != "https://testnet.binance.vision" do
         raise "TESTNET URL REQUIRED: Got #{base_url}, expected https://testnet.binance.vision"
       end
 
@@ -63,14 +65,15 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
 
       # Test authenticated endpoint on testnet
       request =
-        Req.new(
+        [
           base_url: "https://testnet.binancefuture.com",
           url: "/fapi/v2/account",
           params: %{
             "timestamp" => server_time,
             "recvWindow" => "5000"
           }
-        )
+        ]
+        |> Req.new()
         |> Auth.sign_request(:usdm_futures, api_key, api_secret)
 
       {:ok, response} = Req.get(request)
@@ -97,14 +100,15 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
 
       # Test authenticated endpoint on testnet (Note: COIN-M testnet may not be available)
       request =
-        Req.new(
+        [
           base_url: "https://testnet.binancefuture.com",
           url: "/dapi/v1/account",
           params: %{
             "timestamp" => server_time,
             "recvWindow" => "5000"
           }
-        )
+        ]
+        |> Req.new()
         |> Auth.sign_request(:coinm_futures, api_key, api_secret)
 
       {:ok, response} = Req.get(request)
@@ -169,14 +173,15 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
 
       # Test portfolio margin account endpoint on futures testnet
       request =
-        Req.new(
+        [
           base_url: "https://testnet.binancefuture.com",
           url: "/papi/v1/account",
           params: %{
             "timestamp" => server_time,
             "recvWindow" => "5000"
           }
-        )
+        ]
+        |> Req.new()
         |> Auth.sign_request(:portfolio, api_key, api_secret)
 
       {:ok, response} = Req.get(request)
@@ -194,7 +199,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
     test "signature must be last parameter", %{api_key: api_key, api_secret: api_secret} do
       # This tests that our implementation puts signature LAST
       request =
-        Req.new(
+        [
           base_url: "https://testnet.binance.vision",
           url: "/api/v3/account",
           params: %{
@@ -203,7 +208,8 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
             # Extra param to ensure signature is still last
             "symbol" => "BTCUSDT"
           }
-        )
+        ]
+        |> Req.new()
         |> Auth.sign_request(:spot, api_key, api_secret)
 
       # Auth module puts params in URL query string, not in options
@@ -220,14 +226,15 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
 
     test "includes X-MBX-APIKEY header", %{api_key: api_key, api_secret: api_secret} do
       request =
-        Req.new(
+        [
           base_url: "https://testnet.binance.vision",
           url: "/api/v3/account",
           params: %{
             "timestamp" => System.system_time(:millisecond),
             "recvWindow" => "5000"
           }
-        )
+        ]
+        |> Req.new()
         |> Auth.sign_request(:spot, api_key, api_secret)
 
       assert Req.Request.get_header(request, "x-mbx-apikey") == [api_key]
@@ -241,17 +248,16 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
 
       # The auth module should work as a Req step
       request =
-        Req.new(
+        [
           base_url: "https://testnet.binance.vision",
           url: "/api/v3/account",
           params: %{
             "timestamp" => "1234567890",
             "recvWindow" => "5000"
           }
-        )
-        |> Req.Request.append_request_steps(
-          binance_auth: &Auth.sign_request(&1, :spot, api_key, api_secret)
-        )
+        ]
+        |> Req.new()
+        |> Req.Request.append_request_steps(binance_auth: &Auth.sign_request(&1, :spot, api_key, api_secret))
 
       # Run the step - this actually runs the request step pipeline
       {request, _} = Req.Request.run_request(request)
@@ -273,11 +279,8 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
       api_secret = "test_secret"
 
       request =
-        Req.new(
-          base_url: "https://testnet.binance.vision",
-          url: "/api/v3/account",
-          params: %{}
-        )
+        [base_url: "https://testnet.binance.vision", url: "/api/v3/account", params: %{}]
+        |> Req.new()
         |> Auth.sign_request(:spot, api_key, api_secret)
 
       # Auth module puts params in URL query string, not in options
@@ -303,14 +306,15 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
       custom_recv_window = "10000"
 
       request =
-        Req.new(
+        [
           base_url: "https://testnet.binance.vision",
           url: "/api/v3/account",
           params: %{
             "timestamp" => custom_timestamp,
             "recvWindow" => custom_recv_window
           }
-        )
+        ]
+        |> Req.new()
         |> Auth.sign_request(:spot, api_key, api_secret)
 
       # Auth module puts params in URL query string, not in options
@@ -327,14 +331,15 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
       api_secret = "test_secret"
 
       request =
-        Req.new(
+        [
           base_url: "https://testnet.binance.vision",
           url: "/api/v3/account",
           params: %{
             # Over 60000 limit
             "recvWindow" => "70000"
           }
-        )
+        ]
+        |> Req.new()
         |> Auth.sign_request(:spot, api_key, api_secret)
 
       # Auth module puts params in URL query string, not in options
@@ -349,13 +354,14 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
       api_secret = "test_secret"
 
       request =
-        Req.new(
+        [
           base_url: "https://testnet.binance.vision",
           url: "/api/v3/account",
           params: %{
             "recvWindow" => "invalid"
           }
-        )
+        ]
+        |> Req.new()
         |> Auth.sign_request(:spot, api_key, api_secret)
 
       # Auth module puts params in URL query string, not in options
@@ -380,7 +386,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
 
       # Test the actual string signing
       actual_signature =
-        :crypto.mac(:hmac, :sha256, api_secret, query_string) |> Base.encode16(case: :lower)
+        :hmac |> :crypto.mac(:sha256, api_secret, query_string) |> Base.encode16(case: :lower)
 
       assert actual_signature == expected_signature
 

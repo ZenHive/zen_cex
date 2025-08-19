@@ -53,7 +53,8 @@ defmodule ZenCex.MixProject do
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:tidewave, "~> 0.2", only: :dev},
       {:bandit, "~> 1.0", only: :dev},
-      {:doctor, "~> 0.22.0", only: :dev}
+      {:doctor, "~> 0.22.0", only: :dev},
+      {:styler, "~> 1.5", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -64,8 +65,7 @@ defmodule ZenCex.MixProject do
     [
       test: ["test"],
       "test.cover": ["coveralls.html"],
-      tidewave:
-        "run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4000) end)'"
+      tidewave: "run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4000) end)'"
     ]
   end
 end

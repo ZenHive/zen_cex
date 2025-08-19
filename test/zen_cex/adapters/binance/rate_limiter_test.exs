@@ -1,9 +1,9 @@
 defmodule ZenCex.Adapters.Binance.RateLimiterTest do
   use ExUnit.Case, async: true
 
-  alias ZenCex.Adapters.Binance.RateLimiter
-
   import ExUnit.CaptureLog
+
+  alias ZenCex.Adapters.Binance.RateLimiter
 
   describe "check_and_increment/2" do
     test "always returns :ok for regular operations (non-HFT approach)" do
@@ -110,7 +110,7 @@ defmodule ZenCex.Adapters.Binance.RateLimiterTest do
       assert Map.has_key?(status, :futures)
 
       assert status.spot.limit == 1200
-      assert status.sapi.limit == 12000
+      assert status.sapi.limit == 12_000
       assert status.futures.limit == 2400
     end
   end
@@ -156,7 +156,7 @@ defmodule ZenCex.Adapters.Binance.RateLimiterTest do
       assert limits.spot.limit == 1200
       assert limits.spot.window == 60
 
-      assert limits.sapi.limit == 12000
+      assert limits.sapi.limit == 12_000
       assert limits.sapi.window == 60
 
       assert limits.futures.limit == 2400
@@ -184,7 +184,7 @@ defmodule ZenCex.Adapters.Binance.RateLimiterTest do
       RateLimiter.check_and_increment("/sapi/v1/asset/assetDetail", 1)
       status = RateLimiter.get_status("/sapi/v1/asset/assetDetail")
       # SAPI limit
-      assert status.limit == 12000
+      assert status.limit == 12_000
     end
 
     test "correctly identifies Futures API endpoints" do

@@ -93,7 +93,8 @@ defmodule ZenCex.Core.HTTP do
     receive_timeout = get_timeout(operation_type)
 
     # First create Req with user_agent option, this ensures put_user_agent step is included
-    Req.new(user_agent: "curl/7.68.0")
+    [user_agent: "curl/7.68.0"]
+    |> Req.new()
     |> Req.Request.register_options([
       :exchange,
       :operation_type,
@@ -133,7 +134,8 @@ defmodule ZenCex.Core.HTTP do
   """
   @spec health_check_request(atom()) :: Req.Request.t()
   def health_check_request(exchange) do
-    base_request(exchange, :health)
+    exchange
+    |> base_request(:health)
     |> Req.merge(skip_auth: true, skip_rate_limit: true)
   end
 
@@ -183,6 +185,7 @@ defmodule ZenCex.Core.HTTP do
   defp auth_step(request) do
     # TODO: Remove debug logging
     require Logger
+
     Logger.debug("Core.HTTP auth_step called, skip_auth: #{request.options[:skip_auth]}")
 
     if request.options[:skip_auth] do
@@ -320,8 +323,7 @@ defmodule ZenCex.Core.HTTP do
         host = request.options[:base_url] || ""
         path = request.options[:path] || "/"
 
-        "#{scheme}://#{host}#{path}"
-        |> URI.parse()
+        URI.parse("#{scheme}://#{host}#{path}")
       end
 
     uri.path || "/"

@@ -11,7 +11,10 @@ defmodule ZenCex.Adapters.Binance.Spot do
 
   use ZenCex.EndpointRegistry, adapter: ZenCex.Adapters.Binance.Endpoints, debug: false
 
-  alias ZenCex.Adapters.Binance.{Parser, RequestHelper}
+  alias ZenCex.Adapters.Binance.Endpoints
+  alias ZenCex.Adapters.Binance.Parser
+  alias ZenCex.Adapters.Binance.RequestHelper
+
   require Logger
 
   # Auth parameters that must be in query string
@@ -141,8 +144,8 @@ defmodule ZenCex.Adapters.Binance.Spot do
   # The EndpointRegistry macro will handle parsing the response
   defp execute_endpoint_request(config, params, opts, _adapter) do
     base_url =
-      ZenCex.Adapters.Binance.Endpoints.base_url(
-        ZenCex.Adapters.Binance.Endpoints.current_env(),
+      Endpoints.base_url(
+        Endpoints.current_env(),
         :spot
       )
 

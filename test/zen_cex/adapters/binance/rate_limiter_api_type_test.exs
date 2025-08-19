@@ -12,26 +12,27 @@ defmodule ZenCex.Adapters.Binance.RateLimiterApiTypeTest do
 
   use ExUnit.Case, async: false
 
-  alias ZenCex.Core.HTTP
-  alias ZenCex.Adapters.Binance.RateLimiter
-
   import ExUnit.CaptureLog
+
+  alias ZenCex.Adapters.Binance.Endpoints
+  alias ZenCex.Adapters.Binance.RateLimiter
+  alias ZenCex.Core.HTTP
 
   @moduletag :integration
 
   setup do
     # ENFORCE testnet usage - fail if production URL detected
     # Check the actual environment detection mechanism
-    env = ZenCex.Adapters.Binance.Endpoints.current_env()
+    env = Endpoints.current_env()
 
-    unless env == :test do
+    if env != :test do
       raise "TESTNET REQUIRED: Environment is #{env}, expected :test. Set BINANCE_TESTNET=true"
     end
 
     # Also verify the base URL is actually testnet
-    base_url = ZenCex.Adapters.Binance.Endpoints.base_url(env)
+    base_url = Endpoints.base_url(env)
 
-    unless base_url == "https://testnet.binance.vision" do
+    if base_url != "https://testnet.binance.vision" do
       raise "TESTNET URL REQUIRED: Got #{base_url}, expected https://testnet.binance.vision"
     end
 
@@ -49,7 +50,8 @@ defmodule ZenCex.Adapters.Binance.RateLimiterApiTypeTest do
       # Make a single lightweight request to Spot API
       # Server time endpoint has weight = 1 and no auth
       request =
-        HTTP.base_request(:binance, :market)
+        :binance
+        |> HTTP.base_request(:market)
         |> Req.merge(
           url: "/api/v3/time",
           # Public endpoint, no auth needed
@@ -67,7 +69,7 @@ defmodule ZenCex.Adapters.Binance.RateLimiterApiTypeTest do
 
           # Check that rate limit headers were present
           headers_map = Map.new(response.headers)
-          assert headers_map["x-mbx-used-weight-1m"] != nil
+          assert headers_map["x-mbx-used-weight-1m"]
         end)
 
       # Verify our rate limiter logged the usage
@@ -87,7 +89,8 @@ defmodule ZenCex.Adapters.Binance.RateLimiterApiTypeTest do
 
       # Exchange info has higher weight (10) but still public
       request =
-        HTTP.base_request(:binance, :market)
+        :binance
+        |> HTTP.base_request(:market)
         |> Req.merge(
           url: "/api/v3/exchangeInfo",
           # Public endpoint
@@ -118,7 +121,8 @@ defmodule ZenCex.Adapters.Binance.RateLimiterApiTypeTest do
         if weight > 50 do
           # Make another small request to potentially trigger monitoring
           request2 =
-            HTTP.base_request(:binance, :market)
+            :binance
+            |> HTTP.base_request(:market)
             |> Req.merge(
               # Weight = 1
               url: "/api/v3/ping",
@@ -165,7 +169,8 @@ defmodule ZenCex.Adapters.Binance.RateLimiterApiTypeTest do
       # Some endpoints might not return rate limit headers
       # Test with a very simple endpoint
       request =
-        HTTP.base_request(:binance, :health)
+        :binance
+        |> HTTP.base_request(:health)
         |> Req.merge(
           url: "/api/v3/ping",
           skip_auth: true
@@ -196,7 +201,7 @@ defmodule ZenCex.Adapters.Binance.RateLimiterApiTypeTest do
 
       assert limits.spot.limit == 1200
       assert limits.spot.window == 60
-      assert limits.sapi.limit == 12000
+      assert limits.sapi.limit == 12_000
       assert limits.sapi.window == 60
       assert limits.futures.limit == 2400
       assert limits.futures.window == 60

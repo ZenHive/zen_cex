@@ -74,7 +74,7 @@ defmodule BinanceIntegrationRunner do
 
   defp check_environment do
     # ENFORCE testnet URL
-    unless @testnet_base_url == "https://testnet.binance.vision" do
+    if @testnet_base_url != "https://testnet.binance.vision" do
       raise "TESTNET REQUIRED: URL must be testnet.binance.vision, got #{@testnet_base_url}"
     end
 
@@ -127,8 +127,7 @@ defmodule BinanceIntegrationRunner do
         :ok
 
       {:error, :unauthorized} ->
-        {:error,
-         "Invalid credentials - check your BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET"}
+        {:error, "Invalid credentials - check your BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET"}
 
       {:error, reason} ->
         # Credentials might be valid but account might be restricted
@@ -466,7 +465,7 @@ defmodule BinanceIntegrationRunner do
     query_string = URI.encode_query(auth_params)
 
     signature =
-      :crypto.mac(:hmac, :sha256, api_secret, query_string) |> Base.encode16(case: :lower)
+      :hmac |> :crypto.mac(:sha256, api_secret, query_string) |> Base.encode16(case: :lower)
 
     final_params = Map.put(auth_params, "signature", signature)
 
@@ -527,8 +526,7 @@ defmodule BinanceIntegrationRunner do
 
   defp estimate_total_requests, do: 15
 
-  defp estimate_duration,
-    do: div(estimate_total_requests() * @min_delay_between_requests_ms, 60_000) + 2
+  defp estimate_duration, do: div(estimate_total_requests() * @min_delay_between_requests_ms, 60_000) + 2
 end
 
 # Run the integration test if this script is executed directly

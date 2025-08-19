@@ -302,13 +302,15 @@ defmodule ZenCex.Test.FixtureHelper do
     file_path = Path.join(fixtures_dir, filename)
 
     fixture_data =
-      %{
-        data: data,
-        captured_at: System.system_time(:millisecond),
-        zen_cex_version: get_version(),
-        test_environment: get_test_environment(exchange)
-      }
-      |> Map.merge(metadata)
+      Map.merge(
+        %{
+          data: data,
+          captured_at: System.system_time(:millisecond),
+          zen_cex_version: get_version(),
+          test_environment: get_test_environment(exchange)
+        },
+        metadata
+      )
 
     json_content = Jason.encode!(fixture_data, pretty: true)
 

@@ -31,6 +31,7 @@ defmodule ZenCex.Adapters.Binance.RequestHelper do
   """
 
   alias ZenCex.Core.HTTP
+
   require Logger
 
   # HTTP status code ranges
@@ -87,7 +88,8 @@ defmodule ZenCex.Adapters.Binance.RequestHelper do
 
     # Build and execute request
     request =
-      HTTP.base_request(exchange, operation_type)
+      exchange
+      |> HTTP.base_request(operation_type)
       |> Req.merge(Map.to_list(base_opts))
       |> Req.merge(opts)
       |> Req.Request.put_private(:rate_limit_weight, config.weight)

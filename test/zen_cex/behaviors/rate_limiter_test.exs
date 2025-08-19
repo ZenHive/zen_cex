@@ -2,6 +2,7 @@ defmodule ZenCex.Behaviors.RateLimiterTest do
   use ExUnit.Case, async: true
 
   defmodule TestRateLimiter do
+    @moduledoc false
     @behaviour ZenCex.Behaviors.RateLimiter
 
     def start_link do

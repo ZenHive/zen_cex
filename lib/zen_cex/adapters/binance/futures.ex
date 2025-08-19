@@ -10,7 +10,10 @@ defmodule ZenCex.Adapters.Binance.Futures do
 
   use ZenCex.EndpointRegistry, adapter: ZenCex.Adapters.Binance.Endpoints
 
-  alias ZenCex.Adapters.Binance.{Parser, RequestHelper}
+  alias ZenCex.Adapters.Binance.Endpoints
+  alias ZenCex.Adapters.Binance.Parser
+  alias ZenCex.Adapters.Binance.RequestHelper
+
   require Logger
 
   @endpoints [
@@ -47,8 +50,8 @@ defmodule ZenCex.Adapters.Binance.Futures do
   # Custom implementation for execute_endpoint_request to integrate with our infrastructure
   defp execute_endpoint_request(config, params, opts, _adapter) do
     base_url =
-      ZenCex.Adapters.Binance.Endpoints.base_url(
-        ZenCex.Adapters.Binance.Endpoints.current_env(),
+      Endpoints.base_url(
+        Endpoints.current_env(),
         :futures
       )
 

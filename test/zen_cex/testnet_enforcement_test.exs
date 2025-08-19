@@ -65,7 +65,8 @@ defmodule ZenCex.TestnetEnforcementTest do
           lines = String.split(content, "\n")
 
           # Check for :skip in setup blocks (common anti-pattern)
-          Enum.with_index(lines, 1)
+          lines
+          |> Enum.with_index(1)
           |> Enum.reduce(acc, fn {line, line_num}, inner_acc ->
             if line =~ ~r/^\s*:skip\s*$/ do
               # Check if this is in a credential check context
@@ -100,7 +101,8 @@ defmodule ZenCex.TestnetEnforcementTest do
     test "integration tests enforce testnet URLs in setup" do
       # Find all integration test files
       integration_files =
-        Path.wildcard("test/**/*_test.exs")
+        "test/**/*_test.exs"
+        |> Path.wildcard()
         |> Enum.filter(fn file ->
           content = File.read!(file)
           content =~ ~r/@moduletag\s+:integration/ || content =~ ~r/@tag\s+:integration/
@@ -151,7 +153,8 @@ defmodule ZenCex.TestnetEnforcementTest do
             content = File.read!(file)
             lines = String.split(content, "\n")
 
-            Enum.with_index(lines, 1)
+            lines
+            |> Enum.with_index(1)
             |> Enum.reduce(acc, fn {line, line_num}, inner_acc ->
               # Check for production URLs that aren't in comments or assertions
               Enum.reduce(@production_hosts, inner_acc, fn prod_host, host_acc ->
@@ -190,11 +193,11 @@ defmodule ZenCex.TestnetEnforcementTest do
       original = System.get_env("BINANCE_TESTNET")
 
       try do
+        alias ZenCex.Adapters.Binance.Endpoints
         # Set testnet mode
         System.put_env("BINANCE_TESTNET", "true")
 
         # Verify endpoints module respects it
-        alias ZenCex.Adapters.Binance.Endpoints
         assert Endpoints.current_env() == :test
         assert Endpoints.base_url() == "https://testnet.binance.vision"
         assert Endpoints.base_url(:test, :futures) == "https://testnet.binancefuture.com"

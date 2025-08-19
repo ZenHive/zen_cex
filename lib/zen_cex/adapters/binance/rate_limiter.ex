@@ -26,7 +26,7 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
 
   # API type limits per minute
   @spot_limit 1200
-  @sapi_limit 12000
+  @sapi_limit 12_000
   @futures_limit 2400
 
   # Warning thresholds
@@ -194,7 +194,7 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
 
   defp current_minute do
     # Get current minute as unix timestamp
-    System.system_time(:second) |> div(60)
+    :second |> System.system_time() |> div(60)
   end
 
   defp parse_weight_header(value) when is_binary(value) do
@@ -215,20 +215,14 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
 
     cond do
       usage_percent >= @critical_threshold ->
-        Logger.critical(
-          "Binance #{api_type} API at #{round(usage_percent * 100)}% of rate limit (#{used}/#{limit})"
-        )
+        Logger.critical("Binance #{api_type} API at #{round(usage_percent * 100)}% of rate limit (#{used}/#{limit})")
 
       usage_percent >= @warning_threshold ->
-        Logger.warning(
-          "Binance #{api_type} API at #{round(usage_percent * 100)}% of rate limit (#{used}/#{limit})"
-        )
+        Logger.warning("Binance #{api_type} API at #{round(usage_percent * 100)}% of rate limit (#{used}/#{limit})")
 
       true ->
         # Below warning threshold, optionally log debug
-        Logger.debug(
-          "Binance #{api_type} API usage: #{used}/#{limit} (#{round(usage_percent * 100)}%)"
-        )
+        Logger.debug("Binance #{api_type} API usage: #{used}/#{limit} (#{round(usage_percent * 100)}%)")
     end
   end
 
@@ -276,7 +270,7 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
   Cleans up old entries from ETS table.
   Should be called periodically (e.g., every minute) to prevent memory growth.
   """
-  @spec cleanup_old_entries() :: :ok
+  @spec cleanup_old_entries() :: non_neg_integer()
   def cleanup_old_entries do
     table = get_or_create_table()
     current = current_minute()

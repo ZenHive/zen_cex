@@ -95,8 +95,7 @@ defmodule ZenCex.Adapters.Binance.ParserHtmlErrorTest do
       </html>
       """
 
-      assert {:error,
-              {:html_error, "503 Service Unavailable - Server overloaded or under maintenance"}} =
+      assert {:error, {:html_error, "503 Service Unavailable - Server overloaded or under maintenance"}} =
                Parser.parse_error(html)
     end
 

@@ -110,25 +110,23 @@ defmodule ZenCex.Safety.OrderSafety do
     key = {exchange, client_order_id}
 
     # Atomic check-and-insert operation
-    case :ets.insert_new(@table_name, {key, now_ms}) do
-      true ->
-        # Successfully inserted new entry
-        emit_telemetry(:order_recorded, exchange, client_order_id)
-        :ok
+    if :ets.insert_new(@table_name, {key, now_ms}) do
+      # Successfully inserted new entry
+      emit_telemetry(:order_recorded, exchange, client_order_id)
+      :ok
+    else
+      # Entry already exists, check if it's within the window
+      case :ets.lookup(@table_name, key) do
+        [{^key, timestamp}] when timestamp > cutoff ->
+          emit_telemetry(:duplicate_detected, exchange, client_order_id)
+          {:error, :duplicate}
 
-      false ->
-        # Entry already exists, check if it's within the window
-        case :ets.lookup(@table_name, key) do
-          [{^key, timestamp}] when timestamp > cutoff ->
-            emit_telemetry(:duplicate_detected, exchange, client_order_id)
-            {:error, :duplicate}
-
-          [{^key, _old_timestamp}] ->
-            # Old entry expired, update with new timestamp
-            :ets.insert(@table_name, {key, now_ms})
-            emit_telemetry(:order_recorded, exchange, client_order_id)
-            :ok
-        end
+        [{^key, _old_timestamp}] ->
+          # Old entry expired, update with new timestamp
+          :ets.insert(@table_name, {key, now_ms})
+          emit_telemetry(:order_recorded, exchange, client_order_id)
+          :ok
+      end
     end
   end
 
@@ -264,7 +262,7 @@ defmodule ZenCex.Safety.OrderSafety do
   @impl true
   def init(opts) do
     # Create ETS table if it doesn't exist
-    unless table_exists?() do
+    if !table_exists?() do
       :ets.new(@table_name, [
         :named_table,
         :public,

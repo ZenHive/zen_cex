@@ -175,8 +175,7 @@ defmodule ZenCex.Safety.ClockSyncTest do
     test "stores and retrieves offsets atomically" do
       # Test concurrent access to offsets
       tasks =
-        1..10
-        |> Enum.map(fn i ->
+        Enum.map(1..10, fn i ->
           Task.async(fn ->
             :ets.insert(:clock_offsets, {:"exchange_#{i}", i * 100})
             ClockSync.get_offset(:"exchange_#{i}")
@@ -193,8 +192,7 @@ defmodule ZenCex.Safety.ClockSyncTest do
     test "handles concurrent updates correctly" do
       # Multiple processes updating the same exchange
       tasks =
-        1..5
-        |> Enum.map(fn i ->
+        Enum.map(1..5, fn i ->
           Task.async(fn ->
             :ets.insert(:clock_offsets, {:test_exchange, i})
             ClockSync.get_offset(:test_exchange)
@@ -302,8 +300,7 @@ defmodule ZenCex.Safety.ClockSyncTest do
       send(name, :initial_sync)
 
       # Should receive the telemetry event
-      assert_receive {^ref, [:zen_cex, :clock_sync, :initial_sync_complete], measurements,
-                      metadata},
+      assert_receive {^ref, [:zen_cex, :clock_sync, :initial_sync_complete], measurements, metadata},
                      5000
 
       assert is_map(measurements)
@@ -343,8 +340,7 @@ defmodule ZenCex.Safety.ClockSyncTest do
       send(name, :periodic_sync)
 
       # Should receive the telemetry event
-      assert_receive {^ref, [:zen_cex, :clock_sync, :periodic_sync_complete], measurements,
-                      metadata},
+      assert_receive {^ref, [:zen_cex, :clock_sync, :periodic_sync_complete], measurements, metadata},
                      5000
 
       assert is_map(measurements)
