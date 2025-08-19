@@ -55,31 +55,52 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
   end
 
   @impl true
-  def update_from_response(%Req.Response{headers: headers} = _response) do
+  def update_from_response(%Req.Response{headers: headers} = response) do
     # Binance returns rate limit usage in headers
-    # x-mbx-used-weight-1m: weight used in last minute (Spot)
+    # x-mbx-used-weight-1m: weight used in last minute (Spot/Futures)
     # x-sapi-used-ip-weight-1m: weight used in last minute (SAPI)
-    # x-mbx-used-weight-1m: weight used in last minute (Futures)
+    # Note: Futures uses same header name as Spot but has different limits
 
     headers_map = Map.new(headers)
 
-    # Check Spot API weight
-    if spot_weight = headers_map["x-mbx-used-weight-1m"] do
-      weight_value = parse_weight_header(spot_weight)
-      check_and_log_usage(:spot, weight_value, @spot_limit)
+    # Detect API type from URL if available
+    api_type = detect_api_type_from_response(response)
+
+    # Check Spot/Futures API weight (same header, different limits)
+    if weight_header = headers_map["x-mbx-used-weight-1m"] do
+      weight_value = parse_weight_header(weight_header)
+
+      case api_type do
+        :futures ->
+          check_and_log_usage(:futures, weight_value, @futures_limit)
+
+        _ ->
+          # Default to spot for regular API endpoints
+          check_and_log_usage(:spot, weight_value, @spot_limit)
+      end
     end
 
-    # Check SAPI weight
+    # Check SAPI weight (separate header)
     if sapi_weight = headers_map["x-sapi-used-ip-weight-1m"] do
       weight_value = parse_weight_header(sapi_weight)
       check_and_log_usage(:sapi, weight_value, @sapi_limit)
     end
 
-    # Check Futures API weight (uses same header as spot but different context)
-    # TODO: We'd need to detect from the request URL whether it's futures
-    # TODO: For now, futures monitoring is handled by the spot check above
-
     :ok
+  end
+
+  # Helper to detect API type from response URL
+  defp detect_api_type_from_response(%Req.Response{} = response) do
+    # Try to get the request URL from the response
+    # Req stores the original request in the response private field
+    case response do
+      %{private: %{req_url: url}} when is_binary(url) ->
+        detect_api_type(url)
+
+      _ ->
+        # Fallback to :spot if we can't determine
+        :spot
+    end
   end
 
   @impl true

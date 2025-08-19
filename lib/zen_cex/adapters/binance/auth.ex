@@ -20,6 +20,7 @@ defmodule ZenCex.Adapters.Binance.Auth do
   timestamps that account for clock drift between local system and Binance servers.
   This prevents authentication failures due to timestamp skew.
   """
+  require Logger
 
   alias ZenCex.Safety.ClockSync
 
@@ -38,10 +39,10 @@ defmodule ZenCex.Adapters.Binance.Auth do
 
   ## Parameters
     * `request` - The Req.Request struct to sign
-    
+
   ## Returns
     * Modified request with Binance authentication applied
-    
+
   ## Examples
 
       # Called by Core.HTTP auth_step
@@ -58,10 +59,22 @@ defmodule ZenCex.Adapters.Binance.Auth do
       get_in(request.options, [:auth_credentials, :api_secret]) ||
         System.get_env("BINANCE_API_SECRET")
 
+    # TODO: Remove debug logging
+    require Logger
+
+    Logger.debug(
+      "Binance Auth: api_key present: #{api_key != nil}, api_secret present: #{api_secret != nil}"
+    )
+
+    if api_key == nil do
+      Logger.debug("Binance Auth: No API key found in options or env")
+    end
+
     # Default to spot API type (could be made configurable via request.private)
     api_type = get_in(request.private, [:api_type]) || :spot
 
     if api_key && api_secret do
+      Logger.debug("Binance Auth: Signing request with credentials")
       sign_request(request, api_type, api_key, api_secret)
     else
       # Return request unchanged if no credentials available
@@ -98,22 +111,90 @@ defmodule ZenCex.Adapters.Binance.Auth do
     # Validate API type
     _base_url = base_url(api_type)
 
+    # TODO: Remove debug logging
+    Logger.debug("Binance Auth: Starting to sign request for #{request.url}")
+
     # Add API key header
     request = Req.Request.put_header(request, "x-mbx-apikey", api_key)
 
-    # Get params and ensure timestamp/recvWindow are present
-    params = request.options[:params] || %{}
-    params_with_timing = ensure_timing_params(params, api_type)
+    # For Binance, we need to sign ALL params (query + body) together
+    # Get both query params and body params (if they exist)
+    # IMPORTANT: Track whether these options were actually set
+    # Note: has_params_option is not currently used but kept for potential future use
+    _has_params_option = Map.has_key?(request.options, :params)
+    has_json_option = Map.has_key?(request.options, :json)
 
-    # Generate signature for params (without the signature field)
-    signature = generate_signature(params_with_timing, api_secret)
+    query_params = request.options[:params] || %{}
+    body_params = request.options[:json] || %{}
 
-    # Add signature to params
-    # Note: Binance requires signature to be the last parameter in the actual HTTP request.
-    # Req handles this by building the query string appropriately.
-    updated_params = Map.put(params_with_timing, "signature", signature)
+    # Combine all params for signature generation
+    all_params = Map.merge(body_params, query_params)
 
-    %{request | options: Map.put(request.options, :params, updated_params)}
+    # Ensure timing params are present
+    all_params_with_timing = ensure_timing_params(all_params, api_type)
+
+    # Generate signature for ALL params
+    signature = generate_signature(all_params_with_timing, api_secret)
+
+    # CRITICAL: For Binance, signature MUST be the LAST parameter in query string
+    # We need to build the URL manually to ensure proper ordering
+
+    # Get existing query params (non-auth params like symbol, etc.)
+    existing_params = Map.drop(all_params_with_timing, ["timestamp", "recvWindow"])
+
+    # Build query string manually with proper ordering:
+    # 1. Existing params first (alphabetically)
+    # 2. timestamp
+    # 3. recvWindow
+    # 4. signature LAST
+
+    param_pairs = []
+
+    # Add existing params (sorted for consistency)
+    param_pairs =
+      param_pairs ++
+        (existing_params
+         |> Enum.sort()
+         |> Enum.map(fn {k, v} -> "#{k}=#{URI.encode_www_form(to_string(v))}" end))
+
+    # Add timing params
+    param_pairs =
+      param_pairs ++
+        [
+          "timestamp=#{all_params_with_timing["timestamp"]}",
+          "recvWindow=#{all_params_with_timing["recvWindow"]}"
+        ]
+
+    # Add signature LAST
+    param_pairs = param_pairs ++ ["signature=#{signature}"]
+
+    # Build final query string
+    query_string = Enum.join(param_pairs, "&")
+
+    # Update the URL directly instead of using params
+    base_url = URI.to_string(%{request.url | query: nil})
+    final_url = if query_string != "", do: "#{base_url}?#{query_string}", else: base_url
+
+    Logger.debug("Binance Auth: Final URL: #{final_url}")
+
+    # Update options - DON'T add params or json if they weren't originally present
+    # IMPORTANT: Preserve all other options like user_agent
+    updated_options =
+      request.options
+      # Always remove params - they're now in the URL
+      |> Map.delete(:params)
+      # Remove json first, then add back only if needed
+      |> Map.delete(:json)
+      |> then(fn opts ->
+        # Only add json back if it was originally present AND has content
+        if has_json_option and map_size(body_params) > 0 do
+          Map.put(opts, :json, body_params)
+        else
+          opts
+        end
+      end)
+
+    %{request | url: URI.parse(final_url), options: updated_options}
   end
 
   @doc """
@@ -157,9 +238,9 @@ defmodule ZenCex.Adapters.Binance.Auth do
   """
   @spec generate_signature(map(), String.t()) :: String.t()
   def generate_signature(params, api_secret) do
-    # Convert params to query string maintaining order
-    # Binance requires specific order (not sorted alphabetically)
-    query_string = URI.encode_query(params)
+    # Build query string with proper parameter ordering
+    # Binance is sensitive to parameter order - cannot use URI.encode_query which sorts alphabetically
+    query_string = build_query_string(params)
 
     # Generate HMAC-SHA256 signature
     :crypto.mac(:hmac, :sha256, api_secret, query_string)
@@ -167,6 +248,45 @@ defmodule ZenCex.Adapters.Binance.Auth do
   end
 
   # Private helper functions
+
+  @spec build_query_string(map()) :: String.t()
+  defp build_query_string(params) do
+    # Build query string with Binance-expected parameter order
+    # Important: Binance is sensitive to parameter order, cannot use URI.encode_query
+
+    # Standard parameters (like symbol, side, quantity, etc.) come first (sorted)
+    standard_params = Map.drop(params, ["timestamp", "recvWindow"])
+
+    # Timing parameters come last in specific order
+    timing_params = Map.take(params, ["timestamp", "recvWindow"])
+
+    # Build param pairs maintaining proper order
+    param_pairs = []
+
+    # Add standard params (sorted for consistency)
+    param_pairs =
+      param_pairs ++
+        (standard_params
+         |> Enum.sort()
+         |> Enum.map(fn {k, v} -> "#{k}=#{URI.encode_www_form(to_string(v))}" end))
+
+    # Add timing params in specific order
+    param_pairs =
+      if Map.has_key?(timing_params, "timestamp") do
+        param_pairs ++ ["timestamp=#{timing_params["timestamp"]}"]
+      else
+        param_pairs
+      end
+
+    param_pairs =
+      if Map.has_key?(timing_params, "recvWindow") do
+        param_pairs ++ ["recvWindow=#{timing_params["recvWindow"]}"]
+      else
+        param_pairs
+      end
+
+    Enum.join(param_pairs, "&")
+  end
 
   @spec ensure_timestamp(map(), api_type()) :: map()
   defp ensure_timestamp(params, api_type) do
@@ -240,7 +360,7 @@ defmodule ZenCex.Adapters.Binance.Auth do
 
       iex> Auth.base_url(:spot)
       "https://api.binance.com"
-      
+
       iex> Auth.base_url(:usdm_futures)
       "https://fapi.binance.com"
   """

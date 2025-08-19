@@ -11,51 +11,67 @@ defmodule ZenCex.Adapters.Binance.EnvironmentConsistencyTest do
 
   describe "environment selection consistency" do
     test "base_url/0 respects BINANCE_TESTNET environment variable" do
-      # Test production (default)
-      System.delete_env("BINANCE_TESTNET")
-      assert Endpoints.base_url() == "https://api.binance.com"
-      assert Endpoints.current_env() == :prod
+      original = System.get_env("BINANCE_TESTNET")
 
-      # Test with explicit false
-      System.put_env("BINANCE_TESTNET", "false")
-      assert Endpoints.base_url() == "https://api.binance.com"
-      assert Endpoints.current_env() == :prod
+      try do
+        # Test production (default)
+        System.delete_env("BINANCE_TESTNET")
+        assert Endpoints.base_url() == "https://api.binance.com"
+        assert Endpoints.current_env() == :prod
 
-      # Test testnet
-      System.put_env("BINANCE_TESTNET", "true")
-      assert Endpoints.base_url() == "https://testnet.binance.vision"
-      assert Endpoints.current_env() == :test
+        # Test with explicit false
+        System.put_env("BINANCE_TESTNET", "false")
+        assert Endpoints.base_url() == "https://api.binance.com"
+        assert Endpoints.current_env() == :prod
 
-      # Test with any other value defaults to prod
-      System.put_env("BINANCE_TESTNET", "yes")
-      assert Endpoints.base_url() == "https://testnet.binance.vision"
-      assert Endpoints.current_env() == :test
+        # Test testnet
+        System.put_env("BINANCE_TESTNET", "true")
+        assert Endpoints.base_url() == "https://testnet.binance.vision"
+        assert Endpoints.current_env() == :test
 
-      # Clean up
-      System.delete_env("BINANCE_TESTNET")
+        # Test with any other value defaults to prod
+        System.put_env("BINANCE_TESTNET", "yes")
+        assert Endpoints.base_url() == "https://testnet.binance.vision"
+        assert Endpoints.current_env() == :test
+      after
+        # Restore original value
+        if original do
+          System.put_env("BINANCE_TESTNET", original)
+        else
+          System.delete_env("BINANCE_TESTNET")
+        end
+      end
     end
 
     test "generated endpoints use correct base URL" do
-      # This test verifies that generated functions use base_url/0
-      # We can't directly test the URL construction without making actual requests,
-      # but we can verify the function exists and accepts the right parameters
+      original = System.get_env("BINANCE_TESTNET")
 
-      # Test that generated functions exist
-      assert function_exported?(Endpoints, :get_balances, 1)
-      assert function_exported?(Endpoints, :place_order, 1)
-      assert function_exported?(Endpoints, :cancel_order, 1)
+      try do
+        # This test verifies that generated functions use base_url/0
+        # We can't directly test the URL construction without making actual requests,
+        # but we can verify the function exists and accepts the right parameters
 
-      # These functions should work with both prod and test environments
-      # The actual URL construction happens inside the macro-generated code
-      System.put_env("BINANCE_TESTNET", "true")
+        # Test that generated functions exist
+        assert function_exported?(Endpoints, :get_balances, 1)
+        assert function_exported?(Endpoints, :place_order, 1)
+        assert function_exported?(Endpoints, :cancel_order, 1)
+
+        # These functions should work with both prod and test environments
+        # The actual URL construction happens inside the macro-generated code
+        System.put_env("BINANCE_TESTNET", "true")
+      after
+        # Restore original value
+        if original do
+          System.put_env("BINANCE_TESTNET", original)
+        else
+          System.delete_env("BINANCE_TESTNET")
+        end
+      end
 
       # We can test that the endpoint configuration exists
       config = Endpoints.get_endpoint(:get_balances)
       assert config.path == "/api/v3/account"
       assert config.requires_auth == true
-
-      # Clean up
-      System.delete_env("BINANCE_TESTNET")
     end
 
     test "hand-written endpoints use correct base URL" do
@@ -76,9 +92,6 @@ defmodule ZenCex.Adapters.Binance.EnvironmentConsistencyTest do
 
       # Both generated and hand-written functions will use this base URL
       # This ensures consistency across all endpoint types
-
-      # Clean up
-      System.delete_env("BINANCE_TESTNET")
     end
   end
 
@@ -110,28 +123,36 @@ defmodule ZenCex.Adapters.Binance.EnvironmentConsistencyTest do
     end
 
     test "EndpointRegistry correctly routes URLs based on api_type" do
-      # Test that futures endpoints would use correct base URL
-      System.delete_env("BINANCE_TESTNET")
+      original = System.get_env("BINANCE_TESTNET")
 
-      # Simulate EndpointRegistry build_request logic for futures endpoint
-      config = %{api_type: :futures}
-      adapter = Endpoints
+      try do
+        # Test that futures endpoints would use correct base URL
+        System.delete_env("BINANCE_TESTNET")
 
-      if Map.has_key?(config, :api_type) and function_exported?(adapter, :base_url, 2) do
-        base_url = adapter.base_url(adapter.current_env(), config.api_type)
-        assert base_url == "https://fapi.binance.com"
+        # Simulate EndpointRegistry build_request logic for futures endpoint
+        config = %{api_type: :futures}
+        adapter = Endpoints
+
+        if Map.has_key?(config, :api_type) and function_exported?(adapter, :base_url, 2) do
+          base_url = adapter.base_url(adapter.current_env(), config.api_type)
+          assert base_url == "https://fapi.binance.com"
+        end
+
+        # Test with testnet
+        System.put_env("BINANCE_TESTNET", "true")
+
+        if Map.has_key?(config, :api_type) and function_exported?(adapter, :base_url, 2) do
+          base_url = adapter.base_url(adapter.current_env(), config.api_type)
+          assert base_url == "https://testnet.binancefuture.com"
+        end
+      after
+        # Restore original value
+        if original do
+          System.put_env("BINANCE_TESTNET", original)
+        else
+          System.delete_env("BINANCE_TESTNET")
+        end
       end
-
-      # Test with testnet
-      System.put_env("BINANCE_TESTNET", "true")
-
-      if Map.has_key?(config, :api_type) and function_exported?(adapter, :base_url, 2) do
-        base_url = adapter.base_url(adapter.current_env(), config.api_type)
-        assert base_url == "https://testnet.binancefuture.com"
-      end
-
-      # Clean up
-      System.delete_env("BINANCE_TESTNET")
     end
   end
 end

@@ -8,6 +8,19 @@ You are a senior Elixir developer with:
 - Production experience with fault-tolerant financial systems
 - Deep understanding of REST API patterns, rate limiting, and authentication
 
+## Testing Philosophy
+
+### Real TESTNET APIs Only
+**[!] CRITICAL RULE: ALL Tests Must Use Real TESTNET APIs [!]**
+- **Test against real exchange testnet/sandbox APIs. Period.**
+- **No mocks. No fixtures. No simulation. Just real testnet APIs.**
+- **NEVER use production APIs in tests.**
+- **Tests MUST FAIL loudly if testnet credentials missing** (no silent skipping)
+- **Tests MUST FAIL if production URLs detected** (enforce testnet-only)
+- **Use `_TESTNET_` in environment variable names** (e.g., BINANCE_TESTNET_API_KEY)
+
+This ensures reliable, production-ready code by testing against actual exchange behavior.
+
 ## Development Philosophy
 
 ### Simplicity Guidelines
@@ -111,6 +124,7 @@ Please provide an unbiased, comprehensive review of both documents covering:
    - Do the patterns address real-world trading issues?
    - Are the safety mechanisms sufficient?
    - What could go wrong?
+   - Is the "Real TESTNET APIs Only" testing strategy properly implemented?
 
 5. **Architectural Consistency**
    - Review AI-IMPLEMENTATION.md and AI-REVIEW.md for outdated adapter references

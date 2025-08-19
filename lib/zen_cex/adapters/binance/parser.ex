@@ -258,7 +258,22 @@ defmodule ZenCex.Adapters.Binance.Parser do
     {:error, {:unknown_error, response}}
   end
 
-  def parse_error(_), do: {:error, :unknown_error}
+  def parse_error(response) do
+    # TODO: Add better error handling for HTML error pages
+    # For now, log what we got for debugging
+    case response do
+      html when is_binary(html) and byte_size(html) > 0 ->
+        if String.contains?(html, "DOCTYPE") or String.contains?(html, "<HTML>") do
+          # This is an HTML error page, likely from CDN/WAF
+          {:error, :html_error_page}
+        else
+          {:error, :unknown_error}
+        end
+
+      _ ->
+        {:error, :unknown_error}
+    end
+  end
 
   # WebSocket parsing - marked as not implemented per project scope
   @impl true

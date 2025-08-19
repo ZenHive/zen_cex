@@ -10,7 +10,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   This is a ROUTER ONLY - it contains no endpoint definitions.
   All endpoints are defined in nested modules:
   - `Binance.Spot` - Spot trading endpoints
-  - `Binance.Futures` - Futures trading endpoints  
+  - `Binance.Futures` - Futures trading endpoints
   - `Binance.Margin` - Margin trading endpoints
   - `Binance.Common` - Shared endpoints (server_time, etc.)
 
@@ -85,22 +85,50 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   @spec base_url(:test | :prod, atom()) :: String.t()
   def base_url(env, api_type)
 
-  # Test environment URLs
+  # ============================
+  # Testnet Environment
+  # ============================
+
+  # Spot (and Margin) — only /api/* endpoints (NOT /sapi/*)
   def base_url(:test, :spot), do: "https://testnet.binance.vision"
-  def base_url(:test, :futures), do: "https://testnet.binancefuture.com"
   def base_url(:test, :margin), do: "https://testnet.binance.vision"
-  def base_url(:test, :sapi), do: "https://testnet.binance.vision"
+
+  # Futures (USD-M) Testnet
+  def base_url(:test, :futures), do: "https://testnet.binancefuture.com"
+
+  # COIN-M Futures (DAPI) Testnet
   def base_url(:test, :dapi), do: "https://testnet.binancefuture.com"
-  def base_url(:test, :papi), do: "https://testnet.binance.vision"
+
+  # Portfolio Margin (PAPI) uses Futures Testnet
+  def base_url(:test, :papi), do: "https://testnet.binancefuture.com"
+
+  # SAPI endpoints are NOT supported on Testnet
+  def base_url(:test, :sapi), do: {:error, :no_testnet_for_sapi}
+
+  # Default to Spot Testnet
   def base_url(:test, _), do: "https://testnet.binance.vision"
 
-  # Production environment URLs
+  # ============================
+  # Production Environment
+  # ============================
+
+  # Spot + Margin
   def base_url(:prod, :spot), do: "https://api.binance.com"
-  def base_url(:prod, :futures), do: "https://fapi.binance.com"
   def base_url(:prod, :margin), do: "https://api.binance.com"
+
+  # SAPI (sub-account, fiat, etc.)
   def base_url(:prod, :sapi), do: "https://api.binance.com"
+
+  # Futures (USD-M)
+  def base_url(:prod, :futures), do: "https://fapi.binance.com"
+
+  # COIN-M Futures
   def base_url(:prod, :dapi), do: "https://dapi.binance.com"
+
+  # Portfolio Margin
   def base_url(:prod, :papi), do: "https://papi.binance.com"
+
+  # Default to Spot
   def base_url(:prod, _), do: "https://api.binance.com"
 
   # ============================================================================

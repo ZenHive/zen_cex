@@ -2,11 +2,11 @@ import Config
 
 # Suppress telemetry warnings about local functions during tests
 config :logger, :console,
-  level: :warning,
+  level: :debug,
   format: "$time $metadata[$level] $message\n",
   metadata: [:endpoint, :operation]
 
-# Suppress specific logger warnings for tests  
+# Suppress specific logger warnings for tests
 config :logger,
   compile_time_purge_matching: [
     # Suppress telemetry local function warnings

@@ -74,7 +74,9 @@ defmodule ZenCex.Core.EndpointRegistryMacroTest do
         use ZenCex.EndpointRegistry, adapter: __MODULE__
 
         def __exchange__, do: :telemetry_test
-        def base_url(_), do: "https://test.com"
+        def base_url(), do: "https://test.com"
+        def base_url(_env, _api_type), do: "https://test.com"
+        def current_env(), do: :test
         def auth, do: TestAuth
         def rate_limiter, do: TestRateLimiter
 
@@ -92,7 +94,7 @@ defmodule ZenCex.Core.EndpointRegistryMacroTest do
         ]
 
         # Mock the execute_endpoint_request to return success
-        defp execute_endpoint_request(_config, _params, _adapter) do
+        defp execute_endpoint_request(_config, _params, _opts, _adapter) do
           {:ok, %{test: "data"}}
         end
       end
@@ -189,7 +191,9 @@ defmodule ZenCex.Core.EndpointRegistryMacroTest do
         use ZenCex.EndpointRegistry, adapter: __MODULE__
 
         def __exchange__, do: :transformer_test
-        def base_url(_), do: "https://test.com"
+        def base_url(), do: "https://test.com"
+        def base_url(_env, _api_type), do: "https://test.com"
+        def current_env(), do: :test
         def auth, do: TestAuth
         def rate_limiter, do: TestRateLimiter
 
@@ -208,7 +212,7 @@ defmodule ZenCex.Core.EndpointRegistryMacroTest do
         ]
 
         # Capture the params that were passed
-        defp execute_endpoint_request(_config, params, _adapter) do
+        defp execute_endpoint_request(_config, params, _opts, _adapter) do
           {:ok, params}
         end
       end

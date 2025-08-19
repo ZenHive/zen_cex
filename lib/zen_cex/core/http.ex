@@ -92,7 +92,8 @@ defmodule ZenCex.Core.HTTP do
 
     receive_timeout = get_timeout(operation_type)
 
-    Req.new()
+    # First create Req with user_agent option, this ensures put_user_agent step is included
+    Req.new(user_agent: "curl/7.68.0")
     |> Req.Request.register_options([
       :exchange,
       :operation_type,
@@ -180,6 +181,10 @@ defmodule ZenCex.Core.HTTP do
 
   @spec auth_step(Req.Request.t()) :: Req.Request.t()
   defp auth_step(request) do
+    # TODO: Remove debug logging
+    require Logger
+    Logger.debug("Core.HTTP auth_step called, skip_auth: #{request.options[:skip_auth]}")
+
     if request.options[:skip_auth] do
       request
     else
@@ -209,12 +214,16 @@ defmodule ZenCex.Core.HTTP do
       # Get the rate limiter module
       rate_limiter = endpoints.rate_limiter()
 
+      # Store request URL in response private for rate limiter to detect API type
+      response_with_url =
+        put_in(response.private[:req_url], request.url.path || get_endpoint(request))
+
       # Update rate limit tracking from response headers
       if function_exported?(rate_limiter, :update_from_response, 1) do
-        rate_limiter.update_from_response(response)
+        rate_limiter.update_from_response(response_with_url)
       end
 
-      {request, response}
+      {request, response_with_url}
     end
   end
 

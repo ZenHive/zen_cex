@@ -205,9 +205,11 @@ defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
       assert Endpoints.base_url(:test, :spot) == "https://testnet.binance.vision"
       assert Endpoints.base_url(:test, :futures) == "https://testnet.binancefuture.com"
       assert Endpoints.base_url(:test, :margin) == "https://testnet.binance.vision"
-      assert Endpoints.base_url(:test, :sapi) == "https://testnet.binance.vision"
+      # SAPI endpoints are not available on testnet
+      assert Endpoints.base_url(:test, :sapi) == {:error, :no_testnet_for_sapi}
       assert Endpoints.base_url(:test, :dapi) == "https://testnet.binancefuture.com"
-      assert Endpoints.base_url(:test, :papi) == "https://testnet.binance.vision"
+      # Portfolio Margin uses Futures testnet
+      assert Endpoints.base_url(:test, :papi) == "https://testnet.binancefuture.com"
 
       # Production environment
       assert Endpoints.base_url(:prod, :spot) == "https://api.binance.com"

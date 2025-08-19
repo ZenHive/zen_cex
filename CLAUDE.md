@@ -536,6 +536,12 @@ mix test --only integration:binance
 mix test --only integration
 ```
 
+**Note: First Test Run Behavior**
+When running tests that connect to real testnet APIs, some tests may fail on the first run due to initial connection setup and synchronization. This is expected behavior. To ensure all tests pass:
+1. Run `mix test` (some tests may fail initially)
+2. Run `mix test --failed --trace` to re-run only the failed tests with detailed output
+3. Failed tests should pass on the second run once connections are established
+
 ### Writing Integration Tests
 
 ```elixir

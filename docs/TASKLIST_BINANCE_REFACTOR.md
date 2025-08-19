@@ -177,7 +177,10 @@ Binance.Margin.place_order/1    # Margin trading
 - [ ] **CRITICAL**: Each module MUST have real API integration tests
   - [ ] Test against Binance testnet with real credentials
   - [ ] Document actual API behavior from real testing
-  - [ ] Only add mocks after validating real API responses
+  - [ ] NO mocks - test against real testnet APIs only
+  - [ ] Use `_TESTNET_` in environment variable names (e.g., BINANCE_TESTNET_API_KEY)
+  - [ ] Tests MUST FAIL loudly if testnet credentials missing (no silent skipping)
+  - [ ] Tests MUST FAIL if production URLs detected (enforce testnet-only)
 
 ### 2.3 Endpoint Discovery
 - [ ] Add `list_available_endpoints/0` function

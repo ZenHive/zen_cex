@@ -280,7 +280,9 @@ defmodule ZenCex.EndpointRegistry do
             weight: unquote(weight),
             timeout: Keyword.get(opts, :timeout, unquote(timeout)),
             max_retries: Keyword.get(opts, :max_retries, unquote(max_retries)),
-            retry_on: unquote(retry_on)
+            retry_on: unquote(retry_on),
+            response_parser: unquote(Macro.escape(Map.get(endpoint, :response_parser))),
+            error_mapping: unquote(Macro.escape(Map.get(endpoint, :error_mapping)))
           }
 
           # Add api_type if present
@@ -326,9 +328,9 @@ defmodule ZenCex.EndpointRegistry do
             start_metadata
           )
 
-          # Execute the request
+          # Execute the request (pass opts to allow for auth_credentials)
           result =
-            case execute_endpoint_request(endpoint_config, final_params, unquote(adapter)) do
+            case execute_endpoint_request(endpoint_config, final_params, opts, unquote(adapter)) do
               {:ok, response} ->
                 # Parse the response
                 unquote(response_parser).(response)
@@ -367,12 +369,14 @@ defmodule ZenCex.EndpointRegistry do
 
       # Private helper for request execution (shared by all generated functions)
       # Using Module.defines_function?/3 for more reliable detection
-      if not function_exported?(module, :execute_endpoint_request, 3) and
-           not Module.defines?(module, {:execute_endpoint_request, 3}, :defp) do
+      if not function_exported?(module, :execute_endpoint_request, 4) and
+           not Module.defines?(module, {:execute_endpoint_request, 4}, :defp) do
         quote do
-          defp execute_endpoint_request(config, params, adapter) do
-            # Build the request
-            request = build_request(config, params, adapter)
+          defp execute_endpoint_request(config, params, opts, adapter) do
+            # Build the request with opts passed through
+            request =
+              build_request(config, params, adapter)
+              |> Req.merge(opts)
 
             # Add retry logic based on config
             request =

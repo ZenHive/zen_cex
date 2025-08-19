@@ -6,50 +6,44 @@ defmodule ZenCex.Adapters.Binance.Common do
   server time, exchange info, etc.
   """
 
+  use ZenCex.EndpointRegistry, adapter: ZenCex.Adapters.Binance.Endpoints
+
   alias ZenCex.Adapters.Binance.{Parser, RequestHelper}
   require Logger
 
-  @endpoint_config %{
-    operation: :get_server_time,
-    method: :get,
-    path: "/api/v3/time",
-    requires_auth: false,
-    weight: 1,
-    # 2 second timeout
-    timeout: 2_000,
-    # Public endpoint, only retry on timeout
-    retry_on: [:timeout],
-    response_parser: &Parser.parse_server_time/1,
-    error_mapping: &Parser.parse_error/1
-  }
+  @endpoints [
+    %{
+      operation: :get_server_time,
+      method: :get,
+      path: "/api/v3/time",
+      requires_auth: false,
+      weight: 1,
+      timeout: 2_000,
+      retry_on: [:timeout],
+      response_parser: &Parser.parse_server_time/1,
+      error_mapping: &Parser.parse_error/1,
+      doc: """
+      Get server time from the exchange.
 
-  @doc """
-  Get server time from the exchange.
+      ## Error Scenarios
 
-  ## Error Scenarios
+      - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded
+      - `{:error, %Mint.TransportError{}}` - Network connectivity issues
+      """
+    }
+  ]
 
-  - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded
-  - `{:error, %Mint.TransportError{}}` - Network connectivity issues
-  """
-  @spec get_server_time() :: {:ok, map()} | {:error, term()}
-  def get_server_time(opts \\ []) do
-    config = @endpoint_config
+  # The EndpointRegistry macro automatically generates:
+  # - get_server_time/0 and get_server_time/1
+  # - get_endpoint/1 
+  # - all_endpoints/0
+  # - get_weight/1
+
+  # Custom implementation for execute_endpoint_request to integrate with our infrastructure
+  defp execute_endpoint_request(config, params, opts, _adapter) do
     base_url = ZenCex.Adapters.Binance.Endpoints.base_url()
 
-    # Server time is a health check endpoint
-    RequestHelper.execute_request(config, %{}, opts, base_url, :binance, :health)
+    # Server time is a health check endpoint (pass opts through)
+    RequestHelper.execute_request(config, params, opts, base_url, :binance, :health)
   end
-
-  @doc """
-  Returns the endpoint configuration for the given operation.
-  """
-  @spec get_endpoint(atom()) :: map() | nil
-  def get_endpoint(:get_server_time), do: @endpoint_config
-  def get_endpoint(_), do: nil
-
-  @doc """
-  Returns all endpoints defined in this module.
-  """
-  @spec all_endpoints() :: [map()]
-  def all_endpoints, do: [@endpoint_config]
 end
