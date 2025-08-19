@@ -43,6 +43,8 @@ defmodule ZenCex.EndpointRegistry do
   ```
   """
 
+  alias ZenCex.Core.HTTP
+
   @default_timeout 30_000
   @default_retries 0
 
@@ -192,6 +194,8 @@ defmodule ZenCex.EndpointRegistry do
           description: "#{module}: Order placement operations MUST NOT have retries (found max_retries: #{max_retries})"
       end
     end
+
+    :ok
   end
 
   defp validate_endpoint!(_, module) do
@@ -472,23 +476,65 @@ defmodule ZenCex.EndpointRegistry do
   defp generate_request_executor do
     quote do
       defp execute_endpoint_request(config, params, opts, adapter) do
-        # Build the request with opts passed through
-        request =
-          config
-          |> build_request(params, adapter)
-          |> Req.merge(opts)
+        config
+        |> build_request(params, adapter)
+        |> merge_user_options(opts)
+        |> apply_retry_logic(config)
+        |> execute_request()
+      end
 
-        # Add retry logic based on config
-        request =
-          if config.max_retries > 0 and length(config.retry_on) > 0 do
-            Req.Request.prepend_error_steps(request,
-              endpoint_retry: &handle_retry(&1, config)
-            )
-          else
-            request
-          end
+      defp build_request(config, params, adapter) do
+        base_url = determine_base_url(config, adapter)
+        operation_type = map_to_operation_type(config)
 
-        # Execute the request
+        adapter.__exchange__()
+        |> HTTP.base_request(operation_type)
+        |> configure_request(config, params, base_url)
+        |> add_request_metadata(config)
+      end
+
+      defp determine_base_url(config, adapter) do
+        if Map.has_key?(config, :api_type) and function_exported?(adapter, :base_url, 2) do
+          adapter.base_url(adapter.current_env(), config.api_type)
+        else
+          adapter.base_url()
+        end
+      end
+
+      defp configure_request(request, config, params, base_url) do
+        Req.merge(request,
+          method: config.method,
+          url: base_url <> config.path,
+          params: if(config.method == :get, do: params),
+          json: if(config.method == :get, do: nil, else: params),
+          receive_timeout: config.timeout,
+          skip_auth: not config.requires_auth,
+          retry: false
+        )
+      end
+
+      defp add_request_metadata(request, config) do
+        request
+        |> Req.Request.put_private(:rate_limit_weight, config.weight)
+        |> Req.Request.put_private(:endpoint_config, config)
+        |> Req.Request.put_private(:endpoint_operation, config.operation)
+      end
+
+      defp merge_user_options(request, opts) do
+        Req.merge(request, opts)
+      end
+
+      defp apply_retry_logic(request, config) do
+        if config.max_retries > 0 and length(config.retry_on) > 0 do
+          Req.Request.prepend_error_steps(request,
+            endpoint_retry: &handle_retry(&1, config)
+          )
+        else
+          request
+        end
+      end
+
+      defp execute_request(request) do
         case Req.request(request) do
           {:ok, %Req.Response{status: status} = response} when status in 200..299 ->
             {:ok, response.body}
@@ -501,41 +547,7 @@ defmodule ZenCex.EndpointRegistry do
         end
       end
 
-      defp build_request(config, params, adapter) do
-        # Determine operation type from config
-        operation_type = map_to_operation_type(config)
-
-        # Determine base URL based on api_type if present
-        base_url =
-          if Map.has_key?(config, :api_type) and function_exported?(adapter, :base_url, 2) do
-            adapter.base_url(adapter.current_env(), config.api_type)
-          else
-            adapter.base_url()
-          end
-
-        # Use Core.HTTP to create the base request with all middleware
-        adapter.__exchange__()
-        |> ZenCex.Core.HTTP.base_request(operation_type)
-        |> Req.merge(
-          method: config.method,
-          url: base_url <> config.path,
-          params: if(config.method == :get, do: params),
-          json: if(config.method == :get, do: nil, else: params),
-          receive_timeout: config.timeout,
-          # Control auth based on endpoint config
-          skip_auth: not config.requires_auth,
-          # We handle retry at the endpoint level
-          retry: false
-        )
-        # Store endpoint metadata for rate limiting and telemetry
-        |> Req.Request.put_private(:rate_limit_weight, config.weight)
-        |> Req.Request.put_private(:endpoint_config, config)
-        |> Req.Request.put_private(:endpoint_operation, config.operation)
-      end
-
       defp map_to_operation_type(config) do
-        # Map endpoint operations to Core.HTTP operation types
-        # Using simple if/else to avoid guard clause issues
         cond do
           config.operation in [:place_order, :cancel_order] -> :trading
           config.operation == :get_server_time -> :health
