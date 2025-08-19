@@ -22,6 +22,9 @@ zen_cex-*.tar
 # Temporary files, for example, from tests.
 /tmp/
 
+# ElixirLS (VSCode/IDE integration)
+.elixir_ls/
+
 # Environment variables - NEVER commit
 .env
 .env.local

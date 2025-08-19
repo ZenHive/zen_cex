@@ -276,6 +276,7 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
   Cleans up old entries from ETS table.
   Should be called periodically (e.g., every minute) to prevent memory growth.
   """
+  @spec cleanup_old_entries() :: :ok
   def cleanup_old_entries do
     table = get_or_create_table()
     current = current_minute()

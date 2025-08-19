@@ -112,6 +112,7 @@ defmodule ZenCex.Adapters.Binance.Spot do
   Complex operation: Place One-Cancels-Other order.
   Hand-written because it requires special parameter handling.
   """
+  @spec place_oco_order(map()) :: {:ok, map()} | {:error, term()}
   def place_oco_order(_params) do
     # TODO: Implement OCO order placement
     # This is a complex operation that places two orders where one cancels the other
@@ -122,6 +123,7 @@ defmodule ZenCex.Adapters.Binance.Spot do
   Complex operation: Batch cancel multiple orders.
   Hand-written because it requires special batch handling.
   """
+  @spec batch_cancel_orders(map()) :: {:ok, list(map())} | {:error, term()}
   def batch_cancel_orders(_params) do
     # TODO: Implement batch cancellation
     # This cancels multiple orders in a single API call

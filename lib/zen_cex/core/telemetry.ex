@@ -94,6 +94,7 @@ defmodule ZenCex.Core.Telemetry do
       iex> ZenCex.Core.Telemetry.attach_default_handlers()
       :ok
   """
+  @spec attach_default_handlers() :: :ok
   def attach_default_handlers do
     handlers = [
       {
@@ -138,6 +139,7 @@ defmodule ZenCex.Core.Telemetry do
       iex> ZenCex.Core.Telemetry.detach_default_handlers()
       :ok
   """
+  @spec detach_default_handlers() :: :ok
   def detach_default_handlers do
     handler_names = [
       "zen-cex-log-slow-requests",
@@ -166,6 +168,7 @@ defmodule ZenCex.Core.Telemetry do
       iex> ZenCex.Core.Telemetry.execute([:request, :start], %{count: 1}, %{exchange: :binance})
       :ok
   """
+  @spec execute(list(atom()), map(), map()) :: :ok
   def execute(event, measurements, metadata) do
     :telemetry.execute([:zen_cex | event], measurements, metadata)
   end
@@ -173,6 +176,12 @@ defmodule ZenCex.Core.Telemetry do
   # Handler functions (public for telemetry MFA references)
 
   @doc false
+  @spec log_slow_request(
+          :telemetry.event_name(),
+          :telemetry.event_measurements(),
+          :telemetry.event_metadata(),
+          :telemetry.handler_config()
+        ) :: :ok
   def log_slow_request(_event, %{duration: duration}, metadata, _config) do
     # > 1 second in microseconds
     if duration > 1_000_000 do
@@ -180,16 +189,32 @@ defmodule ZenCex.Core.Telemetry do
         "Slow request to #{metadata.exchange} #{metadata.endpoint}: #{div(duration, 1000)}ms"
       )
     end
+
+    :ok
   end
 
   @doc false
+  @spec log_error(
+          :telemetry.event_name(),
+          :telemetry.event_measurements(),
+          :telemetry.event_metadata(),
+          :telemetry.handler_config()
+        ) :: :ok
   def log_error(_event, _measurements, metadata, _config) do
     Logger.error(
       "Request error for #{metadata.exchange} #{metadata.endpoint}: #{inspect(metadata.error)}"
     )
+
+    :ok
   end
 
   @doc false
+  @spec log_rate_limit(
+          :telemetry.event_name(),
+          :telemetry.event_measurements(),
+          :telemetry.event_metadata(),
+          :telemetry.handler_config()
+        ) :: :ok
   def log_rate_limit(_event, _measurements, metadata, _config) do
     retry_msg =
       if metadata[:retry_after_ms] do
@@ -201,16 +226,32 @@ defmodule ZenCex.Core.Telemetry do
     Logger.warning(
       "Rate limit exceeded for #{metadata.exchange} #{metadata.endpoint}#{retry_msg}"
     )
+
+    :ok
   end
 
   @doc false
+  @spec log_auth_failure(
+          :telemetry.event_name(),
+          :telemetry.event_measurements(),
+          :telemetry.event_metadata(),
+          :telemetry.handler_config()
+        ) :: :ok
   def log_auth_failure(_event, _measurements, metadata, _config) do
     Logger.error(
       "Auth failure for #{metadata.exchange} using #{metadata.auth_method}: #{metadata.reason}"
     )
+
+    :ok
   end
 
   @doc false
+  @spec handle_req_stop(
+          :telemetry.event_name(),
+          :telemetry.event_measurements(),
+          :telemetry.event_metadata(),
+          :telemetry.handler_config()
+        ) :: :ok | nil
   def handle_req_stop(_event, measurements, metadata, _config) do
     # Bridge Req telemetry to our own events for unified monitoring
     if metadata[:options][:exchange] do

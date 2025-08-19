@@ -46,6 +46,20 @@ defmodule ZenCex.EndpointRegistry do
   @default_timeout 30_000
   @default_retries 0
 
+  @doc """
+  Sets up the endpoint registry for a module.
+
+  ## Options
+
+    * `:adapter` - The adapter module to use for request execution
+    * `:debug` - When true, prints generated AST during compilation
+
+  ## Examples
+
+      use ZenCex.EndpointRegistry, adapter: MyAdapter
+      use ZenCex.EndpointRegistry, debug: true
+  """
+  @spec __using__(keyword()) :: Macro.t()
   defmacro __using__(opts) when is_list(opts) do
     adapter = Keyword.get(opts, :adapter)
     debug = Keyword.get(opts, :debug, false)
@@ -63,18 +77,27 @@ defmodule ZenCex.EndpointRegistry do
     end
   end
 
+  @spec __using__(:debug) :: Macro.t()
   defmacro __using__(:debug) do
     quote do
       use unquote(__MODULE__), debug: true
     end
   end
 
+  @spec __using__(any()) :: Macro.t()
   defmacro __using__(_opts) do
     quote do
       use unquote(__MODULE__), []
     end
   end
 
+  @doc """
+  Generates endpoint functions before compilation.
+
+  This macro is called automatically by Elixir's compilation process
+  and generates all the endpoint functions based on the @endpoints attribute.
+  """
+  @spec __before_compile__(Macro.Env.t()) :: Macro.t()
   defmacro __before_compile__(env) do
     endpoints = Module.get_attribute(env.module, :endpoints, [])
     adapter = Module.get_attribute(env.module, :endpoint_registry_adapter)
@@ -94,6 +117,8 @@ defmodule ZenCex.EndpointRegistry do
     ast
   end
 
+  @doc false
+  @spec validate_endpoints!(list() | any(), module()) :: :ok
   defp validate_endpoints!(endpoints, module) when is_list(endpoints) do
     Enum.each(endpoints, fn endpoint ->
       validate_endpoint!(endpoint, module)
@@ -123,17 +148,37 @@ defmodule ZenCex.EndpointRegistry do
           "#{module}: Invalid HTTP method #{inspect(endpoint.method)} for #{endpoint.operation}"
     end
 
-    # Validate parsers are function references
-    # Note: At compile time, these might be capture expressions like &Module.function/1
-    # which aren't yet resolved to actual functions
+    # Validate parsers are provided
+    # At compile time, we can check if they're capture expressions or anonymous functions
+    # We accept both &Module.function/1 and fn x -> ... end forms
     unless endpoint.response_parser do
       raise CompileError,
         description: "#{module}: response_parser must be provided"
     end
 
+    # Additional validation for parser format
+    parser = endpoint.response_parser
+
+    unless match?({:&, _, _}, parser) or match?({:fn, _, _}, parser) or
+             is_function(parser, 1) do
+      raise CompileError,
+        description:
+          "#{module}: response_parser must be a function reference with arity 1 (e.g., &Module.function/1)"
+    end
+
     unless endpoint.error_mapping do
       raise CompileError,
         description: "#{module}: error_mapping must be provided"
+    end
+
+    # Additional validation for error mapping format
+    error_map = endpoint.error_mapping
+
+    unless match?({:&, _, _}, error_map) or match?({:fn, _, _}, error_map) or
+             is_function(error_map, 1) do
+      raise CompileError,
+        description:
+          "#{module}: error_mapping must be a function reference with arity 1 (e.g., &Module.function/1)"
     end
 
     # Validate retry configuration
@@ -370,9 +415,10 @@ defmodule ZenCex.EndpointRegistry do
       end,
 
       # Private helper for request execution (shared by all generated functions)
-      # Note: We can't reliably check for private functions at compile time,
-      # so we'll only generate this if the module hasn't been compiled yet
-      unless Module.defines?(module, {:execute_endpoint_request, 4}) do
+      # Check if the function is already defined (either public or private)
+      # This prevents duplicate definitions when modules are recompiled
+      if not Module.defines?(module, {:execute_endpoint_request, 4}) and
+           not function_exported?(module, :execute_endpoint_request, 4) do
         quote do
           defp execute_endpoint_request(config, params, opts, adapter) do
             # Build the request with opts passed through

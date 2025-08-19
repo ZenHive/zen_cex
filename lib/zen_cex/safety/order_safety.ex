@@ -38,6 +38,7 @@ defmodule ZenCex.Safety.OrderSafety do
   - `:name` - The name to register the process under (default: `__MODULE__`)
   - `:cleanup_interval` - Cleanup interval in ms (default: 60,000)
   """
+  @spec start_link(keyword()) :: {:ok, pid()} | {:error, term()}
   def start_link(opts \\ []) do
     name = Keyword.get(opts, :name, __MODULE__)
     GenServer.start_link(__MODULE__, opts, name: name)

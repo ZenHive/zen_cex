@@ -34,21 +34,25 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   @doc """
   Returns the exchange name for this adapter.
   """
+  @spec __exchange__() :: :binance
   def __exchange__, do: :binance
 
   @doc """
   Returns the auth module for this adapter.
   """
+  @spec auth() :: module()
   def auth, do: Auth
 
   @doc """
   Returns the rate limiter module for this adapter.
   """
+  @spec rate_limiter() :: module()
   def rate_limiter, do: RateLimiter
 
   @doc """
   Returns the parser module for this adapter.
   """
+  @spec parser() :: module()
   def parser, do: Parser
 
   @doc """
@@ -82,7 +86,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   @doc """
   Returns the base URL for the specified environment and API type.
   """
-  @spec base_url(:test | :prod, atom()) :: String.t()
+  @spec base_url(:test | :prod, atom()) :: String.t() | {:error, atom()}
   def base_url(env, api_type)
 
   # ============================
@@ -173,6 +177,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   Returns endpoint configuration for the given operation.
   Routes to the appropriate module based on the operation name.
   """
+  @spec get_endpoint(atom()) :: map() | nil
   def get_endpoint(operation) do
     cond do
       operation in [:get_server_time] ->
@@ -192,6 +197,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   @doc """
   Returns all endpoints from all modules.
   """
+  @spec all_endpoints() :: [map()]
   def all_endpoints do
     Common.all_endpoints() ++ Spot.all_endpoints() ++ Futures.all_endpoints()
   end
@@ -199,6 +205,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   @doc """
   Returns the weight for a given operation.
   """
+  @spec get_weight(atom()) :: integer() | nil
   def get_weight(operation) do
     case get_endpoint(operation) do
       nil -> nil

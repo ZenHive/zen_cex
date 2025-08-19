@@ -262,16 +262,18 @@ defmodule ZenCex.Adapters.Binance.Parser do
     case response do
       html when is_binary(html) and byte_size(html) > 0 ->
         cond do
-          String.contains?(html, ["DOCTYPE", "<html", "<HTML"]) ->
-            # HTML error page from CDN/WAF
-            error_msg = extract_html_error_message(html)
-            {:error, {:html_error, error_msg}}
-
+          # Check for specific error types first
           String.contains?(html, "Request blocked") ->
             {:error, {:waf_blocked, "Request blocked by WAF"}}
 
           String.contains?(html, "CloudFlare") or String.contains?(html, "cloudflare") ->
             {:error, {:cdn_error, "CloudFlare protection triggered"}}
+
+          # Then check if it's HTML
+          String.contains?(html, ["DOCTYPE", "<html", "<HTML"]) ->
+            # HTML error page from CDN/WAF
+            error_msg = extract_html_error_message(html)
+            {:error, {:html_error, error_msg}}
 
           true ->
             {:error, :unknown_error}

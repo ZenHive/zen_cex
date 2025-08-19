@@ -139,6 +139,8 @@ defmodule ZenCex.Adapters.Binance.Auth do
   end
 
   # Extract params from request options
+  # Returns {all_params, has_json_option, body_params}
+  @spec extract_request_params(Req.Request.t()) :: {map(), boolean(), map()}
   defp extract_request_params(request) do
     has_json_option = Map.has_key?(request.options, :json)
     query_params = request.options[:params] || %{}
@@ -149,6 +151,8 @@ defmodule ZenCex.Adapters.Binance.Auth do
   end
 
   # Build the final URL with signed query string
+  # Ensures proper parameter ordering as required by Binance API
+  @spec build_signed_url(URI.t(), map(), String.t()) :: String.t()
   defp build_signed_url(url, params_with_timing, signature) do
     # Get existing query params (non-auth params like symbol, etc.)
     # Only drop the timing params, not signature (it's added separately)
@@ -166,7 +170,12 @@ defmodule ZenCex.Adapters.Binance.Auth do
     if query_string != "", do: "#{base_url}?#{query_string}", else: base_url
   end
 
-  # Build query string with Binance-required parameter ordering
+  # Build query string with Binance-required parameter ordering:
+  # 1. Existing params (alphabetically)
+  # 2. timestamp
+  # 3. recvWindow  
+  # 4. signature (MUST be last)
+  @spec build_ordered_query_string(map(), map(), String.t()) :: String.t()
   defp build_ordered_query_string(existing_params, all_params, signature) do
     param_pairs = []
 
@@ -192,6 +201,8 @@ defmodule ZenCex.Adapters.Binance.Auth do
   end
 
   # Clean request options after signing
+  # Removes params (now in URL) and conditionally preserves json option
+  @spec clean_request_options(map(), boolean(), map()) :: map()
   defp clean_request_options(options, has_json_option, body_params) do
     options
     # Always remove params - they're now in the URL

@@ -10,12 +10,8 @@ defmodule ZenCex.Adapters.Binance.Futures do
 
   use ZenCex.EndpointRegistry, adapter: ZenCex.Adapters.Binance.Endpoints
 
-  alias ZenCex.Adapters.Binance.Parser
-  alias ZenCex.Core.HTTP
+  alias ZenCex.Adapters.Binance.{Parser, RequestHelper}
   require Logger
-
-  # HTTP status code ranges
-  @success_status_range 200..299
 
   @endpoints [
     %{
