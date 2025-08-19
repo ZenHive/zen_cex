@@ -58,11 +58,22 @@ defmodule ZenCex.EndpointRegistry do
 
       use ZenCex.EndpointRegistry, adapter: MyAdapter
       use ZenCex.EndpointRegistry, debug: true
+      use ZenCex.EndpointRegistry, :debug  # Shorthand for debug: true
   """
-  @spec __using__(keyword()) :: Macro.t()
-  defmacro __using__(opts) when is_list(opts) do
-    adapter = Keyword.get(opts, :adapter)
-    debug = Keyword.get(opts, :debug, false)
+  @spec __using__(keyword() | :debug | any()) :: Macro.t()
+  defmacro __using__(opts) do
+    # Handle all patterns in a single macro definition
+    {adapter, debug} =
+      case opts do
+        :debug ->
+          {nil, true}
+
+        opts when is_list(opts) ->
+          {Keyword.get(opts, :adapter), Keyword.get(opts, :debug, false)}
+
+        _ ->
+          {nil, false}
+      end
 
     quote do
       alias ZenCex.Core.HTTP
@@ -76,20 +87,6 @@ defmodule ZenCex.EndpointRegistry do
       Module.register_attribute(__MODULE__, :endpoints, accumulate: false)
 
       # Import needed for generated functions
-    end
-  end
-
-  @spec __using__(:debug) :: Macro.t()
-  defmacro __using__(:debug) do
-    quote do
-      use unquote(__MODULE__), debug: true
-    end
-  end
-
-  @spec __using__(any()) :: Macro.t()
-  defmacro __using__(_opts) do
-    quote do
-      use unquote(__MODULE__), []
     end
   end
 
@@ -132,6 +129,7 @@ defmodule ZenCex.EndpointRegistry do
       description: "#{module}: @endpoints must be a list of endpoint specifications"
   end
 
+  @spec validate_endpoint!(map() | any(), module()) :: :ok | no_return()
   defp validate_endpoint!(endpoint, module) when is_map(endpoint) do
     required_keys = [:operation, :method, :path, :response_parser, :error_mapping]
 
@@ -201,6 +199,7 @@ defmodule ZenCex.EndpointRegistry do
       description: "#{module}: Each endpoint must be a map"
   end
 
+  @spec generate_endpoint_functions(list(map()), module() | nil, module()) :: Macro.t()
   defp generate_endpoint_functions(endpoints, adapter, module) do
     # Generate lookup functions
     lookup_functions = generate_lookup_functions(endpoints)
@@ -218,6 +217,7 @@ defmodule ZenCex.EndpointRegistry do
     end
   end
 
+  @spec generate_lookup_functions(list(map())) :: list(Macro.t())
   defp generate_lookup_functions(endpoints) do
     # Generate pattern matching functions for each endpoint
     endpoint_clauses =
@@ -281,6 +281,7 @@ defmodule ZenCex.EndpointRegistry do
     ] ++ endpoint_clauses ++ [catch_all, all_endpoints_function, weight_function]
   end
 
+  @spec generate_operation_function(map(), module() | nil, module()) :: list(Macro.t())
   defp generate_operation_function(endpoint, adapter, module) do
     config = extract_endpoint_config(endpoint)
 
@@ -293,6 +294,7 @@ defmodule ZenCex.EndpointRegistry do
     |> Enum.filter(&(&1 != nil))
   end
 
+  @spec extract_endpoint_config(map()) :: map()
   defp extract_endpoint_config(endpoint) do
     %{
       operation: endpoint.operation,
@@ -311,6 +313,7 @@ defmodule ZenCex.EndpointRegistry do
     }
   end
 
+  @spec generate_main_function(map()) :: Macro.t()
   defp generate_main_function(config) do
     func_name = config.operation
     doc = config.doc
@@ -325,6 +328,7 @@ defmodule ZenCex.EndpointRegistry do
     end
   end
 
+  @spec generate_opts_function(map(), module() | nil) :: Macro.t()
   defp generate_opts_function(config, adapter) do
     func_name = config.operation
 
@@ -356,6 +360,7 @@ defmodule ZenCex.EndpointRegistry do
     end
   end
 
+  @spec generate_helper_functions(module()) :: list(Macro.t())
   defp generate_helper_functions(_module) do
     # Always generate helper functions - they use defp so won't conflict
     # The Elixir compiler will handle duplicate private function definitions
@@ -367,6 +372,7 @@ defmodule ZenCex.EndpointRegistry do
     ]
   end
 
+  @spec generate_config_builder() :: Macro.t()
   defp generate_config_builder do
     quote do
       defp build_endpoint_config(base_config, opts) do
@@ -392,6 +398,7 @@ defmodule ZenCex.EndpointRegistry do
     end
   end
 
+  @spec generate_params_transformer() :: Macro.t()
   defp generate_params_transformer do
     quote do
       defp transform_params(params, nil), do: params
@@ -399,6 +406,7 @@ defmodule ZenCex.EndpointRegistry do
     end
   end
 
+  @spec generate_telemetry_executor() :: Macro.t()
   defp generate_telemetry_executor do
     quote do
       defp execute_with_telemetry(config, params, opts, adapter, response_parser, error_mapping) do
@@ -460,6 +468,7 @@ defmodule ZenCex.EndpointRegistry do
     end
   end
 
+  @spec generate_request_executor() :: Macro.t()
   defp generate_request_executor do
     quote do
       defp execute_endpoint_request(config, params, opts, adapter) do
@@ -558,6 +567,7 @@ defmodule ZenCex.EndpointRegistry do
     end
   end
 
+  @spec print_debug_output(Macro.t(), module()) :: :ok
   defp print_debug_output(ast, module) do
     code =
       ast

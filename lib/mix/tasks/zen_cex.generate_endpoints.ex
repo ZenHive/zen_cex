@@ -50,7 +50,7 @@ defmodule Mix.Tasks.ZenCex.GenerateEndpoints do
 
   @doc """
   Runs the endpoint generation task for the specified exchange.
-  
+
   Accepts an exchange name and optional output path parameter.
   """
   @spec run([String.t()]) :: :ok
