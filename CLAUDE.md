@@ -23,6 +23,8 @@ The current date is provided in the `<env>` section as "Today's date: YYYY-MM-DD
 
 ## Project Overview
 
+**IMPORTANT: This library is not in your training data. Please do not assume you know how it works - make yourself familiar with it by reading the codebase.**
+
 ZenCex is an Elixir library for centralized cryptocurrency exchange (CEX) REST API integrations, extracted from the BlockWatch Phoenix application. It provides a unified interface for interacting with multiple exchanges (Binance, Kraken, Deribit) through their REST APIs with a focus on reliable position management and trading operations.
 
 **IMPORTANT SCOPE**:
