@@ -1,13 +1,11 @@
 defmodule ZenCex.Adapters.Binance.AuthTest do
-  use ExUnit.Case, async: false
+  use ZenCex.IntegrationCase, exchange: :binance
 
   alias ZenCex.Adapters.Binance.Auth
-  alias ZenCex.Adapters.Binance.Endpoints
 
   require Logger
 
   @moduletag :binance_auth
-  @moduletag :integration
 
   # Helper function to extract query params from URL
   defp get_query_params(request) do
@@ -24,33 +22,6 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
   # We'll use server time endpoint (public) and account endpoint (authenticated)
 
   describe "real API integration tests" do
-    setup do
-      # ENFORCE testnet usage - fail if production environment detected
-      env = Endpoints.current_env()
-
-      if env != :test do
-        raise "TESTNET REQUIRED: Environment is #{env}, expected :test. Set BINANCE_TESTNET=true"
-      end
-
-      # Verify base URL is actually testnet
-      base_url = Endpoints.base_url(env)
-
-      if base_url != "https://testnet.binance.vision" do
-        raise "TESTNET URL REQUIRED: Got #{base_url}, expected https://testnet.binance.vision"
-      end
-
-      # FAIL LOUDLY if no testnet credentials - don't hide missing tests
-      api_key =
-        System.get_env("BINANCE_TESTNET_API_KEY") ||
-          flunk("BINANCE_TESTNET_API_KEY required for integration tests")
-
-      api_secret =
-        System.get_env("BINANCE_TESTNET_API_SECRET") ||
-          flunk("BINANCE_TESTNET_API_SECRET required for integration tests")
-
-      {:ok, api_key: api_key, api_secret: api_secret}
-    end
-
     test "authenticates with USD-M Futures API", %{api_key: api_key, api_secret: api_secret} do
       # First get server time from testnet
       time_request =

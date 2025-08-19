@@ -10,37 +10,12 @@ defmodule ZenCex.Adapters.Binance.RateLimiterApiTypeTest do
   - Tests different API types (Spot vs SAPI)
   """
 
-  use ExUnit.Case, async: false
+  use ZenCex.IntegrationCase, exchange: :binance
 
   import ExUnit.CaptureLog
 
-  alias ZenCex.Adapters.Binance.Endpoints
   alias ZenCex.Adapters.Binance.RateLimiter
   alias ZenCex.Core.HTTP
-
-  @moduletag :integration
-
-  setup do
-    # ENFORCE testnet usage - fail if production URL detected
-    # Check the actual environment detection mechanism
-    env = Endpoints.current_env()
-
-    if env != :test do
-      raise "TESTNET REQUIRED: Environment is #{env}, expected :test. Set BINANCE_TESTNET=true"
-    end
-
-    # Also verify the base URL is actually testnet
-    base_url = Endpoints.base_url(env)
-
-    if base_url != "https://testnet.binance.vision" do
-      raise "TESTNET URL REQUIRED: Got #{base_url}, expected https://testnet.binance.vision"
-    end
-
-    # Note: These are public endpoint tests, no credentials required
-    # For authenticated tests, we would verify BINANCE_TESTNET_API_KEY here
-
-    :ok
-  end
 
   describe "real API rate limit monitoring" do
     test "monitors Spot API rate limits from real response headers" do

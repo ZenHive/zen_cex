@@ -1,30 +1,7 @@
 defmodule ZenCex.Core.HTTPTest do
-  use ExUnit.Case, async: false
+  use ZenCex.IntegrationCase, exchange: :binance
 
-  alias ZenCex.Adapters.Binance.Endpoints
   alias ZenCex.Core.HTTP
-
-  @moduletag :integration
-  @moduletag :binance
-
-  setup do
-    # ENFORCE testnet usage - fail if production URL detected
-    # Check the actual environment detection mechanism
-    env = Endpoints.current_env()
-
-    if env != :test do
-      raise "TESTNET REQUIRED: Environment is #{env}, expected :test. Set BINANCE_TESTNET=true"
-    end
-
-    # Also verify the base URL is actually testnet
-    base_url = Endpoints.base_url(env)
-
-    if base_url != "https://testnet.binance.vision" do
-      raise "TESTNET URL REQUIRED: Got #{base_url}, expected https://testnet.binance.vision"
-    end
-
-    :ok
-  end
 
   describe "base_request/2 with real testnet API" do
     test "creates request with proper configuration for Binance testnet" do
