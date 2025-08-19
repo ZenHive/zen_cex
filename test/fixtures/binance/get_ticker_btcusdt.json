@@ -1,9 +1,0 @@
-{
-  "data": {
-    "symbol": "BTCUSDT",
-    "price": "117929.26000000"
-  },
-  "captured_at": 1755416105497,
-  "zen_cex_version": "0.1.0",
-  "test_environment": "binance_testnet"
-}
