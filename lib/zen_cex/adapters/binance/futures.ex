@@ -10,7 +10,6 @@ defmodule ZenCex.Adapters.Binance.Futures do
 
   use ZenCex.EndpointRegistry, adapter: ZenCex.Adapters.Binance.Endpoints
 
-  alias ZenCex.Adapters.Binance.Endpoints
   alias ZenCex.Adapters.Binance.Parser
   alias ZenCex.Adapters.Binance.RequestHelper
 
@@ -49,16 +48,13 @@ defmodule ZenCex.Adapters.Binance.Futures do
 
   # Custom implementation for execute_endpoint_request to integrate with our infrastructure
   defp execute_endpoint_request(config, params, opts, _adapter) do
-    base_url =
-      Endpoints.base_url(
-        Endpoints.current_env(),
-        :usdm_futures
-      )
-
-    # Build request params - futures currently only has GET endpoints
-    request_params = %{params: params}
-
-    # Use shared RequestHelper for consistency
-    RequestHelper.execute_request(config, request_params, opts, base_url, :binance, :standard)
+    # Use the new high-level helper with simple operation type logic
+    RequestHelper.execute_request_for_api_type(
+      config,
+      params,
+      opts,
+      :usdm_futures,
+      fn _ -> :standard end
+    )
   end
 end

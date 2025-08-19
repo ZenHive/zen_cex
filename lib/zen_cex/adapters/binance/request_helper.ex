@@ -30,6 +30,7 @@ defmodule ZenCex.Adapters.Binance.RequestHelper do
   - `{:error, %Req.Response.AsyncError{}}` - Request timeout
   """
 
+  alias ZenCex.Adapters.Binance.Endpoints
   alias ZenCex.Core.HTTP
 
   require Logger
@@ -38,7 +39,61 @@ defmodule ZenCex.Adapters.Binance.RequestHelper do
   @success_status_range 200..299
 
   @doc """
-  Executes a request with the given configuration.
+  Executes a request with standard preprocessing for Binance API modules.
+
+  This is the high-level function that coordinates preprocessing and execution.
+  It handles base URL resolution, operation type determination, and parameter
+  preparation before delegating to the lower-level execute_request/6 function.
+
+  ## Parameters
+  - `config` - Endpoint configuration map containing method, path, parsers, etc.
+  - `params` - Raw parameter map from the calling function
+  - `opts` - Additional options like custom timeout or auth credentials
+  - `api_type` - The API type (:spot, :usdm_futures, :common) for URL resolution
+  - `operation_type_resolver` - Function to determine operation type from config
+
+  ## Returns
+  - `{:ok, body}` - Raw response body for successful requests (parser called by macro)
+  - `{:error, response_or_exception}` - Error response or exception
+
+  ## Examples
+
+      # Simple case (Futures, Common)
+      execute_request_for_api_type(config, params, opts, :usdm_futures, fn _ -> :standard end)
+
+      # Complex case (Spot with operation type logic)
+      execute_request_for_api_type(config, params, opts, :spot, &determine_spot_operation_type/1)
+  """
+  @spec execute_request_for_api_type(map(), map(), keyword(), atom(), (map() -> atom())) ::
+          {:ok, any()} | {:error, term()}
+  def execute_request_for_api_type(config, params, opts, api_type, operation_type_resolver) do
+    # Get base URL for the API type
+    base_url =
+      Endpoints.base_url(
+        Endpoints.current_env(),
+        api_type
+      )
+
+    # Determine operation type using provided resolver
+    operation_type = operation_type_resolver.(config)
+
+    # Build request params - delegate to specialized function for spot
+    request_params =
+      case api_type do
+        :spot -> build_spot_request_params(config, params)
+        # Simple case for futures and common
+        _ -> %{params: params}
+      end
+
+    # Execute request using existing function
+    execute_request(config, request_params, opts, base_url, :binance, operation_type)
+  end
+
+  @doc """
+  Low-level request execution function.
+
+  This function handles the actual HTTP request execution and should not
+  be called directly by endpoint modules. Use execute_request_for_api_type/5 instead.
 
   ## Parameters
   - `config` - Endpoint configuration map containing method, path, parsers, etc.
@@ -110,6 +165,41 @@ defmodule ZenCex.Adapters.Binance.RequestHelper do
       {:error, exception} ->
         Logger.error("Request failed: #{inspect(exception)}")
         {:error, exception}
+    end
+  end
+
+  # Auth parameters that must be in query string for Spot API
+  @auth_params ["timestamp", "recvWindow", "signature"]
+
+  @doc """
+  Builds request parameters for Spot API endpoints.
+
+  For Binance Spot, auth parameters (timestamp, recvWindow, signature) MUST be in query string,
+  while body parameters go in JSON for POST/PUT/DELETE requests.
+  """
+  @spec build_spot_request_params(map(), map()) :: map()
+  def build_spot_request_params(config, params) do
+    case config.method do
+      :get ->
+        %{params: params}
+
+      _ ->
+        # For POST/PUT/DELETE, auth params go in query, body params in json
+        auth_params = Map.take(params, @auth_params)
+        body_params = Map.drop(params, @auth_params)
+        %{params: auth_params, json: body_params}
+    end
+  end
+
+  @doc """
+  Determines operation type for Spot API endpoints based on the operation.
+  """
+  @spec determine_spot_operation_type(map()) :: atom()
+  def determine_spot_operation_type(config) do
+    cond do
+      config.operation in [:place_order, :cancel_order] -> :trading
+      config.operation == :get_order -> :standard
+      true -> :standard
     end
   end
 

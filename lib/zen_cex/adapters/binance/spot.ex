@@ -11,14 +11,10 @@ defmodule ZenCex.Adapters.Binance.Spot do
 
   use ZenCex.EndpointRegistry, adapter: ZenCex.Adapters.Binance.Endpoints, debug: false
 
-  alias ZenCex.Adapters.Binance.Endpoints
   alias ZenCex.Adapters.Binance.Parser
   alias ZenCex.Adapters.Binance.RequestHelper
 
   require Logger
-
-  # Auth parameters that must be in query string
-  @auth_params ["timestamp", "recvWindow", "signature"]
 
   # Import generated endpoints from OpenAPI specification
   # This is loaded at compile time as a module attribute for safety
@@ -106,43 +102,13 @@ defmodule ZenCex.Adapters.Binance.Spot do
   # IMPORTANT: This must return {:ok, unparsed_body} or {:error, reason}
   # The EndpointRegistry macro will handle parsing the response
   defp execute_endpoint_request(config, params, opts, _adapter) do
-    base_url =
-      Endpoints.base_url(
-        Endpoints.current_env(),
-        :spot
-      )
-
-    # Determine operation type for Core.HTTP
-    operation_type =
-      cond do
-        config.operation in [:place_order, :cancel_order] -> :trading
-        config.operation == :get_order -> :standard
-        true -> :standard
-      end
-
-    # Build request params based on method
-    # For Binance, auth params (timestamp, recvWindow, signature) MUST be in query string
-    request_params =
-      case config.method do
-        :get ->
-          %{params: params}
-
-        _ ->
-          # For POST/PUT/DELETE, auth params go in query, body params in json
-          # All endpoints in spot.ex have requires_auth: true
-          auth_params = Map.take(params, @auth_params)
-          body_params = Map.drop(params, @auth_params)
-          %{params: auth_params, json: body_params}
-      end
-
-    # Use shared RequestHelper for consistency
-    RequestHelper.execute_request(
+    # Use the new high-level helper with Spot-specific logic
+    RequestHelper.execute_request_for_api_type(
       config,
-      request_params,
+      params,
       opts,
-      base_url,
-      :binance,
-      operation_type
+      :spot,
+      &RequestHelper.determine_spot_operation_type/1
     )
   end
 end
