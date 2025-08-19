@@ -124,14 +124,16 @@ defmodule ZenCex.EndpointRegistry do
     end
 
     # Validate parsers are function references
-    unless is_function(endpoint.response_parser, 1) do
+    # Note: At compile time, these might be capture expressions like &Module.function/1
+    # which aren't yet resolved to actual functions
+    unless endpoint.response_parser do
       raise CompileError,
-        description: "#{module}: response_parser must be a function reference with arity 1"
+        description: "#{module}: response_parser must be provided"
     end
 
-    unless is_function(endpoint.error_mapping, 1) do
+    unless endpoint.error_mapping do
       raise CompileError,
-        description: "#{module}: error_mapping must be a function reference with arity 1"
+        description: "#{module}: error_mapping must be provided"
     end
 
     # Validate retry configuration
@@ -368,9 +370,9 @@ defmodule ZenCex.EndpointRegistry do
       end,
 
       # Private helper for request execution (shared by all generated functions)
-      # Using Module.defines_function?/3 for more reliable detection
-      if not function_exported?(module, :execute_endpoint_request, 4) and
-           not Module.defines?(module, {:execute_endpoint_request, 4}, :defp) do
+      # Note: We can't reliably check for private functions at compile time,
+      # so we'll only generate this if the module hasn't been compiled yet
+      unless Module.defines?(module, {:execute_endpoint_request, 4}) do
         quote do
           defp execute_endpoint_request(config, params, opts, adapter) do
             # Build the request with opts passed through

@@ -9,11 +9,13 @@ defmodule ZenCex.Adapters.Binance.Spot do
   - Batch operations
   """
 
-  use ZenCex.EndpointRegistry, adapter: ZenCex.Adapters.Binance.Endpoints
+  use ZenCex.EndpointRegistry, adapter: ZenCex.Adapters.Binance.Endpoints, debug: false
 
-  alias ZenCex.Adapters.Binance.Parser
-  alias ZenCex.Core.HTTP
+  alias ZenCex.Adapters.Binance.{Parser, RequestHelper}
   require Logger
+
+  # Auth parameters that must be in query string
+  @auth_params ["timestamp", "recvWindow", "signature"]
 
   @endpoints [
     %{
@@ -150,76 +152,29 @@ defmodule ZenCex.Adapters.Binance.Spot do
         true -> :standard
       end
 
-    # Build request using Core.HTTP patterns
-    # Important: We need to return the RAW response for the macro to parse
-    api_type = Map.get(config, :api_type, :spot)
-
     # Build request params based on method
+    # For Binance, auth params (timestamp, recvWindow, signature) MUST be in query string
     request_params =
       case config.method do
         :get ->
           %{params: params}
 
         _ ->
-          if config.requires_auth do
-            # For authenticated requests, separate auth params from body params
-            auth_params = Map.take(params, ["timestamp", "recvWindow", "signature"])
-            body_params = Map.drop(params, ["timestamp", "recvWindow", "signature"])
-            %{params: auth_params, json: body_params}
-          else
-            %{params: nil, json: params}
-          end
+          # For POST/PUT/DELETE, auth params go in query, body params in json
+          # All endpoints in spot.ex have requires_auth: true
+          auth_params = Map.take(params, @auth_params)
+          body_params = Map.drop(params, @auth_params)
+          %{params: auth_params, json: body_params}
       end
 
-    # Build base options - DON'T add empty params or json
-    base_opts = %{
-      method: config.method,
-      url: base_url <> config.path,
-      receive_timeout: Keyword.get(opts, :timeout, config.timeout),
-      skip_auth: not config.requires_auth,
-      retry: false
-    }
-
-    # Only add params if they exist and are not empty
-    base_opts =
-      if Map.has_key?(request_params, :params) and request_params.params != nil and
-           request_params.params != %{} do
-        Map.put(base_opts, :params, request_params.params)
-      else
-        base_opts
-      end
-
-    # Only add json if it exists and is not empty
-    base_opts =
-      if Map.has_key?(request_params, :json) and request_params.json != nil and
-           request_params.json != %{} do
-        Map.put(base_opts, :json, request_params.json)
-      else
-        base_opts
-      end
-
-    request =
-      HTTP.base_request(:binance, operation_type)
-      |> Req.merge(Map.to_list(base_opts))
-      |> Req.merge(opts)
-      |> Req.Request.put_private(:rate_limit_weight, config.weight)
-      |> Req.Request.put_private(:endpoint_config, config)
-      |> Req.Request.put_private(:endpoint_operation, config.operation)
-      |> Req.Request.put_private(:api_type, api_type)
-
-    # Execute request and return RAW body for the macro to parse
-    case Req.request(request) do
-      {:ok, %Req.Response{status: status, body: body}} when status in 200..299 ->
-        # Return the RAW body - the macro will call the parser
-        {:ok, body}
-
-      {:ok, %Req.Response{status: status, body: body}} ->
-        # Return error response for the macro to map
-        {:error, %Req.Response{status: status, body: body}}
-
-      {:error, exception} ->
-        Logger.error("Request failed: #{inspect(exception)}")
-        {:error, exception}
-    end
+    # Use shared RequestHelper for consistency
+    RequestHelper.execute_request(
+      config,
+      request_params,
+      opts,
+      base_url,
+      :binance,
+      operation_type
+    )
   end
 end

@@ -1,59 +1,78 @@
 defmodule ZenCex.Adapters.Binance.RequestHelper do
   @moduledoc """
-  Shared request execution logic for Binance adapter modules.
+  Minimal shared request execution logic for Binance adapter modules.
 
-  This module extracts common request building and execution patterns
-  to avoid code duplication across Common, Spot, and Futures modules.
+  This module provides a single, focused helper for common request execution
+  patterns to avoid code duplication across Common, Spot, and Futures modules.
+
+  ## Scope and Purpose
+
+  This helper ONLY handles:
+  - Building Req request with proper options
+  - Executing the request
+  - Mapping responses to success/error tuples
+
+  It does NOT handle:
+  - Authentication (handled by Auth module via Req steps)
+  - Rate limiting (handled by RateLimiter via Req steps)
+  - Parameter building (handled by calling modules)
+
+  ## Error Responses
+
+  Common error responses from Binance:
+  - `{:error, {:invalid_symbol, "Invalid symbol."}}` - Invalid trading pair
+  - `{:error, {:insufficient_balance, "Account has insufficient balance"}}` - Not enough funds
+  - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded
+  - `{:error, {:html_error, message}}` - CDN/WAF HTML error page
+  - `{:error, {:waf_blocked, message}}` - Request blocked by WAF
+  - `{:error, {:cdn_error, message}}` - CloudFlare protection triggered
+  - `{:error, %Mint.TransportError{}}` - Network connectivity issues
+  - `{:error, %Req.Response.AsyncError{}}` - Request timeout
   """
 
   alias ZenCex.Core.HTTP
   require Logger
+
+  # HTTP status code ranges
+  @success_status_range 200..299
 
   @doc """
   Executes a request with the given configuration.
 
   ## Parameters
   - `config` - Endpoint configuration map containing method, path, parsers, etc.
-  - `params` - Request parameters (query params for GET, body for POST/PUT/DELETE)
-  - `opts` - Additional options like custom timeout
+  - `request_params` - Map with `:params` and/or `:json` keys for request data
+  - `opts` - Additional options like custom timeout or auth credentials
   - `base_url` - The base URL for the API endpoint
   - `exchange` - The exchange atom (:binance)
-  - `operation_type` - The operation type for Core.HTTP (:standard, :trading, :health, etc.)
+  - `operation_type` - The operation type for Core.HTTP (:standard, :trading, :health)
 
   ## Returns
-  - `{:ok, result}` - Parsed successful response
-  - `{:error, reason}` - Error from parser or exception
+  - `{:ok, body}` - Raw response body for successful requests (parser called by macro)
+  - `{:error, response_or_exception}` - Error response or exception
 
-  ## Error Scenarios
+  ## Examples
 
-  The function handles several error cases:
+      # GET request with query params
+      execute_request(config, %{params: %{"symbol" => "BTCUSDT"}}, [], base_url, :binance, :standard)
 
-  1. **HTTP Success (200-299)**: Response is parsed using `config.response_parser`
-  2. **HTTP Error (non-2xx)**: Response is parsed using `config.error_mapping`
-  3. **Network/Request Exception**: Logged and returned as `{:error, exception}`
-
-  ### Common Error Responses
-
-  - `{:error, {:invalid_symbol, "Invalid symbol."}}` - Invalid trading pair
-  - `{:error, {:insufficient_balance, "Account has insufficient balance"}}` - Not enough funds
-  - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded
-  - `{:error, %Mint.TransportError{}}` - Network connectivity issues
-  - `{:error, %Req.Response.AsyncError{}}` - Request timeout
+      # POST request with JSON body and auth params in query
+      execute_request(
+        config, 
+        %{params: auth_params, json: body_params}, 
+        [auth_credentials: creds],
+        base_url,
+        :binance,
+        :trading
+      )
   """
   @spec execute_request(map(), map(), keyword(), String.t(), atom(), atom()) ::
-          {:ok, map()} | {:error, term()}
-  def execute_request(config, params, opts, base_url, exchange, operation_type) do
-    # Get API type from config if present (for rate limiter to use correct limits)
+          {:ok, any()} | {:error, term()}
+  def execute_request(config, request_params, opts, base_url, exchange, operation_type) do
+    # Get API type from config if present (for rate limiter)
     api_type = Map.get(config, :api_type, :spot)
 
-    # Build request params based on method
-    # IMPORTANT: For Binance, auth params (timestamp, recvWindow, signature) 
-    # MUST be in query string even for POST/PUT/DELETE methods
-    request_params = build_request_params(config.method, params, config.requires_auth)
-
-    # Build request using Core.HTTP patterns
-    # Important: merge opts to pass through auth_credentials
-    # Build base options - DON'T add empty params or json
+    # Build base options
     base_opts = %{
       method: config.method,
       url: base_url <> config.path,
@@ -63,23 +82,10 @@ defmodule ZenCex.Adapters.Binance.RequestHelper do
     }
 
     # Only add params if they exist and are not empty
-    base_opts =
-      if Map.has_key?(request_params, :params) and request_params.params != nil and
-           request_params.params != %{} do
-        Map.put(base_opts, :params, request_params.params)
-      else
-        base_opts
-      end
+    base_opts = maybe_add_option(base_opts, :params, request_params[:params])
+    base_opts = maybe_add_option(base_opts, :json, request_params[:json])
 
-    # Only add json if it exists and is not empty
-    base_opts =
-      if Map.has_key?(request_params, :json) and request_params.json != nil and
-           request_params.json != %{} do
-        Map.put(base_opts, :json, request_params.json)
-      else
-        base_opts
-      end
-
+    # Build and execute request
     request =
       HTTP.base_request(exchange, operation_type)
       |> Req.merge(Map.to_list(base_opts))
@@ -89,13 +95,15 @@ defmodule ZenCex.Adapters.Binance.RequestHelper do
       |> Req.Request.put_private(:endpoint_operation, config.operation)
       |> Req.Request.put_private(:api_type, api_type)
 
-    # Execute request and handle response
+    # Execute request and return response for parsing
     case Req.request(request) do
-      {:ok, %Req.Response{status: status, body: body}} when status in 200..299 ->
-        config.response_parser.(body)
+      {:ok, %Req.Response{status: status, body: body}} when status in @success_status_range ->
+        # Return raw body - calling module will apply parser
+        {:ok, body}
 
-      {:ok, %Req.Response{body: body}} ->
-        config.error_mapping.(body)
+      {:ok, %Req.Response{status: status, body: body}} ->
+        # Return error response - calling module will apply error mapping
+        {:error, %Req.Response{status: status, body: body}}
 
       {:error, exception} ->
         Logger.error("Request failed: #{inspect(exception)}")
@@ -103,25 +111,8 @@ defmodule ZenCex.Adapters.Binance.RequestHelper do
     end
   end
 
-  # Private helper to build request params based on HTTP method
-  # For Binance, auth params MUST be in query string for ALL methods
-  defp build_request_params(:get, params, _requires_auth) do
-    # Don't set json for GET requests - causes issues with WAF
-    %{params: params}
-  end
-
-  defp build_request_params(_method, params, requires_auth) do
-    if requires_auth do
-      # For authenticated requests, separate auth params from body params
-      # Auth params (timestamp, recvWindow, signature) go in query string
-      # Other params go in request body
-      auth_params = Map.take(params, ["timestamp", "recvWindow", "signature"])
-      body_params = Map.drop(params, ["timestamp", "recvWindow", "signature"])
-
-      %{params: auth_params, json: body_params}
-    else
-      # For non-authenticated requests, all params go in body
-      %{params: nil, json: params}
-    end
-  end
+  # Helper to conditionally add non-empty options
+  defp maybe_add_option(opts, _key, nil), do: opts
+  defp maybe_add_option(opts, _key, %{} = value) when map_size(value) == 0, do: opts
+  defp maybe_add_option(opts, key, value), do: Map.put(opts, key, value)
 end

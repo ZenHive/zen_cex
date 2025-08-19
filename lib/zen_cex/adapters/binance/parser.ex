@@ -259,19 +259,46 @@ defmodule ZenCex.Adapters.Binance.Parser do
   end
 
   def parse_error(response) do
-    # TODO: Add better error handling for HTML error pages
-    # For now, log what we got for debugging
     case response do
       html when is_binary(html) and byte_size(html) > 0 ->
-        if String.contains?(html, "DOCTYPE") or String.contains?(html, "<HTML>") do
-          # This is an HTML error page, likely from CDN/WAF
-          {:error, :html_error_page}
-        else
-          {:error, :unknown_error}
+        cond do
+          String.contains?(html, ["DOCTYPE", "<html", "<HTML"]) ->
+            # HTML error page from CDN/WAF
+            error_msg = extract_html_error_message(html)
+            {:error, {:html_error, error_msg}}
+
+          String.contains?(html, "Request blocked") ->
+            {:error, {:waf_blocked, "Request blocked by WAF"}}
+
+          String.contains?(html, "CloudFlare") or String.contains?(html, "cloudflare") ->
+            {:error, {:cdn_error, "CloudFlare protection triggered"}}
+
+          true ->
+            {:error, :unknown_error}
         end
 
       _ ->
         {:error, :unknown_error}
+    end
+  end
+
+  # Helper to extract meaningful error from HTML pages
+  defp extract_html_error_message(html) do
+    cond do
+      String.contains?(html, "403 Forbidden") ->
+        "403 Forbidden - Access denied by server"
+
+      String.contains?(html, "429 Too Many Requests") ->
+        "429 Too Many Requests - Rate limit exceeded"
+
+      String.contains?(html, "502 Bad Gateway") ->
+        "502 Bad Gateway - Server temporarily unavailable"
+
+      String.contains?(html, "503 Service Unavailable") ->
+        "503 Service Unavailable - Server overloaded or under maintenance"
+
+      true ->
+        "Server returned HTML error page instead of JSON response"
     end
   end
 

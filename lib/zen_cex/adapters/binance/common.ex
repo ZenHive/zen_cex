@@ -42,8 +42,9 @@ defmodule ZenCex.Adapters.Binance.Common do
   # Custom implementation for execute_endpoint_request to integrate with our infrastructure
   defp execute_endpoint_request(config, params, opts, _adapter) do
     base_url = ZenCex.Adapters.Binance.Endpoints.base_url()
+    request_params = %{params: params}
 
-    # Server time is a health check endpoint (pass opts through)
-    RequestHelper.execute_request(config, params, opts, base_url, :binance, :health)
+    # Use shared RequestHelper for consistency
+    RequestHelper.execute_request(config, request_params, opts, base_url, :binance, :health)
   end
 end

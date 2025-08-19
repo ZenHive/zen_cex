@@ -28,6 +28,7 @@ defmodule ZenCex.Adapters.Binance.Auth do
 
   # Default recvWindow in milliseconds (Binance allows up to 60,000ms)
   @default_recv_window_ms 5000
+
   # Maximum allowed recvWindow per Binance documentation
   @max_recv_window_ms 60_000
 
@@ -117,18 +118,8 @@ defmodule ZenCex.Adapters.Binance.Auth do
     # Add API key header
     request = Req.Request.put_header(request, "x-mbx-apikey", api_key)
 
-    # For Binance, we need to sign ALL params (query + body) together
-    # Get both query params and body params (if they exist)
-    # IMPORTANT: Track whether these options were actually set
-    # Note: has_params_option is not currently used but kept for potential future use
-    _has_params_option = Map.has_key?(request.options, :params)
-    has_json_option = Map.has_key?(request.options, :json)
-
-    query_params = request.options[:params] || %{}
-    body_params = request.options[:json] || %{}
-
-    # Combine all params for signature generation
-    all_params = Map.merge(body_params, query_params)
+    # Extract and merge params
+    {all_params, has_json_option, body_params} = extract_request_params(request)
 
     # Ensure timing params are present
     all_params_with_timing = ensure_timing_params(all_params, api_type)
@@ -136,18 +127,47 @@ defmodule ZenCex.Adapters.Binance.Auth do
     # Generate signature for ALL params
     signature = generate_signature(all_params_with_timing, api_secret)
 
-    # CRITICAL: For Binance, signature MUST be the LAST parameter in query string
-    # We need to build the URL manually to ensure proper ordering
+    # Build signed URL with proper parameter ordering
+    final_url = build_signed_url(request.url, all_params_with_timing, signature)
 
+    Logger.debug("Binance Auth: Final URL: #{final_url}")
+
+    # Update request with signed URL and cleaned options
+    updated_options = clean_request_options(request.options, has_json_option, body_params)
+
+    %{request | url: URI.parse(final_url), options: updated_options}
+  end
+
+  # Extract params from request options
+  defp extract_request_params(request) do
+    has_json_option = Map.has_key?(request.options, :json)
+    query_params = request.options[:params] || %{}
+    body_params = request.options[:json] || %{}
+    all_params = Map.merge(body_params, query_params)
+
+    {all_params, has_json_option, body_params}
+  end
+
+  # Build the final URL with signed query string
+  defp build_signed_url(url, params_with_timing, signature) do
     # Get existing query params (non-auth params like symbol, etc.)
-    existing_params = Map.drop(all_params_with_timing, ["timestamp", "recvWindow"])
+    # Only drop the timing params, not signature (it's added separately)
+    existing_params = Map.drop(params_with_timing, ["timestamp", "recvWindow"])
 
-    # Build query string manually with proper ordering:
+    # Build query string with proper ordering:
     # 1. Existing params first (alphabetically)
     # 2. timestamp
     # 3. recvWindow
     # 4. signature LAST
+    query_string = build_ordered_query_string(existing_params, params_with_timing, signature)
 
+    # Update the URL with the signed query string
+    base_url = URI.to_string(%{url | query: nil})
+    if query_string != "", do: "#{base_url}?#{query_string}", else: base_url
+  end
+
+  # Build query string with Binance-required parameter ordering
+  defp build_ordered_query_string(existing_params, all_params, signature) do
     param_pairs = []
 
     # Add existing params (sorted for consistency)
@@ -161,40 +181,31 @@ defmodule ZenCex.Adapters.Binance.Auth do
     param_pairs =
       param_pairs ++
         [
-          "timestamp=#{all_params_with_timing["timestamp"]}",
-          "recvWindow=#{all_params_with_timing["recvWindow"]}"
+          "timestamp=#{all_params["timestamp"]}",
+          "recvWindow=#{all_params["recvWindow"]}"
         ]
 
     # Add signature LAST
     param_pairs = param_pairs ++ ["signature=#{signature}"]
 
-    # Build final query string
-    query_string = Enum.join(param_pairs, "&")
+    Enum.join(param_pairs, "&")
+  end
 
-    # Update the URL directly instead of using params
-    base_url = URI.to_string(%{request.url | query: nil})
-    final_url = if query_string != "", do: "#{base_url}?#{query_string}", else: base_url
-
-    Logger.debug("Binance Auth: Final URL: #{final_url}")
-
-    # Update options - DON'T add params or json if they weren't originally present
-    # IMPORTANT: Preserve all other options like user_agent
-    updated_options =
-      request.options
-      # Always remove params - they're now in the URL
-      |> Map.delete(:params)
-      # Remove json first, then add back only if needed
-      |> Map.delete(:json)
-      |> then(fn opts ->
-        # Only add json back if it was originally present AND has content
-        if has_json_option and map_size(body_params) > 0 do
-          Map.put(opts, :json, body_params)
-        else
-          opts
-        end
-      end)
-
-    %{request | url: URI.parse(final_url), options: updated_options}
+  # Clean request options after signing
+  defp clean_request_options(options, has_json_option, body_params) do
+    options
+    # Always remove params - they're now in the URL
+    |> Map.delete(:params)
+    # Remove json first, then add back only if needed
+    |> Map.delete(:json)
+    |> then(fn opts ->
+      # Only add json back if it was originally present AND has content
+      if has_json_option and map_size(body_params) > 0 do
+        Map.put(opts, :json, body_params)
+      else
+        opts
+      end
+    end)
   end
 
   @doc """

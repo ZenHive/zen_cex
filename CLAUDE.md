@@ -68,6 +68,12 @@ mix credo --strict
 # Run dialyzer type checking
 mix dialyzer
 
+# Check documentation coverage and specs
+mix doctor              # Analyze docs, typespecs, and module health
+mix doctor --full       # Detailed report for each module
+mix doctor --summary    # Summary statistics only
+mix doctor --failed     # Show only failed modules
+
 # Generate documentation
 mix docs
 

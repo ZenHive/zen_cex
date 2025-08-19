@@ -10,8 +10,12 @@ defmodule ZenCex.Adapters.Binance.Futures do
 
   use ZenCex.EndpointRegistry, adapter: ZenCex.Adapters.Binance.Endpoints
 
-  alias ZenCex.Adapters.Binance.{Parser, RequestHelper}
+  alias ZenCex.Adapters.Binance.Parser
+  alias ZenCex.Core.HTTP
   require Logger
+
+  # HTTP status code ranges
+  @success_status_range 200..299
 
   @endpoints [
     %{
@@ -52,7 +56,10 @@ defmodule ZenCex.Adapters.Binance.Futures do
         :futures
       )
 
-    # Use our RequestHelper which handles all the complexity (pass opts through)
-    RequestHelper.execute_request(config, params, opts, base_url, :binance, :standard)
+    # Build request params - futures currently only has GET endpoints
+    request_params = %{params: params}
+
+    # Use shared RequestHelper for consistency
+    RequestHelper.execute_request(config, request_params, opts, base_url, :binance, :standard)
   end
 end
