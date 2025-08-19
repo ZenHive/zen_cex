@@ -29,22 +29,33 @@ defmodule ZenCex.TestnetEnforcementTest do
       # Find all test files
       test_files = Path.wildcard("test/**/*.exs")
 
+      # Files that are allowed to use production env vars for testing purposes
+      exempted_files = [
+        # Tests configuration for both prod and testnet
+        "test/zen_cex/config_test.exs"
+      ]
+
       errors =
         Enum.reduce(test_files, [], fn file, acc ->
-          content = File.read!(file)
+          # Skip exempted files
+          if file in exempted_files do
+            acc
+          else
+            content = File.read!(file)
 
-          acc
-          |> check_env_var(file, content, "BINANCE_API_KEY", "BINANCE_TESTNET_API_KEY")
-          |> check_env_var(file, content, "BINANCE_API_SECRET", "BINANCE_TESTNET_API_SECRET")
-          |> check_env_var(file, content, "KRAKEN_API_KEY", "KRAKEN_TESTNET_API_KEY")
-          |> check_env_var(file, content, "KRAKEN_API_SECRET", "KRAKEN_TESTNET_API_SECRET")
-          |> check_env_var(file, content, "DERIBIT_CLIENT_ID", "DERIBIT_TESTNET_CLIENT_ID")
-          |> check_env_var(
-            file,
-            content,
-            "DERIBIT_CLIENT_SECRET",
-            "DERIBIT_TESTNET_CLIENT_SECRET"
-          )
+            acc
+            |> check_env_var(file, content, "BINANCE_API_KEY", "BINANCE_TESTNET_API_KEY")
+            |> check_env_var(file, content, "BINANCE_API_SECRET", "BINANCE_TESTNET_API_SECRET")
+            |> check_env_var(file, content, "KRAKEN_API_KEY", "KRAKEN_TESTNET_API_KEY")
+            |> check_env_var(file, content, "KRAKEN_API_SECRET", "KRAKEN_TESTNET_API_SECRET")
+            |> check_env_var(file, content, "DERIBIT_CLIENT_ID", "DERIBIT_TESTNET_CLIENT_ID")
+            |> check_env_var(
+              file,
+              content,
+              "DERIBIT_CLIENT_SECRET",
+              "DERIBIT_TESTNET_CLIENT_SECRET"
+            )
+          end
         end)
 
       assert errors == [], """

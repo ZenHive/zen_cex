@@ -473,6 +473,177 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
     end
   end
 
+  describe "parse_generic/1" do
+    test "returns maps as-is" do
+      response = %{"serverTime" => 1_234_567_890_000}
+      assert {:ok, ^response} = Parser.parse_generic(response)
+    end
+
+    test "returns lists as-is" do
+      response = [%{"orderId" => 123}, %{"orderId" => 456}]
+      assert {:ok, ^response} = Parser.parse_generic(response)
+    end
+
+    test "returns empty objects as-is" do
+      response = %{}
+      assert {:ok, ^response} = Parser.parse_generic(response)
+    end
+
+    test "returns empty lists as-is" do
+      response = []
+      assert {:ok, ^response} = Parser.parse_generic(response)
+    end
+
+    test "wraps other data types in ok tuple" do
+      assert {:ok, "ping"} = Parser.parse_generic("ping")
+      assert {:ok, 123} = Parser.parse_generic(123)
+      assert {:ok, true} = Parser.parse_generic(true)
+    end
+  end
+
+  describe "parse_trades/1" do
+    test "parses valid trade history" do
+      response = [
+        %{
+          "id" => 123_456,
+          "orderId" => 789,
+          "symbol" => "BTCUSDT",
+          "price" => "50000.00",
+          "qty" => "0.1",
+          "quoteQty" => "5000.00",
+          "commission" => "0.001",
+          "commissionAsset" => "BTC",
+          "time" => 1_234_567_890_000,
+          "isBuyer" => true,
+          "isMaker" => false
+        }
+      ]
+
+      assert {:ok, [trade]} = Parser.parse_trades(response)
+
+      assert trade.trade_id == "123456"
+      assert trade.order_id == "789"
+      assert trade.symbol == "BTCUSDT"
+      assert Decimal.equal?(trade.price, Decimal.new("50000.00"))
+      assert Decimal.equal?(trade.quantity, Decimal.new("0.1"))
+      assert Decimal.equal?(trade.quote_quantity, Decimal.new("5000.00"))
+      assert Decimal.equal?(trade.commission, Decimal.new("0.001"))
+      assert trade.commission_asset == "BTC"
+      assert trade.timestamp == 1_234_567_890_000
+      assert trade.is_buyer == true
+      assert trade.is_maker == false
+    end
+
+    test "handles alternative field names" do
+      response = [
+        %{
+          "tradeId" => 123_456,
+          "quantity" => "0.1",
+          "timestamp" => 1_234_567_890_000
+        }
+      ]
+
+      assert {:ok, [trade]} = Parser.parse_trades(response)
+      assert trade.trade_id == "123456"
+      assert Decimal.equal?(trade.quantity, Decimal.new("0.1"))
+      assert trade.timestamp == 1_234_567_890_000
+    end
+
+    test "handles missing fields with defaults" do
+      response = [%{"symbol" => "BTCUSDT"}]
+
+      assert {:ok, [trade]} = Parser.parse_trades(response)
+      assert trade.trade_id == ""
+      assert trade.order_id == ""
+      assert trade.symbol == "BTCUSDT"
+      assert Decimal.equal?(trade.price, Decimal.new("0"))
+      assert trade.is_buyer == false
+      assert trade.is_maker == false
+    end
+
+    test "returns error for invalid format" do
+      assert {:error, :invalid_format} = Parser.parse_trades(%{})
+      assert {:error, :invalid_format} = Parser.parse_trades("invalid")
+    end
+  end
+
+  describe "parse_fees/1" do
+    test "parses symbol-specific commission rates (decimal strings)" do
+      response = %{
+        "symbol" => "BTCUSDT",
+        "makerCommission" => "0.001",
+        "takerCommission" => "0.0015"
+      }
+
+      assert {:ok, fees} = Parser.parse_fees(response)
+      assert fees.symbol == "BTCUSDT"
+      assert Decimal.equal?(fees.maker_commission, Decimal.new("0.001"))
+      assert Decimal.equal?(fees.taker_commission, Decimal.new("0.0015"))
+      assert Decimal.equal?(fees.buyer_commission, Decimal.new("0"))
+      assert Decimal.equal?(fees.seller_commission, Decimal.new("0"))
+    end
+
+    test "parses account-wide commission rates (basis points)" do
+      response = %{
+        "makerCommission" => 10,
+        "takerCommission" => 15,
+        "buyerCommission" => 0,
+        "sellerCommission" => 0
+      }
+
+      assert {:ok, fees} = Parser.parse_fees(response)
+      assert fees.symbol == nil
+      # 10 basis points = 10/10000 = 0.001
+      assert Decimal.equal?(fees.maker_commission, Decimal.new("0.001"))
+      # 15 basis points = 15/10000 = 0.0015
+      assert Decimal.equal?(fees.taker_commission, Decimal.new("0.0015"))
+      assert Decimal.equal?(fees.buyer_commission, Decimal.new("0"))
+      assert Decimal.equal?(fees.seller_commission, Decimal.new("0"))
+    end
+
+    test "handles mixed commission formats" do
+      response = %{
+        "symbol" => "ETHUSDT",
+        # basis points
+        "makerCommission" => 10,
+        # decimal string
+        "takerCommission" => "0.002"
+      }
+
+      assert {:ok, fees} = Parser.parse_fees(response)
+      assert fees.symbol == "ETHUSDT"
+      assert Decimal.equal?(fees.maker_commission, Decimal.new("0.001"))
+      assert Decimal.equal?(fees.taker_commission, Decimal.new("0.002"))
+    end
+
+    test "handles float commission rates" do
+      response = %{
+        "makerCommission" => 0.001,
+        "takerCommission" => 0.002
+      }
+
+      assert {:ok, fees} = Parser.parse_fees(response)
+      assert Decimal.equal?(fees.maker_commission, Decimal.new("0.001"))
+      assert Decimal.equal?(fees.taker_commission, Decimal.new("0.002"))
+    end
+
+    test "handles missing fields with defaults" do
+      response = %{}
+
+      assert {:ok, fees} = Parser.parse_fees(response)
+      assert fees.symbol == nil
+      assert Decimal.equal?(fees.maker_commission, Decimal.new("0"))
+      assert Decimal.equal?(fees.taker_commission, Decimal.new("0"))
+      assert Decimal.equal?(fees.buyer_commission, Decimal.new("0"))
+      assert Decimal.equal?(fees.seller_commission, Decimal.new("0"))
+    end
+
+    test "returns error for invalid format" do
+      assert {:error, :invalid_format} = Parser.parse_fees([])
+      assert {:error, :invalid_format} = Parser.parse_fees("invalid")
+    end
+  end
+
   describe "performance requirements" do
     test "parsing operations complete efficiently" do
       # Test parsing performance with reasonable dataset

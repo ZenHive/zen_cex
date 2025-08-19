@@ -44,6 +44,9 @@ defmodule ZenCex.MixProject do
       # Telemetry
       {:telemetry, "~> 1.0"},
 
+      # YAML parsing (for endpoint generation)
+      {:yaml_elixir, "~> 2.9", only: :dev},
+
       # Testing & development
       {:plug, "~> 1.0", only: [:dev, :test]},
       {:mock, "~> 0.3.8", only: :test},

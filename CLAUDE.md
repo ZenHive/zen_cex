@@ -522,8 +522,10 @@ No mocks. No fixtures. No simulation. Just real testnet APIs.
   deribit: "test.deribit.com"
 }
 
-# Tests MUST verify testnet usage
-assert Application.get_env(:zen_cex, :binance_host) == "testnet.binance.vision"
+# Tests MUST verify testnet usage - use the adapter's current_env() method
+alias ZenCex.Adapters.Binance.Endpoints
+assert Endpoints.current_env() == :test
+assert Endpoints.base_url() == "https://testnet.binance.vision"
 ```
 
 ### Running Tests
@@ -553,15 +555,25 @@ When running tests that connect to real testnet APIs, some tests may fail on the
 ```elixir
 defmodule ZenCex.Adapters.BinanceIntegrationTest do
   use ExUnit.Case
+  
+  alias ZenCex.Adapters.Binance.Endpoints
 
   @moduletag :integration
   @moduletag :binance
 
   setup do
-    # ENFORCE testnet usage - fail if production URL detected
-    host = Application.get_env(:zen_cex, :binance_host)
-    unless host == "testnet.binance.vision" do
-      raise "TESTNET REQUIRED: Got #{host}, expected testnet.binance.vision"
+    # ENFORCE testnet usage - fail if production environment detected
+    env = Endpoints.current_env()
+    
+    if env != :test do
+      raise "TESTNET REQUIRED: Environment is #{env}, expected :test. Set BINANCE_TESTNET=true"
+    end
+    
+    # Verify base URL is actually testnet
+    base_url = Endpoints.base_url()
+    
+    if base_url != "https://testnet.binance.vision" do
+      raise "TESTNET URL REQUIRED: Got #{base_url}, expected https://testnet.binance.vision"
     end
     
     # FAIL if no credentials - don't hide missing tests

@@ -425,6 +425,134 @@ defmodule ZenCex.Adapters.Binance.Parser do
 
   def parse_batch_cancel_response(_), do: {:error, :invalid_batch_response}
 
+  @doc """
+  Generic parser for simple Binance API responses.
+
+  Used for endpoints like ping, time, openOrders, and other endpoints
+  that return simple data structures or lists that don't need special processing.
+
+  ## Examples
+
+      # Ping response (empty object)
+      response = %{}
+      {:ok, %{}} = parse_generic(response)
+
+      # Server time response
+      response = %{"serverTime" => 1234567890000}
+      {:ok, response} = parse_generic(response)
+
+      # List of orders
+      response = [%{"orderId" => 123, "symbol" => "BTCUSDT"}]
+      {:ok, response} = parse_generic(response)
+  """
+  @spec parse_generic(term()) :: {:ok, term()} | {:error, atom()}
+  def parse_generic(response) when is_map(response) do
+    # For maps, return as-is since they contain valid data
+    {:ok, response}
+  end
+
+  def parse_generic(response) when is_list(response) do
+    # For lists, return as-is since they contain valid data
+    {:ok, response}
+  end
+
+  def parse_generic(response) do
+    # For other types (strings, numbers, etc.), wrap in ok tuple
+    {:ok, response}
+  end
+
+  @doc """
+  Parses trade history responses from the Binance API.
+
+  ## Examples
+
+      response = [
+        %{
+          "symbol" => "BTCUSDT",
+          "id" => 123456,
+          "orderId" => 789,
+          "price" => "50000.00",
+          "qty" => "0.1",
+          "quoteQty" => "5000.00",
+          "commission" => "0.001",
+          "commissionAsset" => "BTC",
+          "time" => 1234567890000,
+          "isBuyer" => true,
+          "isMaker" => false
+        }
+      ]
+      {:ok, trades} = parse_trades(response)
+  """
+  @spec parse_trades(list() | term()) :: {:ok, list()} | {:error, atom()}
+  def parse_trades(response) when is_list(response) do
+    trades =
+      Enum.map(response, fn trade ->
+        %{
+          trade_id: to_string(trade["id"] || trade["tradeId"] || ""),
+          order_id: to_string(trade["orderId"] || ""),
+          symbol: trade["symbol"],
+          price: safe_decimal(trade["price"]),
+          quantity: safe_decimal(trade["qty"] || trade["quantity"]),
+          quote_quantity: safe_decimal(trade["quoteQty"]),
+          commission: safe_decimal(trade["commission"]),
+          commission_asset: trade["commissionAsset"],
+          timestamp: trade["time"] || trade["timestamp"],
+          is_buyer: trade["isBuyer"] || false,
+          is_maker: trade["isMaker"] || false
+        }
+      end)
+
+    {:ok, trades}
+  rescue
+    e -> {:error, {:parse_error, Exception.message(e)}}
+  end
+
+  def parse_trades(_), do: {:error, :invalid_format}
+
+  @doc """
+  Parses commission/fee responses from the Binance API.
+
+  Handles both decimal strings and basis points formats:
+  - **Decimal strings** ("0.001"): Used in symbol-specific commission rates
+  - **Basis points** (10 = 0.001%): Used in account-wide commission settings
+    where 1 basis point = 0.0001 (10 bps = 10/10000 = 0.001)
+
+  ## Examples
+
+      # Symbol-specific commission rates (decimal strings)
+      response = %{
+        "symbol" => "BTCUSDT",
+        "makerCommission" => "0.001",
+        "takerCommission" => "0.001"
+      }
+      {:ok, fees} = parse_fees(response)
+
+      # Account-wide commission rates (basis points)
+      response = %{
+        "makerCommission" => 10,    # 10 basis points = 0.001
+        "takerCommission" => 10,    # 10 basis points = 0.001
+        "buyerCommission" => 0,
+        "sellerCommission" => 0
+      }
+      {:ok, fees} = parse_fees(response)
+  """
+  @spec parse_fees(map() | term()) :: {:ok, map()} | {:error, atom()}
+  def parse_fees(response) when is_map(response) do
+    fees = %{
+      symbol: response["symbol"],
+      maker_commission: safe_decimal_or_bps(response["makerCommission"]),
+      taker_commission: safe_decimal_or_bps(response["takerCommission"]),
+      buyer_commission: safe_decimal_or_bps(response["buyerCommission"]),
+      seller_commission: safe_decimal_or_bps(response["sellerCommission"])
+    }
+
+    {:ok, fees}
+  rescue
+    e -> {:error, {:parse_error, Exception.message(e)}}
+  end
+
+  def parse_fees(_), do: {:error, :invalid_format}
+
   # Private helper functions
 
   defp parse_spot_balances_as_positions(balances) when is_list(balances) do
@@ -499,4 +627,33 @@ defmodule ZenCex.Adapters.Binance.Parser do
 
   defp safe_decimal(value) when is_number(value), do: Decimal.new(to_string(value))
   defp safe_decimal(_), do: Decimal.new("0")
+
+  # Helper for commission rates that can be decimal strings or basis points (integers)
+  defp safe_decimal_or_bps(nil), do: Decimal.new("0")
+  defp safe_decimal_or_bps(""), do: Decimal.new("0")
+
+  defp safe_decimal_or_bps(value) when is_integer(value) do
+    # Binance sometimes returns commission as basis points (e.g., 10 = 0.001%)
+    # Convert basis points to decimal: 10 bps = 10/10000 = 0.001
+    value
+    |> Decimal.new()
+    |> Decimal.div(Decimal.new("10000"))
+  end
+
+  defp safe_decimal_or_bps(value) when is_binary(value) do
+    # Already a decimal string
+    case Decimal.parse(value) do
+      {decimal, _} -> decimal
+      :error -> Decimal.new("0")
+    end
+  end
+
+  defp safe_decimal_or_bps(value) when is_float(value) do
+    # Convert float to decimal
+    value
+    |> to_string()
+    |> safe_decimal()
+  end
+
+  defp safe_decimal_or_bps(_), do: Decimal.new("0")
 end

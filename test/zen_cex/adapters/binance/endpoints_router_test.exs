@@ -122,10 +122,12 @@ defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
     end
 
     test "returns correct weight for spot operations" do
-      assert Endpoints.get_weight(:get_balances) == 10
+      # Correctly extracted from OpenAPI docs
+      assert Endpoints.get_weight(:get_balances) == 20
       assert Endpoints.get_weight(:place_order) == 1
       assert Endpoints.get_weight(:cancel_order) == 1
-      assert Endpoints.get_weight(:get_order) == 2
+      # Correctly extracted from OpenAPI docs
+      assert Endpoints.get_weight(:get_order) == 4
     end
 
     test "returns correct weight for futures operations" do
@@ -160,24 +162,39 @@ defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
       original = System.get_env("BINANCE_TESTNET")
 
       try do
+        # Helper to clear cache before each test
+        clear_cache = fn ->
+          try do
+            :persistent_term.erase({Endpoints, :current_env})
+          rescue
+            _ -> nil
+          end
+        end
+
         # Test production (default)
         System.delete_env("BINANCE_TESTNET")
+        clear_cache.()
         assert Endpoints.current_env() == :prod
 
         System.put_env("BINANCE_TESTNET", "false")
+        clear_cache.()
         assert Endpoints.current_env() == :prod
 
         System.put_env("BINANCE_TESTNET", "")
+        clear_cache.()
         assert Endpoints.current_env() == :prod
 
         # Test testnet
         System.put_env("BINANCE_TESTNET", "true")
+        clear_cache.()
         assert Endpoints.current_env() == :test
 
         System.put_env("BINANCE_TESTNET", "1")
+        clear_cache.()
         assert Endpoints.current_env() == :test
 
         System.put_env("BINANCE_TESTNET", "yes")
+        clear_cache.()
         assert Endpoints.current_env() == :test
       after
         # Restore original value

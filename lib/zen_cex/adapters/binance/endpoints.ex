@@ -59,14 +59,30 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
 
   @doc """
   Returns the current environment based on BINANCE_TESTNET env variable.
+
+  The value is cached using :persistent_term for performance, avoiding 
+  repeated System.get_env calls. The cache persists for the VM lifetime.
   """
   @spec current_env() :: :test | :prod
   def current_env do
-    case System.get_env("BINANCE_TESTNET") do
-      nil -> :prod
-      "false" -> :prod
-      "" -> :prod
-      _ -> :test
+    # Use persistent_term for efficient caching across processes
+    key = {__MODULE__, :current_env}
+
+    case :persistent_term.get(key, :not_cached) do
+      :not_cached ->
+        env =
+          case System.get_env("BINANCE_TESTNET") do
+            nil -> :prod
+            "false" -> :prod
+            "" -> :prod
+            _ -> :test
+          end
+
+        :persistent_term.put(key, env)
+        env
+
+      cached_env ->
+        cached_env
     end
   end
 

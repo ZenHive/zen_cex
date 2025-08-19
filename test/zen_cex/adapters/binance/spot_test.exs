@@ -6,7 +6,7 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
   describe "endpoint configurations" do
     test "all endpoints have required fields" do
       endpoints = Spot.all_endpoints()
-      assert length(endpoints) == 4
+      assert length(endpoints) == 17
 
       Enum.each(endpoints, fn config ->
         assert Map.has_key?(config, :operation)
@@ -27,9 +27,11 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
       assert config.method == :get
       assert config.path == "/api/v3/account"
       assert config.requires_auth == true
-      assert config.weight == 10
+      # From generated endpoints with proper weight extraction
+      assert config.weight == 20
       assert config.timeout == 5_000
-      assert config.retry_on == [:rate_limited, :timeout]
+      # From generated smart defaults
+      assert config.retry_on == [:rate_limited, :timeout, :server_error]
     end
 
     test "place_order configuration has no retries" do
@@ -49,7 +51,9 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
       assert config.method == :delete
       assert config.path == "/api/v3/order"
       assert config.requires_auth == true
+      # From generated smart defaults
       assert config.max_retries == 1
+      # From generated smart defaults  
       assert config.retry_on == [:timeout]
       assert config.timeout == 2_000
     end
@@ -60,7 +64,8 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
       assert config.method == :get
       assert config.path == "/api/v3/order"
       assert config.requires_auth == true
-      assert config.weight == 2
+      # From generated endpoints with proper weight extraction
+      assert config.weight == 4
       assert config.timeout == 5_000
       assert config.retry_on == [:rate_limited, :timeout, :server_error]
     end
@@ -77,7 +82,8 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
     test "returns nil for unknown operations" do
       assert Spot.get_endpoint(:unknown_operation) == nil
       assert Spot.get_endpoint(:get_positions) == nil
-      assert Spot.get_endpoint(:get_server_time) == nil
+      # get_time is now available in generated endpoints
+      assert Spot.get_endpoint(:get_time)
     end
   end
 
@@ -86,10 +92,18 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
       endpoints = Spot.all_endpoints()
       operations = Enum.map(endpoints, & &1.operation)
 
+      # Original endpoints
       assert :get_balances in operations
       assert :place_order in operations
       assert :cancel_order in operations
       assert :get_order in operations
+
+      # New generated endpoints
+      assert :get_time in operations
+      assert :get_ping in operations
+      assert :get_trade_history in operations
+      assert :get_order_history in operations
+      assert :cancel_all_orders in operations
     end
   end
 

@@ -20,93 +20,56 @@ defmodule ZenCex.Adapters.Binance.Spot do
   # Auth parameters that must be in query string
   @auth_params ["timestamp", "recvWindow", "signature"]
 
-  @endpoints [
-    %{
-      operation: :get_balances,
-      method: :get,
-      path: "/api/v3/account",
-      requires_auth: true,
-      weight: 10,
-      timeout: 5_000,
-      max_retries: 2,
-      retry_on: [:rate_limited, :timeout],
-      response_parser: &Parser.parse_balances/1,
-      error_mapping: &Parser.parse_error/1,
-      doc: """
-      Get account balances.
+  # Import generated endpoints from OpenAPI specification
+  # This is loaded at compile time as a module attribute for safety
+  # Mark as external resource so recompilation happens when the file changes
+  @external_resource "lib/zen_cex/adapters/binance/generated_endpoints.ex"
 
-      ## Error Scenarios
+  # Load the endpoints file at compile time and convert to AST
+  # This is safer than Code.eval_file as it doesn't execute arbitrary code
+  @generated_endpoints (
+                         path = Path.join([__DIR__, "generated_endpoints.ex"])
+                         {:ok, content} = File.read(path)
+                         # Parse as Elixir code to get the AST
+                         {:ok, ast} = Code.string_to_quoted(content)
+                         # The file contains a list literal, evaluate it in a restricted context
+                         {result, _} = Code.eval_quoted(ast, [Parser: Parser], __ENV__)
+                         result
+                       )
 
-      - `{:error, {:unauthorized, "API-key format invalid."}}` - Invalid API key
-      - `{:error, {:forbidden, "Timestamp for this request is outside of the recvWindow."}}` - Time sync issue
-      - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded
-      """
-    },
-    %{
-      operation: :place_order,
-      method: :post,
-      path: "/api/v3/order",
-      requires_auth: true,
-      weight: 1,
-      timeout: 2_000,
-      max_retries: 0,
-      retry_on: [],
-      response_parser: &Parser.parse_order/1,
-      error_mapping: &Parser.parse_error/1,
-      doc: """
-      Place a new order.
+  # Apply customizations to generated endpoints
+  @endpoints Enum.map(@generated_endpoints, fn endpoint ->
+               case endpoint.operation do
+                 # Fix balances operation name and parser
+                 :get_account ->
+                   %{endpoint | operation: :get_balances, response_parser: &Parser.parse_balances/1}
 
-      ## Error Scenarios
+                 # Fix account commission to use fees parser  
+                 :"get_account/commission" ->
+                   %{endpoint | operation: :get_commission_rates, response_parser: &Parser.parse_fees/1}
 
-      - `{:error, {:invalid_symbol, "Invalid symbol."}}` - Invalid trading pair
-      - `{:error, {:insufficient_balance, "Account has insufficient balance"}}` - Not enough funds
-      - `{:error, {:min_notional, "MIN_NOTIONAL not met"}}` - Order value too small
-      - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded
-      """
-    },
-    %{
-      operation: :cancel_order,
-      method: :delete,
-      path: "/api/v3/order",
-      requires_auth: true,
-      weight: 1,
-      timeout: 2_000,
-      max_retries: 1,
-      retry_on: [:timeout],
-      response_parser: &Parser.parse_order/1,
-      error_mapping: &Parser.parse_error/1,
-      doc: """
-      Cancel an existing order.
+                 # Fix some operation names to be more intuitive
+                 :get_allOrders ->
+                   %{endpoint | operation: :get_order_history}
 
-      ## Error Scenarios
+                 :get_allOrderList ->
+                   %{endpoint | operation: :get_oco_history}
 
-      - `{:error, {:unknown_order, "Order does not exist."}}` - Order not found
-      - `{:error, {:order_filled, "Order already filled"}}` - Cannot cancel filled order
-      - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded
-      """
-    },
-    %{
-      operation: :get_order,
-      method: :get,
-      path: "/api/v3/order",
-      requires_auth: true,
-      weight: 2,
-      timeout: 5_000,
-      max_retries: 3,
-      retry_on: [:rate_limited, :timeout, :server_error],
-      response_parser: &Parser.parse_order/1,
-      error_mapping: &Parser.parse_error/1,
-      doc: """
-      Get order details.
+                 :get_myTrades ->
+                   %{endpoint | operation: :get_trade_history}
 
-      ## Error Scenarios
+                 :delete_openOrders ->
+                   %{endpoint | operation: :cancel_all_orders}
 
-      - `{:error, {:unknown_order, "Order does not exist."}}` - Order not found
-      - `{:error, {:invalid_symbol, "Invalid symbol."}}` - Invalid trading pair
-      - `{:error, {:rate_limited, "Too many requests"}}` - Rate limit exceeded
-      """
-    }
-  ]
+                 # Fix timeout for OCO operations (they're complex)
+                 op when op in [:"place_orderList/oco", :"place_orderList/oto", :"place_orderList/otoco"] ->
+                   # Never retry complex orders
+                   %{endpoint | timeout: 2_000, max_retries: 0, retry_on: []}
+
+                 _ ->
+                   endpoint
+               end
+             end)
 
   # The macro generates get_balances/1, place_order/1, cancel_order/1, get_order/1
   # along with their /2 variants and proper documentation
