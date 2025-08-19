@@ -24,10 +24,10 @@ defmodule BinanceIntegrationRunner do
   ## Usage
 
       # Run with testnet credentials
-      BINANCE_API_KEY=your_key BINANCE_API_SECRET=your_secret elixir test/scripts/run_binance_integration.exs
+      BINANCE_TESTNET_API_KEY=your_key BINANCE_TESTNET_API_SECRET=your_secret elixir test/scripts/run_binance_integration.exs
 
       # Dry run mode (checks only, no real requests)
-      BINANCE_API_KEY=your_key BINANCE_API_SECRET=your_secret DRY_RUN=true elixir test/scripts/run_binance_integration.exs
+      BINANCE_TESTNET_API_KEY=your_key BINANCE_TESTNET_API_SECRET=your_secret DRY_RUN=true elixir test/scripts/run_binance_integration.exs
 
   ## Safety Features
 
@@ -73,21 +73,26 @@ defmodule BinanceIntegrationRunner do
   end
 
   defp check_environment do
-    api_key = System.get_env("BINANCE_API_KEY")
-    api_secret = System.get_env("BINANCE_API_SECRET")
+    # ENFORCE testnet URL
+    unless @testnet_base_url == "https://testnet.binance.vision" do
+      raise "TESTNET REQUIRED: URL must be testnet.binance.vision, got #{@testnet_base_url}"
+    end
+
+    api_key = System.get_env("BINANCE_TESTNET_API_KEY")
+    api_secret = System.get_env("BINANCE_TESTNET_API_SECRET")
 
     cond do
       is_nil(api_key) ->
-        {:error, "BINANCE_API_KEY environment variable not set"}
+        {:error, "BINANCE_TESTNET_API_KEY environment variable not set"}
 
       is_nil(api_secret) ->
-        {:error, "BINANCE_API_SECRET environment variable not set"}
+        {:error, "BINANCE_TESTNET_API_SECRET environment variable not set"}
 
       String.length(api_key) < 10 ->
-        {:error, "BINANCE_API_KEY appears to be invalid (too short)"}
+        {:error, "BINANCE_TESTNET_API_KEY appears to be invalid (too short)"}
 
       String.length(api_secret) < 10 ->
-        {:error, "BINANCE_API_SECRET appears to be invalid (too short)"}
+        {:error, "BINANCE_TESTNET_API_SECRET appears to be invalid (too short)"}
 
       true ->
         IO.puts("✅ Environment variables found")
@@ -122,7 +127,8 @@ defmodule BinanceIntegrationRunner do
         :ok
 
       {:error, :unauthorized} ->
-        {:error, "Invalid credentials - check your BINANCE_API_KEY and BINANCE_API_SECRET"}
+        {:error,
+         "Invalid credentials - check your BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET"}
 
       {:error, reason} ->
         # Credentials might be valid but account might be restricted
@@ -447,8 +453,8 @@ defmodule BinanceIntegrationRunner do
   end
 
   defp make_authenticated_request(endpoint, params \\ %{}, api_key \\ nil, api_secret \\ nil) do
-    api_key = api_key || System.get_env("BINANCE_API_KEY")
-    api_secret = api_secret || System.get_env("BINANCE_API_SECRET")
+    api_key = api_key || System.get_env("BINANCE_TESTNET_API_KEY")
+    api_secret = api_secret || System.get_env("BINANCE_TESTNET_API_SECRET")
 
     # Add timestamp and recvWindow
     auth_params =

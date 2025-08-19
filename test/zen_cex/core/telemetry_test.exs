@@ -231,7 +231,7 @@ defmodule ZenCex.Core.TelemetryTest do
         %{duration: 5000},
         %{
           options: %{exchange: :binance},
-          request: %{method: :get, url: URI.parse("https://api.binance.com/api/v3/time")},
+          request: %{method: :get, url: URI.parse("https://testnet.binance.vision/api/v3/time")},
           response: %{status: 200}
         }
       )
@@ -242,7 +242,7 @@ defmodule ZenCex.Core.TelemetryTest do
       assert metadata.exchange == :binance
       assert metadata.status == 200
       assert metadata.method == :get
-      assert metadata.url == "https://api.binance.com/api/v3/time"
+      assert metadata.url == "https://testnet.binance.vision/api/v3/time"
 
       # Clean up
       :telemetry.detach("test-req-bridge")

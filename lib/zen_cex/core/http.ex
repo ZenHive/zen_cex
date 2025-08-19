@@ -107,7 +107,7 @@ defmodule ZenCex.Core.HTTP do
     |> Req.Request.append_response_steps(zen_cex_update_rate_limit: &update_rate_limit_step/1)
     |> Req.Request.append_error_steps(zen_cex_telemetry: &telemetry_error_step/1)
     |> Req.merge(
-      base_url: endpoints.base_url(:prod),
+      base_url: endpoints.base_url(),
       finch: ZenCex.Finch,
       retry: :safe_transient,
       retry_delay: &exponential_backoff_with_jitter/1,

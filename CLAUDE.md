@@ -527,7 +527,7 @@ assert Application.get_env(:zen_cex, :binance_host) == "testnet.binance.vision"
 mix test --exclude integration
 
 # Run ALL tests including real API tests (requires TESTNET credentials)
-BINANCE_TESTNET=true BINANCE_API_KEY=xxx BINANCE_API_SECRET=yyy mix test
+BINANCE_TESTNET=true BINANCE_TESTNET_API_KEY=xxx BINANCE_TESTNET_API_SECRET=yyy mix test
 
 # Run specific exchange integration tests
 mix test --only integration:binance

@@ -82,55 +82,33 @@ defmodule ZenCex.Safety.ClockSyncTest do
       assert {:ok, 200} = ClockSync.ensure_time_sync(:binance)
     end
 
-    @tag :skip
     test "attempts sync when no offset exists" do
-      # TODO: Skip until adapters are implemented - requires working exchange adapters
-      # This test verifies the flow - integration tests will verify real API calls
-      assert {:error, _reason} = ClockSync.ensure_time_sync(:unsupported_exchange)
+      # TODO: Implement against real testnet API when adapters are ready
+      flunk("Test not implemented - requires working exchange adapters")
     end
   end
 
   describe "get_stats/1" do
-    @tag :skip
     test "returns statistics with empty state initially" do
-      # TODO: Skip until adapters are implemented - requires Registry.list_exchanges/0
-      stats = ClockSync.get_stats()
-
-      assert is_map(stats)
-      assert Map.has_key?(stats, :exchanges)
-      assert Map.has_key?(stats, :last_sync_time)
-      assert Map.has_key?(stats, :sync_interval_ms)
-      assert Map.has_key?(stats, :offsets)
-      assert is_list(stats.exchanges)
-      assert is_map(stats.offsets)
+      # TODO: Implement against real testnet API when Registry.list_exchanges/0 is available
+      flunk("Test not implemented - requires Registry.list_exchanges/0")
     end
 
-    @tag :skip
     test "includes stored offsets in statistics" do
-      # TODO: Skip until adapters are implemented - requires Registry.list_exchanges/0
-      :ets.insert(:clock_offsets, {:binance, 100})
-      :ets.insert(:clock_offsets, {:kraken, -50})
-
-      stats = ClockSync.get_stats()
-
-      assert stats.offsets[:binance] == 100
-      assert stats.offsets[:kraken] == -50
+      # TODO: Implement against real testnet API when Registry.list_exchanges/0 is available
+      flunk("Test not implemented - requires Registry.list_exchanges/0")
     end
   end
 
   describe "integration with real data" do
-    @tag :skip
     test "handles unsupported exchange gracefully" do
-      # TODO: Skip until adapters are implemented - requires Registry.list_exchanges/0
-      result = ClockSync.sync_exchange(:unsupported_exchange)
-      assert {:error, {:unsupported_exchange, :unsupported_exchange}} = result
+      # TODO: Implement against real testnet API when adapters are available
+      flunk("Test not implemented - requires Registry.list_exchanges/0")
     end
 
-    @tag :skip
     test "sync_exchange handles known exchanges without crashing" do
-      # TODO: Skip until adapters are implemented - requires working exchange adapters
-      result = ClockSync.sync_exchange(:binance)
-      assert {:error, _reason} = result
+      # TODO: Implement against real testnet API when adapters are available
+      flunk("Test not implemented - requires working exchange adapters")
     end
   end
 
@@ -215,9 +193,9 @@ defmodule ZenCex.Safety.ClockSyncTest do
   end
 
   describe "telemetry events" do
-    @tag :skip
     test "emits telemetry during operations" do
-      # TODO: Skip until adapters are implemented - requires working sync operations
+      # TODO: Implement against real testnet API when sync operations are available
+      flunk("Test not implemented - requires working sync operations")
       # Setup telemetry capture
       ref = make_ref()
       test_pid = self()

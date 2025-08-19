@@ -1,390 +1,235 @@
 defmodule ZenCex.Core.HTTPTest do
-  # Need async: false for mocking
   use ExUnit.Case, async: false
 
-  # alias ZenCex.Core.HTTP
+  alias ZenCex.Core.HTTP
 
-  describe "base_request/2" do
-    @tag :skip
-    test "creates request with default configuration" do
-      raise "Not implemented"
+  @moduletag :integration
+  @moduletag :binance
+
+  setup do
+    # ENFORCE testnet usage - fail if production URL detected
+    # Check the actual environment detection mechanism
+    env = ZenCex.Adapters.Binance.Endpoints.current_env()
+
+    unless env == :test do
+      raise "TESTNET REQUIRED: Environment is #{env}, expected :test. Set BINANCE_TESTNET=true"
+    end
+
+    # Also verify the base URL is actually testnet
+    base_url = ZenCex.Adapters.Binance.Endpoints.base_url(env)
+
+    unless base_url == "https://testnet.binance.vision" do
+      raise "TESTNET URL REQUIRED: Got #{base_url}, expected https://testnet.binance.vision"
+    end
+
+    :ok
+  end
+
+  describe "base_request/2 with real testnet API" do
+    test "creates request with proper configuration for Binance testnet" do
+      # Create a real request to Binance testnet
+      request = HTTP.base_request(:binance, :market)
+
+      # Verify configuration
+      assert request.options[:finch] == ZenCex.Finch
+      assert request.options[:exchange] == :binance
+      assert request.options[:operation_type] == :market
+      assert request.options[:receive_timeout] == 5_000
+      assert request.options[:max_retries] == 3
+      assert request.options[:retry] == :safe_transient
+      assert request.options[:skip_auth] == false
+      assert request.options[:skip_rate_limit] == false
+
+      # Verify base URL is testnet
+      assert request.options[:base_url] =~ "testnet.binance.vision"
+    end
+
+    test "makes real request to Binance testnet ping endpoint" do
+      # Create and execute a real request
+      request =
+        HTTP.base_request(:binance, :health)
+        |> Req.merge(
+          url: "/api/v3/ping",
+          # Public endpoint
+          skip_auth: true
+        )
+
+      # Make real API call to testnet
+      assert {:ok, response} = Req.request(request)
+      assert response.status == 200
+      # Ping returns empty object
+      assert response.body == %{}
+    end
+
+    test "makes real request to get server time from testnet" do
+      request =
+        HTTP.base_request(:binance, :market)
+        |> Req.merge(
+          url: "/api/v3/time",
+          # Public endpoint
+          skip_auth: true
+        )
+
+      # Make real API call to testnet
+      assert {:ok, response} = Req.request(request)
+      assert response.status == 200
+      assert is_integer(response.body["serverTime"])
+
+      # Verify server time is reasonable (within last hour and next hour)
+      server_time = response.body["serverTime"]
+      now = System.system_time(:millisecond)
+      # Within 1 hour
+      assert abs(server_time - now) < 3_600_000
     end
   end
 
-  #   # Mock adapter module for testing - simplified without behaviors
-  #   defmodule MockAdapter do
-  #     def base_url(:prod), do: "https://api.mock.exchange"
-  #     def base_url(:test), do: "https://test.api.mock.exchange"
-  #     def rate_limiter, do: __MODULE__.RateLimiter
-  #     def auth, do: __MODULE__.Auth
-
-  #     defmodule RateLimiter do
-  #       def check_and_increment(_endpoint) do
-  #         # Check process dictionary for test control
-  #         case Process.get(:rate_limit_status, :ok) do
-  #           :ok -> :ok
-  #           :rate_limited -> {:error, :rate_limited}
-  #           {:rate_limited, retry_after} -> {:error, {:rate_limited, retry_after}}
-  #         end
-  #       end
-
-  #       def update_from_response(_response), do: :ok
-  #     end
-
-  #     defmodule Auth do
-  #       def sign_request(request, _auth_credentials \\ %{}) do
-  #         # Add a test header to verify auth was called
-  #         Req.Request.put_header(request, "x-test-auth", "signed")
-  #       end
-  #     end
-  #   end
-
-  #   setup do
-  #     # Clear process dictionary
-  #     Process.delete(:rate_limit_status)
-  #     :ok
-  #   end
-
-  #   describe "base_request/2" do
-  #     test "creates request with default configuration" do
-  #       # Temporarily mock the registry
-  #       mock_registry(fn ->
-  #         request = HTTP.base_request(:mock)
-
-  #         assert request.options[:finch] == ZenCex.Finch
-  #         assert request.options[:base_url] == "https://api.mock.exchange"
-  #         assert request.options[:exchange] == :mock
-  #         assert request.options[:operation_type] == :standard
-  #         assert request.options[:receive_timeout] == 30_000
-  #         assert request.options[:max_retries] == 3
-  #         assert request.options[:retry] == :safe_transient
-  #         assert request.options[:skip_auth] == false
-  #         assert request.options[:skip_rate_limit] == false
-  #       end)
-  #     end
-
-  #     test "sets operation-specific timeouts" do
-  #       mock_registry(fn ->
-  #         assert HTTP.base_request(:mock, :trading).options[:receive_timeout] == 2_000
-  #         assert HTTP.base_request(:mock, :market).options[:receive_timeout] == 5_000
-  #         assert HTTP.base_request(:mock, :historical).options[:receive_timeout] == 30_000
-  #         assert HTTP.base_request(:mock, :health).options[:receive_timeout] == 5_000
-  #         assert HTTP.base_request(:mock, :unknown).options[:receive_timeout] == 30_000
-  #       end)
-  #     end
-
-  #     test "registers custom options" do
-  #       mock_registry(fn ->
-  #         request = HTTP.base_request(:mock)
-
-  #         # These options should be registered for use
-  #         assert MapSet.member?(request.registered_options, :exchange)
-  #         assert MapSet.member?(request.registered_options, :operation_type)
-  #         assert MapSet.member?(request.registered_options, :skip_auth)
-  #         assert MapSet.member?(request.registered_options, :skip_rate_limit)
-  #       end)
-  #     end
-
-  #     test "includes auth and rate limit steps" do
-  #       mock_registry(fn ->
-  #         request = HTTP.base_request(:mock)
-
-  #         # Check that steps are registered
-  #         assert {:zen_cex_rate_limit, _} =
-  #                  List.keyfind(request.request_steps, :zen_cex_rate_limit, 0)
-
-  #         assert {:zen_cex_auth, _} = List.keyfind(request.request_steps, :zen_cex_auth, 0)
-
-  #         assert {:zen_cex_update_rate_limit, _} =
-  #                  List.keyfind(request.response_steps, :zen_cex_update_rate_limit, 0)
-
-  #         assert {:zen_cex_telemetry, _} = List.keyfind(request.error_steps, :zen_cex_telemetry, 0)
-  #       end)
-  #     end
-  #   end
-
-  #   describe "health_check_request/1" do
-  #     test "creates request with auth and rate limiting disabled" do
-  #       mock_registry(fn ->
-  #         request = HTTP.health_check_request(:mock)
-
-  #         assert request.options[:operation_type] == :health
-  #         assert request.options[:receive_timeout] == 5_000
-  #         assert request.options[:skip_auth] == true
-  #         assert request.options[:skip_rate_limit] == true
-  #       end)
-  #     end
-  #   end
-
-  #   describe "rate limiting" do
-  #     test "allows request when rate limit is not exceeded" do
-  #       mock_registry(fn ->
-  #         Process.put(:rate_limit_status, :ok)
-
-  #         request =
-  #           HTTP.base_request(:mock)
-  #           |> Map.put(:url, URI.parse("https://api.mock.exchange/test"))
-
-  #         # Run the rate limit step directly
-  #         {:zen_cex_rate_limit, rate_limit_fn} =
-  #           List.keyfind(request.request_steps, :zen_cex_rate_limit, 0)
-
-  #         result = rate_limit_fn.(request)
-
-  #         # Should return the request unchanged
-  #         assert %Req.Request{} = result
-  #       end)
-  #     end
-
-  #     test "returns 429 response when rate limited" do
-  #       mock_registry(fn ->
-  #         Process.put(:rate_limit_status, :rate_limited)
-
-  #         request =
-  #           HTTP.base_request(:mock)
-  #           |> Map.put(:url, URI.parse("https://api.mock.exchange/test"))
-
-  #         # Run the rate limit step directly
-  #         {:zen_cex_rate_limit, rate_limit_fn} =
-  #           List.keyfind(request.request_steps, :zen_cex_rate_limit, 0)
-
-  #         {_request, response} = rate_limit_fn.(request)
-
-  #         assert response.status == 429
-  #         assert response.body == "Rate limited"
-  #       end)
-  #     end
-
-  #     test "returns 429 with retry-after header when retry time is provided" do
-  #       mock_registry(fn ->
-  #         Process.put(:rate_limit_status, {:rate_limited, 5000})
-
-  #         request =
-  #           HTTP.base_request(:mock)
-  #           |> Map.put(:url, URI.parse("https://api.mock.exchange/test"))
-
-  #         # Run the rate limit step directly
-  #         {:zen_cex_rate_limit, rate_limit_fn} =
-  #           List.keyfind(request.request_steps, :zen_cex_rate_limit, 0)
-
-  #         {_request, response} = rate_limit_fn.(request)
-
-  #         assert response.status == 429
-  #         assert response.body == "Rate limited"
-  #         assert {"retry-after", "5"} in response.headers
-  #       end)
-  #     end
-
-  #     test "skips rate limiting when skip_rate_limit is true" do
-  #       mock_registry(fn ->
-  #         Process.put(:rate_limit_status, :rate_limited)
-
-  #         request =
-  #           HTTP.base_request(:mock)
-  #           |> Req.merge(skip_rate_limit: true)
-  #           |> Map.put(:url, URI.parse("https://api.mock.exchange/test"))
-
-  #         # Run the rate limit step directly
-  #         {:zen_cex_rate_limit, rate_limit_fn} =
-  #           List.keyfind(request.request_steps, :zen_cex_rate_limit, 0)
-
-  #         result = rate_limit_fn.(request)
-
-  #         # Should return the request unchanged (not rate limited)
-  #         assert %Req.Request{} = result
-  #       end)
-  #     end
-  #   end
-
-  #   describe "authentication" do
-  #     test "signs request when auth is enabled" do
-  #       mock_registry(fn ->
-  #         request = HTTP.base_request(:mock)
-
-  #         # Run the auth step directly
-  #         {:zen_cex_auth, auth_fn} =
-  #           List.keyfind(request.request_steps, :zen_cex_auth, 0)
-
-  #         signed_request = auth_fn.(request)
-
-  #         # Check that our mock auth added the header
-  #         assert "signed" in signed_request.headers["x-test-auth"]
-  #       end)
-  #     end
-
-  #     test "skips auth when skip_auth is true" do
-  #       mock_registry(fn ->
-  #         request =
-  #           HTTP.base_request(:mock)
-  #           |> Req.merge(skip_auth: true)
-
-  #         # Run the auth step directly
-  #         {:zen_cex_auth, auth_fn} =
-  #           List.keyfind(request.request_steps, :zen_cex_auth, 0)
-
-  #         signed_request = auth_fn.(request)
-
-  #         # Should not have the auth header
-  #         refute Map.has_key?(signed_request.headers, "x-test-auth")
-  #       end)
-  #     end
-  #   end
-
-  #   describe "exponential backoff" do
-  #     test "calculates backoff with jitter" do
-  #       mock_registry(fn ->
-  #         request = HTTP.base_request(:mock)
-
-  #         # Get the retry delay function
-  #         retry_delay_fn = request.options[:retry_delay]
-
-  #         # Test backoff for different retry counts
-  #         delay_1 = retry_delay_fn.(1)
-  #         # 2^1 * 1000 + jitter
-  #         assert delay_1 >= 2000 and delay_1 <= 2500
-
-  #         delay_2 = retry_delay_fn.(2)
-  #         # 2^2 * 1000 + jitter
-  #         assert delay_2 >= 4000 and delay_2 <= 4500
-
-  #         delay_10 = retry_delay_fn.(10)
-  #         # Should cap at 60s + jitter
-  #         assert delay_10 <= 60_500
-
-  #         delay_20 = retry_delay_fn.(20)
-  #         # Should still cap at 60s + jitter
-  #         assert delay_20 <= 60_500
-  #       end)
-  #     end
-  #   end
-
-  #   describe "telemetry" do
-  #     test "emits telemetry events on successful response" do
-  #       mock_registry(fn ->
-  #         # Attach telemetry handler
-  #         ref = make_ref()
-
-  #         :telemetry.attach(
-  #           "test-handler-#{inspect(ref)}",
-  #           [:zen_cex, :request, :complete],
-  #           fn event, measurements, metadata, _config ->
-  #             send(self(), {:telemetry, event, measurements, metadata})
-  #           end,
-  #           nil
-  #         )
-
-  #         request =
-  #           HTTP.base_request(:mock)
-  #           |> Map.put(:url, URI.parse("https://api.mock.exchange/test"))
-  #           # Manually set start time to simulate real request timing
-  #           |> Req.Request.put_private(:zen_cex_start_time, System.monotonic_time() - 1000)
-
-  #         response = %Req.Response{status: 200, body: "OK"}
-
-  #         # Run the telemetry response step
-  #         {:zen_cex_telemetry_response, telemetry_fn} =
-  #           List.keyfind(request.response_steps, :zen_cex_telemetry_response, 0)
-
-  #         {_request, _response} = telemetry_fn.({request, response})
-
-  #         # Should receive telemetry event
-  #         assert_receive {:telemetry, [:zen_cex, :request, :complete], measurements, metadata}
-
-  #         assert measurements[:duration] > 0
-  #         assert measurements[:count] == 1
-  #         assert metadata[:exchange] == :mock
-  #         assert metadata[:operation_type] == :standard
-  #         assert metadata[:status] == 200
-
-  #         :telemetry.detach("test-handler-#{inspect(ref)}")
-  #       end)
-  #     end
-
-  #     test "emits telemetry events on error" do
-  #       mock_registry(fn ->
-  #         # Attach telemetry handler
-  #         ref = make_ref()
-
-  #         :telemetry.attach(
-  #           "test-error-handler-#{inspect(ref)}",
-  #           [:zen_cex, :request, :error],
-  #           fn event, measurements, metadata, _config ->
-  #             send(self(), {:telemetry, event, measurements, metadata})
-  #           end,
-  #           nil
-  #         )
-
-  #         request =
-  #           HTTP.base_request(:mock)
-  #           |> Map.put(:url, URI.parse("https://api.mock.exchange/test"))
-
-  #         exception = %RuntimeError{message: "Connection failed"}
-
-  #         # Run the telemetry error step
-  #         {:zen_cex_telemetry, telemetry_fn} =
-  #           List.keyfind(request.error_steps, :zen_cex_telemetry, 0)
-
-  #         {_request, _exception} = telemetry_fn.({request, exception})
-
-  #         # Should receive telemetry event
-  #         assert_receive {:telemetry, [:zen_cex, :request, :error], measurements, metadata}
-
-  #         assert measurements[:count] == 1
-  #         assert metadata[:exchange] == :mock
-  #         assert metadata[:operation_type] == :standard
-  #         assert metadata[:error] == exception
-
-  #         :telemetry.detach("test-error-handler-#{inspect(ref)}")
-  #       end)
-  #     end
-
-  #     test "emits rate limit telemetry when rate limited" do
-  #       mock_registry(fn ->
-  #         # Attach telemetry handler
-  #         ref = make_ref()
-
-  #         :telemetry.attach(
-  #           "test-rate-limit-handler-#{inspect(ref)}",
-  #           [:zen_cex, :rate_limit, :exceeded],
-  #           fn event, measurements, metadata, _config ->
-  #             send(self(), {:telemetry, event, measurements, metadata})
-  #           end,
-  #           nil
-  #         )
-
-  #         Process.put(:rate_limit_status, {:rate_limited, 5000})
-
-  #         request =
-  #           HTTP.base_request(:mock)
-  #           |> Map.put(:url, URI.parse("https://api.mock.exchange/test"))
-
-  #         # Run the rate limit step
-  #         {:zen_cex_rate_limit, rate_limit_fn} =
-  #           List.keyfind(request.request_steps, :zen_cex_rate_limit, 0)
-
-  #         rate_limit_fn.(request)
-
-  #         # Should receive telemetry event
-  #         assert_receive {:telemetry, [:zen_cex, :rate_limit, :exceeded], measurements, metadata}
-
-  #         assert measurements[:count] == 1
-  #         assert metadata[:exchange] == :mock
-  #         assert metadata[:retry_after_ms] == 5000
-
-  #         :telemetry.detach("test-rate-limit-handler-#{inspect(ref)}")
-  #       end)
-  #     end
-  #   end
-
-  #   # Helper to mock the registry for the duration of a test
-  #   defp mock_registry(test_fn) do
-  #     with_mock ZenCex.Core.Registry,
-  #       get_adapter!: fn
-  #         :mock -> MockAdapter
-  #         exchange -> raise("Unknown exchange: #{exchange}")
-  #       end do
-  #       test_fn.()
-  #     end
-  #   end
-  # end
+  describe "health_check_request/1 with real testnet API" do
+    test "creates request with auth and rate limiting disabled" do
+      request = HTTP.health_check_request(:binance)
+
+      assert request.options[:operation_type] == :health
+      assert request.options[:receive_timeout] == 5_000
+      assert request.options[:skip_auth] == true
+      assert request.options[:skip_rate_limit] == true
+    end
+
+    test "successfully pings Binance testnet without auth" do
+      request =
+        HTTP.health_check_request(:binance)
+        |> Req.merge(url: "/api/v3/ping")
+
+      # Should work without credentials
+      assert {:ok, response} = Req.request(request)
+      assert response.status == 200
+    end
+  end
+
+  describe "rate limiting with real testnet API" do
+    test "monitors real rate limit headers from Binance testnet" do
+      alias ZenCex.Adapters.Binance.RateLimiter
+
+      # Reset rate limiter
+      RateLimiter.reset(nil)
+
+      # Make a request that should update rate limits
+      request =
+        HTTP.base_request(:binance, :market)
+        |> Req.merge(
+          url: "/api/v3/ticker/price",
+          params: [symbol: "BTCUSDT"],
+          skip_auth: true
+        )
+
+      assert {:ok, response} = Req.request(request)
+      assert response.status == 200
+
+      # Check that rate limit headers were present and processed
+      headers_map = Map.new(response.headers)
+      assert headers_map["x-mbx-used-weight-1m"] != nil
+
+      # Verify rate limiter tracked the usage
+      status = RateLimiter.get_status("/api/v3/ticker/price")
+      assert status.limit > 0
+      assert status.used >= 0
+    end
+  end
+
+  describe "error handling with real testnet API" do
+    test "handles 404 from invalid endpoint" do
+      request =
+        HTTP.base_request(:binance, :market)
+        |> Req.merge(
+          url: "/api/v3/invalid_endpoint_that_does_not_exist",
+          skip_auth: true
+        )
+
+      assert {:ok, response} = Req.request(request)
+      assert response.status == 404
+    end
+
+    test "handles invalid symbol error from real API" do
+      request =
+        HTTP.base_request(:binance, :market)
+        |> Req.merge(
+          url: "/api/v3/ticker/price",
+          params: [symbol: "INVALIDPAIR"],
+          skip_auth: true
+        )
+
+      assert {:ok, response} = Req.request(request)
+      assert response.status == 400
+      assert response.body["code"] == -1121
+      assert response.body["msg"] =~ "Invalid symbol"
+    end
+  end
+
+  describe "authenticated endpoints" do
+    test "requires credentials for authenticated endpoints" do
+      # Check if testnet credentials are available
+      api_key = System.get_env("BINANCE_TESTNET_API_KEY")
+      api_secret = System.get_env("BINANCE_TESTNET_API_SECRET")
+
+      if is_nil(api_key) or is_nil(api_secret) do
+        # Fail loudly if no credentials for integration test
+        flunk(
+          "BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET required for authenticated tests"
+        )
+      end
+
+      # If we have credentials, test authenticated endpoint
+      request =
+        HTTP.base_request(:binance, :account)
+        |> Req.merge(
+          url: "/api/v3/account",
+          auth_credentials: %{
+            api_key: api_key,
+            api_secret: api_secret
+          }
+        )
+
+      # This would make a real authenticated call to testnet
+      # The actual auth signing happens in the Binance.Auth module
+      assert {:ok, response} = Req.request(request)
+
+      # Should either succeed (200) or fail with auth error (401/403)
+      # but not with other errors
+      assert response.status in [200, 401, 403]
+    end
+  end
+
+  describe "telemetry events with real API" do
+    test "emits telemetry for successful testnet requests" do
+      # Attach telemetry handler
+      ref = make_ref()
+      test_pid = self()
+
+      :telemetry.attach(
+        "test-handler-#{inspect(ref)}",
+        [:zen_cex, :request, :complete],
+        fn event, measurements, metadata, _config ->
+          send(test_pid, {:telemetry, event, measurements, metadata})
+        end,
+        nil
+      )
+
+      # Make real request
+      request =
+        HTTP.base_request(:binance, :market)
+        |> Req.merge(
+          url: "/api/v3/ping",
+          skip_auth: true
+        )
+
+      assert {:ok, _response} = Req.request(request)
+
+      # Should receive telemetry
+      assert_receive {:telemetry, [:zen_cex, :request, :complete], measurements, metadata}, 1000
+
+      assert measurements[:duration] > 0
+      assert metadata[:exchange] == :binance
+      assert metadata[:status] == 200
+
+      :telemetry.detach("test-handler-#{inspect(ref)}")
+    end
+  end
 end

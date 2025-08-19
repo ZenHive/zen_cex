@@ -19,6 +19,28 @@ defmodule ZenCex.Adapters.Binance.RateLimiterApiTypeTest do
 
   @moduletag :integration
 
+  setup do
+    # ENFORCE testnet usage - fail if production URL detected
+    # Check the actual environment detection mechanism
+    env = ZenCex.Adapters.Binance.Endpoints.current_env()
+
+    unless env == :test do
+      raise "TESTNET REQUIRED: Environment is #{env}, expected :test. Set BINANCE_TESTNET=true"
+    end
+
+    # Also verify the base URL is actually testnet
+    base_url = ZenCex.Adapters.Binance.Endpoints.base_url(env)
+
+    unless base_url == "https://testnet.binance.vision" do
+      raise "TESTNET URL REQUIRED: Got #{base_url}, expected https://testnet.binance.vision"
+    end
+
+    # Note: These are public endpoint tests, no credentials required
+    # For authenticated tests, we would verify BINANCE_TESTNET_API_KEY here
+
+    :ok
+  end
+
   describe "real API rate limit monitoring" do
     test "monitors Spot API rate limits from real response headers" do
       # Reset to ensure clean state

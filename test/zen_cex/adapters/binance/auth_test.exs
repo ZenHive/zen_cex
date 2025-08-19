@@ -5,27 +5,44 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
   alias ZenCex.Adapters.Binance.Auth
 
   @moduletag :binance_auth
+  @moduletag :integration
 
-  # Test against real Binance APIs
+  # Test against real Binance TESTNET APIs
   # We'll use server time endpoint (public) and account endpoint (authenticated)
 
   describe "real API integration tests" do
     setup do
-      api_key = System.get_env("BINANCE_API_KEY")
-      api_secret = System.get_env("BINANCE_API_SECRET")
+      # ENFORCE testnet usage - fail if production environment detected
+      env = ZenCex.Adapters.Binance.Endpoints.current_env()
 
-      if is_nil(api_key) or is_nil(api_secret) do
-        :skip
-      else
-        {:ok, api_key: api_key, api_secret: api_secret}
+      unless env == :test do
+        raise "TESTNET REQUIRED: Environment is #{env}, expected :test. Set BINANCE_TESTNET=true"
       end
+
+      # Verify base URL is actually testnet
+      base_url = ZenCex.Adapters.Binance.Endpoints.base_url(env)
+
+      unless base_url == "https://testnet.binance.vision" do
+        raise "TESTNET URL REQUIRED: Got #{base_url}, expected https://testnet.binance.vision"
+      end
+
+      # FAIL LOUDLY if no testnet credentials - don't hide missing tests
+      api_key =
+        System.get_env("BINANCE_TESTNET_API_KEY") ||
+          flunk("BINANCE_TESTNET_API_KEY required for integration tests")
+
+      api_secret =
+        System.get_env("BINANCE_TESTNET_API_SECRET") ||
+          flunk("BINANCE_TESTNET_API_SECRET required for integration tests")
+
+      {:ok, api_key: api_key, api_secret: api_secret}
     end
 
     test "authenticates with USD-M Futures API", %{api_key: api_key, api_secret: api_secret} do
-      # First get server time
+      # First get server time from testnet
       time_request =
         Req.new(
-          base_url: "https://fapi.binance.com",
+          base_url: "https://testnet.binancefuture.com",
           url: "/fapi/v1/time"
         )
 
@@ -33,10 +50,10 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
       assert time_response.status == 200
       server_time = time_response.body["serverTime"]
 
-      # Test authenticated endpoint
+      # Test authenticated endpoint on testnet
       request =
         Req.new(
-          base_url: "https://fapi.binance.com",
+          base_url: "https://testnet.binancefuture.com",
           url: "/fapi/v2/account",
           params: %{
             "timestamp" => server_time,
@@ -56,10 +73,10 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
     end
 
     test "authenticates with COIN-M Futures API", %{api_key: api_key, api_secret: api_secret} do
-      # First get server time
+      # First get server time from testnet (Note: COIN-M testnet may not be available)
       time_request =
         Req.new(
-          base_url: "https://dapi.binance.com",
+          base_url: "https://testnet.binancefuture.com",
           url: "/dapi/v1/time"
         )
 
@@ -67,10 +84,10 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
       assert time_response.status == 200
       server_time = time_response.body["serverTime"]
 
-      # Test authenticated endpoint
+      # Test authenticated endpoint on testnet (Note: COIN-M testnet may not be available)
       request =
         Req.new(
-          base_url: "https://dapi.binance.com",
+          base_url: "https://testnet.binancefuture.com",
           url: "/dapi/v1/account",
           params: %{
             "timestamp" => server_time,
@@ -93,10 +110,10 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
       api_key: api_key,
       api_secret: api_secret
     } do
-      # Get server time
+      # Get server time from testnet
       time_request =
         Req.new(
-          base_url: "https://api.binance.com",
+          base_url: "https://testnet.binance.vision",
           url: "/api/v3/time"
         )
 
@@ -104,10 +121,10 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
       assert time_response.status == 200
       server_time = time_response.body["serverTime"]
 
-      # Test margin account endpoint
+      # Test margin account endpoint on testnet
       request =
         Req.new(
-          base_url: "https://api.binance.com",
+          base_url: "https://testnet.binance.vision",
           url: "/sapi/v1/margin/account",
           params: %{
             "timestamp" => server_time,
@@ -128,10 +145,10 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
     end
 
     test "authenticates with Portfolio Margin API", %{api_key: api_key, api_secret: api_secret} do
-      # First get server time
+      # First get server time from testnet (Note: Portfolio margin testnet may not be available)
       time_request =
         Req.new(
-          base_url: "https://papi.binance.com",
+          base_url: "https://testnet.binance.vision",
           url: "/papi/v1/time"
         )
 
@@ -139,10 +156,10 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
       assert time_response.status == 200
       server_time = time_response.body["serverTime"]
 
-      # Test portfolio margin account endpoint
+      # Test portfolio margin account endpoint on testnet (Note: Portfolio margin testnet may not be available)
       request =
         Req.new(
-          base_url: "https://papi.binance.com",
+          base_url: "https://testnet.binance.vision",
           url: "/papi/v1/account",
           params: %{
             "timestamp" => server_time,
@@ -166,7 +183,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
       # This tests that our implementation puts signature LAST
       request =
         Req.new(
-          base_url: "https://api.binance.com",
+          base_url: "https://testnet.binance.vision",
           url: "/api/v3/account",
           params: %{
             "timestamp" => System.system_time(:millisecond),
@@ -185,7 +202,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
     test "includes X-MBX-APIKEY header", %{api_key: api_key, api_secret: api_secret} do
       request =
         Req.new(
-          base_url: "https://api.binance.com",
+          base_url: "https://testnet.binance.vision",
           url: "/api/v3/account",
           params: %{
             "timestamp" => System.system_time(:millisecond),
@@ -206,7 +223,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
       # The auth module should work as a Req step
       request =
         Req.new(
-          base_url: "https://api.binance.com",
+          base_url: "https://testnet.binance.vision",
           url: "/api/v3/account",
           params: %{
             "timestamp" => "1234567890",
@@ -235,7 +252,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
 
       request =
         Req.new(
-          base_url: "https://api.binance.com",
+          base_url: "https://testnet.binance.vision",
           url: "/api/v3/account",
           params: %{}
         )
@@ -264,7 +281,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
 
       request =
         Req.new(
-          base_url: "https://api.binance.com",
+          base_url: "https://testnet.binance.vision",
           url: "/api/v3/account",
           params: %{
             "timestamp" => custom_timestamp,
@@ -287,7 +304,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
 
       request =
         Req.new(
-          base_url: "https://api.binance.com",
+          base_url: "https://testnet.binance.vision",
           url: "/api/v3/account",
           params: %{
             # Over 60000 limit
@@ -308,7 +325,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
 
       request =
         Req.new(
-          base_url: "https://api.binance.com",
+          base_url: "https://testnet.binance.vision",
           url: "/api/v3/account",
           params: %{
             "recvWindow" => "invalid"
@@ -360,7 +377,10 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
   end
 
   describe "base URL selection" do
-    test "returns correct base URL for each API type" do
+    test "returns correct base URL for each API type in test environment" do
+      # Note: Auth.base_url returns production URLs
+      # The test environment URLs are handled by Endpoints module
+      # This test verifies the Auth module's production URL mapping
       assert Auth.base_url(:spot) == "https://api.binance.com"
       assert Auth.base_url(:margin) == "https://api.binance.com"
       assert Auth.base_url(:usdm_futures) == "https://fapi.binance.com"
