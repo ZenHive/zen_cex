@@ -112,20 +112,52 @@ defmodule ZenCex.Adapters.Binance.Auth do
     # TODO: Remove debug logging
     Logger.debug("Binance Auth: Starting to sign request for #{request.url}")
 
-    # Add API key header
-    request = Req.Request.put_header(request, "x-mbx-apikey", api_key)
+    # Step 1: Add authentication headers
+    request = add_auth_headers(request, api_key)
 
-    # Extract and merge params
+    # Step 2: Extract and prepare parameters
     {all_params, has_json_option, body_params} = extract_request_params(request)
-
-    # Ensure timing params are present
     all_params_with_timing = ensure_timing_params(all_params, api_type)
 
-    # Generate signature for ALL params
-    signature = generate_signature(all_params_with_timing, api_secret)
+    # Step 3: Generate signature
+    signature = create_hmac_signature(all_params_with_timing, api_secret)
 
+    # Step 4: Build authenticated request
+    build_authenticated_request(
+      request,
+      all_params_with_timing,
+      signature,
+      has_json_option,
+      body_params
+    )
+  end
+
+  # Adds authentication headers to the request
+  @spec add_auth_headers(Req.Request.t(), String.t()) :: Req.Request.t()
+  defp add_auth_headers(request, api_key) do
+    Req.Request.put_header(request, "x-mbx-apikey", api_key)
+  end
+
+  # Creates HMAC-SHA256 signature for the request parameters
+  @spec create_hmac_signature(map(), String.t()) :: String.t()
+  defp create_hmac_signature(params, api_secret) do
+    params
+    |> build_signature_payload()
+    |> compute_hmac_sha256(api_secret)
+    |> encode_signature()
+  end
+
+  # Builds the final authenticated request with signed URL
+  @spec build_authenticated_request(
+          Req.Request.t(),
+          map(),
+          String.t(),
+          boolean(),
+          map()
+        ) :: Req.Request.t()
+  defp build_authenticated_request(request, params_with_timing, signature, has_json_option, body_params) do
     # Build signed URL with proper parameter ordering
-    final_url = build_signed_url(request.url, all_params_with_timing, signature)
+    final_url = build_signed_url(request.url, params_with_timing, signature)
 
     Logger.debug("Binance Auth: Final URL: #{final_url}")
 
@@ -133,6 +165,21 @@ defmodule ZenCex.Adapters.Binance.Auth do
     updated_options = clean_request_options(request.options, has_json_option, body_params)
 
     %{request | url: URI.parse(final_url), options: updated_options}
+  end
+
+  @spec build_signature_payload(map()) :: String.t()
+  defp build_signature_payload(params) do
+    build_query_string(params)
+  end
+
+  @spec compute_hmac_sha256(String.t(), String.t()) :: binary()
+  defp compute_hmac_sha256(payload, secret) do
+    :crypto.mac(:hmac, :sha256, secret, payload)
+  end
+
+  @spec encode_signature(binary()) :: String.t()
+  defp encode_signature(raw_signature) do
+    Base.encode16(raw_signature, case: :lower)
   end
 
   # Extract params from request options
@@ -170,7 +217,7 @@ defmodule ZenCex.Adapters.Binance.Auth do
   # Build query string with Binance-required parameter ordering:
   # 1. Existing params (alphabetically)
   # 2. timestamp
-  # 3. recvWindow  
+  # 3. recvWindow
   # 4. signature (MUST be last)
   @spec build_ordered_query_string(map(), map(), String.t()) :: String.t()
   defp build_ordered_query_string(existing_params, all_params, signature) do
@@ -244,6 +291,9 @@ defmodule ZenCex.Adapters.Binance.Auth do
   @doc """
   Generates HMAC-SHA256 signature for Binance API.
 
+  Public function for backward compatibility and testing.
+  Internally delegates to the refactored signature creation.
+
   ## Parameters
 
     * `params` - Map of query parameters (without signature)
@@ -257,14 +307,7 @@ defmodule ZenCex.Adapters.Binance.Auth do
   """
   @spec generate_signature(map(), String.t()) :: String.t()
   def generate_signature(params, api_secret) do
-    # Build query string with proper parameter ordering
-    # Binance is sensitive to parameter order - cannot use URI.encode_query which sorts alphabetically
-    query_string = build_query_string(params)
-
-    # Generate HMAC-SHA256 signature
-    :hmac
-    |> :crypto.mac(:sha256, api_secret, query_string)
-    |> Base.encode16(case: :lower)
+    create_hmac_signature(params, api_secret)
   end
 
   # Private helper functions
