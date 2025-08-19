@@ -115,14 +115,14 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   def base_url(:test, :spot), do: "https://testnet.binance.vision"
   def base_url(:test, :margin), do: "https://testnet.binance.vision"
 
-  # Futures (USD-M) Testnet
-  def base_url(:test, :futures), do: "https://testnet.binancefuture.com"
+  # USD-M Futures Testnet
+  def base_url(:test, :usdm_futures), do: "https://testnet.binancefuture.com"
 
-  # COIN-M Futures (DAPI) Testnet
-  def base_url(:test, :dapi), do: "https://testnet.binancefuture.com"
+  # COIN-M Futures Testnet
+  def base_url(:test, :coinm_futures), do: "https://testnet.binancefuture.com"
 
-  # Portfolio Margin (PAPI) uses Futures Testnet
-  def base_url(:test, :papi), do: "https://testnet.binancefuture.com"
+  # Portfolio Margin uses Futures Testnet
+  def base_url(:test, :portfolio), do: "https://testnet.binancefuture.com"
 
   # SAPI endpoints are NOT supported on Testnet
   def base_url(:test, :sapi), do: {:error, :no_testnet_for_sapi}
@@ -141,14 +141,14 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   # SAPI (sub-account, fiat, etc.)
   def base_url(:prod, :sapi), do: "https://api.binance.com"
 
-  # Futures (USD-M)
-  def base_url(:prod, :futures), do: "https://fapi.binance.com"
+  # USD-M Futures
+  def base_url(:prod, :usdm_futures), do: "https://fapi.binance.com"
 
   # COIN-M Futures
-  def base_url(:prod, :dapi), do: "https://dapi.binance.com"
+  def base_url(:prod, :coinm_futures), do: "https://dapi.binance.com"
 
   # Portfolio Margin
-  def base_url(:prod, :papi), do: "https://papi.binance.com"
+  def base_url(:prod, :portfolio), do: "https://papi.binance.com"
 
   # Default to Spot
   def base_url(:prod, _), do: "https://api.binance.com"

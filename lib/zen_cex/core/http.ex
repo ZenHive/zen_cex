@@ -217,9 +217,17 @@ defmodule ZenCex.Core.HTTP do
       # Get the rate limiter module
       rate_limiter = endpoints.rate_limiter()
 
-      # Store request URL in response private for rate limiter to detect API type
+      # Store full request URL in response private for rate limiter to detect API type
+      # We need the full URL (including host) to properly detect API type (spot vs futures vs sapi)
+      full_url =
+        if request.url do
+          URI.to_string(request.url)
+        else
+          get_endpoint(request)
+        end
+
       response_with_url =
-        put_in(response.private[:req_url], request.url.path || get_endpoint(request))
+        put_in(response.private[:req_url], full_url)
 
       # Update rate limit tracking from response headers
       if function_exported?(rate_limiter, :update_from_response, 1) do

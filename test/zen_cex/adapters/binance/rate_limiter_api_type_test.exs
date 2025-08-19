@@ -203,8 +203,10 @@ defmodule ZenCex.Adapters.Binance.RateLimiterApiTypeTest do
       assert limits.spot.window == 60
       assert limits.sapi.limit == 12_000
       assert limits.sapi.window == 60
-      assert limits.futures.limit == 2400
-      assert limits.futures.window == 60
+      assert limits.usdm_futures.limit == 2400
+      assert limits.usdm_futures.window == 60
+      assert limits.coinm_futures.limit == 2400
+      assert limits.coinm_futures.window == 60
     end
   end
 end

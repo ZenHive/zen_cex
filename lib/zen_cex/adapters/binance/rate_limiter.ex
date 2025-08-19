@@ -27,7 +27,8 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
   # API type limits per minute
   @spot_limit 1200
   @sapi_limit 12_000
-  @futures_limit 2400
+  @usdm_futures_limit 2400
+  @coinm_futures_limit 2400
 
   # Warning thresholds
   @warning_threshold 0.80
@@ -71,8 +72,11 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
       weight_value = parse_weight_header(weight_header)
 
       case api_type do
-        :futures ->
-          check_and_log_usage(:futures, weight_value, @futures_limit)
+        :usdm_futures ->
+          check_and_log_usage(:usdm_futures, weight_value, @usdm_futures_limit)
+
+        :coinm_futures ->
+          check_and_log_usage(:coinm_futures, weight_value, @coinm_futures_limit)
 
         _ ->
           # Default to spot for regular API endpoints
@@ -112,7 +116,8 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
         %{
           spot: build_status(:spot),
           sapi: build_status(:sapi),
-          futures: build_status(:futures)
+          usdm_futures: build_status(:usdm_futures),
+          coinm_futures: build_status(:coinm_futures)
         }
 
       type ->
@@ -129,7 +134,8 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
       # Reset all
       reset_counter(:spot)
       reset_counter(:sapi)
-      reset_counter(:futures)
+      reset_counter(:usdm_futures)
+      reset_counter(:coinm_futures)
     end
 
     :ok
@@ -140,7 +146,8 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
     %{
       spot: %{limit: @spot_limit, window: 60},
       sapi: %{limit: @sapi_limit, window: 60},
-      futures: %{limit: @futures_limit, window: 60}
+      usdm_futures: %{limit: @usdm_futures_limit, window: 60},
+      coinm_futures: %{limit: @coinm_futures_limit, window: 60}
     }
   end
 
@@ -155,7 +162,9 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
   defp detect_api_type(endpoint) do
     cond do
       String.contains?(endpoint, "/sapi/") -> :sapi
-      String.contains?(endpoint, "/fapi/") or String.contains?(endpoint, "/dapi/") -> :futures
+      String.contains?(endpoint, "/fapi/") -> :usdm_futures
+      String.contains?(endpoint, "/dapi/") -> :coinm_futures
+      String.contains?(endpoint, "/papi/") -> :portfolio
       true -> :spot
     end
   end
@@ -231,7 +240,10 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
       case api_type do
         :spot -> @spot_limit
         :sapi -> @sapi_limit
-        :futures -> @futures_limit
+        :usdm_futures -> @usdm_futures_limit
+        :coinm_futures -> @coinm_futures_limit
+        # Portfolio uses same limit as SAPI
+        :portfolio -> @sapi_limit
       end
 
     try do

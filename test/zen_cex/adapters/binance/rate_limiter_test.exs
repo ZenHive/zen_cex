@@ -107,11 +107,13 @@ defmodule ZenCex.Adapters.Binance.RateLimiterTest do
       assert is_map(status)
       assert Map.has_key?(status, :spot)
       assert Map.has_key?(status, :sapi)
-      assert Map.has_key?(status, :futures)
+      assert Map.has_key?(status, :usdm_futures)
+      assert Map.has_key?(status, :coinm_futures)
 
       assert status.spot.limit == 1200
       assert status.sapi.limit == 12_000
-      assert status.futures.limit == 2400
+      assert status.usdm_futures.limit == 2400
+      assert status.coinm_futures.limit == 2400
     end
   end
 
@@ -145,7 +147,8 @@ defmodule ZenCex.Adapters.Binance.RateLimiterTest do
       status = RateLimiter.get_status(nil)
       assert status.spot.used == 0
       assert status.sapi.used == 0
-      assert status.futures.used == 0
+      assert status.usdm_futures.used == 0
+      assert status.coinm_futures.used == 0
     end
   end
 
@@ -159,8 +162,11 @@ defmodule ZenCex.Adapters.Binance.RateLimiterTest do
       assert limits.sapi.limit == 12_000
       assert limits.sapi.window == 60
 
-      assert limits.futures.limit == 2400
-      assert limits.futures.window == 60
+      assert limits.usdm_futures.limit == 2400
+      assert limits.usdm_futures.window == 60
+
+      assert limits.coinm_futures.limit == 2400
+      assert limits.coinm_futures.window == 60
     end
   end
 

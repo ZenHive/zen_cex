@@ -9,7 +9,7 @@ defmodule ZenCex.Adapters.Binance.FuturesTest do
       assert config.operation == :get_positions
       assert config.method == :get
       assert config.path == "/fapi/v2/positionRisk"
-      assert config.api_type == :futures
+      assert config.api_type == :usdm_futures
       assert config.requires_auth == true
       assert config.weight == 5
       assert config.timeout == 5_000
@@ -24,7 +24,7 @@ defmodule ZenCex.Adapters.Binance.FuturesTest do
     test "returns correct config for :get_positions" do
       config = Futures.get_endpoint(:get_positions)
       assert config.operation == :get_positions
-      assert config.api_type == :futures
+      assert config.api_type == :usdm_futures
     end
 
     test "returns nil for unknown operations" do
@@ -42,7 +42,7 @@ defmodule ZenCex.Adapters.Binance.FuturesTest do
 
       config = hd(endpoints)
       assert config.operation == :get_positions
-      assert config.api_type == :futures
+      assert config.api_type == :usdm_futures
     end
   end
 

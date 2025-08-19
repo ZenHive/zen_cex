@@ -21,7 +21,7 @@ defmodule ZenCex.Adapters.Binance.Futures do
       operation: :get_positions,
       method: :get,
       path: "/fapi/v2/positionRisk",
-      api_type: :futures,
+      api_type: :usdm_futures,
       requires_auth: true,
       weight: 5,
       timeout: 5_000,
@@ -52,7 +52,7 @@ defmodule ZenCex.Adapters.Binance.Futures do
     base_url =
       Endpoints.base_url(
         Endpoints.current_env(),
-        :futures
+        :usdm_futures
       )
 
     # Build request params - futures currently only has GET endpoints

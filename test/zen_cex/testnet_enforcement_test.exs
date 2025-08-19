@@ -211,7 +211,7 @@ defmodule ZenCex.TestnetEnforcementTest do
         # Verify endpoints module respects it
         assert Endpoints.current_env() == :test
         assert Endpoints.base_url() == "https://testnet.binance.vision"
-        assert Endpoints.base_url(:test, :futures) == "https://testnet.binancefuture.com"
+        assert Endpoints.base_url(:test, :usdm_futures) == "https://testnet.binancefuture.com"
       after
         # Restore original
         if original do

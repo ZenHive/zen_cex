@@ -222,21 +222,21 @@ defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
     test "base_url/2 returns correct URLs for different API types" do
       # Test environment
       assert Endpoints.base_url(:test, :spot) == "https://testnet.binance.vision"
-      assert Endpoints.base_url(:test, :futures) == "https://testnet.binancefuture.com"
+      assert Endpoints.base_url(:test, :usdm_futures) == "https://testnet.binancefuture.com"
       assert Endpoints.base_url(:test, :margin) == "https://testnet.binance.vision"
       # SAPI endpoints are not available on testnet
       assert Endpoints.base_url(:test, :sapi) == {:error, :no_testnet_for_sapi}
-      assert Endpoints.base_url(:test, :dapi) == "https://testnet.binancefuture.com"
+      assert Endpoints.base_url(:test, :coinm_futures) == "https://testnet.binancefuture.com"
       # Portfolio Margin uses Futures testnet
-      assert Endpoints.base_url(:test, :papi) == "https://testnet.binancefuture.com"
+      assert Endpoints.base_url(:test, :portfolio) == "https://testnet.binancefuture.com"
 
       # Production environment
       assert Endpoints.base_url(:prod, :spot) == "https://api.binance.com"
-      assert Endpoints.base_url(:prod, :futures) == "https://fapi.binance.com"
+      assert Endpoints.base_url(:prod, :usdm_futures) == "https://fapi.binance.com"
       assert Endpoints.base_url(:prod, :margin) == "https://api.binance.com"
       assert Endpoints.base_url(:prod, :sapi) == "https://api.binance.com"
-      assert Endpoints.base_url(:prod, :dapi) == "https://dapi.binance.com"
-      assert Endpoints.base_url(:prod, :papi) == "https://papi.binance.com"
+      assert Endpoints.base_url(:prod, :coinm_futures) == "https://dapi.binance.com"
+      assert Endpoints.base_url(:prod, :portfolio) == "https://papi.binance.com"
     end
 
     test "base_url/2 has fallback for unknown API types" do

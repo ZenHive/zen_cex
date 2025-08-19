@@ -100,7 +100,7 @@ test/zen_cex/adapters/binance/
 
 **Review Results**: Implementation complete and correct. All tests pass (215 total). Smart URL routing works perfectly - endpoints without `api_type` use default spot URLs, endpoints with `api_type` use appropriate API-specific URLs.
 
-## Phase 2: Build Endpoints System From Scratch ✅ COMPLETED
+## Phase 2: Build Endpoints System From Scratch
 ### 2.1 Create New Endpoints System ✅ DONE
 - [x] **CREATE** `endpoints.ex` - Router module registered with Core.Registry
 - [x] **CREATE** nested modules instead of directory structure:
@@ -110,7 +110,12 @@ test/zen_cex/adapters/binance/
 - [x] Main `endpoints.ex` delegates all functions to sub-modules
 - [x] Added all required fields: timeout, retry_on, response_parser, error_mapping
 
-### 2.2 Feature-Based Endpoint Modules (Trading Operations Only)
+### 2.2 Feature-Based Endpoint Modules (Trading Operations Only) 🚧 IN PROGRESS
+
+**CRITICAL TASK - Module Naming**:
+- [ ] Rename `futures.ex` → `usdm_futures.ex` for clarity
+- [ ] Update all references from `Futures` → `UsdmFutures`
+- [ ] Update test files to match new module names
 
 **CRITICAL PREREQUISITES - MUST DO FIRST:**
 - [x] **UNDERSTAND THE EXISTING ARCHITECTURE** ✅
@@ -149,13 +154,13 @@ Binance.Futures.place_order/1   # Futures trading
 Binance.Margin.place_order/1    # Margin trading
 ```
 
-**Module Organization:**
+**Module Organization (TO BE RENAMED):**
 - `Binance.Endpoints` - Main registry entry, delegates to sub-modules
 - `Binance.Spot` - Spot trading endpoints (~100+ endpoints)
-- `Binance.Futures` - USD-M Futures (USDT-margined) endpoints (~80+ endpoints) - uses `/fapi/` paths
+- `Binance.UsdmFutures` - USD-M Futures (USDT-margined) endpoints (~80+ endpoints) - uses `/fapi/` paths
+- `Binance.CoinmFutures` - COIN-M Futures (coin-margined) endpoints - uses `/dapi/` paths (TODO: when needed)
 - `Binance.Margin` - Margin/SAPI endpoints (~60+ endpoints)
 - `Binance.Portfolio` - Portfolio Margin (PAPI) endpoints (~40+ endpoints)
-- `Binance.CoinFutures` - COIN-M Futures (coin-margined) endpoints - uses `/dapi/` paths (TODO: when needed)
 - `Binance.Common` - Shared endpoints (server_time, exchange_info)
 
 **Registry Pattern Update:**
@@ -194,12 +199,12 @@ Binance.Margin.place_order/1    # Margin trading
 - [ ] Keep `parser.ex` with common parsing functions
 - [ ] Document that these are shared across all API types
 
-### 3.2 Rate Limiter Simplification ✅ COMPLETED
-- [x] **Simplified to reactive monitoring** - Binance 429 + Req retry handle limits
-- [x] **Monitor headers by API type** - Warns at 80%, critical at 95% usage
-- [x] **Emergency bypass implemented** - Cancel operations always allowed
-- [x] **Removed complex tracking** - No sliding windows, minimal ETS usage
-- [x] **Documented rationale** - Optimized for regular trading, not HFT
+### 3.2 Rate Limiter Multi-API Support ✅ COMPLETED
+- [x] **Separate limits per API type** - Spot: 1200, SAPI: 12000, USD-M: 2400, COIN-M: 2400
+- [x] **API type detection from URL** - Detects /api/, /sapi/, /fapi/, /dapi/ paths
+- [x] **Fixed URL passing in HTTP client** - Full URL in response metadata
+- [x] **Consistent API type naming** - Using :usdm_futures, :coinm_futures
+- [x] **Integration tests with testnet enforcement** - Futures tests verify rate limiting
 
 ### 3.3 Clock Sync Refactoring (NEW)
 - [ ] Update `ClockSync.fetch_server_time/1` to support different API types
@@ -309,42 +314,36 @@ These TODOs were found in the codebase and need tracking:
 - [ ] `lib/zen_cex/safety/clock_sync.ex:392` - Use test/prod host from config
 - [ ] `lib/zen_cex/adapters/binance/spot.ex:122` - Implement batch cancellation
 - [ ] `lib/zen_cex/adapters/binance/spot.ex:112` - Implement OCO order placement  
-- [ ] `lib/zen_cex/adapters/binance/rate_limiter.ex:79` - Detect futures from request URL for proper rate limit tracking
+- [x] ~~`lib/zen_cex/adapters/binance/rate_limiter.ex:79` - Detect futures from request URL~~ ✅ DONE
 - [ ] `lib/zen_cex/adapters/binance/parser.ex:266` - WebSocket market data parsing (deferred - out of scope)
 - [ ] `test/zen_cex/safety/clock_sync_test.exs` - Multiple tests skipped until adapters implemented
 - [ ] `test/zen_cex/core/http_test.exs:9` - Implement test against real testnet API
 - [ ] `lib/zen_cex/core/registry.ex:29` - Implement Deribit endpoints
 - [ ] `lib/zen_cex/core/registry.ex` - Implement Kraken endpoints
-  - `common.ex` with shared endpoints
-- Tests reduced from 32 failures to 8 failures
 
 ### Current Issues 🔥
-- **NO TESTS FOR NEW MODULES** - Created spot.ex, futures.ex, common.ex WITHOUT tests!
-- **8 test failures remaining** - Mostly environment and documentation tests
-- **Need to add Margin module** - TODO: Currently only Spot/Futures/Common implemented
+- **NO TESTS FOR NEW MODULES** - Created spot.ex, futures.ex, common.ex WITHOUT unit tests!
+- [x] ~~**Futures.ex clarification**~~ - Now properly named :usdm_futures
+- **Need to add Margin module** - When margin endpoints are needed
 - **Need to add CoinFutures module** - For COIN-M futures (/dapi/ paths) when needed
-- **Missing test coverage** - New modules have 0% test coverage
-- **Futures.ex clarification** - TODO: Currently configured for USD-M Futures only
 
 ### Next Steps (Priority Order)
-1. ✅ **DONE: Created nested module structure** with router pattern
-2. **🔥 CRITICAL: Create tests for new modules** - spot_test.exs, futures_test.exs, common_test.exs
-3. **Fix remaining 8 test failures** - Environment and documentation tests
-4. **Add more endpoints** to Spot/Futures modules as needed
-5. **Create Margin module** when margin endpoints are needed
-6. Update Clock Sync for multiple API types (Phase 3.3)
-7. Document the nested module approach for other exchanges
+1. **Create unit tests for new modules** - spot_test.exs, common_test.exs (futures_test.exs ✅)
+2. **Add more endpoints** to Spot/Futures modules as needed
+3. **Create Margin module** when margin endpoints are needed
+4. Update Clock Sync for multiple API types (Phase 3.3)
+5. Document the nested module approach for other exchanges
 
 ## Revised Estimated Effort
 - Phase 1: ✅ DONE
 - Phase 2: ✅ DONE (nested module structure implemented)
-- Phase 3: **Partially complete**
+- Phase 3: **Mostly complete**
   - 3.1: ✅ DONE (auth, parser in place)
-  - 3.2: ✅ DONE (rate limiter simplified)
-  - 3.3: 1 hour remaining (clock sync refactor)
-- Phase 4: **Partially complete** (rate limiter tests done)
-- Phase 5: 1 hour (documentation)
-- **Total**: ~2 hours remaining
+  - 3.2: ✅ DONE (multi-API rate limiter working)
+  - 3.3: TODO (clock sync refactor - low priority)
+- Phase 4: **Partially complete** (futures integration tests ✅)
+- Phase 5: TODO (documentation)
+- **Total**: ~1 hour remaining for unit tests
 
 ## Scope Clarification
 
@@ -369,10 +368,10 @@ These TODOs were found in the codebase and need tracking:
 - Binance uses same API key across all API types (simplifies auth)
 - Unified adapter per exchange is industry trend (OKX, Bybit)
 - Smart URL routing solves the multi-API problem elegantly
-- Feature-based splitting can be done incrementally as needed
 - **✅ PROVEN: Reactive rate limiting is simpler and sufficient for non-HFT**
-- **✅ IMPLEMENTED: Separate limits per API type (Spot: 1200, SAPI: 12000, Futures: 2400)**
+- **✅ IMPLEMENTED: Separate limits per API type (Spot: 1200, SAPI: 12000, USD-M: 2400, COIN-M: 2400)**
 - **✅ WORKING: Rate limit headers parsed correctly, warnings logged at thresholds**
+- **✅ CRITICAL: Use specific API type names (:usdm_futures not :futures) for clarity**
 - Each API type has its own time endpoint for clock synchronization
 
 ## Dependencies

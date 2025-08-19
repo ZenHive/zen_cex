@@ -69,9 +69,9 @@ defmodule ZenCex.Adapters.Binance.EndpointsTest do
       assert Endpoints.base_url(:test, :margin) == "https://testnet.binance.vision"
 
       # Futures APIs use different testnet
-      assert Endpoints.base_url(:test, :futures) == "https://testnet.binancefuture.com"
-      assert Endpoints.base_url(:test, :dapi) == "https://testnet.binancefuture.com"
-      assert Endpoints.base_url(:test, :papi) == "https://testnet.binancefuture.com"
+      assert Endpoints.base_url(:test, :usdm_futures) == "https://testnet.binancefuture.com"
+      assert Endpoints.base_url(:test, :coinm_futures) == "https://testnet.binancefuture.com"
+      assert Endpoints.base_url(:test, :portfolio) == "https://testnet.binancefuture.com"
 
       # SAPI has no testnet
       assert Endpoints.base_url(:test, :sapi) == {:error, :no_testnet_for_sapi}
@@ -87,9 +87,9 @@ defmodule ZenCex.Adapters.Binance.EndpointsTest do
       assert Endpoints.base_url(:prod, :sapi) == "https://api.binance.com"
 
       # Futures APIs have their own domains
-      assert Endpoints.base_url(:prod, :futures) == "https://fapi.binance.com"
-      assert Endpoints.base_url(:prod, :dapi) == "https://dapi.binance.com"
-      assert Endpoints.base_url(:prod, :papi) == "https://papi.binance.com"
+      assert Endpoints.base_url(:prod, :usdm_futures) == "https://fapi.binance.com"
+      assert Endpoints.base_url(:prod, :coinm_futures) == "https://dapi.binance.com"
+      assert Endpoints.base_url(:prod, :portfolio) == "https://papi.binance.com"
 
       # Unknown API types default to main API
       assert Endpoints.base_url(:prod, :unknown) == "https://api.binance.com"
