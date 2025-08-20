@@ -33,6 +33,8 @@ defmodule ZenCex.Adapters.Binance.Parser do
 
   @behaviour ZenCex.Behaviors.Parser
 
+  import ZenCex.ParserMacros
+
   require Logger
 
   # Constants for error mapping
@@ -139,8 +141,8 @@ defmodule ZenCex.Adapters.Binance.Parser do
   def parse_balances(%{"balances" => balances}) when is_list(balances) do
     parsed =
       Enum.map(balances, fn balance ->
-        free = safe_decimal(balance["free"])
-        locked = safe_decimal(balance["locked"])
+        free = safe_decimal_field(balance["free"])
+        locked = safe_decimal_field(balance["locked"])
 
         %{
           asset: balance["asset"],
@@ -189,9 +191,9 @@ defmodule ZenCex.Adapters.Binance.Parser do
           symbol: symbol,
           side: side |> String.downcase() |> String.to_atom(),
           type: order_type |> String.downcase() |> String.to_atom(),
-          price: safe_decimal(response["price"]),
-          quantity: safe_decimal(response["origQty"] || response["quantity"]),
-          filled_quantity: safe_decimal(response["executedQty"] || "0"),
+          price: safe_decimal_field(response["price"]),
+          quantity: safe_decimal_field(response["origQty"] || response["quantity"]),
+          filled_quantity: safe_decimal_field(response["executedQty"] || "0"),
           status: normalize_order_status(status),
           timestamp: response["transactTime"] || response["time"] || response["updateTime"]
         }
@@ -491,10 +493,10 @@ defmodule ZenCex.Adapters.Binance.Parser do
           trade_id: to_string(trade["id"] || trade["tradeId"] || ""),
           order_id: to_string(trade["orderId"] || ""),
           symbol: trade["symbol"],
-          price: safe_decimal(trade["price"]),
-          quantity: safe_decimal(trade["qty"] || trade["quantity"]),
-          quote_quantity: safe_decimal(trade["quoteQty"]),
-          commission: safe_decimal(trade["commission"]),
+          price: safe_decimal_field(trade["price"]),
+          quantity: safe_decimal_field(trade["qty"] || trade["quantity"]),
+          quote_quantity: safe_decimal_field(trade["quoteQty"]),
+          commission: safe_decimal_field(trade["commission"]),
           commission_asset: trade["commissionAsset"],
           timestamp: trade["time"] || trade["timestamp"],
           is_buyer: trade["isBuyer"] || false,
@@ -562,17 +564,17 @@ defmodule ZenCex.Adapters.Binance.Parser do
       can_deposit: response["canDeposit"],
       can_withdraw: response["canWithdraw"],
       update_time: response["updateTime"],
-      total_initial_margin: safe_decimal(response["totalInitialMargin"]),
-      total_maint_margin: safe_decimal(response["totalMaintMargin"]),
-      total_wallet_balance: safe_decimal(response["totalWalletBalance"]),
-      total_unrealized_profit: safe_decimal(response["totalUnrealizedProfit"]),
-      total_margin_balance: safe_decimal(response["totalMarginBalance"]),
-      total_position_initial_margin: safe_decimal(response["totalPositionInitialMargin"]),
-      total_open_order_initial_margin: safe_decimal(response["totalOpenOrderInitialMargin"]),
-      total_cross_wallet_balance: safe_decimal(response["totalCrossWalletBalance"]),
-      total_cross_un_pnl: safe_decimal(response["totalCrossUnPnl"]),
-      available_balance: safe_decimal(response["availableBalance"]),
-      max_withdraw_amount: safe_decimal(response["maxWithdrawAmount"])
+      total_initial_margin: safe_decimal_field(response["totalInitialMargin"]),
+      total_maint_margin: safe_decimal_field(response["totalMaintMargin"]),
+      total_wallet_balance: safe_decimal_field(response["totalWalletBalance"]),
+      total_unrealized_profit: safe_decimal_field(response["totalUnrealizedProfit"]),
+      total_margin_balance: safe_decimal_field(response["totalMarginBalance"]),
+      total_position_initial_margin: safe_decimal_field(response["totalPositionInitialMargin"]),
+      total_open_order_initial_margin: safe_decimal_field(response["totalOpenOrderInitialMargin"]),
+      total_cross_wallet_balance: safe_decimal_field(response["totalCrossWalletBalance"]),
+      total_cross_un_pnl: safe_decimal_field(response["totalCrossUnPnl"]),
+      available_balance: safe_decimal_field(response["availableBalance"]),
+      max_withdraw_amount: safe_decimal_field(response["maxWithdrawAmount"])
     }
 
     # Add assets if present
@@ -582,17 +584,17 @@ defmodule ZenCex.Adapters.Binance.Parser do
           Enum.map(response["assets"], fn asset ->
             %{
               asset: asset["asset"],
-              wallet_balance: safe_decimal(asset["walletBalance"]),
-              unrealized_profit: safe_decimal(asset["unrealizedProfit"]),
-              margin_balance: safe_decimal(asset["marginBalance"]),
-              maint_margin: safe_decimal(asset["maintMargin"]),
-              initial_margin: safe_decimal(asset["initialMargin"]),
-              position_initial_margin: safe_decimal(asset["positionInitialMargin"]),
-              open_order_initial_margin: safe_decimal(asset["openOrderInitialMargin"]),
-              max_withdraw_amount: safe_decimal(asset["maxWithdrawAmount"]),
-              cross_wallet_balance: safe_decimal(asset["crossWalletBalance"]),
-              cross_un_pnl: safe_decimal(asset["crossUnPnl"]),
-              available_balance: safe_decimal(asset["availableBalance"])
+              wallet_balance: safe_decimal_field(asset["walletBalance"]),
+              unrealized_profit: safe_decimal_field(asset["unrealizedProfit"]),
+              margin_balance: safe_decimal_field(asset["marginBalance"]),
+              maint_margin: safe_decimal_field(asset["maintMargin"]),
+              initial_margin: safe_decimal_field(asset["initialMargin"]),
+              position_initial_margin: safe_decimal_field(asset["positionInitialMargin"]),
+              open_order_initial_margin: safe_decimal_field(asset["openOrderInitialMargin"]),
+              max_withdraw_amount: safe_decimal_field(asset["maxWithdrawAmount"]),
+              cross_wallet_balance: safe_decimal_field(asset["crossWalletBalance"]),
+              cross_un_pnl: safe_decimal_field(asset["crossUnPnl"]),
+              available_balance: safe_decimal_field(asset["availableBalance"])
             }
           end)
 
@@ -662,7 +664,7 @@ defmodule ZenCex.Adapters.Binance.Parser do
         %{
           symbol: record["symbol"],
           income_type: normalize_income_type(record["incomeType"]),
-          income: safe_decimal(record["income"]),
+          income: safe_decimal_field(record["income"]),
           asset: record["asset"],
           timestamp: record["time"],
           info: record["info"],
@@ -734,10 +736,10 @@ defmodule ZenCex.Adapters.Binance.Parser do
   def parse_fees(response) when is_map(response) do
     fees = %{
       symbol: response["symbol"],
-      maker_commission: safe_decimal_or_bps(response["makerCommission"]),
-      taker_commission: safe_decimal_or_bps(response["takerCommission"]),
-      buyer_commission: safe_decimal_or_bps(response["buyerCommission"]),
-      seller_commission: safe_decimal_or_bps(response["sellerCommission"])
+      maker_commission: parse_commission_value(response["makerCommission"]),
+      taker_commission: parse_commission_value(response["takerCommission"]),
+      buyer_commission: parse_commission_value(response["buyerCommission"]),
+      seller_commission: parse_commission_value(response["sellerCommission"])
     }
 
     {:ok, fees}
@@ -754,8 +756,8 @@ defmodule ZenCex.Adapters.Binance.Parser do
       balances
       |> Enum.filter(fn balance ->
         # Only include assets with non-zero balances
-        free = safe_decimal(balance["free"])
-        locked = safe_decimal(balance["locked"])
+        free = safe_decimal_field(balance["free"])
+        locked = safe_decimal_field(balance["locked"])
 
         not (Decimal.equal?(free, Decimal.new("0")) and Decimal.equal?(locked, Decimal.new("0")))
       end)
@@ -767,8 +769,8 @@ defmodule ZenCex.Adapters.Binance.Parser do
   end
 
   defp convert_balance_to_position(balance) do
-    free = safe_decimal(balance["free"])
-    locked = safe_decimal(balance["locked"])
+    free = safe_decimal_field(balance["free"])
+    locked = safe_decimal_field(balance["locked"])
     total = Decimal.add(free, locked)
 
     %{
@@ -787,11 +789,11 @@ defmodule ZenCex.Adapters.Binance.Parser do
     %{
       symbol: position["symbol"],
       side: normalize_position_side(position["positionSide"]),
-      size: safe_decimal(position["positionAmt"]),
-      entry_price: safe_decimal(position["entryPrice"]),
-      mark_price: safe_decimal(position["markPrice"]),
-      pnl: safe_decimal(position["unRealizedProfit"]),
-      margin: safe_decimal(position["isolatedMargin"] || position["initialMargin"] || "0"),
+      size: safe_decimal_field(position["positionAmt"]),
+      entry_price: safe_decimal_field(position["entryPrice"]),
+      mark_price: safe_decimal_field(position["markPrice"]),
+      pnl: safe_decimal_field(position["unRealizedProfit"]),
+      margin: safe_decimal_field(position["isolatedMargin"] || position["initialMargin"] || "0"),
       timestamp: position["updateTime"] || System.system_time(:millisecond)
     }
   end
@@ -809,45 +811,15 @@ defmodule ZenCex.Adapters.Binance.Parser do
   defp normalize_order_status("EXPIRED"), do: :expired
   defp normalize_order_status(_), do: :unknown
 
-  defp safe_decimal(nil), do: Decimal.new("0")
-  defp safe_decimal(""), do: Decimal.new("0")
-
-  defp safe_decimal(value) when is_binary(value) do
-    case Decimal.parse(value) do
-      {decimal, _} -> decimal
-      :error -> Decimal.new("0")
-    end
+  # Helper for commission values that can be integers (basis points) or strings (decimals)
+  defp parse_commission_value(value) when is_integer(value) do
+    safe_decimal_field(value, basis_points: true)
   end
 
-  defp safe_decimal(value) when is_number(value), do: Decimal.new(to_string(value))
-  defp safe_decimal(_), do: Decimal.new("0")
-
-  # Helper for commission rates that can be decimal strings or basis points (integers)
-  defp safe_decimal_or_bps(nil), do: Decimal.new("0")
-  defp safe_decimal_or_bps(""), do: Decimal.new("0")
-
-  defp safe_decimal_or_bps(value) when is_integer(value) do
-    # Binance sometimes returns commission as basis points (e.g., 10 = 0.001%)
-    # Convert basis points to decimal: 10 bps = 10/10000 = 0.001
-    value
-    |> Decimal.new()
-    |> Decimal.div(Decimal.new("10000"))
+  defp parse_commission_value(value) do
+    safe_decimal_field(value)
   end
 
-  defp safe_decimal_or_bps(value) when is_binary(value) do
-    # Already a decimal string
-    case Decimal.parse(value) do
-      {decimal, _} -> decimal
-      :error -> Decimal.new("0")
-    end
-  end
-
-  defp safe_decimal_or_bps(value) when is_float(value) do
-    # Convert float to decimal
-    value
-    |> to_string()
-    |> safe_decimal()
-  end
-
-  defp safe_decimal_or_bps(_), do: Decimal.new("0")
+  # The safe_decimal functionality is now provided by the safe_decimal_field macro
+  # imported from ZenCex.ParserMacros at the top of the module
 end
