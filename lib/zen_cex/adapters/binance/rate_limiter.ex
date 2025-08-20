@@ -29,6 +29,7 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
   @sapi_limit 12_000
   @usdm_futures_limit 2400
   @coinm_futures_limit 2400
+  @portfolio_margin_limit 3000
 
   # Warning thresholds
   @warning_threshold 0.80
@@ -77,6 +78,9 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
 
         :coinm_futures ->
           check_and_log_usage(:coinm_futures, weight_value, @coinm_futures_limit)
+
+        :portfolio ->
+          check_and_log_usage(:portfolio, weight_value, @portfolio_margin_limit)
 
         _ ->
           # Default to spot for regular API endpoints
@@ -147,7 +151,8 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
       spot: %{limit: @spot_limit, window: 60},
       sapi: %{limit: @sapi_limit, window: 60},
       usdm_futures: %{limit: @usdm_futures_limit, window: 60},
-      coinm_futures: %{limit: @coinm_futures_limit, window: 60}
+      coinm_futures: %{limit: @coinm_futures_limit, window: 60},
+      portfolio: %{limit: @portfolio_margin_limit, window: 60}
     }
   end
 
@@ -242,8 +247,7 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
         :sapi -> @sapi_limit
         :usdm_futures -> @usdm_futures_limit
         :coinm_futures -> @coinm_futures_limit
-        # Portfolio uses same limit as SAPI
-        :portfolio -> @sapi_limit
+        :portfolio -> @portfolio_margin_limit
       end
 
     try do

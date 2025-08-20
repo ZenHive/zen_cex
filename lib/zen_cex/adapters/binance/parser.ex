@@ -9,7 +9,7 @@ defmodule ZenCex.Adapters.Binance.Parser do
   ## Supported Response Types
 
   - **Positions**: Spot and futures position data
-  - **Balances**: Account balance information  
+  - **Balances**: Account balance information
   - **Orders**: Order placement and query responses
   - **Errors**: Binance error codes and messages
 
@@ -79,7 +79,7 @@ defmodule ZenCex.Adapters.Binance.Parser do
       response = [
         %{
           "symbol" => "BTCUSDT",
-          "positionSide" => "LONG", 
+          "positionSide" => "LONG",
           "positionAmt" => "0.5",
           "entryPrice" => "50000",
           "markPrice" => "51000",
@@ -129,7 +129,7 @@ defmodule ZenCex.Adapters.Binance.Parser do
             "locked" => "0.1"
           },
           %{
-            "asset" => "USDT", 
+            "asset" => "USDT",
             "free" => "1000",
             "locked" => "500"
           }
@@ -228,6 +228,9 @@ defmodule ZenCex.Adapters.Binance.Parser do
   """
   @impl true
   def parse_error(%{"code" => code} = response) when is_integer(code) do
+    # Log the actual error response for debugging
+    Logger.debug("Binance error response: #{inspect(response, pretty: true)}")
+
     case Map.get(@error_codes, code) do
       nil ->
         message = response["msg"] || "Unknown error"
@@ -238,7 +241,10 @@ defmodule ZenCex.Adapters.Binance.Parser do
     end
   end
 
-  def parse_error(%{"msg" => message}) do
+  def parse_error(%{"msg" => message} = response) do
+    # Log the actual error response for debugging
+    Logger.debug("Binance error response (msg only): #{inspect(response, pretty: true)}")
+
     # Some responses only have message field
     cond do
       String.contains?(String.downcase(message), "insufficient") ->
@@ -256,6 +262,9 @@ defmodule ZenCex.Adapters.Binance.Parser do
   end
 
   def parse_error(response) when is_map(response) do
+    # Log unexpected error format for debugging
+    Logger.debug("Binance unexpected error format: #{inspect(response, pretty: true)}")
+
     # Generic error handling for unexpected formats
     {:error, {:unknown_error, response}}
   end

@@ -49,9 +49,6 @@ defmodule ZenCex.Adapters.Binance.UsdmFutures do
                  :position_information_v2 ->
                    %{endpoint | operation: :get_positions_v2}
 
-                 :position_information_v3 ->
-                   %{endpoint | operation: :get_positions}
-
                  # Ensure critical operations have proper settings
                  op when op in [:place_order, :modify_order, :place_multiple_orders] ->
                    # Never retry order operations

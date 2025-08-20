@@ -28,6 +28,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   alias ZenCex.Adapters.Binance.CoinmFutures
   alias ZenCex.Adapters.Binance.Common
   alias ZenCex.Adapters.Binance.Parser
+  alias ZenCex.Adapters.Binance.PortfolioMargin
   alias ZenCex.Adapters.Binance.RateLimiter
   alias ZenCex.Adapters.Binance.Spot
   alias ZenCex.Adapters.Binance.UsdmFutures
@@ -187,6 +188,18 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   defdelegate get_positions(opts), to: UsdmFutures
   defdelegate get_positions(params, opts), to: UsdmFutures
 
+  # Portfolio Margin trading endpoints - using custom wrapper functions
+  defdelegate get_unified_account(), to: PortfolioMargin
+  defdelegate get_unified_account(params), to: PortfolioMargin
+  defdelegate get_unified_account(params, opts), to: PortfolioMargin
+
+  defdelegate place_unified_order(params), to: PortfolioMargin
+  defdelegate place_unified_order(params, opts), to: PortfolioMargin
+
+  defdelegate get_all_positions(), to: PortfolioMargin
+  defdelegate get_all_positions(params), to: PortfolioMargin
+  defdelegate get_all_positions(params, opts), to: PortfolioMargin
+
   # ============================================================================
   # Registry compatibility functions
   # These are needed for tests and backward compatibility
@@ -208,6 +221,9 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
       operation in [:get_positions] ->
         UsdmFutures.get_endpoint(operation)
 
+      operation in [:get_unified_account, :place_unified_order, :get_all_positions] ->
+        PortfolioMargin.get_endpoint(operation)
+
       true ->
         nil
     end
@@ -221,7 +237,8 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
     Common.all_endpoints() ++
       Spot.all_endpoints() ++
       UsdmFutures.all_endpoints() ++
-      CoinmFutures.all_endpoints()
+      CoinmFutures.all_endpoints() ++
+      PortfolioMargin.all_endpoints()
   end
 
   @doc """

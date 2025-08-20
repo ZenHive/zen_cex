@@ -7,6 +7,7 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
 
       mix zen_cex.generate_futures_endpoints usdm [--output path]
       mix zen_cex.generate_futures_endpoints coinm [--output path]
+      mix zen_cex.generate_futures_endpoints portfolio [--output path]
 
   ## Options
 
@@ -16,6 +17,7 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
 
       mix zen_cex.generate_futures_endpoints usdm
       mix zen_cex.generate_futures_endpoints coinm --output lib/custom_endpoints.ex
+      mix zen_cex.generate_futures_endpoints portfolio
 
   """
 
@@ -62,7 +64,7 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
   @doc """
   Runs the futures endpoint generation task for the specified type.
 
-  Accepts a futures type (usdm or coinm) and optional output path parameter.
+  Accepts a futures type (usdm, coinm, or portfolio) and optional output path parameter.
   """
   @spec run([String.t()]) :: :ok
   def run(args) do
@@ -74,7 +76,8 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
     case futures_type do
       "usdm" -> generate_usdm_endpoints(opts)
       "coinm" -> generate_coinm_endpoints(opts)
-      _ -> Mix.shell().error("Unsupported futures type: #{futures_type}. Use 'usdm' or 'coinm'")
+      "portfolio" -> generate_portfolio_endpoints(opts)
+      _ -> Mix.shell().error("Unsupported futures type: #{futures_type}. Use 'usdm', 'coinm', or 'portfolio'")
     end
   end
 
@@ -94,6 +97,15 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
       "https://raw.githubusercontent.com/binance/binance-api-postman/master/collections/Binance%20Derivatives%20Trading%20COIN%20Futures%20API.json"
 
     generate_from_postman(collection_url, output_path, :coinm_futures)
+  end
+
+  defp generate_portfolio_endpoints(opts) do
+    output_path = opts[:output] || "lib/zen_cex/adapters/binance/generated_portfolio_endpoints.ex"
+
+    collection_url =
+      "https://raw.githubusercontent.com/binance/binance-api-postman/master/collections/Binance%20Derivatives%20Trading%20Portfolio%20Margin%20API.json"
+
+    generate_from_postman(collection_url, output_path, :portfolio)
   end
 
   defp generate_from_postman(collection_url, output_path, api_type) do
