@@ -84,14 +84,18 @@ defmodule ZenCex.IntegrationCase do
     end
 
     # Verify base URL for the specific API type
-    expected_url = expected_binance_testnet_url(api_type)
     actual_url = get_binance_base_url(api_type)
 
-    if actual_url != expected_url do
-      raise """
-      TESTNET URL REQUIRED: Got #{actual_url}, expected #{expected_url}
-      Ensure BINANCE_TESTNET=true is set.
-      """
+    # Skip validation for portfolio margin (no testnet available)
+    if actual_url != :skip_portfolio_testnet_check do
+      expected_url = expected_binance_testnet_url(api_type)
+
+      if actual_url != expected_url do
+        raise """
+        TESTNET URL REQUIRED: Got #{actual_url}, expected #{expected_url}
+        Ensure BINANCE_TESTNET=true is set.
+        """
+      end
     end
 
     # Check credentials
@@ -111,8 +115,10 @@ defmodule ZenCex.IntegrationCase do
       Then run: export BINANCE_TESTNET_API_SECRET=your_secret
       """)
 
-    # Test connectivity
-    verify_binance_connectivity!(api_type)
+    # Test connectivity (skip for portfolio - no testnet)
+    if api_type != :portfolio do
+      verify_binance_connectivity!(api_type)
+    end
 
     {:ok, api_key: api_key, api_secret: api_secret, exchange: :binance}
   end
@@ -160,8 +166,15 @@ defmodule ZenCex.IntegrationCase do
 
   defp get_binance_base_url(api_type) do
     case ZenCex.Adapters.Binance.Endpoints.base_url(:test, api_type) do
-      {:error, _} = error -> raise "Failed to get base URL: #{inspect(error)}"
-      url -> url
+      {:error, :no_testnet_for_portfolio_margin} ->
+        # Portfolio margin has no testnet, skip URL validation
+        :skip_portfolio_testnet_check
+
+      {:error, _} = error ->
+        raise "Failed to get base URL: #{inspect(error)}"
+
+      url ->
+        url
     end
   end
 

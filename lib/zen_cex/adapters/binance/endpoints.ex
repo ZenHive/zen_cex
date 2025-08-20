@@ -123,11 +123,11 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   # COIN-M Futures Testnet
   def base_url(:test, :coinm_futures), do: "https://testnet.binancefuture.com"
 
-  # Portfolio Margin uses Futures Testnet
-  def base_url(:test, :portfolio), do: "https://testnet.binancefuture.com"
-
   # SAPI endpoints are NOT supported on Testnet
   def base_url(:test, :sapi), do: {:error, :no_testnet_for_sapi}
+
+  # Portfolio Margin endpoints are NOT supported on Testnet
+  def base_url(:test, :portfolio), do: {:error, :no_testnet_for_portfolio_margin}
 
   # Default to Spot Testnet
   def base_url(:test, _), do: "https://testnet.binance.vision"

@@ -71,10 +71,10 @@ defmodule ZenCex.Adapters.Binance.EndpointsTest do
       # Futures APIs use different testnet
       assert Endpoints.base_url(:test, :usdm_futures) == "https://testnet.binancefuture.com"
       assert Endpoints.base_url(:test, :coinm_futures) == "https://testnet.binancefuture.com"
-      assert Endpoints.base_url(:test, :portfolio) == "https://testnet.binancefuture.com"
 
-      # SAPI has no testnet
+      # SAPI and Portfolio have no testnet
       assert Endpoints.base_url(:test, :sapi) == {:error, :no_testnet_for_sapi}
+      assert Endpoints.base_url(:test, :portfolio) == {:error, :no_testnet_for_portfolio_margin}
 
       # Unknown API types default to spot testnet
       assert Endpoints.base_url(:test, :unknown) == "https://testnet.binance.vision"

@@ -36,8 +36,12 @@ defmodule ZenCex.Adapters.Binance.PortfolioMarginTest do
   describe "Portfolio Margin trading endpoints" do
     test "change_um_initial_leverage handles based on environment" do
       case {Endpoints.current_env(), PortfolioMargin.change_um_initial_leverage(%{symbol: "BTCUSDT", leverage: 1})} do
+        {:test, {:error, :no_testnet_for_portfolio_margin}} ->
+          # Expected on testnet - portfolio margin not available
+          assert true
+
         {:test, {:error, {:unknown_error, %{"status" => 404}}}} ->
-          # Expected on testnet
+          # Also acceptable - 404 from testnet
           assert true
 
         {:prod, {:ok, response}} ->
@@ -107,8 +111,12 @@ defmodule ZenCex.Adapters.Binance.PortfolioMarginTest do
       }
 
       case {Endpoints.current_env(), PortfolioMargin.new_um_order(safe_params)} do
+        {:test, {:error, :no_testnet_for_portfolio_margin}} ->
+          # Expected on testnet - portfolio margin not available
+          assert true
+
         {:test, {:error, {:unknown_error, %{"status" => 404}}}} ->
-          # Expected on testnet
+          # Also acceptable - 404 from testnet
           assert true
 
         {:prod, {:ok, order}} ->

@@ -485,11 +485,17 @@ defmodule ZenCex.EndpointRegistry do
   defp generate_main_executor do
     quote do
       defp execute_endpoint_request(config, params, opts, adapter) do
-        config
-        |> build_request(params, adapter)
-        |> merge_user_options(opts)
-        |> apply_retry_logic(config)
-        |> execute_request()
+        case build_request(config, params, adapter) do
+          {:error, _} = error ->
+            # Return error early if request building failed (e.g., no testnet URL)
+            error
+
+          request ->
+            request
+            |> merge_user_options(opts)
+            |> apply_retry_logic(config)
+            |> execute_request()
+        end
       end
 
       defp execute_request(request) do
@@ -521,13 +527,19 @@ defmodule ZenCex.EndpointRegistry do
   defp generate_request_pipeline do
     quote do
       defp build_request(config, params, adapter) do
-        base_url = determine_base_url(config, adapter)
-        operation_type = map_to_operation_type(config)
+        case determine_base_url(config, adapter) do
+          {:error, _} = error ->
+            # Return error early if base URL is not available (e.g., no testnet for portfolio)
+            error
 
-        adapter.__exchange__()
-        |> HTTP.base_request(operation_type)
-        |> configure_request(config, params, base_url)
-        |> add_request_metadata(config)
+          base_url ->
+            operation_type = map_to_operation_type(config)
+
+            adapter.__exchange__()
+            |> HTTP.base_request(operation_type)
+            |> configure_request(config, params, base_url)
+            |> add_request_metadata(config)
+        end
       end
 
       defp merge_user_options(request, opts) do
