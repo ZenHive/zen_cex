@@ -55,6 +55,9 @@ defmodule Mix.Tasks.ZenCex.GenerateEndpoints do
   """
   @spec run([String.t()]) :: :ok
   def run(args) do
+    # Start the application to ensure Req/Finch are available
+    Mix.Task.run("app.start")
+
     {opts, [exchange | _], _} = OptionParser.parse(args, strict: [output: :string])
 
     case exchange do
@@ -93,9 +96,12 @@ defmodule Mix.Tasks.ZenCex.GenerateEndpoints do
   defp fetch_binance_openapi do
     url = "https://raw.githubusercontent.com/binance/binance-api-swagger/master/spot_api.yaml"
 
-    case :httpc.request(:get, {String.to_charlist(url), []}, [], body_format: :binary) do
-      {:ok, {{_, 200, _}, _, body}} ->
+    case Req.get(url) do
+      {:ok, %{status: 200, body: body}} ->
         body
+
+      {:ok, %{status: status}} ->
+        Mix.raise("Failed to download OpenAPI spec: HTTP #{status}")
 
       {:error, reason} ->
         Mix.raise("Failed to download OpenAPI spec: #{inspect(reason)}")

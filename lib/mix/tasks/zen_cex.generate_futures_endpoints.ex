@@ -66,6 +66,9 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
   """
   @spec run([String.t()]) :: :ok
   def run(args) do
+    # Start the application to ensure Req/Finch are available
+    Mix.Task.run("app.start")
+
     {opts, [futures_type | _], _} = OptionParser.parse(args, strict: [output: :string])
 
     case futures_type do
@@ -121,9 +124,12 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
   end
 
   defp fetch_postman_collection(url) do
-    case :httpc.request(:get, {String.to_charlist(url), []}, [], body_format: :binary) do
-      {:ok, {{_, 200, _}, _, body}} ->
+    case Req.get(url) do
+      {:ok, %{status: 200, body: body}} ->
         body
+
+      {:ok, %{status: status}} ->
+        Mix.raise("Failed to download Postman collection: HTTP #{status}")
 
       {:error, reason} ->
         Mix.raise("Failed to download Postman collection: #{inspect(reason)}")
@@ -135,7 +141,7 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
     account_items = get_section_items(collection, "Account")
     trade_items = get_section_items(collection, "Trade")
 
-    Enum.filter(account_items ++ trade_items, &is_trading_endpoint?/1)
+    Enum.filter(account_items ++ trade_items, &trading_endpoint?/1)
   end
 
   defp get_section_items(collection, section_name) do
@@ -144,7 +150,7 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
     |> Map.get("item", [])
   end
 
-  defp is_trading_endpoint?(item) do
+  defp trading_endpoint?(item) do
     name = String.downcase(item["name"] || "")
 
     # Check if it's a trading operation
