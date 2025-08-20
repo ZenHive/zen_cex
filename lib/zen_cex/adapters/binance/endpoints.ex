@@ -11,6 +11,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   All endpoints are defined in nested modules:
   - `Binance.Spot` - Spot trading endpoints
   - `Binance.UsdmFutures` - USD-M Futures (USDT-margined) trading endpoints
+  - `Binance.CoinmFutures` - COIN-M Futures (coin-margined) trading endpoints
   - `Binance.Margin` - Margin trading endpoints
   - `Binance.Common` - Shared endpoints (server_time, etc.)
 
@@ -24,6 +25,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   """
 
   alias ZenCex.Adapters.Binance.Auth
+  alias ZenCex.Adapters.Binance.CoinmFutures
   alias ZenCex.Adapters.Binance.Common
   alias ZenCex.Adapters.Binance.Parser
   alias ZenCex.Adapters.Binance.RateLimiter
@@ -216,7 +218,10 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   """
   @spec all_endpoints() :: [map()]
   def all_endpoints do
-    Common.all_endpoints() ++ Spot.all_endpoints() ++ UsdmFutures.all_endpoints()
+    Common.all_endpoints() ++
+      Spot.all_endpoints() ++
+      UsdmFutures.all_endpoints() ++
+      CoinmFutures.all_endpoints()
   end
 
   @doc """

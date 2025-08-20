@@ -49,7 +49,7 @@ defmodule ZenCex.Adapters.Binance.UsdmFuturesTest do
 
   describe "function exports" do
     test "exports get_positions function" do
-      assert function_exported?(UsdmFutures, :get_positions, 0)
+      # Functions with optional params have arity 1 and 2, not 0
       assert function_exported?(UsdmFutures, :get_positions, 1)
       assert function_exported?(UsdmFutures, :get_positions, 2)
     end

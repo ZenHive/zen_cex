@@ -1,5 +1,13 @@
 # Binance Multi-API Task List
 
+## Latest Update: COIN-M Futures Implementation ✅ COMPLETED
+- Created `coinm_futures.ex` module with 28 endpoints
+- Generated from official Binance COIN-M Postman collection
+- Full test coverage (unit and integration tests)
+- Proper `/dapi/` path routing and testnet support
+- Rate limiting configured (2400/min for COIN-M)
+- Total futures endpoints: 63 (35 USD-M + 28 COIN-M)
+
 ## Overview
 Support Binance's multiple API types (Spot, Futures, etc.) for **trading operations only** using a unified approach with smart URL routing, avoiding file size explosion while maintaining clarity.
 
@@ -113,14 +121,17 @@ test/zen_cex/adapters/binance/
 ### 2.2 Feature-Based Endpoint Modules (Trading Operations Only) ✅ COMPLETED
 
 **Module Naming - COMPLETED**:
-- [x] Created `usdm_futures.ex` (replaced old `futures.ex`)
-- [x] All references use `UsdmFutures` module name
-- [x] Test files created: `usdm_futures_test.exs` and `usdm_futures_integration_test.exs`
+- [x] Created `usdm_futures.ex` for USD-M futures (USDT-margined)
+- [x] Created `coinm_futures.ex` for COIN-M futures (coin-margined) ✅ NEW
+- [x] All references use `UsdmFutures` and `CoinmFutures` module names
+- [x] Test files created for both modules with full unit and integration tests
 
 **Implementation - COMPLETED**:
 - [x] Generated 35 USD-M futures endpoints from Postman collection
-- [x] Created mix task `mix zen_cex.generate_futures_endpoints` for generation
-- [x] Implemented `generated_usdm_endpoints.ex` with all endpoint definitions
+- [x] Generated 28 COIN-M futures endpoints from Postman collection ✅ NEW
+- [x] Created mix task `mix zen_cex.generate_futures_endpoints` supporting both `usdm` and `coinm`
+- [x] Implemented `generated_usdm_endpoints.ex` with USD-M endpoint definitions
+- [x] Implemented `generated_coinm_endpoints.ex` with COIN-M endpoint definitions ✅ NEW
 - [x] Added parser functions: `parse_account/1` and `parse_income/1`
 - [x] Fixed all test expectations and passing tests
 - [x] Router properly delegates futures operations to UsdmFutures module
@@ -165,8 +176,8 @@ Binance.Margin.place_order/1    # Margin trading
 **Module Organization (TO BE RENAMED):**
 - `Binance.Endpoints` - Main registry entry, delegates to sub-modules
 - `Binance.Spot` - Spot trading endpoints (~100+ endpoints)
-- `Binance.UsdmFutures` - USD-M Futures (USDT-margined) endpoints (~80+ endpoints) - uses `/fapi/` paths
-- `Binance.CoinmFutures` - COIN-M Futures (coin-margined) endpoints - uses `/dapi/` paths (TODO: when needed)
+- `Binance.UsdmFutures` - USD-M Futures (USDT-margined) endpoints (35 endpoints) - uses `/fapi/` paths ✅
+- `Binance.CoinmFutures` - COIN-M Futures (coin-margined) endpoints (28 endpoints) - uses `/dapi/` paths ✅
 - `Binance.Margin` - Margin/SAPI endpoints (~60+ endpoints)
 - `Binance.Portfolio` - Portfolio Margin (PAPI) endpoints (~40+ endpoints)
 - `Binance.Common` - Shared endpoints (server_time, exchange_info)
@@ -313,19 +324,21 @@ Binance.Margin.place_order/1    # Margin trading
   - `endpoints.ex` as router only
   - `spot.ex` with spot endpoints
   - `usdm_futures.ex` with USD-M futures endpoints (USDT-margined, /fapi/ paths)
+  - `coinm_futures.ex` with COIN-M futures endpoints (coin-margined, /dapi/ paths) ✅ NEW
 - **Fixed Dialyzer errors** (latest commit)
 - **Extracted RequestHelper** to eliminate code duplication
 - **Added error documentation** for all endpoint functions
 
 ### Session Accomplishments (Task 2.2) ✅
 - **Created USD-M Futures module** with proper naming (`usdm_futures.ex`)
-- **Generated 35 endpoints** from Postman collection using custom mix task
+- **Created COIN-M Futures module** with proper naming (`coinm_futures.ex`) ✅ NEW
+- **Generated 35 USD-M + 28 COIN-M endpoints** from Postman collections using mix task
 - **Added parser functions** for futures-specific responses:
   - `parse_account/1` - Account info with balances, margins, positions
   - `parse_income/1` - Transaction history with various income types
 - **Created comprehensive tests**:
-  - Unit tests in `usdm_futures_test.exs`
-  - Integration tests in `usdm_futures_integration_test.exs`
+  - Unit tests in `usdm_futures_test.exs` and `coinm_futures_test.exs` ✅ NEW
+  - Integration tests in `usdm_futures_integration_test.exs` and `coinm_futures_integration_test.exs` ✅ NEW
 - **Fixed all test failures** and updated expectations
 - **Proper testnet routing** verified for futures endpoints
 - All 344 tests passing (1 unrelated auth failure)
@@ -346,21 +359,20 @@ These TODOs were found in the codebase and need tracking:
 - **NO TESTS FOR NEW MODULES** - Created spot.ex, common.ex WITHOUT unit tests!
 - [x] ~~**Futures.ex clarification**~~ - ✅ RENAMED to usdm_futures.ex with proper tests
 - **Need to add Margin module** - When margin endpoints are needed
-- **Need to add CoinFutures module** - For COIN-M futures (/dapi/ paths) when needed
+- [x] ~~**Need to add CoinFutures module**~~ - ✅ COMPLETED: Created `coinm_futures.ex` with 28 endpoints
 
 ### Next Steps (Priority Order)
-1. **Create unit tests for new modules** - spot_test.exs, common_test.exs (usdm_futures_test.exs ✅ DONE)
+1. **Create unit tests for new modules** - spot_test.exs, common_test.exs (futures tests ✅ DONE)
 2. **Add more endpoints** to Spot module as needed (currently has basic endpoints)
 3. **Create Margin module** when margin endpoints are needed
-4. **Create CoinmFutures module** for COIN-M futures when needed
-5. Update Clock Sync for multiple API types (Phase 3.3)
+4. Update Clock Sync for multiple API types (Phase 3.3)
 6. Document the nested module approach and generation process
 
 ## Revised Estimated Effort
 - Phase 1: ✅ DONE (Multi-API URL Support)
 - Phase 2: ✅ DONE (Feature-Based Endpoint Modules)
   - 2.1: ✅ Created new endpoints system with router
-  - 2.2: ✅ USD-M Futures module with 35 endpoints generated from Postman
+  - 2.2: ✅ USD-M and COIN-M Futures modules with 63 total endpoints from Postman
   - 2.3: Endpoint discovery functions (low priority)
 - Phase 3: **Mostly complete**
   - 3.1: ✅ DONE (auth, parser in place)
