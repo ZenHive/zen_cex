@@ -667,4 +667,278 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
       assert microseconds < 10_000, "Parsing took #{microseconds}μs (should be <10ms)"
     end
   end
+
+  describe "parse_account/1" do
+    test "parses futures account information successfully" do
+      response = %{
+        "feeTier" => 0,
+        "canTrade" => true,
+        "canDeposit" => true,
+        "canWithdraw" => true,
+        "updateTime" => 1_234_567_890_000,
+        "totalInitialMargin" => "100.00000000",
+        "totalMaintMargin" => "50.00000000",
+        "totalWalletBalance" => "10000.00000000",
+        "totalUnrealizedProfit" => "500.00000000",
+        "totalMarginBalance" => "10500.00000000",
+        "totalPositionInitialMargin" => "100.00000000",
+        "totalOpenOrderInitialMargin" => "0.00000000",
+        "totalCrossWalletBalance" => "10000.00000000",
+        "totalCrossUnPnl" => "500.00000000",
+        "availableBalance" => "9900.00000000",
+        "maxWithdrawAmount" => "9900.00000000",
+        "assets" => [
+          %{
+            "asset" => "USDT",
+            "walletBalance" => "10000.00000000",
+            "unrealizedProfit" => "500.00000000",
+            "marginBalance" => "10500.00000000",
+            "maintMargin" => "50.00000000",
+            "initialMargin" => "100.00000000",
+            "positionInitialMargin" => "100.00000000",
+            "openOrderInitialMargin" => "0.00000000",
+            "maxWithdrawAmount" => "9900.00000000",
+            "crossWalletBalance" => "10000.00000000",
+            "crossUnPnl" => "500.00000000",
+            "availableBalance" => "9900.00000000"
+          }
+        ],
+        "positions" => [
+          %{
+            "symbol" => "BTCUSDT",
+            "positionAmt" => "0.50000000",
+            "entryPrice" => "50000.00000000",
+            "markPrice" => "51000.00000000",
+            "unRealizedProfit" => "500.00000000",
+            "positionSide" => "LONG",
+            "updateTime" => 1_234_567_890_000
+          }
+        ]
+      }
+
+      assert {:ok, account} = Parser.parse_account(response)
+
+      assert account.fee_tier == 0
+      assert account.can_trade == true
+      assert account.can_deposit == true
+      assert account.can_withdraw == true
+      assert account.update_time == 1_234_567_890_000
+      assert Decimal.equal?(account.total_wallet_balance, Decimal.new("10000.00000000"))
+      assert Decimal.equal?(account.total_unrealized_profit, Decimal.new("500.00000000"))
+      assert Decimal.equal?(account.available_balance, Decimal.new("9900.00000000"))
+
+      assert length(account.assets) == 1
+      asset = hd(account.assets)
+      assert asset.asset == "USDT"
+      assert Decimal.equal?(asset.wallet_balance, Decimal.new("10000.00000000"))
+
+      assert length(account.positions) == 1
+      position = hd(account.positions)
+      assert position.symbol == "BTCUSDT"
+      assert position.side == :long
+      assert Decimal.equal?(position.size, Decimal.new("0.50000000"))
+    end
+
+    test "handles missing optional fields" do
+      minimal_response = %{
+        "feeTier" => 0,
+        "canTrade" => true,
+        "canDeposit" => true,
+        "canWithdraw" => true,
+        "updateTime" => 1_234_567_890_000,
+        "totalInitialMargin" => "0.00000000",
+        "totalMaintMargin" => "0.00000000",
+        "totalWalletBalance" => "0.00000000",
+        "totalUnrealizedProfit" => "0.00000000",
+        "totalMarginBalance" => "0.00000000",
+        "totalPositionInitialMargin" => "0.00000000",
+        "totalOpenOrderInitialMargin" => "0.00000000",
+        "totalCrossWalletBalance" => "0.00000000",
+        "totalCrossUnPnl" => "0.00000000",
+        "availableBalance" => "0.00000000",
+        "maxWithdrawAmount" => "0.00000000"
+      }
+
+      assert {:ok, account} = Parser.parse_account(minimal_response)
+      refute Map.has_key?(account, :assets)
+      refute Map.has_key?(account, :positions)
+    end
+
+    test "returns error for invalid format" do
+      assert {:error, :invalid_format} = Parser.parse_account("not a map")
+      assert {:error, :invalid_format} = Parser.parse_account(nil)
+      assert {:error, :invalid_format} = Parser.parse_account([])
+    end
+
+    test "handles invalid decimal values gracefully" do
+      invalid_response = %{
+        "feeTier" => 0,
+        "canTrade" => true,
+        "canDeposit" => true,
+        "canWithdraw" => true,
+        "updateTime" => 1_234_567_890_000,
+        "totalInitialMargin" => "not_a_number",
+        "totalMaintMargin" => "0.00000000",
+        "totalWalletBalance" => "0.00000000",
+        "totalUnrealizedProfit" => "0.00000000",
+        "totalMarginBalance" => "0.00000000",
+        "totalPositionInitialMargin" => "0.00000000",
+        "totalOpenOrderInitialMargin" => "0.00000000",
+        "totalCrossWalletBalance" => "0.00000000",
+        "totalCrossUnPnl" => "0.00000000",
+        "availableBalance" => "0.00000000",
+        "maxWithdrawAmount" => "0.00000000"
+      }
+
+      # safe_decimal converts invalid values to "0" rather than raising errors
+      assert {:ok, account} = Parser.parse_account(invalid_response)
+      assert Decimal.equal?(account.total_initial_margin, Decimal.new("0"))
+    end
+  end
+
+  describe "parse_income/1" do
+    test "parses income history records successfully" do
+      response = [
+        %{
+          "symbol" => "BTCUSDT",
+          "incomeType" => "REALIZED_PNL",
+          "income" => "100.50000000",
+          "asset" => "USDT",
+          "time" => 1_234_567_890_000,
+          "info" => "trade id 123",
+          "tranId" => 987_654_321,
+          "tradeId" => "123456"
+        },
+        %{
+          "symbol" => "ETHUSDT",
+          "incomeType" => "FUNDING_FEE",
+          "income" => "-0.50000000",
+          "asset" => "USDT",
+          "time" => 1_234_567_891_000,
+          "info" => "",
+          "tranId" => 987_654_322,
+          "tradeId" => ""
+        },
+        %{
+          "symbol" => "BTCUSDT",
+          "incomeType" => "COMMISSION",
+          "income" => "-2.00000000",
+          "asset" => "USDT",
+          "time" => 1_234_567_892_000,
+          "info" => "commission",
+          "tranId" => 987_654_323,
+          "tradeId" => "123457"
+        }
+      ]
+
+      assert {:ok, income_records} = Parser.parse_income(response)
+      assert length(income_records) == 3
+
+      [first, second, third] = income_records
+
+      assert first.symbol == "BTCUSDT"
+      assert first.income_type == :realized_pnl
+      assert Decimal.equal?(first.income, Decimal.new("100.50000000"))
+      assert first.asset == "USDT"
+      assert first.timestamp == 1_234_567_890_000
+      assert first.info == "trade id 123"
+      assert first.transaction_id == 987_654_321
+      assert first.trade_id == "123456"
+
+      assert second.income_type == :funding_fee
+      assert Decimal.equal?(second.income, Decimal.new("-0.50000000"))
+
+      assert third.income_type == :commission
+      assert Decimal.equal?(third.income, Decimal.new("-2.00000000"))
+    end
+
+    test "normalizes all income types correctly" do
+      income_types = [
+        {"TRANSFER", :transfer},
+        {"WELCOME_BONUS", :welcome_bonus},
+        {"REALIZED_PNL", :realized_pnl},
+        {"FUNDING_FEE", :funding_fee},
+        {"COMMISSION", :commission},
+        {"INSURANCE_CLEAR", :insurance_clear},
+        {"REFERRAL_KICKBACK", :referral_kickback},
+        {"COMMISSION_REBATE", :commission_rebate},
+        {"API_REBATE", :api_rebate},
+        {"CONTEST_REWARD", :contest_reward},
+        {"CROSS_COLLATERAL_TRANSFER", :cross_collateral_transfer},
+        {"OPTIONS_PREMIUM_FEE", :options_premium_fee},
+        {"OPTIONS_SETTLE_PROFIT", :options_settle_profit},
+        {"INTERNAL_TRANSFER", :internal_transfer},
+        {"AUTO_EXCHANGE", :auto_exchange},
+        {"DELIVERED_SETTLEMENT", :delivered_settlement},
+        {"COIN_SWAP_DEPOSIT", :coin_swap_deposit},
+        {"COIN_SWAP_WITHDRAW", :coin_swap_withdraw},
+        {"POSITION_LIMIT_INCREASE_FEE", :position_limit_increase_fee}
+      ]
+
+      for {raw_type, expected_type} <- income_types do
+        response = [
+          %{
+            "symbol" => "BTCUSDT",
+            "incomeType" => raw_type,
+            "income" => "1.00000000",
+            "asset" => "USDT",
+            "time" => 1_234_567_890_000,
+            "info" => "",
+            "tranId" => 1,
+            "tradeId" => ""
+          }
+        ]
+
+        assert {:ok, [record]} = Parser.parse_income(response)
+        assert record.income_type == expected_type
+      end
+    end
+
+    test "handles unknown income types" do
+      response = [
+        %{
+          "symbol" => "BTCUSDT",
+          "incomeType" => "NEW_UNKNOWN_TYPE",
+          "income" => "1.00000000",
+          "asset" => "USDT",
+          "time" => 1_234_567_890_000,
+          "info" => "",
+          "tranId" => 1,
+          "tradeId" => ""
+        }
+      ]
+
+      assert {:ok, [record]} = Parser.parse_income(response)
+      assert record.income_type == :new_unknown_type
+    end
+
+    test "returns error for invalid format" do
+      assert {:error, :invalid_format} = Parser.parse_income("not a list")
+      assert {:error, :invalid_format} = Parser.parse_income(nil)
+      assert {:error, :invalid_format} = Parser.parse_income(%{})
+    end
+
+    test "handles invalid decimal values gracefully" do
+      invalid_response = [
+        %{
+          "symbol" => "BTCUSDT",
+          "incomeType" => "REALIZED_PNL",
+          "income" => "not_a_number",
+          "asset" => "USDT",
+          "time" => 1_234_567_890_000,
+          "info" => "",
+          "tranId" => 1,
+          "tradeId" => ""
+        }
+      ]
+
+      # safe_decimal converts invalid values to "0" rather than raising errors
+      assert {:ok, [record]} = Parser.parse_income(invalid_response)
+      assert Decimal.equal?(record.income, Decimal.new("0"))
+    end
+
+    test "handles empty list" do
+      assert {:ok, []} = Parser.parse_income([])
+    end
+  end
 end

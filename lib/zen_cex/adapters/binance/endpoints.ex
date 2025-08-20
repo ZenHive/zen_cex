@@ -10,7 +10,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   This is a ROUTER ONLY - it contains no endpoint definitions.
   All endpoints are defined in nested modules:
   - `Binance.Spot` - Spot trading endpoints
-  - `Binance.Futures` - Futures trading endpoints
+  - `Binance.UsdmFutures` - USD-M Futures (USDT-margined) trading endpoints
   - `Binance.Margin` - Margin trading endpoints
   - `Binance.Common` - Shared endpoints (server_time, etc.)
 
@@ -18,21 +18,20 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
 
   The router automatically delegates based on function prefixes:
   - Functions starting with `spot_` → Binance.Spot
-  - Functions starting with `futures_` → Binance.Futures
+  - Functions starting with `futures_` → Binance.UsdmFutures
   - Functions starting with `margin_` → Binance.Margin
   - Common functions → Binance.Common
   """
 
   alias ZenCex.Adapters.Binance.Auth
   alias ZenCex.Adapters.Binance.Common
-  alias ZenCex.Adapters.Binance.Futures
   alias ZenCex.Adapters.Binance.Parser
   alias ZenCex.Adapters.Binance.RateLimiter
+  alias ZenCex.Adapters.Binance.Spot
+  alias ZenCex.Adapters.Binance.UsdmFutures
 
   # These will be created as separate modules
   # alias ZenCex.Adapters.Binance.Margin
-  alias ZenCex.Adapters.Binance.Spot
-
   @doc """
   Returns the exchange name for this adapter.
   """
@@ -181,10 +180,10 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   defdelegate place_oco_order(params), to: Spot
   defdelegate batch_cancel_orders(params), to: Spot
 
-  # Futures trading endpoints
-  defdelegate get_positions(), to: Futures
-  defdelegate get_positions(opts), to: Futures
-  defdelegate get_positions(params, opts), to: Futures
+  # USD-M Futures trading endpoints
+  defdelegate get_positions(), to: UsdmFutures
+  defdelegate get_positions(opts), to: UsdmFutures
+  defdelegate get_positions(params, opts), to: UsdmFutures
 
   # ============================================================================
   # Registry compatibility functions
@@ -205,7 +204,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
         Spot.get_endpoint(operation)
 
       operation in [:get_positions] ->
-        Futures.get_endpoint(operation)
+        UsdmFutures.get_endpoint(operation)
 
       true ->
         nil
@@ -217,7 +216,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   """
   @spec all_endpoints() :: [map()]
   def all_endpoints do
-    Common.all_endpoints() ++ Spot.all_endpoints() ++ Futures.all_endpoints()
+    Common.all_endpoints() ++ Spot.all_endpoints() ++ UsdmFutures.all_endpoints()
   end
 
   @doc """

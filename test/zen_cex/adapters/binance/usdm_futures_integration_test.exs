@@ -1,4 +1,4 @@
-defmodule ZenCex.Adapters.Binance.FuturesIntegrationTest do
+defmodule ZenCex.Adapters.Binance.UsdmFuturesIntegrationTest do
   @moduledoc """
   Integration tests for Binance Futures endpoints.
 
@@ -12,8 +12,8 @@ defmodule ZenCex.Adapters.Binance.FuturesIntegrationTest do
 
   import ExUnit.CaptureLog
 
-  alias ZenCex.Adapters.Binance.Futures
   alias ZenCex.Adapters.Binance.RateLimiter
+  alias ZenCex.Adapters.Binance.UsdmFutures
 
   setup do
     # Reset rate limiter state before each test
@@ -26,7 +26,7 @@ defmodule ZenCex.Adapters.Binance.FuturesIntegrationTest do
       # Capture logs to verify rate limiter detects futures API
       logs =
         capture_log([level: :debug], fn ->
-          result = Futures.get_positions()
+          result = UsdmFutures.get_positions()
 
           case result do
             {:ok, positions} ->
@@ -59,14 +59,14 @@ defmodule ZenCex.Adapters.Binance.FuturesIntegrationTest do
   describe "rate limiting uses correct limits per API type" do
     test "USD-M futures endpoints tracked with 2400/min limit" do
       # Get initial status
-      initial_status = RateLimiter.get_status("/fapi/v2/positionRisk")
+      initial_status = RateLimiter.get_status("/fapi/v3/positionRisk")
       assert initial_status.limit == 2400
 
       # Make a USD-M futures request
-      _result = Futures.get_positions()
+      _result = UsdmFutures.get_positions()
 
       # Check that USD-M futures counter was incremented
-      futures_status = RateLimiter.get_status("/fapi/v2/positionRisk")
+      futures_status = RateLimiter.get_status("/fapi/v3/positionRisk")
       assert futures_status.limit == 2400
       assert futures_status.used >= initial_status.used
     end
@@ -77,7 +77,7 @@ defmodule ZenCex.Adapters.Binance.FuturesIntegrationTest do
       assert spot_status.limit == 1200
 
       # Check USD-M futures endpoint detection
-      usdm_status = RateLimiter.get_status("/fapi/v2/positionRisk")
+      usdm_status = RateLimiter.get_status("/fapi/v3/positionRisk")
       assert usdm_status.limit == 2400
 
       # Check COIN-M futures endpoint detection
@@ -103,7 +103,7 @@ defmodule ZenCex.Adapters.Binance.FuturesIntegrationTest do
           # For testing, we'll just make a few and verify logging works
 
           for _ <- 1..3 do
-            _result = Futures.get_positions()
+            _result = UsdmFutures.get_positions()
             # Small delay to avoid overwhelming testnet
             Process.sleep(100)
           end
@@ -111,7 +111,7 @@ defmodule ZenCex.Adapters.Binance.FuturesIntegrationTest do
 
       # In production, this would log warnings if approaching limits
       # For test, just verify the rate limiter is tracking usage
-      status = RateLimiter.get_status("/fapi/v2/positionRisk")
+      status = RateLimiter.get_status("/fapi/v3/positionRisk")
       assert status.limit == 2400
       assert status.used > 0
 
@@ -122,7 +122,7 @@ defmodule ZenCex.Adapters.Binance.FuturesIntegrationTest do
   describe "error handling" do
     test "handles USD-M futures-specific errors correctly" do
       # Test with invalid symbol (USD-M futures symbols are different from spot)
-      result = Futures.get_positions(%{symbol: "INVALID_FUTURES_SYMBOL"})
+      result = UsdmFutures.get_positions(%{symbol: "INVALID_FUTURES_SYMBOL"})
 
       case result do
         {:error, reason} ->

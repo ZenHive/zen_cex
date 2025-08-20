@@ -510,6 +510,200 @@ defmodule ZenCex.Adapters.Binance.Parser do
   def parse_trades(_), do: {:error, :invalid_format}
 
   @doc """
+  Parses account information from Binance Futures API.
+
+  Handles both v2 and v3 account information responses which contain
+  account balances, positions, and configuration.
+
+  ## Examples
+
+      response = %{
+        "feeTier" => 0,
+        "canTrade" => true,
+        "canDeposit" => true,
+        "canWithdraw" => true,
+        "updateTime" => 1234567890000,
+        "totalInitialMargin" => "0.00000000",
+        "totalMaintMargin" => "0.00000000",
+        "totalWalletBalance" => "10000.00000000",
+        "totalUnrealizedProfit" => "0.00000000",
+        "totalMarginBalance" => "10000.00000000",
+        "totalPositionInitialMargin" => "0.00000000",
+        "totalOpenOrderInitialMargin" => "0.00000000",
+        "totalCrossWalletBalance" => "10000.00000000",
+        "totalCrossUnPnl" => "0.00000000",
+        "availableBalance" => "10000.00000000",
+        "maxWithdrawAmount" => "10000.00000000",
+        "assets" => [
+          %{
+            "asset" => "USDT",
+            "walletBalance" => "10000.00000000",
+            "unrealizedProfit" => "0.00000000",
+            "marginBalance" => "10000.00000000",
+            "maintMargin" => "0.00000000",
+            "initialMargin" => "0.00000000",
+            "positionInitialMargin" => "0.00000000",
+            "openOrderInitialMargin" => "0.00000000",
+            "maxWithdrawAmount" => "10000.00000000",
+            "crossWalletBalance" => "10000.00000000",
+            "crossUnPnl" => "0.00000000",
+            "availableBalance" => "10000.00000000"
+          }
+        ],
+        "positions" => []
+      }
+      {:ok, account} = parse_account(response)
+  """
+  @spec parse_account(map() | term()) :: {:ok, map()} | {:error, atom()}
+  def parse_account(response) when is_map(response) do
+    account = %{
+      fee_tier: response["feeTier"],
+      can_trade: response["canTrade"],
+      can_deposit: response["canDeposit"],
+      can_withdraw: response["canWithdraw"],
+      update_time: response["updateTime"],
+      total_initial_margin: safe_decimal(response["totalInitialMargin"]),
+      total_maint_margin: safe_decimal(response["totalMaintMargin"]),
+      total_wallet_balance: safe_decimal(response["totalWalletBalance"]),
+      total_unrealized_profit: safe_decimal(response["totalUnrealizedProfit"]),
+      total_margin_balance: safe_decimal(response["totalMarginBalance"]),
+      total_position_initial_margin: safe_decimal(response["totalPositionInitialMargin"]),
+      total_open_order_initial_margin: safe_decimal(response["totalOpenOrderInitialMargin"]),
+      total_cross_wallet_balance: safe_decimal(response["totalCrossWalletBalance"]),
+      total_cross_un_pnl: safe_decimal(response["totalCrossUnPnl"]),
+      available_balance: safe_decimal(response["availableBalance"]),
+      max_withdraw_amount: safe_decimal(response["maxWithdrawAmount"])
+    }
+
+    # Add assets if present
+    account =
+      if Map.has_key?(response, "assets") do
+        assets =
+          Enum.map(response["assets"], fn asset ->
+            %{
+              asset: asset["asset"],
+              wallet_balance: safe_decimal(asset["walletBalance"]),
+              unrealized_profit: safe_decimal(asset["unrealizedProfit"]),
+              margin_balance: safe_decimal(asset["marginBalance"]),
+              maint_margin: safe_decimal(asset["maintMargin"]),
+              initial_margin: safe_decimal(asset["initialMargin"]),
+              position_initial_margin: safe_decimal(asset["positionInitialMargin"]),
+              open_order_initial_margin: safe_decimal(asset["openOrderInitialMargin"]),
+              max_withdraw_amount: safe_decimal(asset["maxWithdrawAmount"]),
+              cross_wallet_balance: safe_decimal(asset["crossWalletBalance"]),
+              cross_un_pnl: safe_decimal(asset["crossUnPnl"]),
+              available_balance: safe_decimal(asset["availableBalance"])
+            }
+          end)
+
+        Map.put(account, :assets, assets)
+      else
+        account
+      end
+
+    # Add positions if present
+    account =
+      if Map.has_key?(response, "positions") do
+        positions =
+          Enum.map(response["positions"], fn pos ->
+            parse_futures_position(pos)
+          end)
+
+        Map.put(account, :positions, positions)
+      else
+        account
+      end
+
+    {:ok, account}
+  rescue
+    ArgumentError -> {:error, :invalid_decimal_format}
+    KeyError -> {:error, :missing_required_field}
+    e -> {:error, {:parse_error, Exception.message(e)}}
+  end
+
+  def parse_account(_), do: {:error, :invalid_format}
+
+  @doc """
+  Parses income/transaction history from Binance Futures API.
+
+  Returns a list of income records including trading fees, funding fees,
+  realized PnL, and other transaction types.
+
+  ## Examples
+
+      response = [
+        %{
+          "symbol" => "BTCUSDT",
+          "incomeType" => "REALIZED_PNL",
+          "income" => "100.50000000",
+          "asset" => "USDT",
+          "time" => 1234567890000,
+          "info" => "trade id",
+          "tranId" => 987654321,
+          "tradeId" => "123456"
+        },
+        %{
+          "symbol" => "BTCUSDT",
+          "incomeType" => "FUNDING_FEE",
+          "income" => "-0.50000000",
+          "asset" => "USDT",
+          "time" => 1234567890000,
+          "info" => "",
+          "tranId" => 987654322,
+          "tradeId" => ""
+        }
+      ]
+      {:ok, income_history} = parse_income(response)
+  """
+  @spec parse_income(list() | term()) :: {:ok, list()} | {:error, atom()}
+  def parse_income(response) when is_list(response) do
+    income_records =
+      Enum.map(response, fn record ->
+        %{
+          symbol: record["symbol"],
+          income_type: normalize_income_type(record["incomeType"]),
+          income: safe_decimal(record["income"]),
+          asset: record["asset"],
+          timestamp: record["time"],
+          info: record["info"],
+          transaction_id: record["tranId"],
+          trade_id: record["tradeId"]
+        }
+      end)
+
+    {:ok, income_records}
+  rescue
+    ArgumentError -> {:error, :invalid_decimal_format}
+    KeyError -> {:error, :missing_required_field}
+    e -> {:error, {:parse_error, Exception.message(e)}}
+  end
+
+  def parse_income(_), do: {:error, :invalid_format}
+
+  # Helper to normalize income types
+  defp normalize_income_type("TRANSFER"), do: :transfer
+  defp normalize_income_type("WELCOME_BONUS"), do: :welcome_bonus
+  defp normalize_income_type("REALIZED_PNL"), do: :realized_pnl
+  defp normalize_income_type("FUNDING_FEE"), do: :funding_fee
+  defp normalize_income_type("COMMISSION"), do: :commission
+  defp normalize_income_type("INSURANCE_CLEAR"), do: :insurance_clear
+  defp normalize_income_type("REFERRAL_KICKBACK"), do: :referral_kickback
+  defp normalize_income_type("COMMISSION_REBATE"), do: :commission_rebate
+  defp normalize_income_type("API_REBATE"), do: :api_rebate
+  defp normalize_income_type("CONTEST_REWARD"), do: :contest_reward
+  defp normalize_income_type("CROSS_COLLATERAL_TRANSFER"), do: :cross_collateral_transfer
+  defp normalize_income_type("OPTIONS_PREMIUM_FEE"), do: :options_premium_fee
+  defp normalize_income_type("OPTIONS_SETTLE_PROFIT"), do: :options_settle_profit
+  defp normalize_income_type("INTERNAL_TRANSFER"), do: :internal_transfer
+  defp normalize_income_type("AUTO_EXCHANGE"), do: :auto_exchange
+  defp normalize_income_type("DELIVERED_SETTLEMENT"), do: :delivered_settlement
+  defp normalize_income_type("COIN_SWAP_DEPOSIT"), do: :coin_swap_deposit
+  defp normalize_income_type("COIN_SWAP_WITHDRAW"), do: :coin_swap_withdraw
+  defp normalize_income_type("POSITION_LIMIT_INCREASE_FEE"), do: :position_limit_increase_fee
+  defp normalize_income_type(type) when is_binary(type), do: type |> String.downcase() |> String.to_atom()
+  defp normalize_income_type(_), do: :unknown
+
+  @doc """
   Parses commission/fee responses from the Binance API.
 
   Handles both decimal strings and basis points formats:

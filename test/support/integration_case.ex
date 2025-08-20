@@ -199,9 +199,9 @@ defmodule ZenCex.IntegrationCase do
   end
 
   defp verify_futures_connectivity do
-    # Futures connectivity check - try to get positions
+    # USD-M Futures connectivity check - try to get positions
     # This may fail if futures isn't activated, which is OK for connectivity test
-    case ZenCex.Adapters.Binance.Futures.get_positions() do
+    case ZenCex.Adapters.Binance.UsdmFutures.get_positions() do
       {:ok, _} -> {:ok, :connected}
       {:error, {:exchange_error, msg}} when is_binary(msg) -> {:ok, :connected}
       {:error, reason} -> {:error, reason}

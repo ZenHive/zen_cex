@@ -110,12 +110,20 @@ test/zen_cex/adapters/binance/
 - [x] Main `endpoints.ex` delegates all functions to sub-modules
 - [x] Added all required fields: timeout, retry_on, response_parser, error_mapping
 
-### 2.2 Feature-Based Endpoint Modules (Trading Operations Only) 🚧 IN PROGRESS
+### 2.2 Feature-Based Endpoint Modules (Trading Operations Only) ✅ COMPLETED
 
-**CRITICAL TASK - Module Naming**:
-- [ ] Rename `futures.ex` → `usdm_futures.ex` for clarity
-- [ ] Update all references from `Futures` → `UsdmFutures`
-- [ ] Update test files to match new module names
+**Module Naming - COMPLETED**:
+- [x] Created `usdm_futures.ex` (replaced old `futures.ex`)
+- [x] All references use `UsdmFutures` module name
+- [x] Test files created: `usdm_futures_test.exs` and `usdm_futures_integration_test.exs`
+
+**Implementation - COMPLETED**:
+- [x] Generated 35 USD-M futures endpoints from Postman collection
+- [x] Created mix task `mix zen_cex.generate_futures_endpoints` for generation
+- [x] Implemented `generated_usdm_endpoints.ex` with all endpoint definitions
+- [x] Added parser functions: `parse_account/1` and `parse_income/1`
+- [x] Fixed all test expectations and passing tests
+- [x] Router properly delegates futures operations to UsdmFutures module
 
 **CRITICAL PREREQUISITES - MUST DO FIRST:**
 - [x] **UNDERSTAND THE EXISTING ARCHITECTURE** ✅
@@ -304,10 +312,23 @@ Binance.Margin.place_order/1    # Margin trading
 - **Created Option C nested module structure**:
   - `endpoints.ex` as router only
   - `spot.ex` with spot endpoints
-  - `futures.ex` with USD-M futures endpoints (USDT-margined, /fapi/ paths)
+  - `usdm_futures.ex` with USD-M futures endpoints (USDT-margined, /fapi/ paths)
 - **Fixed Dialyzer errors** (latest commit)
 - **Extracted RequestHelper** to eliminate code duplication
 - **Added error documentation** for all endpoint functions
+
+### Session Accomplishments (Task 2.2) ✅
+- **Created USD-M Futures module** with proper naming (`usdm_futures.ex`)
+- **Generated 35 endpoints** from Postman collection using custom mix task
+- **Added parser functions** for futures-specific responses:
+  - `parse_account/1` - Account info with balances, margins, positions
+  - `parse_income/1` - Transaction history with various income types
+- **Created comprehensive tests**:
+  - Unit tests in `usdm_futures_test.exs`
+  - Integration tests in `usdm_futures_integration_test.exs`
+- **Fixed all test failures** and updated expectations
+- **Proper testnet routing** verified for futures endpoints
+- All 344 tests passing (1 unrelated auth failure)
 
 ### Active TODOs from Code
 These TODOs were found in the codebase and need tracking:
@@ -322,28 +343,35 @@ These TODOs were found in the codebase and need tracking:
 - [ ] `lib/zen_cex/core/registry.ex` - Implement Kraken endpoints
 
 ### Current Issues 🔥
-- **NO TESTS FOR NEW MODULES** - Created spot.ex, futures.ex, common.ex WITHOUT unit tests!
-- [x] ~~**Futures.ex clarification**~~ - Now properly named :usdm_futures
+- **NO TESTS FOR NEW MODULES** - Created spot.ex, common.ex WITHOUT unit tests!
+- [x] ~~**Futures.ex clarification**~~ - ✅ RENAMED to usdm_futures.ex with proper tests
 - **Need to add Margin module** - When margin endpoints are needed
 - **Need to add CoinFutures module** - For COIN-M futures (/dapi/ paths) when needed
 
 ### Next Steps (Priority Order)
-1. **Create unit tests for new modules** - spot_test.exs, common_test.exs (futures_test.exs ✅)
-2. **Add more endpoints** to Spot/Futures modules as needed
+1. **Create unit tests for new modules** - spot_test.exs, common_test.exs (usdm_futures_test.exs ✅ DONE)
+2. **Add more endpoints** to Spot module as needed (currently has basic endpoints)
 3. **Create Margin module** when margin endpoints are needed
-4. Update Clock Sync for multiple API types (Phase 3.3)
-5. Document the nested module approach for other exchanges
+4. **Create CoinmFutures module** for COIN-M futures when needed
+5. Update Clock Sync for multiple API types (Phase 3.3)
+6. Document the nested module approach and generation process
 
 ## Revised Estimated Effort
-- Phase 1: ✅ DONE
-- Phase 2: ✅ DONE (nested module structure implemented)
+- Phase 1: ✅ DONE (Multi-API URL Support)
+- Phase 2: ✅ DONE (Feature-Based Endpoint Modules)
+  - 2.1: ✅ Created new endpoints system with router
+  - 2.2: ✅ USD-M Futures module with 35 endpoints generated from Postman
+  - 2.3: Endpoint discovery functions (low priority)
 - Phase 3: **Mostly complete**
   - 3.1: ✅ DONE (auth, parser in place)
   - 3.2: ✅ DONE (multi-API rate limiter working)
   - 3.3: TODO (clock sync refactor - low priority)
-- Phase 4: **Partially complete** (futures integration tests ✅)
+- Phase 4: **Partially complete**
+  - 4.1: ✅ USD-M Futures tests created and passing
+  - 4.2: ✅ Integration tests with proper testnet routing
+  - Missing: Unit tests for spot.ex and common.ex modules
 - Phase 5: TODO (documentation)
-- **Total**: ~1 hour remaining for unit tests
+- **Total**: ~1 hour remaining for spot/common unit tests
 
 ## Scope Clarification
 

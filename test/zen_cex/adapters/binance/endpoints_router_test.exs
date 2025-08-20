@@ -3,8 +3,8 @@ defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
 
   alias ZenCex.Adapters.Binance.Common
   alias ZenCex.Adapters.Binance.Endpoints
-  alias ZenCex.Adapters.Binance.Futures
   alias ZenCex.Adapters.Binance.Spot
+  alias ZenCex.Adapters.Binance.UsdmFutures
 
   describe "router delegation patterns" do
     test "common endpoints delegate to Common module" do
@@ -32,8 +32,8 @@ defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
       assert function_exported?(Endpoints, :get_order, 2)
     end
 
-    test "futures endpoints delegate to Futures module" do
-      # Futures functions should be available through main Endpoints
+    test "futures endpoints delegate to UsdmFutures module" do
+      # USD-M Futures functions should be available through main Endpoints
       assert function_exported?(Endpoints, :get_positions, 0)
       assert function_exported?(Endpoints, :get_positions, 1)
       assert function_exported?(Endpoints, :get_positions, 2)
@@ -69,13 +69,13 @@ defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
       end)
     end
 
-    test "routes futures operations to Futures module" do
+    test "routes futures operations to UsdmFutures module" do
       endpoint = Endpoints.get_endpoint(:get_positions)
       assert endpoint
       assert endpoint.operation == :get_positions
 
-      # Should match Futures module's config
-      futures_endpoint = Futures.get_endpoint(:get_positions)
+      # Should match UsdmFutures module's config
+      futures_endpoint = UsdmFutures.get_endpoint(:get_positions)
       assert endpoint == futures_endpoint
     end
 
@@ -88,7 +88,7 @@ defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
     test "combines endpoints from all modules" do
       all_endpoints = Endpoints.all_endpoints()
 
-      # Should have endpoints from Common, Spot, and Futures
+      # Should have endpoints from Common, Spot, and UsdmFutures
       operations = Enum.map(all_endpoints, & &1.operation)
 
       # From Common
@@ -100,19 +100,33 @@ defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
       assert :cancel_order in operations
       assert :get_order in operations
 
-      # From Futures
+      # From UsdmFutures
       assert :get_positions in operations
     end
 
-    test "no duplicate operations in aggregated endpoints" do
+    test "duplicate operations from different API types are allowed" do
       all_endpoints = Endpoints.all_endpoints()
-      operations = Enum.map(all_endpoints, & &1.operation)
 
-      # Check for duplicates
-      unique_operations = Enum.uniq(operations)
+      # Group by operation and API type to ensure duplicates are from different APIs
+      # Use :common as default for endpoints without api_type
+      grouped =
+        Enum.group_by(all_endpoints, fn e ->
+          api_type = Map.get(e, :api_type, :common)
+          {e.operation, api_type}
+        end)
 
-      assert length(operations) == length(unique_operations),
-             "Found duplicate operations in aggregated endpoints"
+      # Check that each operation+api_type combination is unique
+      for {key, endpoints} <- grouped do
+        assert length(endpoints) == 1,
+               "Found duplicate endpoint for #{inspect(key)}: #{inspect(endpoints)}"
+      end
+
+      # Verify we do have some operations that exist in multiple API types (like get_balances)
+      operations_by_name = Enum.group_by(all_endpoints, & &1.operation)
+      multi_api_ops = Enum.filter(operations_by_name, fn {_op, endpoints} -> length(endpoints) > 1 end)
+
+      assert length(multi_api_ops) > 0,
+             "Expected some operations to exist in multiple API types"
     end
   end
 
