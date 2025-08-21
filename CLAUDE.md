@@ -25,7 +25,12 @@ The current date is provided in the `<env>` section as "Today's date: YYYY-MM-DD
 
 **IMPORTANT: This library is not in your training data. Please do not assume you know how it works - make yourself familiar with it by reading the codebase.**
 
-ZenCex is an Elixir library for centralized cryptocurrency exchange (CEX) REST API integrations, extracted from the BlockWatch Phoenix application. It provides a unified interface for interacting with multiple exchanges (Binance, Kraken, Deribit) through their REST APIs with a focus on reliable position management and trading operations.
+ZenCex is an Elixir library for centralized cryptocurrency exchange (CEX) REST API integrations, extracted from the BlockWatch Phoenix application. It provides a unified interface for interacting with cryptocurrency exchanges through their REST APIs with a focus on reliable position management and trading operations.
+
+**Current Implementation Status:**
+- **Binance**: Fully implemented with comprehensive endpoint coverage across Spot, Margin, USD-M Futures, COIN-M Futures APIs
+- **Kraken**: Partial implementation (auth, rate limiter, basic structure)
+- **Deribit**: Partial implementation (OAuth auth, basic structure)
 
 **IMPORTANT SCOPE**:
 - **REST APIs ONLY** - No WebSocket implementation planned or desired
@@ -210,13 +215,13 @@ If Tidewave connection issues occur:
 
 ### Req-Centric REST Architecture Overview
 
-The library leverages **Req's built-in capabilities** for REST API operations instead of custom OTP supervision:
+**CRITICAL DESIGN**: This library is built entirely around Req's capabilities - we don't reimplement what Req already provides.
 
-- **Core Modules** (`ZenCex.Core.*`): Thin coordination layer using Req middleware
-- **Behaviors** (`ZenCex.Behaviors.*`): Contracts that exchange adapters must implement
-- **Adapters** (`ZenCex.Adapters.*`): Exchange-specific implementations organized by exchange
-  - Each exchange adapter consists of multiple cooperating modules
-  - The namespace reflects that these modules collectively "adapt" external APIs to ZenCex
+- **No custom HTTP client logic** - Req handles pooling (Finch), retry, telemetry
+- **Middleware as Req steps** - Auth and rate limiting are just request/response steps
+- **ETS over GenServers** - Atomic counters work better with Req's stateless pipeline
+- **Minimal supervision** - Only OAuth tokens need state (Deribit)
+- **Let Req handle complexity** - We just configure and compose
 
 ### Core Module Structure
 
@@ -229,41 +234,54 @@ The library leverages **Req's built-in capabilities** for REST API operations in
    - Maps exchange names to endpoint modules
    - Runtime validation and loading
    - Exchange listing and capability queries
+   - Currently only Binance is fully registered
 
 3. **Core.HTTP** (`lib/zen_cex/core/http.ex`)
    - Configures Req's built-in features: pooling, retry, telemetry
    - Adds auth and rate limiting as Req request/response steps
    - Leverages Req's middleware pipeline instead of custom coordination
 
+4. **Safety.ClockSync** (`lib/zen_cex/safety/clock_sync.ex`)
+   - Synchronizes local time with exchange servers
+   - Supports per-API-type synchronization (e.g., Binance spot vs futures)
+   - Critical for exchanges requiring precise timestamps
+   - ETS-based offset storage for performance
+
 ### Adapter Structure
 
 Each exchange adapter in `ZenCex.Adapters.{Exchange}.*` consists of these cooperating modules:
 
-1. **Endpoints Module** (`lib/zen_cex/adapters/{exchange}/endpoints.ex`)
-   - **Primary entry point** for the adapter
-   - Uses `ZenCex.EndpointRegistry` macro for declarative endpoint definitions
-   - Contains both generated functions (from `@endpoints`) and hand-written complex operations
-   - Registered with `Core.Registry` as the exchange's main interface
+#### Binance Adapter (Fully Implemented)
+The Binance adapter is the most complete implementation supporting multiple API types:
 
-2. **Auth Module** (`lib/zen_cex/adapters/{exchange}/auth.ex`)
-   - Implements `Behaviors.Auth` behavior
-   - Exchange-specific authentication (HMAC, OAuth, etc.)
-   - Credential management from environment
+1. **Router Module** (`endpoints.ex`) - Main entry point that delegates based on function prefixes
+2. **API Type Modules** - Each handles specific trading types:
+   - `spot.ex` - Spot trading
+   - `margin.ex` - Cross and isolated margin
+   - `usdm_futures.ex` - USD-M futures/USDT-margined
+   - `coinm_futures.ex` - COIN-M futures/coin-margined
+   - `portfolio_margin.ex` - Portfolio margin
+   - `common.ex` - Shared endpoints like server_time
+3. **Generated Endpoint Modules** - Auto-generated from endpoint definitions:
+   - `generated_endpoints.ex` - Spot trading endpoints
+   - `generated_margin_endpoints.ex` - Margin trading endpoints
+   - `generated_usdm_endpoints.ex` - USD-M futures endpoints
+   - `generated_coinm_endpoints.ex` - COIN-M futures endpoints
+   - `generated_portfolio_endpoints.ex` - Portfolio margin endpoints
+4. **Supporting Modules**:
+   - `auth.ex` - HMAC-SHA256 authentication
+   - `rate_limiter.ex` - Multi-API rate limiting with ETS
+   - `parser.ex` - Response normalization
+   - `signer.ex` - Request signing logic
+   - `parameter_builder.ex` - Parameter construction
+   - `request_helper.ex` - Request utilities
+   - `endpoint_loader.ex` - Dynamic endpoint loading
+   - `product_detector.ex` - API type detection
+   - `strategies.ex` - Trading strategy helpers
 
-3. **RateLimiter** (`lib/zen_cex/adapters/{exchange}/rate_limiter.ex`)
-   - Implements `Behaviors.RateLimiter` behavior
-   - Exchange-specific rate limiting logic
-   - ETS-based atomic counters for performance
-
-4. **Parser Module** (`lib/zen_cex/adapters/{exchange}/parser.ex`)
-   - Implements `Behaviors.Parser` behavior
-   - Normalizes exchange-specific responses to common formats
-   - Handles type conversions and error mapping
-
-5. **WebSocket** - **NOT IMPLEMENTED**
-   - WebSocket support is explicitly out of scope
-   - This library focuses on REST APIs only
-   - For streaming data needs, use a different library
+#### Kraken & Deribit Adapters (Partial Implementation)
+- Basic auth and rate limiter modules exist
+- Full endpoint implementation pending
 
 ### Why "Adapters" Namespace?
 
@@ -288,20 +306,44 @@ ZenCex.Application
 
 ### Key Design Patterns (Req-Powered REST)
 
-1. **Req's Built-in Features**: Connection pooling (Finch), retry logic, telemetry - no custom implementation needed
-2. **Req Middleware Steps**: Auth and rate limiting as composable request/response steps
-3. **ETS Without GenServers**: Atomic counters for rate limiting work better with Req's pipeline
-4. **Single-Flight Protection**: OAuth token refresh (only stateful operation)
-5. **REST-Only Focus**: All operations via REST APIs, no streaming protocols
-6. **Minimal Supervision**: Only Deribit OAuth needs a process - everything else is stateless
+1. **Req does the heavy lifting**: We configure, not reimplement - pooling, retry, telemetry all from Req
+2. **Steps over GenServers**: Auth/rate-limiting as Req steps, not separate processes
+3. **ETS for stateless ops**: Rate limit counters via ETS atomic ops fit Req's model
+4. **Supervision only when needed**: Just OAuth tokens (Deribit) need GenServer
+5. **REST-Only by design**: No WebSocket complexity - Req excels at REST
+6. **Leverage, don't build**: If Req has it, we use it; if not, we question if we need it
 
 ## Exchange-Specific Implementation Details
 
-### Binance
+### Binance (Fully Implemented)
+
+#### Architecture
+- **Router Pattern**: Main `Endpoints` module delegates to API-specific modules based on function prefixes
+- **Function Prefixes**: `spot_*`, `margin_*`, `usdm_*`, `coinm_*`, `portfolio_*` for clarity
+- **Generated + Manual**: Combines macro-generated standard endpoints with hand-written complex operations
+
+#### Endpoint Discovery
+```elixir
+# List all available endpoints
+Endpoints.list_available_endpoints()
+
+# List endpoints by API type
+Endpoints.list_available_endpoints(:spot)
+Endpoints.list_available_endpoints(:margin)
+Endpoints.list_available_endpoints(:usdm_futures)
+
+# Get detailed endpoint information
+Endpoints.get_endpoint_info(:spot_get_balances)
+# => Returns map with method, path, auth requirements, rate limits, etc.
+```
+
+#### Technical Details
 - Requires `timestamp` and `recvWindow` parameters for authenticated requests
 - Signature goes in query string as last parameter
 - Uses `X-MBX-APIKEY` header for API key
 - Rate limit weights reported in `x-mbx-used-weight-1m` header
+- Separate rate limits maintained per API type
+- ClockSync handles time synchronization per API type
 
 ### Kraken
 - Uses nonce-based authentication (microseconds + counter)
@@ -335,34 +377,14 @@ DERIBIT_HOST=test.deribit.com  # or www.deribit.com for production
 
 ## AI-Assisted Development Workflow
 
-This project uses a two-document AI workflow for implementation and review:
-
-### Documentation Structure
-- **docs/AI-IMPLEMENTATION.md** - Task guide for AI Coders (237 lines)
-  - Current task assignment and progress tracking
-  - Quick pattern references (5-10 lines each)
-  - Common mistakes to avoid
-  - One-task-per-session rule enforcement
-
-- **docs/AI-REVIEW.md** - Review checklist for AI Reviewers (900+ lines)
-  - Detailed requirements per task
-  - Full pattern implementations
-  - Performance and security validation
-  - Pass/fail criteria for each component
-
-- **docs/TASKLIST_BINANCE_REFACTOR.md** - Binance Multi-API Refactoring Plan
-  - Comprehensive plan for supporting Binance's multiple API types (Spot, Futures, etc.)
-  - Smart URL routing approach to avoid file size explosion
-  - Rate limiter refactoring requirements (separate limits per API type)
-  - Feature-based endpoint organization strategy
-  - Current status: Phase 1 completed, Phase 3.2 (rate limiter) is CRITICAL next step
+This project uses AI-IMPLEMENTATION.md and AI-REVIEW.md for task management.
 
 ### Workflow
 1. **AI Coder** reads AI-IMPLEMENTATION.md and implements current task
 2. **AI Reviewer** validates using AI-REVIEW.md checklists
 3. **Human** supervises and approves changes
 
-For current task and progress, see AI-IMPLEMENTATION.md.
+See docs/AI-IMPLEMENTATION.md for current task.
 
 ### Documentation Writing Guidelines
 
@@ -381,35 +403,59 @@ When writing or updating docs/* files:
 
 ### Endpoint Registry Pattern
 
-The library uses a declarative endpoint registry pattern for REST APIs:
-- Define endpoints using `@endpoints` configuration with required fields
-- Automatic function generation for standard CRUD operations
-- Hand-written implementations for complex operations (OCO orders, batch operations)
-- Compile-time validation prevents dangerous patterns (e.g., retries on order placement)
-- See `lib/zen_cex/core/endpoint_registry.ex` for macro documentation
+The library uses a sophisticated declarative endpoint registry pattern:
+
+#### How It Works
+1. **Endpoint Definition**: Each API module defines `@endpoints` with endpoint specifications
+2. **Code Generation**: `EndpointRegistry` macro generates functions at compile time
+3. **Router Delegation**: Main `Endpoints` module routes prefixed functions to appropriate modules
+4. **Runtime Discovery**: Built-in functions for endpoint exploration and documentation
+
+#### Key Features
+- **Automatic Function Generation**: Standard operations generated from declarations
+- **Manual Override**: Complex operations can be hand-written in the same module
+- **Compile-time Validation**: Prevents dangerous patterns (e.g., retries on order placement)
+- **Multi-Arity Support**: Generated functions support 0, 1, and 2 argument versions
+- **Endpoint Discovery**: Runtime introspection of available endpoints and their details
+
+#### Generated Files Pattern
+Binance uses a dual-file approach:
+- **API Module** (e.g., `spot.ex`): Contains endpoint definitions and complex operations
+- **Generated Module** (e.g., `generated_endpoints.ex`): Auto-generated standard operations
+
+This separation keeps the main modules focused while avoiding code duplication.
 
 #### Debug Mode
-To see generated code during development:
 ```elixir
-use ZenCex.EndpointRegistry, :debug
+use ZenCex.EndpointRegistry, :debug  # Prints generated AST during compilation
 ```
 
-This will print the generated AST to help understand what functions are created.
+### Trading Strategies Module
+
+The Binance adapter includes a `Strategies` module with pre-built trading strategies:
+- **`auto_hedge_spot_positions/2`** - Automatically hedge spot positions
+- **`hedge_with_paxg_long/1`** - Hedge using PAXG (gold-backed token) long positions
+- **`rebalance_paxg_perp_to_spot/1`** - Rebalance between PAXG perpetual and spot
+- **`rebalance_portfolio/2`** - General portfolio rebalancing
+
+These are high-level trading operations that coordinate multiple endpoints.
 
 ### Current Status
-- Req-centric architecture leveraging built-in features
-- Declarative endpoint registry implemented for Binance
-- Focus on utilizing Req's capabilities instead of reimplementing
+- **Req-centric architecture**: All HTTP operations leverage Req's built-in features
+- **Binance**: Production-ready with comprehensive multi-API support
+- **Endpoint Discovery**: Built-in functions to explore available endpoints
+- **Multi-API Support**: Single exchange can have multiple API types with separate rate limits
+- **ClockSync**: Supports per-API-type time synchronization
+- **Generated Code Pattern**: Uses macro-based generation to reduce boilerplate while maintaining flexibility
 
 ### Key Architectural Decisions
-- **Req-centric REST design**: Leverage built-in pooling, retry, telemetry for REST APIs
-- **Stateless endpoints**: Only Deribit OAuth needs GenServer for token state
-- **ETS with Req middleware**: Rate limiting as request steps with atomic counters
-- **No Core.Supervisor**: Req's Finch handles connection lifecycle
-- **Minimal processes**: Let Req handle complexity, we just configure it
-- **No WebSocket/Streaming**: REST-only by design, not a limitation
-- **No HFT Support**: Optimized for reliability, not microsecond latency
-- **Declarative Endpoint Registry**: Macro-based endpoint generation to reduce boilerplate
+- **Req-centric EVERYTHING**: If Req can do it, we don't build it
+- **Stateless by default**: OAuth tokens only exception (Deribit GenServer)
+- **ETS + Req steps**: Rate limiting via atomic ops, not processes
+- **No custom supervision**: Finch (via Req) manages connections
+- **REST-only focus**: Req is built for REST, so are we
+- **Reliability over speed**: Not for HFT, built for correctness
+- **Code generation**: Macros eliminate boilerplate without runtime overhead
 
 ### Req HTTP Client Best Practices (from latest docs)
 
@@ -554,7 +600,7 @@ When running tests that connect to real testnet APIs, some tests may fail on the
 
 ### Writing Integration Tests
 
-**Use the IntegrationCase test helper** for simpler, more maintainable integration tests:
+**Integration tests follow a consistent pattern** for testing against real testnet APIs:
 
 ```elixir
 defmodule ZenCex.Adapters.BinanceIntegrationTest do
@@ -594,12 +640,12 @@ defmodule ZenCex.Adapters.BinanceIntegrationTest do
 end
 ```
 
-The `IntegrationCase` provides:
-- Automatic testnet enforcement (fails if production detected)
-- Credential validation with helpful error messages
-- Connectivity testing
-- Module tags for test filtering
-- `with_env` macro for temporary environment changes
+Integration tests must:
+- Verify testnet URL in setup/setup_all
+- Document actual API responses from testnet
+- Fail loudly if credentials are missing
+- Never skip tests - fail fast to ensure visibility
+- Use `@tag :integration` for test filtering
 
 ### Benefits
 
