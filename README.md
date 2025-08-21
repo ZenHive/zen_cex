@@ -131,6 +131,20 @@ The `Adapters` namespace accurately reflects that these modules work together to
 - One-task-per-session enforcement
 - Common mistakes and solutions
 
+### Telemetry and Monitoring
+**[docs/TELEMETRY.md](docs/TELEMETRY.md)** - Comprehensive telemetry guide
+- Event architecture (Finch → Req → ZenCex events)
+- All available telemetry events with measurements and metadata
+- Production monitoring patterns and alert thresholds
+- Phoenix LiveDashboard integration
+
+**[examples/telemetry_handlers.ex](examples/telemetry_handlers.ex)** - Production-ready handlers
+- Request logger with performance tracking
+- Error tracker with full context
+- Rate limit monitor with utilization warnings
+- Performance reporter with in-memory statistics
+- Circuit breaker alerts for critical failures
+
 ## Development Commands
 
 ```bash
@@ -148,6 +162,41 @@ mix format                       # Format code
 iex -S mix                       # Interactive shell
 mix docs                         # Generate docs
 ```
+
+## Monitoring & Observability
+
+ZenCex provides comprehensive telemetry for production monitoring:
+
+### Quick Setup
+```elixir
+# In your application.ex
+def start(_type, _args) do
+  # Attach default telemetry handlers
+  ZenCex.Core.Telemetry.attach_default_handlers()
+  
+  # Or use example handlers
+  ZenCex.Examples.TelemetryHandlers.attach_all()
+  
+  # ... rest of supervision tree
+end
+```
+
+### Available Events
+- **Request metrics**: Duration, status, errors
+- **Rate limiting**: Utilization, violations
+- **Circuit breaker**: State changes, rejections
+- **Order operations**: Placement, cancellation, idempotency
+- **Connection pooling**: Reuse, timeouts (via Finch)
+
+### Phoenix LiveDashboard Integration
+```elixir
+# In your telemetry.ex
+def metrics do
+  ZenCex.Examples.TelemetryDashboard.metrics()
+end
+```
+
+See [docs/TELEMETRY.md](docs/TELEMETRY.md) for complete documentation.
 
 ## Exchange-Specific Requirements
 

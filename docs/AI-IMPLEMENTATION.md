@@ -142,13 +142,13 @@ done
 ### Phase 3: Reliability & Observability (3 tasks)
 ```
 [✅] Task 11: Circuit Breaker with req_fuse            <- COMPLETED
-[ ] Task 12: Enhanced Telemetry Documentation          ├─ Observability
-[ ] Task 13: Debug Mode with curl_req                  └─ group
+[✅] Task 12: Enhanced Telemetry Documentation          <- COMPLETED
+[ ] Task 13: Debug Mode with curl_req                  └─ Observability
 ```
 
 **Task 11: Circuit Breaker** - ✅ COMPLETED - Added req_fuse as optional dependency for per-exchange circuit breaking. Opt-in config, emits telemetry, returns 503 when blown.
 
-**Task 12: Telemetry Docs** - Document Req/Finch events, create example handlers, add monitoring guide to README.
+**Task 12: Telemetry Docs** - ✅ COMPLETED - Created comprehensive telemetry documentation (docs/TELEMETRY.md), production-ready example handlers (lib/zen_cex/examples/telemetry_handlers.ex), and updated README with monitoring section. Leverages Req's built-in telemetry with ZenCex-specific events.
 
 **Task 13: Debug Mode** - Add curl_req (dev only) for debugging failed requests, export as curl commands.
 
