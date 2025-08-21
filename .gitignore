@@ -29,3 +29,6 @@ zen_cex-*.tar
 .env
 .env.local
 .env.*
+
+# External files and directories
+external/*

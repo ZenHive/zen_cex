@@ -22,6 +22,8 @@ defmodule Mix.Tasks.ZenCex.GenerateMarginEndpoints do
 
   # Default timeout for generated endpoints in milliseconds
   @default_endpoint_timeout_ms 5_000
+  # HTTP success status code
+  @http_success_status 200
 
   # Core margin trading operations - skip market data
   @trading_operations [
@@ -121,7 +123,7 @@ defmodule Mix.Tasks.ZenCex.GenerateMarginEndpoints do
 
   defp fetch_postman_collection(url) do
     case Req.get(url) do
-      {:ok, %{status: 200, body: body}} ->
+      {:ok, %{status: @http_success_status, body: body}} ->
         body
 
       {:ok, %{status: status}} ->

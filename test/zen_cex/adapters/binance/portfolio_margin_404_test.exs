@@ -240,7 +240,7 @@ defmodule ZenCex.Adapters.Binance.PortfolioMargin404Test do
 
   defp assert_production_response(endpoint_name, response) do
     # TODO: In production, validate the actual response structure
-    # For now, just assert we got something
+    # TODO: For now, just assert we got something
     assert response
     Logger.info("Production response for #{endpoint_name}: #{inspect(response)}")
   end
