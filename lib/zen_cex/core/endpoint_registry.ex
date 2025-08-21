@@ -133,6 +133,21 @@ defmodule ZenCex.EndpointRegistry do
 
   @spec validate_endpoint!(map() | any(), module()) :: :ok | no_return()
   defp validate_endpoint!(endpoint, module) when is_map(endpoint) do
+    validate_required_keys(endpoint, module)
+    validate_http_method(endpoint, module)
+    validate_parser_functions(endpoint, module)
+    validate_retry_configuration(endpoint, module)
+    validate_order_operations(endpoint, module)
+    :ok
+  end
+
+  defp validate_endpoint!(_, module) do
+    raise CompileError,
+      description: "#{module}: Each endpoint must be a map"
+  end
+
+  # Extract validation helpers to reduce complexity
+  defp validate_required_keys(endpoint, module) do
     required_keys = [:operation, :method, :path, :response_parser, :error_mapping]
 
     Enum.each(required_keys, fn key ->
@@ -141,52 +156,49 @@ defmodule ZenCex.EndpointRegistry do
           description: "#{module}: Endpoint #{inspect(endpoint[:operation])} missing required key: #{key}"
       end
     end)
+  end
 
-    # Validate method
-    if endpoint.method not in [:get, :post, :put, :delete, :patch] do
+  defp validate_http_method(endpoint, module) do
+    valid_methods = [:get, :post, :put, :delete, :patch]
+
+    if endpoint.method not in valid_methods do
       raise CompileError,
         description: "#{module}: Invalid HTTP method #{inspect(endpoint.method)} for #{endpoint.operation}"
     end
+  end
 
-    # Validate parsers are provided
-    # At compile time, we can check if they're capture expressions or anonymous functions
-    # We accept both &Module.function/1 and fn x -> ... end forms
-    if !endpoint.response_parser do
+  defp validate_parser_functions(endpoint, module) do
+    validate_parser_function(endpoint.response_parser, "response_parser", module)
+    validate_parser_function(endpoint.error_mapping, "error_mapping", module)
+  end
+
+  defp validate_parser_function(parser, name, module) do
+    if !parser do
       raise CompileError,
-        description: "#{module}: response_parser must be provided"
+        description: "#{module}: #{name} must be provided"
     end
 
-    # Additional validation for parser format
-    parser = endpoint.response_parser
-
-    if !(match?({:&, _, _}, parser) or match?({:fn, _, _}, parser) or
-           is_function(parser, 1)) do
+    if !valid_function_ref?(parser) do
       raise CompileError,
-        description: "#{module}: response_parser must be a function reference with arity 1 (e.g., &Module.function/1)"
+        description: "#{module}: #{name} must be a function reference with arity 1 (e.g., &Module.function/1)"
     end
+  end
 
-    if !endpoint.error_mapping do
-      raise CompileError,
-        description: "#{module}: error_mapping must be provided"
-    end
+  defp valid_function_ref?(parser) do
+    match?({:&, _, _}, parser) or match?({:fn, _, _}, parser) or is_function(parser, 1)
+  end
 
-    # Additional validation for error mapping format
-    error_map = endpoint.error_mapping
-
-    if !(match?({:&, _, _}, error_map) or match?({:fn, _, _}, error_map) or
-           is_function(error_map, 1)) do
-      raise CompileError,
-        description: "#{module}: error_mapping must be a function reference with arity 1 (e.g., &Module.function/1)"
-    end
-
-    # Validate retry configuration
+  defp validate_retry_configuration(endpoint, module) do
     if Map.has_key?(endpoint, :retry_on) and not is_list(endpoint.retry_on) do
       raise CompileError,
         description: "#{module}: retry_on must be a list of error atoms"
     end
+  end
 
-    # Critical: Never retry order placement
-    if endpoint.operation in [:place_order, :place_limit_order, :place_market_order] do
+  defp validate_order_operations(endpoint, module) do
+    order_operations = [:place_order, :place_limit_order, :place_market_order]
+
+    if endpoint.operation in order_operations do
       max_retries = Map.get(endpoint, :max_retries, 0)
 
       if max_retries > 0 do
@@ -194,13 +206,6 @@ defmodule ZenCex.EndpointRegistry do
           description: "#{module}: Order placement operations MUST NOT have retries (found max_retries: #{max_retries})"
       end
     end
-
-    :ok
-  end
-
-  defp validate_endpoint!(_, module) do
-    raise CompileError,
-      description: "#{module}: Each endpoint must be a map"
   end
 
   @spec generate_endpoint_functions(list(map()), module() | nil, module()) :: Macro.t()

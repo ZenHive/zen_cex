@@ -40,9 +40,9 @@ defmodule ZenCex.Adapters.Binance.ProductDetectorTest do
       assert ProductDetector.detect_from_symbol("ETHUSDT") == :um_futures
       assert ProductDetector.detect_from_symbol("BNBUSDT") == :um_futures
 
-      # With BUSD
-      assert ProductDetector.detect_from_symbol("BTCBUSD") == :um_futures
-      assert ProductDetector.detect_from_symbol("ETHBUSD") == :um_futures
+      # With USDC
+      assert ProductDetector.detect_from_symbol("BTCUSDC") == :um_futures
+      assert ProductDetector.detect_from_symbol("ETHUSDC") == :um_futures
 
       # Case insensitive
       assert ProductDetector.detect_from_symbol("btcusdt") == :um_futures
@@ -97,7 +97,7 @@ defmodule ZenCex.Adapters.Binance.ProductDetectorTest do
   describe "validate_symbol/1" do
     test "validates USD-M futures symbols" do
       assert {:ok, :um_futures} = ProductDetector.validate_symbol("BTCUSDT")
-      assert {:ok, :um_futures} = ProductDetector.validate_symbol("ETHBUSD")
+      assert {:ok, :um_futures} = ProductDetector.validate_symbol("ETHUSDC")
     end
 
     test "validates COIN-M futures symbols" do

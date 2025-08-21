@@ -185,30 +185,30 @@ defmodule ZenCex.IntegrationCase do
 
   # Verify connectivity to Binance testnet
   defp verify_binance_connectivity!(api_type) do
-    result =
-      case api_type do
-        nil -> Spot.get_ping()
-        :spot -> Spot.get_ping()
-        :futures -> verify_futures_connectivity()
-        :usdm_futures -> verify_futures_connectivity()
-        :coinm_futures -> verify_futures_connectivity()
-        _ -> {:ok, :skip_connectivity_check}
-      end
+    api_type
+    |> get_connectivity_test_result()
+    |> handle_connectivity_result(api_type)
+  end
 
-    case result do
-      {:ok, _} ->
-        :ok
-
-      {:error, reason} ->
-        raise """
-        Cannot connect to Binance testnet (#{api_type || "spot"}): #{inspect(reason)}
-
-        Please verify:
-        1. Your internet connection is working
-        2. Binance testnet is accessible from your location
-        3. Your testnet credentials are valid
-        """
+  defp get_connectivity_test_result(api_type) do
+    cond do
+      api_type in [nil, :spot] -> Spot.get_ping()
+      api_type in [:futures, :usdm_futures, :coinm_futures] -> verify_futures_connectivity()
+      true -> {:ok, :skip_connectivity_check}
     end
+  end
+
+  defp handle_connectivity_result({:ok, _}, _api_type), do: :ok
+
+  defp handle_connectivity_result({:error, reason}, api_type) do
+    raise """
+    Cannot connect to Binance testnet (#{api_type || "spot"}): #{inspect(reason)}
+
+    Please verify:
+    1. Your internet connection is working
+    2. Binance testnet is accessible from your location
+    3. Your testnet credentials are valid
+    """
   end
 
   defp verify_futures_connectivity do

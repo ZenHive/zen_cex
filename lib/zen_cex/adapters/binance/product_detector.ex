@@ -34,6 +34,23 @@ defmodule ZenCex.Adapters.Binance.ProductDetector do
 
   @type product_type :: :um_futures | :cm_futures | :margin | :unknown
 
+  # Symbol length constraints for margin trading pairs
+  @min_symbol_length 2
+  @max_symbol_length 10
+
+  # Compiled regex patterns for better performance
+  # USD-M Futures: ends with USDT/USDC, optional 6-digit date suffix (YYMMDD format)
+  @um_futures_pattern ~r/^[A-Z]+(?:USDT|USDC)(?:_\d{6})?$/i
+
+  # COIN-M Futures: ends with USD_ followed by contract type or 6-digit date
+  @cm_futures_pattern ~r/^[A-Z]+USD_(?:PERP|QUARTER|CURRENT_QUARTER|NEXT_QUARTER|\d{6})$/i
+
+  # Margin: standard trading pair format with 2-10 chars for each asset
+  @margin_pattern Regex.compile!(
+                    "^[A-Z]{#{@min_symbol_length},#{@max_symbol_length}}[A-Z]{#{@min_symbol_length},#{@max_symbol_length}}$",
+                    "i"
+                  )
+
   @doc """
   Detects product type from order parameters.
 
@@ -86,8 +103,8 @@ defmodule ZenCex.Adapters.Binance.ProductDetector do
       String.ends_with?(symbol_upper, "USDT") ->
         :um_futures
 
-      # USD-M Futures: Ends with BUSD (less common but valid)
-      String.ends_with?(symbol_upper, "BUSD") ->
+      # USD-M Futures: Ends with USDC (supported since 2024)
+      String.ends_with?(symbol_upper, "USDC") ->
         :um_futures
 
       # Default to margin for standard pairs in portfolio context
@@ -114,22 +131,21 @@ defmodule ZenCex.Adapters.Binance.ProductDetector do
   end
 
   # Validates symbol format based on product type
+  # Note: This function is only called with values from detect_from_symbol/1,
+  # which never returns :unknown (it defaults to :margin for unrecognized patterns)
   defp valid_symbol_format?(symbol, product_type) do
     case product_type do
       :um_futures ->
-        # Must end with USDT or BUSD, may have date suffix
-        String.match?(symbol, ~r/^[A-Z]+(?:USDT|BUSD)(?:_\d{6})?$/i)
+        # Must end with USDT or USDC, may have date suffix
+        String.match?(symbol, @um_futures_pattern)
 
       :cm_futures ->
         # Must have underscore with PERP, QUARTER, or date
-        String.match?(symbol, ~r/^[A-Z]+USD_(?:PERP|QUARTER|CURRENT_QUARTER|NEXT_QUARTER|\d{6})$/i)
+        String.match?(symbol, @cm_futures_pattern)
 
       :margin ->
         # Standard trading pair format
-        String.match?(symbol, ~r/^[A-Z]{2,10}[A-Z]{2,10}$/i)
-
-      _ ->
-        false
+        String.match?(symbol, @margin_pattern)
     end
   end
 
@@ -142,7 +158,7 @@ defmodule ZenCex.Adapters.Binance.ProductDetector do
       :um_futures -> ZenCex.Adapters.Binance.UsdmFutures
       :cm_futures -> ZenCex.Adapters.Binance.CoinmFutures
       :margin -> ZenCex.Adapters.Binance.Spot
-      _ -> nil
+      :unknown -> nil
     end
   end
 end
