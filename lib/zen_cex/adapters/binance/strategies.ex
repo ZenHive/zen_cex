@@ -505,9 +505,6 @@ defmodule ZenCex.Adapters.Binance.Strategies do
           # Return nil to be filtered out later
           nil
       end
-    else
-      # Return nil for positions below minimum trade value
-      nil
     end
   end
 

@@ -25,12 +25,20 @@ defmodule ZenCex.Safety.ClockSync do
 
       # Get current timestamp with exchange offset applied
       timestamp_ms = ClockSync.now_with_offset(:binance)
+      
+      # For specific Binance API types
+      timestamp_ms = ClockSync.now_with_offset(:binance, :usdm_futures)
+      timestamp_ms = ClockSync.now_with_offset(:binance, :coinm_futures)
 
       # Force manual sync with specific exchange
       ClockSync.sync_exchange(:kraken)
+      
+      # Sync specific Binance API type
+      ClockSync.sync_exchange(:binance, :usdm_futures)
 
       # Get current offset for debugging
       offset_ms = ClockSync.get_offset(:deribit)
+      offset_ms = ClockSync.get_offset(:binance, :usdm_futures)
   """
 
   use GenServer
@@ -87,8 +95,9 @@ defmodule ZenCex.Safety.ClockSync do
       # Returns: 1640995200000 (adjusted for any clock drift)
   """
   @spec now_with_offset(atom()) :: integer()
-  def now_with_offset(exchange) do
-    offset = get_offset(exchange)
+  @spec now_with_offset(atom(), atom() | nil) :: integer()
+  def now_with_offset(exchange, api_type \\ nil) do
+    offset = get_offset(exchange, api_type)
     System.system_time(:millisecond) + offset
   end
 
@@ -108,9 +117,12 @@ defmodule ZenCex.Safety.ClockSync do
       # Returns: 150 (server is 150ms ahead of local time)
   """
   @spec get_offset(atom()) :: integer()
-  def get_offset(exchange) do
-    case :ets.lookup(@table_name, exchange) do
-      [{^exchange, offset}] -> offset
+  @spec get_offset(atom(), atom() | nil) :: integer()
+  def get_offset(exchange, api_type \\ nil) do
+    key = make_key(exchange, api_type)
+
+    case :ets.lookup(@table_name, key) do
+      [{^key, offset}] -> offset
       [] -> 0
     end
   end
@@ -131,8 +143,9 @@ defmodule ZenCex.Safety.ClockSync do
       # Returns: {:ok, 150}
   """
   @spec sync_exchange(atom()) :: {:ok, integer()} | {:error, term()}
-  def sync_exchange(exchange) do
-    GenServer.call(__MODULE__, {:sync_exchange, exchange}, @sync_timeout_ms + @genserver_timeout_buffer_ms)
+  @spec sync_exchange(atom(), atom() | nil) :: {:ok, integer()} | {:error, term()}
+  def sync_exchange(exchange, api_type \\ nil) do
+    GenServer.call(__MODULE__, {:sync_exchange, exchange, api_type}, @sync_timeout_ms + @genserver_timeout_buffer_ms)
   end
 
   @doc """
@@ -266,8 +279,8 @@ defmodule ZenCex.Safety.ClockSync do
   end
 
   @impl true
-  def handle_call({:sync_exchange, exchange}, _from, state) do
-    result = sync_exchange_internal(exchange)
+  def handle_call({:sync_exchange, exchange, api_type}, _from, state) do
+    result = sync_exchange_internal(exchange, api_type)
     {:reply, result, state}
   end
 
@@ -299,10 +312,33 @@ defmodule ZenCex.Safety.ClockSync do
   defp sync_all_exchanges_internal do
     exchanges = Registry.list_exchanges()
 
-    # Sync all exchanges concurrently
+    # Build list of {exchange, api_type} tuples to sync
+    sync_targets =
+      Enum.flat_map(exchanges, fn exchange ->
+        case exchange do
+          :binance ->
+            # Sync all Binance API types
+            [
+              # Default/spot
+              {:binance, nil},
+              {:binance, :usdm_futures},
+              {:binance, :coinm_futures},
+              {:binance, :portfolio}
+            ]
+
+          other ->
+            # Other exchanges just sync once
+            [{other, nil}]
+        end
+      end)
+
+    # Sync all targets concurrently
     tasks =
-      Enum.map(exchanges, fn exchange ->
-        Task.async(fn -> {exchange, sync_exchange_internal(exchange)} end)
+      Enum.map(sync_targets, fn {exchange, api_type} ->
+        Task.async(fn ->
+          key = make_key(exchange, api_type)
+          {key, sync_exchange_internal(exchange, api_type)}
+        end)
       end)
 
     # Collect results with timeout
@@ -314,8 +350,8 @@ defmodule ZenCex.Safety.ClockSync do
     results
   end
 
-  defp sync_exchange_internal(exchange) do
-    case fetch_server_time(exchange) do
+  defp sync_exchange_internal(exchange, api_type) do
+    case fetch_server_time(exchange, api_type) do
       {:ok, server_time_ms} ->
         local_time_ms = System.system_time(:millisecond)
         offset_ms = server_time_ms - local_time_ms
@@ -336,7 +372,8 @@ defmodule ZenCex.Safety.ClockSync do
         end
 
         # Store the offset
-        :ets.insert(@table_name, {exchange, offset_ms})
+        key = make_key(exchange, api_type)
+        :ets.insert(@table_name, {key, offset_ms})
 
         Logger.debug("ClockSync: Synchronized #{exchange} with offset #{offset_ms}ms")
 
@@ -359,8 +396,8 @@ defmodule ZenCex.Safety.ClockSync do
     end
   end
 
-  defp fetch_server_time(exchange) do
-    case get_time_endpoint_url(exchange) do
+  defp fetch_server_time(exchange, api_type) do
+    case get_time_endpoint_url(exchange, api_type) do
       {:ok, url} ->
         request =
           exchange
@@ -383,20 +420,57 @@ defmodule ZenCex.Safety.ClockSync do
     end
   end
 
-  defp get_time_endpoint_url(exchange) do
-    case exchange do
-      :binance ->
+  defp get_time_endpoint_url(:binance, api_type), do: get_binance_time_url(api_type)
+  defp get_time_endpoint_url(:kraken, _), do: {:ok, "https://api.kraken.com/0/public/Time"}
+
+  defp get_time_endpoint_url(:deribit, _) do
+    # TODO: Use test/prod host from config
+    {:ok, "https://test.deribit.com/api/v2/public/get_time"}
+  end
+
+  defp get_time_endpoint_url(unknown, _), do: {:error, {:unsupported_exchange, unknown}}
+
+  defp get_binance_time_url(api_type) do
+    use_testnet = Application.get_env(:zen_cex, :use_testnet, false)
+
+    case api_type do
+      nil ->
         {:ok, "https://api.binance.com/api/v3/time"}
 
-      :kraken ->
-        {:ok, "https://api.kraken.com/0/public/Time"}
+      :spot ->
+        {:ok, "https://api.binance.com/api/v3/time"}
 
-      :deribit ->
-        # TODO: Use test/prod host from config
-        {:ok, "https://test.deribit.com/api/v2/public/get_time"}
+      :usdm_futures ->
+        # USD-M Futures has its own time endpoint
+        if use_testnet do
+          {:ok, "https://testnet.binancefuture.com/fapi/v1/time"}
+        else
+          {:ok, "https://fapi.binance.com/fapi/v1/time"}
+        end
 
-      _unknown ->
-        {:error, {:unsupported_exchange, exchange}}
+      :coinm_futures ->
+        # COIN-M Futures has its own time endpoint
+        if use_testnet do
+          {:ok, "https://testnet.binancefuture.com/dapi/v1/time"}
+        else
+          {:ok, "https://dapi.binance.com/dapi/v1/time"}
+        end
+
+      :margin ->
+        # Margin uses spot time endpoint
+        {:ok, "https://api.binance.com/api/v3/time"}
+
+      :portfolio ->
+        # Portfolio Margin has its own time endpoint
+        if use_testnet do
+          {:ok, "https://testnet.binance.vision/papi/v1/time"}
+        else
+          {:ok, "https://papi.binance.com/papi/v1/time"}
+        end
+
+      _ ->
+        # Fallback to spot for unknown API types
+        {:ok, "https://api.binance.com/api/v3/time"}
     end
   end
 
@@ -475,6 +549,10 @@ defmodule ZenCex.Safety.ClockSync do
       {:error, reason} -> {:error, {:json_decode_error, reason}}
     end
   end
+
+  # Helper to create ETS table key for exchange/api_type combination
+  defp make_key(exchange, nil), do: exchange
+  defp make_key(exchange, api_type), do: {exchange, api_type}
 
   defp table_exists? do
     case :ets.whereis(@table_name) do

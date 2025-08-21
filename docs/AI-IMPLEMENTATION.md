@@ -130,12 +130,12 @@ You may implement **related tasks within the same phase** when they are tightly 
 **File**: See `docs/TASKLIST_BINANCE_REFACTOR.md` for full plan
 
 **Priority Focus - Phase 3.2**: Rate Limiter Refactoring (CRITICAL)
-- Separate ETS tables per API type (spot, sapi, futures, coin_futures)
+- Separate ETS tables per API type (spot, sapi, usdm, coinm)
 - Different rate limits per API type:
   - Spot (/api): 12,000 IP / 6,000 UID per minute
-  - SAPI (/sapi): 12,000 IP / 180,000 UID per minute  
-  - Futures (/fapi): 2,400 per minute (much lower!)
-  - Coin Futures (/dapi): 2,400 per minute
+  - SAPI (/sapi): 12,000 IP / 180,000 UID per minute
+  - usdm (/fapi): 2,400 per minute (much lower!)
+  - coinm (/dapi): 2,400 per minute
 - Parse different headers per API type
 - Pass `api_type` from endpoints to rate limiter
 - Update `check_and_increment` to use correct table based on endpoint path
@@ -146,49 +146,16 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ## Recently Completed
 
-**Task #10**: Binance Integration Tests ✅ COMPLETED (5/5 ⭐⭐⭐⭐⭐)
-
-**Outstanding achievements**:
-- 11 comprehensive integration tests against real Binance testnet API
-- Tests FAIL loudly without testnet credentials (no silent skipping)
-- Tests ENFORCE testnet URL usage (fail if production detected)
-- Complete error scenario testing with authentic testnet responses
-- Full order lifecycle testing (place → query → cancel) on testnet
-- Environment variables use `_TESTNET_` naming convention
-- Perfect adherence to "Real TESTNET APIs Only" testing philosophy
-- Production safety with testnet-only enforcement
 
 ---
 
 ## Task Sequence (28 Tasks Total)
 
 ### Phase 1: Core Foundation (5 tasks)
-```
-[✅] Task 1: Core.Registry - Exchange registration and validation
-[✅] Task 2: Remove Core.Supervisor - Use Req's built-in features
-[✅] Task 3: Core.HTTP with Req patterns and middleware  <- COMPLETED
-[✅] Task 4: Basic telemetry hooks with Req events       <- COMPLETED
-[✅] Task 5: OrderSafety module with idempotency         <- COMPLETED
-```
-
-**Suggested Grouping**: Tasks 3-5 form the core HTTP infrastructure and can be implemented together.
+done
 
 ### Phase 2: Binance Reference Implementation (7 tasks)
-```
-[✅] Task 6: ClockSync with proactive NTP sync           <- COMPLETED
-[✅] Task 7: Binance.Auth - HMAC-SHA256 as Req step     <- COMPLETED
-[✅] Task 8: Binance.RateLimiter - ETS tables           <- COMPLETED
-[✅] Task 9: Binance.Parser - Response parsing          <- COMPLETED
-[✅] Task 9.5: Declarative Endpoint Registry            <- COMPLETED
-[✅] Task 10: Integration tests with real API           <- COMPLETED
-[ ] Task 10.5: Binance Multi-API Refactoring           <- CURRENT
-```
-
-**Suggested Groupings**:
-- Task 6 alone (foundational)
-- Tasks 7-9 together (complete Binance exchange modules)
-- Task 9.5 alone (endpoint registry pattern)
-- Task 10 alone (comprehensive testing)
+done
 
 ### Phase 3: Reliability & Observability (3 tasks)
 ```
@@ -196,10 +163,6 @@ You may implement **related tasks within the same phase** when they are tightly 
 [ ] Task 12: Enhanced Telemetry Documentation          ├─ Observability
 [ ] Task 13: Debug Mode with curl_req                  └─ group
 ```
-
-**Suggested Groupings**:
-- Tasks 11-13 together (reliability and monitoring improvements)
-- All three tasks form a cohesive observability enhancement
 
 **Task 11: Circuit Breaker** - Add req_fuse (optional dep) for per-exchange circuit breaking. Opt-in config, emit telemetry, return 503 when blown.
 
@@ -215,11 +178,6 @@ You may implement **related tasks within the same phase** when they are tightly 
 [ ] Task 17: OrderLifecycle state machine               <- Standalone
 [ ] Task 18: Dynamic rate limit learning                <- Enhancement
 ```
-
-**Suggested Groupings**:
-- Tasks 14-16 together (core safety mechanisms)
-- Task 17 alone (complex state machine)
-- Task 18 alone (optimization)
 
 ### Phase 5: Additional Exchanges (5 tasks)
 ```
@@ -367,7 +325,7 @@ For each module you implement:
    ```bash
    # Unit tests only (fast)
    mix test --exclude integration
-   
+
    # All tests (requires testnet credentials)
    BINANCE_TESTNET_API_KEY=xxx BINANCE_TESTNET_API_SECRET=yyy mix test
    ```

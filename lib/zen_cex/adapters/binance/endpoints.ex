@@ -312,4 +312,121 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
       config -> config[:weight]
     end
   end
+
+  # ============================================================================
+  # Endpoint Discovery Functions
+  # ============================================================================
+
+  @doc """
+  Lists all available endpoint operations across all API types.
+
+  Returns a list of atoms representing all available operations,
+  optionally filtered by API type.
+
+  ## Examples
+
+      # Get all endpoints
+      iex> Endpoints.list_available_endpoints()
+      [:spot_get_balances, :spot_place_order, :usdm_get_positions, ...]
+      
+      # Filter by API type
+      iex> Endpoints.list_available_endpoints(:spot)
+      [:spot_get_balances, :spot_place_order, :spot_cancel_order, ...]
+      
+      iex> Endpoints.list_available_endpoints(:usdm_futures)
+      [:usdm_get_positions, :usdm_place_order, :usdm_cancel_order, ...]
+  """
+  @spec list_available_endpoints() :: [atom()]
+  @spec list_available_endpoints(atom()) :: [atom()]
+  def list_available_endpoints(api_type \\ :all) do
+    case api_type do
+      :all ->
+        all_endpoints()
+        |> Enum.map(& &1.operation)
+        |> Enum.sort()
+        |> Enum.uniq()
+
+      :spot ->
+        Spot.all_endpoints()
+        |> Enum.map(fn ep -> :"spot_#{ep.operation}" end)
+        |> Enum.sort()
+
+      :usdm_futures ->
+        UsdmFutures.all_endpoints()
+        |> Enum.map(fn ep -> :"usdm_#{ep.operation}" end)
+        |> Enum.sort()
+
+      :coinm_futures ->
+        CoinmFutures.all_endpoints()
+        |> Enum.map(fn ep -> :"coinm_#{ep.operation}" end)
+        |> Enum.sort()
+
+      :margin ->
+        Margin.all_endpoints()
+        |> Enum.map(fn ep -> :"margin_#{ep.operation}" end)
+        |> Enum.sort()
+
+      :portfolio ->
+        PortfolioMargin.all_endpoints()
+        |> Enum.map(fn ep -> :"portfolio_#{ep.operation}" end)
+        |> Enum.sort()
+
+      :common ->
+        Common.all_endpoints()
+        |> Enum.map(& &1.operation)
+        |> Enum.sort()
+
+      _ ->
+        []
+    end
+  end
+
+  @doc """
+  Returns detailed information about a specific endpoint operation.
+
+  Returns a map with endpoint configuration including method, path,
+  authentication requirements, rate limits, and documentation.
+
+  ## Examples
+
+      iex> Endpoints.get_endpoint_info(:spot_get_balances)
+      %{
+        operation: :get_balances,
+        method: :get,
+        path: "/api/v3/account",
+        requires_auth: true,
+        weight: 10,
+        api_type: :spot,
+        doc: "Get current account information",
+        timeout: 5000,
+        max_retries: 3
+      }
+      
+      iex> Endpoints.get_endpoint_info(:nonexistent)
+      nil
+  """
+  @spec get_endpoint_info(atom()) :: map() | nil
+  def get_endpoint_info(operation) do
+    case get_endpoint(operation) do
+      nil ->
+        nil
+
+      endpoint ->
+        # Add the full operation name with prefix
+        {prefix, _base} = extract_prefix(operation)
+
+        endpoint
+        |> Map.put(:full_operation, operation)
+        |> Map.put(:api_type_prefix, prefix)
+        |> Map.put(:available_arities, get_available_arities(operation))
+    end
+  end
+
+  # Helper to determine available function arities for an operation
+  defp get_available_arities(operation) do
+    # Check if the function exists with different arities (0, 1, or 2 params)
+    0..2
+    |> Enum.filter(&function_exported?(__MODULE__, operation, &1))
+    |> Enum.reverse()
+  end
 end
