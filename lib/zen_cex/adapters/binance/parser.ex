@@ -186,16 +186,16 @@ defmodule ZenCex.Adapters.Binance.Parser do
          status when is_binary(status) <- response["status"] do
       try do
         order = %{
-          order_id: to_string(response["orderId"] || response["id"] || ""),
+          order_id: extract_field(response, ["orderId", "id"], &to_string(&1 || "")),
           client_order_id: response["clientOrderId"],
           symbol: symbol,
           side: side |> String.downcase() |> String.to_atom(),
           type: order_type |> String.downcase() |> String.to_atom(),
-          price: safe_decimal_field(response["price"]),
-          quantity: safe_decimal_field(response["origQty"] || response["quantity"]),
-          filled_quantity: safe_decimal_field(response["executedQty"] || "0"),
+          price: extract_field(response, ["price"], :decimal),
+          quantity: extract_field(response, ["origQty", "quantity"], :decimal),
+          filled_quantity: extract_field(response, ["executedQty"], :decimal),
           status: normalize_order_status(status),
-          timestamp: response["transactTime"] || response["time"] || response["updateTime"]
+          timestamp: extract_field(response, ["transactTime", "time", "updateTime"], :identity)
         }
 
         {:ok, order}
@@ -499,15 +499,15 @@ defmodule ZenCex.Adapters.Binance.Parser do
     trades =
       Enum.map(response, fn trade ->
         %{
-          trade_id: to_string(trade["id"] || trade["tradeId"] || ""),
-          order_id: to_string(trade["orderId"] || ""),
+          trade_id: extract_field(trade, ["id", "tradeId"], &to_string(&1 || "")),
+          order_id: extract_field(trade, ["orderId"], &to_string(&1 || "")),
           symbol: trade["symbol"],
-          price: safe_decimal_field(trade["price"]),
-          quantity: safe_decimal_field(trade["qty"] || trade["quantity"]),
-          quote_quantity: safe_decimal_field(trade["quoteQty"]),
-          commission: safe_decimal_field(trade["commission"]),
+          price: extract_field(trade, ["price"], :decimal),
+          quantity: extract_field(trade, ["qty", "quantity"], :decimal),
+          quote_quantity: extract_field(trade, ["quoteQty"], :decimal),
+          commission: extract_field(trade, ["commission"], :decimal),
           commission_asset: trade["commissionAsset"],
-          timestamp: trade["time"] || trade["timestamp"],
+          timestamp: extract_field(trade, ["time", "timestamp"], :identity),
           is_buyer: trade["isBuyer"] || false,
           is_maker: trade["isMaker"] || false
         }
@@ -673,9 +673,9 @@ defmodule ZenCex.Adapters.Binance.Parser do
         %{
           symbol: record["symbol"],
           income_type: normalize_income_type(record["incomeType"]),
-          income: safe_decimal_field(record["income"]),
+          income: extract_field(record, ["income"], :decimal),
           asset: record["asset"],
-          timestamp: record["time"],
+          timestamp: extract_field(record, ["time"], :identity),
           info: record["info"],
           transaction_id: record["tranId"],
           trade_id: record["tradeId"]
@@ -798,11 +798,11 @@ defmodule ZenCex.Adapters.Binance.Parser do
     %{
       symbol: position["symbol"],
       side: normalize_position_side(position["positionSide"]),
-      size: safe_decimal_field(position["positionAmt"]),
-      entry_price: safe_decimal_field(position["entryPrice"]),
-      mark_price: safe_decimal_field(position["markPrice"]),
-      pnl: safe_decimal_field(position["unRealizedProfit"]),
-      margin: safe_decimal_field(position["isolatedMargin"] || position["initialMargin"] || "0"),
+      size: extract_field(position, ["positionAmt"], :decimal),
+      entry_price: extract_field(position, ["entryPrice"], :decimal),
+      mark_price: extract_field(position, ["markPrice"], :decimal),
+      pnl: extract_field(position, ["unRealizedProfit"], :decimal),
+      margin: extract_field(position, ["isolatedMargin", "initialMargin"], :decimal),
       timestamp: position["updateTime"] || System.system_time(:millisecond)
     }
   end
