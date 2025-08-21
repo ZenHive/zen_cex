@@ -180,7 +180,7 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
 
   describe "error handling validation" do
     test "authentication errors are properly formatted" do
-      # Temporarily break auth to test error formatting
+      # TODO: Temporarily break auth to test error formatting
       with_env [{"BINANCE_TESTNET_API_KEY", "invalid_key"}] do
         result = Spot.get_balances()
         assert {:error, reason} = result

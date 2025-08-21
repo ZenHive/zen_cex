@@ -212,7 +212,7 @@ defmodule ZenCex.Adapters.Binance.PortfolioMargin404Test do
         # 2. Network/auth issue
         # 3. Different error format
 
-        # For now, we'll pass the test but log for investigation
+        # TODO: For now, we'll pass the test but log for investigation
         assert true
 
       {:ok, response} ->
@@ -225,7 +225,7 @@ defmodule ZenCex.Adapters.Binance.PortfolioMargin404Test do
           # Don't fail the test, but flag for attention
           assert true
         else
-          # In production, this is expected
+          # TODO: In production, this is expected
           Logger.info("#{endpoint_name} succeeded in production environment")
           assert_production_response(endpoint_name, response)
         end

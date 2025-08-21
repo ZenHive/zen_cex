@@ -77,10 +77,11 @@ defmodule ZenCex.Adapters.Binance.RequestHelper do
     # Determine operation type using provided resolver
     operation_type = operation_type_resolver.(config)
 
-    # Build request params - delegate to specialized function for spot
+    # Build request params - delegate to specialized function based on API type
     request_params =
       case api_type do
         :spot -> build_spot_request_params(config, params)
+        :margin -> build_margin_request_params(config, params)
         # Simple case for futures and common
         _ -> %{params: params}
       end
@@ -179,6 +180,27 @@ defmodule ZenCex.Adapters.Binance.RequestHelper do
   """
   @spec build_spot_request_params(map(), map()) :: map()
   def build_spot_request_params(config, params) do
+    case config.method do
+      :get ->
+        %{params: params}
+
+      _ ->
+        # For POST/PUT/DELETE, auth params go in query, body params in json
+        auth_params = Map.take(params, @auth_params)
+        body_params = Map.drop(params, @auth_params)
+        %{params: auth_params, json: body_params}
+    end
+  end
+
+  @doc """
+  Builds request parameters for Margin API endpoints.
+
+  Margin API uses /sapi/ endpoints which handle parameters differently than spot:
+  - All parameters go in query string for GET requests
+  - For POST/PUT/DELETE, auth params go in query, body params in JSON
+  """
+  @spec build_margin_request_params(map(), map()) :: map()
+  def build_margin_request_params(config, params) do
     case config.method do
       :get ->
         %{params: params}

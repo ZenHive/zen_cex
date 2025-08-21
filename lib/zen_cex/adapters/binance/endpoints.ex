@@ -10,31 +10,33 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   This is a ROUTER ONLY - it contains no endpoint definitions.
   All endpoints are defined in nested modules:
   - `Binance.Spot` - Spot trading endpoints
+  - `Binance.Margin` - Cross and Isolated margin trading endpoints
   - `Binance.UsdmFutures` - USD-M Futures (USDT-margined) trading endpoints
   - `Binance.CoinmFutures` - COIN-M Futures (coin-margined) trading endpoints
-  - `Binance.Margin` - Margin trading endpoints
+  - `Binance.PortfolioMargin` - Portfolio margin trading endpoints
   - `Binance.Common` - Shared endpoints (server_time, etc.)
 
   ## Usage
 
   The router automatically delegates based on function prefixes:
   - Functions starting with `spot_` → Binance.Spot
-  - Functions starting with `futures_` → Binance.UsdmFutures
   - Functions starting with `margin_` → Binance.Margin
+  - Functions starting with `usdm_futures_` → Binance.UsdmFutures
+  - Functions starting with `coinm_futures_` → Binance.CoinmFutures
+  - Functions starting with `portfolio_` → Binance.PortfolioMargin
   - Common functions → Binance.Common
   """
 
   alias ZenCex.Adapters.Binance.Auth
   alias ZenCex.Adapters.Binance.CoinmFutures
   alias ZenCex.Adapters.Binance.Common
+  alias ZenCex.Adapters.Binance.Margin
   alias ZenCex.Adapters.Binance.Parser
   alias ZenCex.Adapters.Binance.PortfolioMargin
   alias ZenCex.Adapters.Binance.RateLimiter
   alias ZenCex.Adapters.Binance.Spot
   alias ZenCex.Adapters.Binance.UsdmFutures
 
-  # These will be created as separate modules
-  # alias ZenCex.Adapters.Binance.Margin
   @doc """
   Returns the exchange name for this adapter.
   """

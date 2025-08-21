@@ -100,7 +100,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
       # IMPORTANT: SAPI endpoints (/sapi/*) are NOT available on Binance testnet.
       # Margin trading on testnet uses regular spot API endpoints (/api/*).
       # This test is skipped because /sapi/v1/margin/account doesn't exist on testnet.
-      # In production, margin endpoints would use https://api.binance.com/sapi/v1/margin/*
+      # TODO: In production, margin endpoints would use https://api.binance.com/sapi/v1/margin/*
 
       # For testnet margin trading, use regular spot endpoints like:
       # - /api/v3/account - to check account balances
