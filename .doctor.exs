@@ -1,6 +1,8 @@
 %Doctor.Config{
   ignore_modules: [
-    ZenCex.EndpointRegistry
+    ZenCex.EndpointRegistry,
+    # Modules using EndpointRegistry have auto-generated functions with docs in endpoint definitions
+    ZenCex.Adapters.Binance.PortfolioMargin
   ],
   ignore_paths: [],
   min_module_doc_coverage: 100,
