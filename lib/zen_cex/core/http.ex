@@ -124,13 +124,17 @@ defmodule ZenCex.Core.HTTP do
       :operation_type,
       :skip_auth,
       :skip_rate_limit,
+      :skip_response_handling,
       :auth_credentials
     ])
     |> Req.Request.prepend_request_steps(
       zen_cex_rate_limit: &rate_limit_step/1,
       zen_cex_auth: &auth_step/1
     )
-    |> Req.Request.append_response_steps(zen_cex_update_rate_limit: &update_rate_limit_step/1)
+    |> Req.Request.append_response_steps(
+      zen_cex_handle_response: &handle_response_step/1,
+      zen_cex_update_rate_limit: &update_rate_limit_step/1
+    )
     |> Req.Request.append_error_steps(zen_cex_telemetry: &telemetry_error_step/1)
     |> Req.merge(
       base_url: endpoints.base_url(),
@@ -228,6 +232,84 @@ defmodule ZenCex.Core.HTTP do
   end
 
   # Response Steps (run after response is received)
+
+  @spec handle_response_step({Req.Request.t(), Req.Response.t()}) ::
+          {Req.Request.t(), Req.Response.t() | Exception.t()}
+  defp handle_response_step({request, response}) do
+    # Check if response handling is disabled (e.g., for raw responses)
+    if request.options[:skip_response_handling] do
+      {request, response}
+    else
+      case response.status do
+        status when status in 200..299 ->
+          # Success - pass through for parser handling
+          {request, response}
+
+        429 ->
+          # Rate limit error - already handled by rate_limit_step
+          {request, response}
+
+        status when status in 400..499 ->
+          # Client error - parse and potentially convert to error
+          handle_client_error(request, response)
+
+        status when status in 500..599 ->
+          # Server error - these should typically be retried
+          handle_server_error(request, response)
+
+        _ ->
+          # Unexpected status - use the Mint-style error format
+          {request,
+           %Req.TransportError{
+             reason: {:unexpected_status, response.status}
+           }}
+      end
+    end
+  end
+
+  defp handle_client_error(request, response) do
+    exchange = request.options[:exchange]
+
+    # Try to parse the error using the exchange's parser if available
+    if exchange do
+      parser_module = get_parser_module(exchange)
+
+      if parser_module && function_exported?(parser_module, :parse_error, 1) do
+        case parser_module.parse_error(response.body) do
+          {:error, _error_atom} ->
+            # Parser recognized the error - keep response for downstream handling
+            # The endpoint registry or caller will handle the parsed error
+            {request, response}
+
+          _ ->
+            # Parser couldn't handle it, return as-is
+            {request, response}
+        end
+      else
+        # No parser available, return response as-is
+        {request, response}
+      end
+    else
+      {request, response}
+    end
+  end
+
+  defp handle_server_error(request, response) do
+    # Server errors should typically trigger retries
+    # Return response as-is, let retry logic handle it
+    {request, response}
+  end
+
+  defp get_parser_module(exchange) do
+    # Build the parser module name
+    exchange_string = exchange |> Atom.to_string() |> Macro.camelize()
+    module = Module.concat([ZenCex, Adapters, exchange_string, Parser])
+
+    # Check if the module is loaded
+    if Code.ensure_loaded?(module) do
+      module
+    end
+  end
 
   @spec update_rate_limit_step({Req.Request.t(), Req.Response.t()}) ::
           {Req.Request.t(), Req.Response.t()}

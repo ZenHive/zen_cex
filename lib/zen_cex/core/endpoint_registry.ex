@@ -506,13 +506,41 @@ defmodule ZenCex.EndpointRegistry do
       defp execute_request(request) do
         case Req.request(request) do
           {:ok, %Req.Response{status: status} = response} when status in 200..299 ->
+            # Success response
             {:ok, response.body}
 
-          {:ok, response} ->
-            {:error, response}
+          {:ok, %Req.Response{} = response} ->
+            # Non-2xx response - try to parse error using exchange's parser
+            exchange = request.options[:exchange]
+
+            if exchange do
+              parser_module = get_parser_module(exchange)
+
+              if parser_module && function_exported?(parser_module, :parse_error, 1) do
+                # Use parser to get semantic error
+                parser_module.parse_error(response.body)
+              else
+                # No parser, return generic error with response
+                {:error, {:http_error, response.status, response.body}}
+              end
+            else
+              {:error, {:http_error, response.status, response.body}}
+            end
 
           {:error, _} = error ->
+            # Network or other errors
             error
+        end
+      end
+
+      defp get_parser_module(exchange) do
+        # Build the parser module name
+        exchange_string = exchange |> Atom.to_string() |> Macro.camelize()
+        module = Module.concat([ZenCex, Adapters, exchange_string, Parser])
+
+        # Check if the module is loaded
+        if Code.ensure_loaded?(module) do
+          module
         end
       end
     end
