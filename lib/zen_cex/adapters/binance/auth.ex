@@ -112,20 +112,33 @@ defmodule ZenCex.Adapters.Binance.Auth do
     # TODO: Remove debug logging
     Logger.debug("Binance Auth: Starting to sign request for #{request.url}")
 
-    # Step 1: Add authentication headers
-    request = add_auth_headers(request, api_key)
+    request
+    |> prepare_authentication(api_key)
+    |> apply_signature(api_type, api_secret)
+  end
 
-    # Step 2: Extract and prepare parameters
+  # Prepares the request with authentication headers
+  @spec prepare_authentication(Req.Request.t(), String.t()) :: Req.Request.t()
+  defp prepare_authentication(request, api_key) do
+    add_auth_headers(request, api_key)
+  end
+
+  # Applies timing parameters and signature to the request
+  @spec apply_signature(Req.Request.t(), api_type(), String.t()) :: Req.Request.t()
+  defp apply_signature(request, api_type, api_secret) do
+    # Extract parameters from request
     {all_params, has_json_option, body_params} = extract_request_params(request)
-    all_params_with_timing = ensure_timing_params(all_params, api_type)
 
-    # Step 3: Generate signature
-    signature = create_hmac_signature(all_params_with_timing, api_secret)
+    # Add timing parameters
+    params_with_timing = ensure_timing_params(all_params, api_type)
 
-    # Step 4: Build authenticated request
+    # Generate signature
+    signature = create_hmac_signature(params_with_timing, api_secret)
+
+    # Build final authenticated request
     build_authenticated_request(
       request,
-      all_params_with_timing,
+      params_with_timing,
       signature,
       has_json_option,
       body_params
@@ -141,8 +154,14 @@ defmodule ZenCex.Adapters.Binance.Auth do
   # Creates HMAC-SHA256 signature for the request parameters
   @spec create_hmac_signature(map(), String.t()) :: String.t()
   defp create_hmac_signature(params, api_secret) do
-    params
-    |> build_signature_payload()
+    payload = build_signature_payload(params)
+    sign_payload(payload, api_secret)
+  end
+
+  # Signs a payload with HMAC-SHA256
+  @spec sign_payload(String.t(), String.t()) :: String.t()
+  defp sign_payload(payload, api_secret) do
+    payload
     |> compute_hmac_sha256(api_secret)
     |> encode_signature()
   end
@@ -156,15 +175,24 @@ defmodule ZenCex.Adapters.Binance.Auth do
           map()
         ) :: Req.Request.t()
   defp build_authenticated_request(request, params_with_timing, signature, has_json_option, body_params) do
-    # Build signed URL with proper parameter ordering
+    request
+    |> update_request_url(params_with_timing, signature)
+    |> update_request_options(has_json_option, body_params)
+  end
+
+  # Updates the request URL with signed parameters
+  @spec update_request_url(Req.Request.t(), map(), String.t()) :: Req.Request.t()
+  defp update_request_url(request, params_with_timing, signature) do
     final_url = build_signed_url(request.url, params_with_timing, signature)
-
     Logger.debug("Binance Auth: Final URL: #{final_url}")
+    %{request | url: URI.parse(final_url)}
+  end
 
-    # Update request with signed URL and cleaned options
+  # Updates the request options after signing
+  @spec update_request_options(Req.Request.t(), boolean(), map()) :: Req.Request.t()
+  defp update_request_options(request, has_json_option, body_params) do
     updated_options = clean_request_options(request.options, has_json_option, body_params)
-
-    %{request | url: URI.parse(final_url), options: updated_options}
+    %{request | options: updated_options}
   end
 
   @spec build_signature_payload(map()) :: String.t()
@@ -284,8 +312,39 @@ defmodule ZenCex.Adapters.Binance.Auth do
   @spec ensure_timing_params(map(), api_type()) :: map()
   def ensure_timing_params(params, api_type) do
     params
-    |> ensure_timestamp(api_type)
-    |> ensure_recv_window()
+    |> add_timestamp_if_missing(api_type)
+    |> add_recv_window_if_missing()
+    |> validate_timing_parameters()
+  end
+
+  # Adds timestamp if not present
+  @spec add_timestamp_if_missing(map(), api_type()) :: map()
+  defp add_timestamp_if_missing(params, api_type) do
+    if Map.has_key?(params, "timestamp") do
+      params
+    else
+      timestamp = get_synchronized_timestamp(api_type)
+      Map.put(params, "timestamp", timestamp)
+    end
+  end
+
+  # Adds default recvWindow if not present
+  @spec add_recv_window_if_missing(map()) :: map()
+  defp add_recv_window_if_missing(params) do
+    if Map.has_key?(params, "recvWindow") do
+      params
+    else
+      Map.put(params, "recvWindow", to_string(@default_recv_window_ms))
+    end
+  end
+
+  # Validates timing parameters are within acceptable bounds
+  @spec validate_timing_parameters(map()) :: map()
+  defp validate_timing_parameters(params) do
+    case Map.get(params, "recvWindow") do
+      nil -> params
+      recv_window_str -> validate_recv_window(params, recv_window_str)
+    end
   end
 
   @doc """
@@ -349,33 +408,6 @@ defmodule ZenCex.Adapters.Binance.Auth do
       end
 
     Enum.join(param_pairs, "&")
-  end
-
-  @spec ensure_timestamp(map(), api_type()) :: map()
-  defp ensure_timestamp(params, api_type) do
-    case Map.get(params, "timestamp") do
-      nil ->
-        # Generate clock-synchronized timestamp
-        timestamp = get_synchronized_timestamp(api_type)
-        Map.put(params, "timestamp", timestamp)
-
-      _existing ->
-        # Timestamp already provided, use as-is
-        params
-    end
-  end
-
-  @spec ensure_recv_window(map()) :: map()
-  defp ensure_recv_window(params) do
-    case Map.get(params, "recvWindow") do
-      nil ->
-        # Add default recvWindow
-        Map.put(params, "recvWindow", to_string(@default_recv_window_ms))
-
-      recv_window_str ->
-        # Validate existing recvWindow
-        validate_recv_window(params, recv_window_str)
-    end
   end
 
   @spec validate_recv_window(map(), String.t()) :: map()
