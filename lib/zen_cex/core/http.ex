@@ -57,6 +57,7 @@ defmodule ZenCex.Core.HTTP do
       request = ZenCex.Core.HTTP.base_request(:deribit, :market)
       |> Req.merge(skip_rate_limit: true)
   """
+  alias ZenCex.Core.CircuitBreaker
 
   # Jitter range for exponential backoff in milliseconds
   @jitter_range_ms 500
@@ -149,6 +150,7 @@ defmodule ZenCex.Core.HTTP do
       skip_rate_limit: false
     )
     |> attach_telemetry()
+    |> maybe_attach_circuit_breaker(exchange)
   end
 
   @doc """
@@ -462,5 +464,14 @@ defmodule ZenCex.Core.HTTP do
       %{count: 1},
       metadata
     )
+  end
+
+  @spec maybe_attach_circuit_breaker(Req.Request.t(), atom()) :: Req.Request.t()
+  defp maybe_attach_circuit_breaker(request, exchange) do
+    if Code.ensure_loaded?(CircuitBreaker) do
+      CircuitBreaker.maybe_attach(request, exchange)
+    else
+      request
+    end
   end
 end

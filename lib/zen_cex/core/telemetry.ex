@@ -55,6 +55,20 @@ defmodule ZenCex.Core.Telemetry do
     - Measurements: `%{count: 1}`
     - Metadata: `%{exchange: atom(), client_order_id: String.t()}`
 
+  ### Circuit Breaker Events
+
+  - `[:zen_cex, :circuit_breaker, :blown]` - Emitted when circuit opens due to failures
+    - Measurements: `%{count: 1}`
+    - Metadata: `%{exchange: atom()}`
+
+  - `[:zen_cex, :circuit_breaker, :reset]` - Emitted when circuit closes/resets
+    - Measurements: `%{count: 1}`
+    - Metadata: `%{exchange: atom(), manual: boolean()}`
+
+  - `[:zen_cex, :circuit_breaker, :rejected]` - Emitted when request is rejected due to open circuit
+    - Measurements: `%{count: 1}`
+    - Metadata: `%{exchange: atom()}`
+
   ## Usage
 
   To attach handlers to these events, use `:telemetry.attach/4`:
@@ -120,6 +134,21 @@ defmodule ZenCex.Core.Telemetry do
         &Telemetry.log_auth_failure/4
       },
       {
+        "zen-cex-log-circuit-breaker-blown",
+        [:zen_cex, :circuit_breaker, :blown],
+        &Telemetry.log_circuit_breaker_blown/4
+      },
+      {
+        "zen-cex-log-circuit-breaker-reset",
+        [:zen_cex, :circuit_breaker, :reset],
+        &Telemetry.log_circuit_breaker_reset/4
+      },
+      {
+        "zen-cex-log-circuit-breaker-rejected",
+        [:zen_cex, :circuit_breaker, :rejected],
+        &Telemetry.log_circuit_breaker_rejected/4
+      },
+      {
         "zen-cex-req-integration",
         [:req, :request, :stop],
         &Telemetry.handle_req_stop/4
@@ -148,6 +177,9 @@ defmodule ZenCex.Core.Telemetry do
       "zen-cex-log-errors",
       "zen-cex-log-rate-limits",
       "zen-cex-log-auth-failures",
+      "zen-cex-log-circuit-breaker-blown",
+      "zen-cex-log-circuit-breaker-reset",
+      "zen-cex-log-circuit-breaker-rejected",
       "zen-cex-req-integration"
     ]
 
@@ -236,6 +268,43 @@ defmodule ZenCex.Core.Telemetry do
   def log_auth_failure(_event, _measurements, metadata, _config) do
     Logger.error("Auth failure for #{metadata.exchange} using #{metadata.auth_method}: #{inspect(metadata.reason)}")
 
+    :ok
+  end
+
+  @doc false
+  @spec log_circuit_breaker_blown(
+          :telemetry.event_name(),
+          :telemetry.event_measurements(),
+          :telemetry.event_metadata(),
+          :telemetry.handler_config()
+        ) :: :ok
+  def log_circuit_breaker_blown(_event, _measurements, metadata, _config) do
+    Logger.error("Circuit breaker BLOWN for #{metadata.exchange} - rejecting all requests")
+    :ok
+  end
+
+  @doc false
+  @spec log_circuit_breaker_reset(
+          :telemetry.event_name(),
+          :telemetry.event_measurements(),
+          :telemetry.event_metadata(),
+          :telemetry.handler_config()
+        ) :: :ok
+  def log_circuit_breaker_reset(_event, _measurements, metadata, _config) do
+    reset_type = if metadata[:manual], do: "manually", else: "automatically"
+    Logger.info("Circuit breaker RESET #{reset_type} for #{metadata.exchange} - accepting requests")
+    :ok
+  end
+
+  @doc false
+  @spec log_circuit_breaker_rejected(
+          :telemetry.event_name(),
+          :telemetry.event_measurements(),
+          :telemetry.event_metadata(),
+          :telemetry.handler_config()
+        ) :: :ok
+  def log_circuit_breaker_rejected(_event, _measurements, metadata, _config) do
+    Logger.warning("Request rejected by circuit breaker for #{metadata.exchange}")
     :ok
   end
 

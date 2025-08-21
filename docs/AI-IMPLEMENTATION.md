@@ -141,12 +141,12 @@ done
 
 ### Phase 3: Reliability & Observability (3 tasks)
 ```
-[ ] Task 11: Circuit Breaker with req_fuse             <- NEXT (after 10.5)
+[✅] Task 11: Circuit Breaker with req_fuse            <- COMPLETED
 [ ] Task 12: Enhanced Telemetry Documentation          ├─ Observability
 [ ] Task 13: Debug Mode with curl_req                  └─ group
 ```
 
-**Task 11: Circuit Breaker** - Add req_fuse (optional dep) for per-exchange circuit breaking. Opt-in config, emit telemetry, return 503 when blown.
+**Task 11: Circuit Breaker** - ✅ COMPLETED - Added req_fuse as optional dependency for per-exchange circuit breaking. Opt-in config, emits telemetry, returns 503 when blown.
 
 **Task 12: Telemetry Docs** - Document Req/Finch events, create example handlers, add monitoring guide to README.
 
