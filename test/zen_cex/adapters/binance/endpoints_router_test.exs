@@ -7,46 +7,69 @@ defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
   alias ZenCex.Adapters.Binance.UsdmFutures
 
   describe "router delegation patterns" do
-    test "common endpoints delegate to Common module" do
-      # get_server_time should delegate to Common
+    test "common endpoints delegate to Common module without prefix" do
+      # get_server_time should delegate to Common (no prefix needed)
       assert function_exported?(Endpoints, :get_server_time, 0)
       assert function_exported?(Endpoints, :get_server_time, 1)
     end
 
-    test "spot endpoints delegate to Spot module" do
-      # Spot trading functions should be available through main Endpoints
-      assert function_exported?(Endpoints, :get_balances, 0)
-      assert function_exported?(Endpoints, :get_balances, 1)
-      assert function_exported?(Endpoints, :get_balances, 2)
+    test "spot endpoints delegate to Spot module with spot_ prefix" do
+      # Spot trading functions should be available with spot_ prefix
+      assert function_exported?(Endpoints, :spot_get_balances, 0)
+      assert function_exported?(Endpoints, :spot_get_balances, 1)
+      assert function_exported?(Endpoints, :spot_get_balances, 2)
 
-      assert function_exported?(Endpoints, :place_order, 0)
-      assert function_exported?(Endpoints, :place_order, 1)
-      assert function_exported?(Endpoints, :place_order, 2)
+      assert function_exported?(Endpoints, :spot_place_order, 0)
+      assert function_exported?(Endpoints, :spot_place_order, 1)
+      assert function_exported?(Endpoints, :spot_place_order, 2)
 
-      assert function_exported?(Endpoints, :cancel_order, 0)
-      assert function_exported?(Endpoints, :cancel_order, 1)
-      assert function_exported?(Endpoints, :cancel_order, 2)
+      assert function_exported?(Endpoints, :spot_cancel_order, 0)
+      assert function_exported?(Endpoints, :spot_cancel_order, 1)
+      assert function_exported?(Endpoints, :spot_cancel_order, 2)
 
-      assert function_exported?(Endpoints, :get_order, 0)
-      assert function_exported?(Endpoints, :get_order, 1)
-      assert function_exported?(Endpoints, :get_order, 2)
+      assert function_exported?(Endpoints, :spot_get_order, 0)
+      assert function_exported?(Endpoints, :spot_get_order, 1)
+      assert function_exported?(Endpoints, :spot_get_order, 2)
     end
 
-    test "futures endpoints delegate to UsdmFutures module" do
-      # USD-M Futures functions should be available through main Endpoints
-      assert function_exported?(Endpoints, :get_positions, 0)
-      assert function_exported?(Endpoints, :get_positions, 1)
-      assert function_exported?(Endpoints, :get_positions, 2)
+    test "futures endpoints delegate to UsdmFutures module with usdm_ prefix" do
+      # USD-M Futures functions should be available with usdm_ prefix
+      assert function_exported?(Endpoints, :usdm_get_positions, 0)
+      assert function_exported?(Endpoints, :usdm_get_positions, 1)
+      assert function_exported?(Endpoints, :usdm_get_positions, 2)
     end
 
-    test "complex operations are delegated correctly" do
-      assert function_exported?(Endpoints, :place_oco_order, 1)
-      assert function_exported?(Endpoints, :batch_cancel_orders, 1)
+    test "portfolio margin endpoints delegate with portfolio_ prefix" do
+      # Portfolio Margin functions should be available with portfolio_ prefix
+      assert function_exported?(Endpoints, :portfolio_get_unified_account, 0)
+      assert function_exported?(Endpoints, :portfolio_get_unified_account, 1)
+      assert function_exported?(Endpoints, :portfolio_get_unified_account, 2)
+
+      assert function_exported?(Endpoints, :portfolio_place_unified_order, 1)
+      assert function_exported?(Endpoints, :portfolio_place_unified_order, 2)
+
+      assert function_exported?(Endpoints, :portfolio_get_all_positions, 0)
+      assert function_exported?(Endpoints, :portfolio_get_all_positions, 1)
+      assert function_exported?(Endpoints, :portfolio_get_all_positions, 2)
+
+      # Portfolio Margin endpoint registry functions should also be available
+      assert function_exported?(Endpoints, :portfolio_account_information, 0)
+      assert function_exported?(Endpoints, :portfolio_account_information, 1)
+      assert function_exported?(Endpoints, :portfolio_account_information, 2)
+
+      assert function_exported?(Endpoints, :portfolio_account_balance, 0)
+      assert function_exported?(Endpoints, :portfolio_account_balance, 1)
+      assert function_exported?(Endpoints, :portfolio_account_balance, 2)
+    end
+
+    test "complex spot operations are delegated correctly with prefix" do
+      assert function_exported?(Endpoints, :spot_place_oco_order, 1)
+      assert function_exported?(Endpoints, :spot_batch_cancel_orders, 1)
     end
   end
 
-  describe "get_endpoint/1 routing" do
-    test "routes common operations to Common module" do
+  describe "get_endpoint/1 routing with prefixes" do
+    test "routes common operations to Common module (no prefix)" do
       endpoint = Endpoints.get_endpoint(:get_server_time)
       assert endpoint
       assert endpoint.operation == :get_server_time
@@ -56,21 +79,24 @@ defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
       assert endpoint == common_endpoint
     end
 
-    test "routes spot operations to Spot module" do
-      spot_ops = [:get_balances, :place_order, :cancel_order, :get_order]
+    test "routes spot_ prefixed operations to Spot module" do
+      spot_ops = [:spot_get_balances, :spot_place_order, :spot_cancel_order, :spot_get_order]
 
-      Enum.each(spot_ops, fn op ->
-        endpoint = Endpoints.get_endpoint(op)
-        assert endpoint != nil, "Failed to get endpoint for #{op}"
+      Enum.each(spot_ops, fn prefixed_op ->
+        endpoint = Endpoints.get_endpoint(prefixed_op)
+        assert endpoint != nil, "Failed to get endpoint for #{prefixed_op}"
 
-        # Should match Spot module's config
-        spot_endpoint = Spot.get_endpoint(op)
-        assert endpoint == spot_endpoint
+        # Extract the base operation name
+        base_op = prefixed_op |> Atom.to_string() |> String.replace_prefix("spot_", "") |> String.to_atom()
+
+        # Should match Spot module's config for the base operation
+        spot_endpoint = Spot.get_endpoint(base_op)
+        assert endpoint == spot_endpoint, "Mismatch for #{prefixed_op}"
       end)
     end
 
-    test "routes futures operations to UsdmFutures module" do
-      endpoint = Endpoints.get_endpoint(:get_positions)
+    test "routes usdm_ prefixed operations to UsdmFutures module" do
+      endpoint = Endpoints.get_endpoint(:usdm_get_positions)
       assert endpoint
       assert endpoint.operation == :get_positions
 
@@ -79,8 +105,26 @@ defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
       assert endpoint == futures_endpoint
     end
 
+    test "routes portfolio_ prefixed operations to PortfolioMargin module" do
+      # Test with actual endpoint registry operations from PortfolioMargin
+      portfolio_ops = [:portfolio_account_information, :portfolio_account_balance]
+
+      Enum.each(portfolio_ops, fn prefixed_op ->
+        endpoint = Endpoints.get_endpoint(prefixed_op)
+        assert endpoint != nil, "Failed to get endpoint for #{prefixed_op}"
+
+        # Extract the base operation name
+        base_op = prefixed_op |> Atom.to_string() |> String.replace_prefix("portfolio_", "") |> String.to_atom()
+
+        # Should match PortfolioMargin module's config for the base operation
+        portfolio_endpoint = ZenCex.Adapters.Binance.PortfolioMargin.get_endpoint(base_op)
+        assert endpoint == portfolio_endpoint, "Mismatch for #{prefixed_op}"
+      end)
+    end
+
     test "returns nil for unknown operations" do
       assert Endpoints.get_endpoint(:unknown_operation) == nil
+      assert Endpoints.get_endpoint(:invalid_prefix_operation) == nil
     end
   end
 
@@ -130,26 +174,27 @@ defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
     end
   end
 
-  describe "get_weight/1 routing" do
-    test "returns correct weight for common operations" do
+  describe "get_weight/1 routing with prefixes" do
+    test "returns correct weight for common operations (no prefix)" do
       assert Endpoints.get_weight(:get_server_time) == 1
     end
 
-    test "returns correct weight for spot operations" do
+    test "returns correct weight for spot operations with prefix" do
       # Correctly extracted from OpenAPI docs
-      assert Endpoints.get_weight(:get_balances) == 20
-      assert Endpoints.get_weight(:place_order) == 1
-      assert Endpoints.get_weight(:cancel_order) == 1
+      assert Endpoints.get_weight(:spot_get_balances) == 20
+      assert Endpoints.get_weight(:spot_place_order) == 1
+      assert Endpoints.get_weight(:spot_cancel_order) == 1
       # Correctly extracted from OpenAPI docs
-      assert Endpoints.get_weight(:get_order) == 4
+      assert Endpoints.get_weight(:spot_get_order) == 4
     end
 
-    test "returns correct weight for futures operations" do
-      assert Endpoints.get_weight(:get_positions) == 5
+    test "returns correct weight for futures operations with prefix" do
+      assert Endpoints.get_weight(:usdm_get_positions) == 5
     end
 
     test "returns nil for unknown operations" do
       assert Endpoints.get_weight(:unknown_operation) == nil
+      assert Endpoints.get_weight(:invalid_prefix_operation) == nil
     end
   end
 
@@ -269,22 +314,26 @@ defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
       assert function_exported?(Endpoints, :base_url, 0)
     end
 
-    test "get_endpoint/1 provides registry-compatible interface" do
-      # Should work for all known operations
+    test "get_endpoint/1 provides registry-compatible interface with prefixes" do
+      # Should work for all known operations with prefixes
       operations = [
-        :get_server_time,
-        :get_balances,
-        :place_order,
-        :cancel_order,
-        :get_order,
-        :get_positions
+        # common (no prefix)
+        {:get_server_time, :get_server_time},
+        {:spot_get_balances, :get_balances},
+        {:spot_place_order, :place_order},
+        {:spot_cancel_order, :cancel_order},
+        {:spot_get_order, :get_order},
+        {:usdm_get_positions, :get_positions},
+        # Use actual endpoint registry operations from PortfolioMargin
+        {:portfolio_account_information, :account_information},
+        {:portfolio_account_balance, :account_balance}
       ]
 
-      Enum.each(operations, fn op ->
-        config = Endpoints.get_endpoint(op)
-        assert config != nil, "get_endpoint/1 failed for #{op}"
+      Enum.each(operations, fn {prefixed_op, base_op} ->
+        config = Endpoints.get_endpoint(prefixed_op)
+        assert config != nil, "get_endpoint/1 failed for #{prefixed_op}"
         assert is_map(config)
-        assert config.operation == op
+        assert config.operation == base_op, "Expected operation #{base_op}, got #{config.operation}"
       end)
     end
   end

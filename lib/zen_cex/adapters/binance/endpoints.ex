@@ -21,10 +21,25 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   The router automatically delegates based on function prefixes:
   - Functions starting with `spot_` → Binance.Spot
   - Functions starting with `margin_` → Binance.Margin
-  - Functions starting with `usdm_futures_` → Binance.UsdmFutures
-  - Functions starting with `coinm_futures_` → Binance.CoinmFutures
+  - Functions starting with `usdm_` → Binance.UsdmFutures
+  - Functions starting with `coinm_` → Binance.CoinmFutures
   - Functions starting with `portfolio_` → Binance.PortfolioMargin
-  - Common functions → Binance.Common
+  - Common functions (no prefix) → Binance.Common
+
+  ## Examples
+
+      # Prefixed functions for clarity
+      Endpoints.spot_get_balances()
+      Endpoints.spot_place_order(%{symbol: "BTCUSDT", side: "BUY", quantity: "0.01"})
+      
+      Endpoints.usdm_get_positions()
+      Endpoints.usdm_place_order(%{symbol: "BTCUSDT", side: "LONG", quantity: "0.01"})
+      
+      Endpoints.portfolio_get_unified_account()
+      Endpoints.portfolio_place_unified_order(%{symbol: "BTCUSDT", side: "BUY"})
+      
+      # Common endpoints without prefix
+      Endpoints.get_server_time()
   """
 
   alias ZenCex.Adapters.Binance.Auth
@@ -158,49 +173,59 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   def base_url(:prod, _), do: "https://api.binance.com"
 
   # ============================================================================
-  # Delegation to nested modules
+  # Delegation to nested modules with prefixed names
   # ============================================================================
 
-  # Common endpoints (shared across all API types)
+  # Common endpoints (shared across all API types - no prefix needed)
   defdelegate get_server_time(), to: Common
   defdelegate get_server_time(opts), to: Common
 
-  # Spot trading endpoints
-  defdelegate get_balances(), to: Spot
-  defdelegate get_balances(opts), to: Spot
-  defdelegate get_balances(params, opts), to: Spot
+  # Spot trading endpoints with spot_ prefix
+  defdelegate spot_get_balances(), to: Spot, as: :get_balances
+  defdelegate spot_get_balances(opts), to: Spot, as: :get_balances
+  defdelegate spot_get_balances(params, opts), to: Spot, as: :get_balances
 
-  defdelegate place_order(), to: Spot
-  defdelegate place_order(params), to: Spot
-  defdelegate place_order(params, opts), to: Spot
+  defdelegate spot_place_order(), to: Spot, as: :place_order
+  defdelegate spot_place_order(params), to: Spot, as: :place_order
+  defdelegate spot_place_order(params, opts), to: Spot, as: :place_order
 
-  defdelegate cancel_order(), to: Spot
-  defdelegate cancel_order(params), to: Spot
-  defdelegate cancel_order(params, opts), to: Spot
+  defdelegate spot_cancel_order(), to: Spot, as: :cancel_order
+  defdelegate spot_cancel_order(params), to: Spot, as: :cancel_order
+  defdelegate spot_cancel_order(params, opts), to: Spot, as: :cancel_order
 
-  defdelegate get_order(), to: Spot
-  defdelegate get_order(params), to: Spot
-  defdelegate get_order(params, opts), to: Spot
+  defdelegate spot_get_order(), to: Spot, as: :get_order
+  defdelegate spot_get_order(params), to: Spot, as: :get_order
+  defdelegate spot_get_order(params, opts), to: Spot, as: :get_order
 
-  defdelegate place_oco_order(params), to: Spot
-  defdelegate batch_cancel_orders(params), to: Spot
+  defdelegate spot_place_oco_order(params), to: Spot, as: :place_oco_order
+  defdelegate spot_batch_cancel_orders(params), to: Spot, as: :batch_cancel_orders
 
-  # USD-M Futures trading endpoints
-  defdelegate get_positions(), to: UsdmFutures
-  defdelegate get_positions(opts), to: UsdmFutures
-  defdelegate get_positions(params, opts), to: UsdmFutures
+  # USD-M Futures trading endpoints with usdm_ prefix
+  defdelegate usdm_get_positions(), to: UsdmFutures, as: :get_positions
+  defdelegate usdm_get_positions(opts), to: UsdmFutures, as: :get_positions
+  defdelegate usdm_get_positions(params, opts), to: UsdmFutures, as: :get_positions
 
-  # Portfolio Margin trading endpoints - using custom wrapper functions
-  defdelegate get_unified_account(), to: PortfolioMargin
-  defdelegate get_unified_account(params), to: PortfolioMargin
-  defdelegate get_unified_account(params, opts), to: PortfolioMargin
+  # Portfolio Margin trading endpoints with portfolio_ prefix
+  # Custom wrapper functions (not in endpoint registry)
+  defdelegate portfolio_get_unified_account(), to: PortfolioMargin, as: :get_unified_account
+  defdelegate portfolio_get_unified_account(params), to: PortfolioMargin, as: :get_unified_account
+  defdelegate portfolio_get_unified_account(params, opts), to: PortfolioMargin, as: :get_unified_account
 
-  defdelegate place_unified_order(params), to: PortfolioMargin
-  defdelegate place_unified_order(params, opts), to: PortfolioMargin
+  defdelegate portfolio_place_unified_order(params), to: PortfolioMargin, as: :place_unified_order
+  defdelegate portfolio_place_unified_order(params, opts), to: PortfolioMargin, as: :place_unified_order
 
-  defdelegate get_all_positions(), to: PortfolioMargin
-  defdelegate get_all_positions(params), to: PortfolioMargin
-  defdelegate get_all_positions(params, opts), to: PortfolioMargin
+  defdelegate portfolio_get_all_positions(), to: PortfolioMargin, as: :get_all_positions
+  defdelegate portfolio_get_all_positions(params), to: PortfolioMargin, as: :get_all_positions
+  defdelegate portfolio_get_all_positions(params, opts), to: PortfolioMargin, as: :get_all_positions
+
+  # Endpoint registry functions from PortfolioMargin
+  defdelegate portfolio_account_information(), to: PortfolioMargin, as: :account_information
+  defdelegate portfolio_account_information(params), to: PortfolioMargin, as: :account_information
+  defdelegate portfolio_account_information(params, opts), to: PortfolioMargin, as: :account_information
+
+  defdelegate portfolio_account_balance(), to: PortfolioMargin, as: :account_balance
+  defdelegate portfolio_account_balance(params), to: PortfolioMargin, as: :account_balance
+  defdelegate portfolio_account_balance(params, opts), to: PortfolioMargin, as: :account_balance
 
   # ============================================================================
   # Registry compatibility functions
@@ -209,25 +234,59 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
 
   @doc """
   Returns endpoint configuration for the given operation.
-  Routes to the appropriate module based on the operation name.
+  Routes to the appropriate module based on the operation name prefix.
   """
   @spec get_endpoint(atom()) :: map() | nil
   def get_endpoint(operation) do
-    cond do
-      operation in [:get_server_time] ->
-        Common.get_endpoint(operation)
+    # Extract prefix and operation name
+    {prefix, base_op} = extract_prefix(operation)
 
-      operation in [:get_balances, :place_order, :cancel_order, :get_order] ->
-        Spot.get_endpoint(operation)
+    # Route based on prefix
+    case prefix do
+      :spot ->
+        Spot.get_endpoint(base_op)
 
-      operation in [:get_positions] ->
-        UsdmFutures.get_endpoint(operation)
+      :usdm ->
+        UsdmFutures.get_endpoint(base_op)
 
-      operation in [:get_unified_account, :place_unified_order, :get_all_positions] ->
-        PortfolioMargin.get_endpoint(operation)
+      :coinm ->
+        CoinmFutures.get_endpoint(base_op)
 
-      true ->
-        nil
+      :margin ->
+        Margin.get_endpoint(base_op)
+
+      :portfolio ->
+        PortfolioMargin.get_endpoint(base_op)
+
+      nil ->
+        # No prefix - check if it's a common operation
+        if operation in [:get_server_time] do
+          Common.get_endpoint(operation)
+        end
+    end
+  end
+
+  # Extract prefix from operation name
+  defp extract_prefix(operation) do
+    # Pattern match on the string representation for better performance
+    case Atom.to_string(operation) do
+      "spot_" <> rest ->
+        {:spot, String.to_atom(rest)}
+
+      "usdm_" <> rest ->
+        {:usdm, String.to_atom(rest)}
+
+      "coinm_" <> rest ->
+        {:coinm, String.to_atom(rest)}
+
+      "margin_" <> rest ->
+        {:margin, String.to_atom(rest)}
+
+      "portfolio_" <> rest ->
+        {:portfolio, String.to_atom(rest)}
+
+      _ ->
+        {nil, operation}
     end
   end
 
