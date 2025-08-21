@@ -125,24 +125,6 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ## Current Task
 
-**Task #10.5**: Binance Multi-API Refactoring
-
-**File**: See `docs/TASKLIST_BINANCE_REFACTOR.md` for full plan
-
-**Priority Focus - Phase 3.2**: Rate Limiter Refactoring (CRITICAL)
-- Separate ETS tables per API type (spot, sapi, usdm, coinm)
-- Different rate limits per API type:
-  - Spot (/api): 12,000 IP / 6,000 UID per minute
-  - SAPI (/sapi): 12,000 IP / 180,000 UID per minute
-  - usdm (/fapi): 2,400 per minute (much lower!)
-  - coinm (/dapi): 2,400 per minute
-- Parse different headers per API type
-- Pass `api_type` from endpoints to rate limiter
-- Update `check_and_increment` to use correct table based on endpoint path
-
-**Status**: Phase 1 completed (multi-API URL support). Phase 3.2 is CRITICAL next step.
-
-**Full Requirements & Plan**: See `docs/TASKLIST_BINANCE_REFACTOR.md`
 
 ## Recently Completed
 
