@@ -138,7 +138,7 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpointsTest do
 
     test "sets appropriate API type for futures" do
       # USD-M futures should have api_type: :usdm_futures
-      # COIN-M futures should have api_type: :coinm_futures  
+      # COIN-M futures should have api_type: :coinm_futures
       assert true
     end
   end

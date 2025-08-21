@@ -95,7 +95,7 @@ defmodule ZenCex.Adapters.Binance.Parser do
     cond do
       # Spot account info format
       Map.has_key?(response, "balances") ->
-        parse_spot_balances_as_positions(response["balances"])
+        parse_spot_balances_as_positions(extract_field(response, ["balances"], :identity))
 
       # Single position format (wrapped in list)
       Map.has_key?(response, "symbol") ->
@@ -141,11 +141,11 @@ defmodule ZenCex.Adapters.Binance.Parser do
   def parse_balances(%{"balances" => balances}) when is_list(balances) do
     parsed =
       Enum.map(balances, fn balance ->
-        free = safe_decimal_field(balance["free"])
-        locked = safe_decimal_field(balance["locked"])
+        free = extract_field(balance, ["free"], :decimal)
+        locked = extract_field(balance, ["locked"], :decimal)
 
         %{
-          asset: balance["asset"],
+          asset: extract_field(balance, ["asset"], :string),
           free: free,
           locked: locked,
           total: Decimal.add(free, locked)
@@ -180,14 +180,14 @@ defmodule ZenCex.Adapters.Binance.Parser do
   @impl true
   def parse_order(response) when is_map(response) do
     # Basic validation - require symbol and side as minimum
-    with symbol when is_binary(symbol) <- response["symbol"],
-         side when is_binary(side) <- response["side"],
-         order_type when is_binary(order_type) <- response["type"],
-         status when is_binary(status) <- response["status"] do
+    with symbol when is_binary(symbol) and symbol != "" <- response["symbol"],
+         side when is_binary(side) and side != "" <- response["side"],
+         order_type when is_binary(order_type) and order_type != "" <- response["type"],
+         status when is_binary(status) and status != "" <- response["status"] do
       try do
         order = %{
-          order_id: extract_field(response, ["orderId", "id"], &to_string(&1 || "")),
-          client_order_id: response["clientOrderId"],
+          order_id: extract_field(response, ["orderId", "id"], :string),
+          client_order_id: extract_field(response, ["clientOrderId"], :string),
           symbol: symbol,
           side: side |> String.downcase() |> String.to_atom(),
           type: order_type |> String.downcase() |> String.to_atom(),
@@ -233,7 +233,8 @@ defmodule ZenCex.Adapters.Binance.Parser do
 
     case Map.get(@error_codes, code) do
       nil ->
-        message = response["msg"] || "Unknown error"
+        message = extract_field(response, ["msg"], :string)
+        message = if message == "", do: "Unknown error", else: message
         {:error, {:exchange_error, message}}
 
       error_atom ->
@@ -360,8 +361,11 @@ defmodule ZenCex.Adapters.Binance.Parser do
       {:ok, %{server_time: 1234567890000}} = parse_server_time(response)
   """
   @spec parse_server_time(map() | term()) :: {:ok, map()} | {:error, atom()}
-  def parse_server_time(%{"serverTime" => time}) do
-    {:ok, %{server_time: time}}
+  def parse_server_time(response) when is_map(response) do
+    case extract_field(response, ["serverTime"], :integer) do
+      0 -> {:error, :invalid_format}
+      time -> {:ok, %{server_time: time}}
+    end
   end
 
   def parse_server_time(_), do: {:error, :invalid_format}
@@ -383,21 +387,26 @@ defmodule ZenCex.Adapters.Binance.Parser do
       {:ok, oco} = parse_oco_response(response)
   """
   @spec parse_oco_response(map() | term()) :: {:ok, map()} | {:error, atom()}
-  def parse_oco_response(%{"orderListId" => list_id, "orders" => orders} = response) do
-    {:ok,
-     %{
-       order_list_id: list_id,
-       orders:
-         Enum.map(orders, fn order ->
-           case parse_order(order) do
-             {:ok, parsed} -> parsed
-             # Fallback to raw if parsing fails
-             _ -> order
-           end
-         end),
-       list_status: response["listOrderStatus"],
-       transaction_time: response["transactionTime"]
-     }}
+  def parse_oco_response(response) when is_map(response) do
+    with list_id when not is_nil(list_id) <- extract_field(response, ["orderListId"], :integer),
+         orders when is_list(orders) <- extract_field(response, ["orders"], :identity) do
+      {:ok,
+       %{
+         order_list_id: list_id,
+         orders:
+           Enum.map(orders, fn order ->
+             case parse_order(order) do
+               {:ok, parsed} -> parsed
+               # Fallback to raw if parsing fails
+               _ -> order
+             end
+           end),
+         list_status: extract_field(response, ["listOrderStatus"], :string),
+         transaction_time: extract_field(response, ["transactionTime"], :integer)
+       }}
+    else
+      _ -> {:error, :invalid_oco_format}
+    end
   end
 
   def parse_oco_response(_), do: {:error, :invalid_oco_format}
@@ -420,15 +429,17 @@ defmodule ZenCex.Adapters.Binance.Parser do
   @spec parse_batch_cancel_response(list() | term()) :: {:ok, list()} | {:error, atom()}
   def parse_batch_cancel_response(response) when is_list(response) do
     results =
-      Enum.map(response, fn
-        %{"code" => code, "msg" => msg} ->
-          {:error, %{code: code, message: msg}}
+      Enum.map(response, fn item ->
+        case {extract_field(item, ["code"], :integer), extract_field(item, ["msg"], :string)} do
+          {code, msg} when code != 0 and msg != "" ->
+            {:error, %{code: code, message: msg}}
 
-        order ->
-          case parse_order(order) do
-            {:ok, parsed} -> {:ok, parsed}
-            error -> error
-          end
+          _ ->
+            case parse_order(item) do
+              {:ok, parsed} -> {:ok, parsed}
+              error -> error
+            end
+        end
       end)
 
     {:ok, results}
@@ -499,17 +510,17 @@ defmodule ZenCex.Adapters.Binance.Parser do
     trades =
       Enum.map(response, fn trade ->
         %{
-          trade_id: extract_field(trade, ["id", "tradeId"], &to_string(&1 || "")),
-          order_id: extract_field(trade, ["orderId"], &to_string(&1 || "")),
-          symbol: trade["symbol"],
+          trade_id: extract_field(trade, ["id", "tradeId"], :string),
+          order_id: extract_field(trade, ["orderId"], :string),
+          symbol: extract_field(trade, ["symbol"], :string),
           price: extract_field(trade, ["price"], :decimal),
           quantity: extract_field(trade, ["qty", "quantity"], :decimal),
           quote_quantity: extract_field(trade, ["quoteQty"], :decimal),
           commission: extract_field(trade, ["commission"], :decimal),
-          commission_asset: trade["commissionAsset"],
+          commission_asset: extract_field(trade, ["commissionAsset"], :string),
           timestamp: extract_field(trade, ["time", "timestamp"], :identity),
-          is_buyer: trade["isBuyer"] || false,
-          is_maker: trade["isMaker"] || false
+          is_buyer: extract_field(trade, ["isBuyer"], fn val -> val || false end),
+          is_maker: extract_field(trade, ["isMaker"], fn val -> val || false end)
         }
       end)
 
@@ -568,61 +579,65 @@ defmodule ZenCex.Adapters.Binance.Parser do
   @spec parse_account(map() | term()) :: {:ok, map()} | {:error, atom()}
   def parse_account(response) when is_map(response) do
     account = %{
-      fee_tier: response["feeTier"],
-      can_trade: response["canTrade"],
-      can_deposit: response["canDeposit"],
-      can_withdraw: response["canWithdraw"],
-      update_time: response["updateTime"],
-      total_initial_margin: safe_decimal_field(response["totalInitialMargin"]),
-      total_maint_margin: safe_decimal_field(response["totalMaintMargin"]),
-      total_wallet_balance: safe_decimal_field(response["totalWalletBalance"]),
-      total_unrealized_profit: safe_decimal_field(response["totalUnrealizedProfit"]),
-      total_margin_balance: safe_decimal_field(response["totalMarginBalance"]),
-      total_position_initial_margin: safe_decimal_field(response["totalPositionInitialMargin"]),
-      total_open_order_initial_margin: safe_decimal_field(response["totalOpenOrderInitialMargin"]),
-      total_cross_wallet_balance: safe_decimal_field(response["totalCrossWalletBalance"]),
-      total_cross_un_pnl: safe_decimal_field(response["totalCrossUnPnl"]),
-      available_balance: safe_decimal_field(response["availableBalance"]),
-      max_withdraw_amount: safe_decimal_field(response["maxWithdrawAmount"])
+      fee_tier: extract_field(response, ["feeTier"], :integer),
+      can_trade: extract_field(response, ["canTrade"], :identity),
+      can_deposit: extract_field(response, ["canDeposit"], :identity),
+      can_withdraw: extract_field(response, ["canWithdraw"], :identity),
+      update_time: extract_field(response, ["updateTime"], :integer),
+      total_initial_margin: extract_field(response, ["totalInitialMargin"], :decimal),
+      total_maint_margin: extract_field(response, ["totalMaintMargin"], :decimal),
+      total_wallet_balance: extract_field(response, ["totalWalletBalance"], :decimal),
+      total_unrealized_profit: extract_field(response, ["totalUnrealizedProfit"], :decimal),
+      total_margin_balance: extract_field(response, ["totalMarginBalance"], :decimal),
+      total_position_initial_margin: extract_field(response, ["totalPositionInitialMargin"], :decimal),
+      total_open_order_initial_margin: extract_field(response, ["totalOpenOrderInitialMargin"], :decimal),
+      total_cross_wallet_balance: extract_field(response, ["totalCrossWalletBalance"], :decimal),
+      total_cross_un_pnl: extract_field(response, ["totalCrossUnPnl"], :decimal),
+      available_balance: extract_field(response, ["availableBalance"], :decimal),
+      max_withdraw_amount: extract_field(response, ["maxWithdrawAmount"], :decimal)
     }
 
     # Add assets if present
     account =
-      if Map.has_key?(response, "assets") do
-        assets =
-          Enum.map(response["assets"], fn asset ->
-            %{
-              asset: asset["asset"],
-              wallet_balance: safe_decimal_field(asset["walletBalance"]),
-              unrealized_profit: safe_decimal_field(asset["unrealizedProfit"]),
-              margin_balance: safe_decimal_field(asset["marginBalance"]),
-              maint_margin: safe_decimal_field(asset["maintMargin"]),
-              initial_margin: safe_decimal_field(asset["initialMargin"]),
-              position_initial_margin: safe_decimal_field(asset["positionInitialMargin"]),
-              open_order_initial_margin: safe_decimal_field(asset["openOrderInitialMargin"]),
-              max_withdraw_amount: safe_decimal_field(asset["maxWithdrawAmount"]),
-              cross_wallet_balance: safe_decimal_field(asset["crossWalletBalance"]),
-              cross_un_pnl: safe_decimal_field(asset["crossUnPnl"]),
-              available_balance: safe_decimal_field(asset["availableBalance"])
-            }
-          end)
+      case extract_field(response, ["assets"], :identity) do
+        assets when is_list(assets) ->
+          parsed_assets =
+            Enum.map(assets, fn asset ->
+              %{
+                asset: extract_field(asset, ["asset"], :string),
+                wallet_balance: extract_field(asset, ["walletBalance"], :decimal),
+                unrealized_profit: extract_field(asset, ["unrealizedProfit"], :decimal),
+                margin_balance: extract_field(asset, ["marginBalance"], :decimal),
+                maint_margin: extract_field(asset, ["maintMargin"], :decimal),
+                initial_margin: extract_field(asset, ["initialMargin"], :decimal),
+                position_initial_margin: extract_field(asset, ["positionInitialMargin"], :decimal),
+                open_order_initial_margin: extract_field(asset, ["openOrderInitialMargin"], :decimal),
+                max_withdraw_amount: extract_field(asset, ["maxWithdrawAmount"], :decimal),
+                cross_wallet_balance: extract_field(asset, ["crossWalletBalance"], :decimal),
+                cross_un_pnl: extract_field(asset, ["crossUnPnl"], :decimal),
+                available_balance: extract_field(asset, ["availableBalance"], :decimal)
+              }
+            end)
 
-        Map.put(account, :assets, assets)
-      else
-        account
+          Map.put(account, :assets, parsed_assets)
+
+        _ ->
+          account
       end
 
     # Add positions if present
     account =
-      if Map.has_key?(response, "positions") do
-        positions =
-          Enum.map(response["positions"], fn pos ->
-            parse_futures_position(pos)
-          end)
+      case extract_field(response, ["positions"], :identity) do
+        positions when is_list(positions) ->
+          parsed_positions =
+            Enum.map(positions, fn pos ->
+              parse_futures_position(pos)
+            end)
 
-        Map.put(account, :positions, positions)
-      else
-        account
+          Map.put(account, :positions, parsed_positions)
+
+        _ ->
+          account
       end
 
     {:ok, account}
@@ -671,14 +686,14 @@ defmodule ZenCex.Adapters.Binance.Parser do
     income_records =
       Enum.map(response, fn record ->
         %{
-          symbol: record["symbol"],
-          income_type: normalize_income_type(record["incomeType"]),
+          symbol: extract_field(record, ["symbol"], :string),
+          income_type: normalize_income_type(extract_field(record, ["incomeType"], :string)),
           income: extract_field(record, ["income"], :decimal),
-          asset: record["asset"],
+          asset: extract_field(record, ["asset"], :string),
           timestamp: extract_field(record, ["time"], :identity),
-          info: record["info"],
-          transaction_id: record["tranId"],
-          trade_id: record["tradeId"]
+          info: extract_field(record, ["info"], :string),
+          transaction_id: extract_field(record, ["tranId"], :integer),
+          trade_id: extract_field(record, ["tradeId"], :string)
         }
       end)
 
@@ -745,10 +760,10 @@ defmodule ZenCex.Adapters.Binance.Parser do
   def parse_fees(response) when is_map(response) do
     fees = %{
       symbol: response["symbol"],
-      maker_commission: parse_commission_value(response["makerCommission"]),
-      taker_commission: parse_commission_value(response["takerCommission"]),
-      buyer_commission: parse_commission_value(response["buyerCommission"]),
-      seller_commission: parse_commission_value(response["sellerCommission"])
+      maker_commission: parse_commission_value(extract_field(response, ["makerCommission"], :identity)),
+      taker_commission: parse_commission_value(extract_field(response, ["takerCommission"], :identity)),
+      buyer_commission: parse_commission_value(extract_field(response, ["buyerCommission"], :identity)),
+      seller_commission: parse_commission_value(extract_field(response, ["sellerCommission"], :identity))
     }
 
     {:ok, fees}
@@ -765,8 +780,8 @@ defmodule ZenCex.Adapters.Binance.Parser do
       balances
       |> Enum.filter(fn balance ->
         # Only include assets with non-zero balances
-        free = safe_decimal_field(balance["free"])
-        locked = safe_decimal_field(balance["locked"])
+        free = extract_field(balance, ["free"], :decimal)
+        locked = extract_field(balance, ["locked"], :decimal)
 
         not (Decimal.equal?(free, Decimal.new("0")) and Decimal.equal?(locked, Decimal.new("0")))
       end)
@@ -778,12 +793,12 @@ defmodule ZenCex.Adapters.Binance.Parser do
   end
 
   defp convert_balance_to_position(balance) do
-    free = safe_decimal_field(balance["free"])
-    locked = safe_decimal_field(balance["locked"])
+    free = extract_field(balance, ["free"], :decimal)
+    locked = extract_field(balance, ["locked"], :decimal)
     total = Decimal.add(free, locked)
 
     %{
-      symbol: balance["asset"],
+      symbol: extract_field(balance, ["asset"], :string),
       side: :long,
       size: total,
       entry_price: Decimal.new("0"),
@@ -796,14 +811,14 @@ defmodule ZenCex.Adapters.Binance.Parser do
 
   defp parse_futures_position(position) do
     %{
-      symbol: position["symbol"],
-      side: normalize_position_side(position["positionSide"]),
+      symbol: extract_field(position, ["symbol"], :string),
+      side: normalize_position_side(extract_field(position, ["positionSide"], :string)),
       size: extract_field(position, ["positionAmt"], :decimal),
       entry_price: extract_field(position, ["entryPrice"], :decimal),
       mark_price: extract_field(position, ["markPrice"], :decimal),
       pnl: extract_field(position, ["unRealizedProfit"], :decimal),
       margin: extract_field(position, ["isolatedMargin", "initialMargin"], :decimal),
-      timestamp: position["updateTime"] || System.system_time(:millisecond)
+      timestamp: extract_field(position, ["updateTime"], fn val -> val || System.system_time(:millisecond) end)
     }
   end
 

@@ -37,7 +37,7 @@ defmodule ZenCex.Adapters.Binance.Common do
 
   # The EndpointRegistry macro automatically generates:
   # - get_server_time/0 and get_server_time/1
-  # - get_endpoint/1 
+  # - get_endpoint/1
   # - all_endpoints/0
   # - get_weight/1
 

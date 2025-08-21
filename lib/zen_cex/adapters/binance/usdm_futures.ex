@@ -15,53 +15,42 @@ defmodule ZenCex.Adapters.Binance.UsdmFutures do
 
   use ZenCex.EndpointRegistry, adapter: ZenCex.Adapters.Binance.Endpoints
 
+  alias ZenCex.Adapters.Binance.EndpointLoader
   alias ZenCex.Adapters.Binance.Parser
   alias ZenCex.Adapters.Binance.RequestHelper
 
+  require EndpointLoader
   require Logger
 
-  # Import generated endpoints from Postman collection
-  # This is loaded at compile time as a module attribute for safety
-  # Mark as external resource so recompilation happens when the file changes
-  @external_resource "lib/zen_cex/adapters/binance/generated_usdm_endpoints.ex"
+  # Timeout for order operations in milliseconds
+  @order_timeout_ms 2_000
 
-  # Load the endpoints file at compile time and convert to AST
-  @generated_endpoints (
-                         path = Path.join([__DIR__, "generated_usdm_endpoints.ex"])
-                         {:ok, content} = File.read(path)
-                         # Parse as Elixir code to get the AST
-                         {:ok, ast} = Code.string_to_quoted(content)
-                         # The file contains a list literal, evaluate it in a restricted context
-                         {result, _} = Code.eval_quoted(ast, [Parser: Parser], __ENV__)
-                         result
-                       )
+  # Load generated endpoints using the shared macro
+  EndpointLoader.load_endpoints("generated_usdm_endpoints.ex", fn endpoint ->
+    case endpoint.operation do
+      # Rename some operations for consistency
+      :futures_account_balance_v2 ->
+        %{endpoint | operation: :get_balances_v2}
 
-  # Apply customizations to generated endpoints if needed
-  @endpoints Enum.map(@generated_endpoints, fn endpoint ->
-               case endpoint.operation do
-                 # Rename some operations for consistency
-                 :futures_account_balance_v2 ->
-                   %{endpoint | operation: :get_balances_v2}
+      :futures_account_balance_v3 ->
+        %{endpoint | operation: :get_balances}
 
-                 :futures_account_balance_v3 ->
-                   %{endpoint | operation: :get_balances}
+      :position_information_v2 ->
+        %{endpoint | operation: :get_positions_v2}
 
-                 :position_information_v2 ->
-                   %{endpoint | operation: :get_positions_v2}
+      # Ensure critical operations have proper settings
+      op when op in [:place_order, :modify_order, :place_multiple_orders] ->
+        # Never retry order operations
+        %{endpoint | max_retries: 0, retry_on: [], timeout: @order_timeout_ms}
 
-                 # Ensure critical operations have proper settings
-                 op when op in [:place_order, :modify_order, :place_multiple_orders] ->
-                   # Never retry order operations
-                   %{endpoint | max_retries: 0, retry_on: [], timeout: 2_000}
+      op when op in [:cancel_order, :cancel_all_orders, :cancel_multiple_orders] ->
+        # Allow timeout retry for cancellations
+        %{endpoint | max_retries: 1, retry_on: [:timeout], timeout: @order_timeout_ms}
 
-                 op when op in [:cancel_order, :cancel_all_orders, :cancel_multiple_orders] ->
-                   # Allow timeout retry for cancellations
-                   %{endpoint | max_retries: 1, retry_on: [:timeout], timeout: 2_000}
-
-                 _ ->
-                   endpoint
-               end
-             end)
+      _ ->
+        endpoint
+    end
+  end)
 
   # The EndpointRegistry macro automatically generates functions for all endpoints:
   # - get_positions/1, place_order/1, cancel_order/1, etc.

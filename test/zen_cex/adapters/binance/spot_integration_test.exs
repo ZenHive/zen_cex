@@ -71,7 +71,7 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
     end
 
     test "get_trade_history with default params" do
-      # Will likely fail without symbol - document requirement  
+      # Will likely fail without symbol - document requirement
       result = Spot.get_trade_history()
       Logger.debug("TESTNET get_trade_history response: #{inspect(result)}")
 

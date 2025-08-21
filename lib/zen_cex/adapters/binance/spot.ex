@@ -11,64 +11,49 @@ defmodule ZenCex.Adapters.Binance.Spot do
 
   use ZenCex.EndpointRegistry, adapter: ZenCex.Adapters.Binance.Endpoints, debug: false
 
+  alias ZenCex.Adapters.Binance.EndpointLoader
   alias ZenCex.Adapters.Binance.Parser
   alias ZenCex.Adapters.Binance.RequestHelper
 
+  require EndpointLoader
   require Logger
 
   # Timeout for complex order operations (OCO, OTO, OTOCO) in milliseconds
   @complex_order_timeout_ms 2_000
 
-  # Import generated endpoints from OpenAPI specification
-  # This is loaded at compile time as a module attribute for safety
-  # Mark as external resource so recompilation happens when the file changes
-  @external_resource "lib/zen_cex/adapters/binance/generated_endpoints.ex"
+  # Load generated endpoints using the shared macro
+  EndpointLoader.load_endpoints("generated_endpoints.ex", fn endpoint ->
+    case endpoint.operation do
+      # Fix balances operation name and parser
+      :get_account ->
+        %{endpoint | operation: :get_balances, response_parser: &Parser.parse_balances/1}
 
-  # Load the endpoints file at compile time and convert to AST
-  # This is safer than Code.eval_file as it doesn't execute arbitrary code
-  @generated_endpoints (
-                         path = Path.join([__DIR__, "generated_endpoints.ex"])
-                         {:ok, content} = File.read(path)
-                         # Parse as Elixir code to get the AST
-                         {:ok, ast} = Code.string_to_quoted(content)
-                         # The file contains a list literal, evaluate it in a restricted context
-                         {result, _} = Code.eval_quoted(ast, [Parser: Parser], __ENV__)
-                         result
-                       )
+      # Fix account commission to use fees parser
+      :"get_account/commission" ->
+        %{endpoint | operation: :get_commission_rates, response_parser: &Parser.parse_fees/1}
 
-  # Apply customizations to generated endpoints
-  @endpoints Enum.map(@generated_endpoints, fn endpoint ->
-               case endpoint.operation do
-                 # Fix balances operation name and parser
-                 :get_account ->
-                   %{endpoint | operation: :get_balances, response_parser: &Parser.parse_balances/1}
+      # Fix some operation names to be more intuitive
+      :get_allOrders ->
+        %{endpoint | operation: :get_order_history}
 
-                 # Fix account commission to use fees parser
-                 :"get_account/commission" ->
-                   %{endpoint | operation: :get_commission_rates, response_parser: &Parser.parse_fees/1}
+      :get_allOrderList ->
+        %{endpoint | operation: :get_oco_history}
 
-                 # Fix some operation names to be more intuitive
-                 :get_allOrders ->
-                   %{endpoint | operation: :get_order_history}
+      :get_myTrades ->
+        %{endpoint | operation: :get_trade_history}
 
-                 :get_allOrderList ->
-                   %{endpoint | operation: :get_oco_history}
+      :delete_openOrders ->
+        %{endpoint | operation: :cancel_all_orders}
 
-                 :get_myTrades ->
-                   %{endpoint | operation: :get_trade_history}
+      # Fix timeout for OCO operations (they're complex)
+      op when op in [:"place_orderList/oco", :"place_orderList/oto", :"place_orderList/otoco"] ->
+        # Never retry complex orders
+        %{endpoint | timeout: @complex_order_timeout_ms, max_retries: 0, retry_on: []}
 
-                 :delete_openOrders ->
-                   %{endpoint | operation: :cancel_all_orders}
-
-                 # Fix timeout for OCO operations (they're complex)
-                 op when op in [:"place_orderList/oco", :"place_orderList/oto", :"place_orderList/otoco"] ->
-                   # Never retry complex orders
-                   %{endpoint | timeout: @complex_order_timeout_ms, max_retries: 0, retry_on: []}
-
-                 _ ->
-                   endpoint
-               end
-             end)
+      _ ->
+        endpoint
+    end
+  end)
 
   # The macro generates get_balances/1, place_order/1, cancel_order/1, get_order/1
   # along with their /2 variants and proper documentation

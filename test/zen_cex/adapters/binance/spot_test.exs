@@ -53,7 +53,7 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
       assert config.requires_auth == true
       # From generated smart defaults
       assert config.max_retries == 1
-      # From generated smart defaults  
+      # From generated smart defaults
       assert config.retry_on == [:timeout]
       assert config.timeout == 2_000
     end

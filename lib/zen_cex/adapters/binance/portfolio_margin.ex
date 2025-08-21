@@ -94,30 +94,17 @@ defmodule ZenCex.Adapters.Binance.PortfolioMargin do
 
   use ZenCex.EndpointRegistry, adapter: ZenCex.Adapters.Binance.Endpoints
 
+  alias ZenCex.Adapters.Binance.EndpointLoader
   alias ZenCex.Adapters.Binance.Parser
   alias ZenCex.Adapters.Binance.ProductDetector
 
+  require EndpointLoader
   require Logger
 
-  # Import generated endpoints from Postman collection
-  # This is loaded at compile time as a module attribute for safety
-  # Mark as external resource so recompilation happens when the file changes
-  @external_resource "lib/zen_cex/adapters/binance/generated_portfolio_endpoints.ex"
-
-  # Load the endpoints file at compile time and convert to AST
-  @generated_endpoints (
-                         path = Path.join([__DIR__, "generated_portfolio_endpoints.ex"])
-                         {:ok, content} = File.read(path)
-                         # Parse as Elixir code to get the AST
-                         {:ok, ast} = Code.string_to_quoted(content)
-                         # The file contains a list literal, evaluate it in a restricted context
-                         {result, _} = Code.eval_quoted(ast, [Parser: Parser], __ENV__)
-                         result
-                       )
-
+  # Load generated endpoints using the shared macro
   # Use endpoints directly without renaming to maintain simplicity
   # This ensures generated tests match actual function names
-  @endpoints @generated_endpoints
+  EndpointLoader.load_endpoints("generated_portfolio_endpoints.ex")
 
   # Custom operations that require special handling
   @doc """
