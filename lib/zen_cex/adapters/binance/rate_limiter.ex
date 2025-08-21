@@ -35,6 +35,15 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
   @warning_threshold 0.80
   @critical_threshold 0.95
 
+  # Time conversion constants
+  @seconds_per_minute 60
+  # Number of minutes to keep in ETS before cleanup
+  @cleanup_age_minutes 2
+  # Next minute offset for reset calculation
+  @next_minute_offset 1
+  # Percentage conversion
+  @percentage_multiplier 100
+
   # Emergency operations that should never be blocked
   @emergency_operations ~w[
     /api/v3/order
@@ -208,7 +217,7 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
 
   defp current_minute do
     # Get current minute as unix timestamp
-    :second |> System.system_time() |> div(60)
+    :second |> System.system_time() |> div(@seconds_per_minute)
   end
 
   defp parse_weight_header(value) when is_binary(value) do
@@ -229,14 +238,20 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
 
     cond do
       usage_percent >= @critical_threshold ->
-        Logger.critical("Binance #{api_type} API at #{round(usage_percent * 100)}% of rate limit (#{used}/#{limit})")
+        Logger.critical(
+          "Binance #{api_type} API at #{round(usage_percent * @percentage_multiplier)}% of rate limit (#{used}/#{limit})"
+        )
 
       usage_percent >= @warning_threshold ->
-        Logger.warning("Binance #{api_type} API at #{round(usage_percent * 100)}% of rate limit (#{used}/#{limit})")
+        Logger.warning(
+          "Binance #{api_type} API at #{round(usage_percent * @percentage_multiplier)}% of rate limit (#{used}/#{limit})"
+        )
 
       true ->
         # Below warning threshold, optionally log debug
-        Logger.debug("Binance #{api_type} API usage: #{used}/#{limit} (#{round(usage_percent * 100)}%)")
+        Logger.debug(
+          "Binance #{api_type} API usage: #{used}/#{limit} (#{round(usage_percent * @percentage_multiplier)}%)"
+        )
     end
   end
 
@@ -263,13 +278,13 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
       %{
         used: used,
         limit: limit,
-        window: 60,
-        reset_at: (current_minute() + 1) * 60,
-        usage_percent: round(used / limit * 100)
+        window: @seconds_per_minute,
+        reset_at: (current_minute() + @next_minute_offset) * @seconds_per_minute,
+        usage_percent: round(used / limit * @percentage_multiplier)
       }
     catch
       _error, _reason ->
-        %{used: 0, limit: limit, window: 60, reset_at: 0, usage_percent: 0}
+        %{used: 0, limit: limit, window: @seconds_per_minute, reset_at: 0, usage_percent: 0}
     end
   end
 
@@ -291,9 +306,9 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
     table = get_or_create_table()
     current = current_minute()
 
-    # Delete entries older than 2 minutes
+    # Delete entries older than cleanup age
     :ets.select_delete(table, [
-      {{{:"$1", :"$2"}, :_}, [{:<, :"$2", current - 2}], [true]}
+      {{{:"$1", :"$2"}, :_}, [{:<, :"$2", current - @cleanup_age_minutes}], [true]}
     ])
   catch
     _error, _reason ->

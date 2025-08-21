@@ -61,6 +61,30 @@ defmodule ZenCex.Core.HTTP do
   # Jitter range for exponential backoff in milliseconds
   @jitter_range_ms 500
 
+  # Operation timeout values in milliseconds
+  # Critical path operations (order placement/cancellation)
+  @trading_timeout_ms 2_000
+  # Real-time market data queries
+  @market_timeout_ms 5_000
+  # Large dataset queries (historical data)
+  @historical_timeout_ms 30_000
+  # Health check endpoints
+  @health_timeout_ms 5_000
+  # Default for unspecified operations
+  @default_timeout_ms 30_000
+
+  # Exponential backoff parameters
+  # Initial backoff delay in milliseconds
+  @base_backoff_ms 1_000
+  # Maximum exponent for exponential backoff (2^10 = 1024)
+  @max_backoff_exponent 10
+  # Maximum backoff delay cap in milliseconds
+  @max_backoff_ms 60_000
+
+  # Rate limit response parameters
+  # Convert milliseconds to seconds
+  @seconds_per_millisecond_divisor 1_000
+
   @doc """
   Creates a base Req request configured for the specified exchange and operation type.
 
@@ -80,11 +104,11 @@ defmodule ZenCex.Core.HTTP do
 
       iex> request = ZenCex.Core.HTTP.base_request(:binance, :trading)
       iex> request.options[:receive_timeout]
-      2000
+      2000  # 2 seconds for trading operations
 
       iex> request = ZenCex.Core.HTTP.base_request(:kraken, :historical)
       iex> request.options[:receive_timeout]
-      30000
+      30000  # 30 seconds for historical data
   """
   @spec base_request(atom(), atom()) :: Req.Request.t()
   def base_request(exchange, operation_type \\ :standard) do
@@ -175,7 +199,7 @@ defmodule ZenCex.Core.HTTP do
            %Req.Response{
              status: 429,
              body: "Rate limited",
-             headers: [{"retry-after", Integer.to_string(div(retry_after_ms, 1000))}]
+             headers: [{"retry-after", Integer.to_string(div(retry_after_ms, @seconds_per_millisecond_divisor))}]
            }}
       end
     end
@@ -305,19 +329,19 @@ defmodule ZenCex.Core.HTTP do
   @spec get_timeout(atom()) :: non_neg_integer()
   defp get_timeout(operation_type) do
     case operation_type do
-      :trading -> 2_000
-      :market -> 5_000
-      :historical -> 30_000
-      :health -> 5_000
-      _ -> 30_000
+      :trading -> @trading_timeout_ms
+      :market -> @market_timeout_ms
+      :historical -> @historical_timeout_ms
+      :health -> @health_timeout_ms
+      _ -> @default_timeout_ms
     end
   end
 
   @spec exponential_backoff_with_jitter(non_neg_integer()) :: non_neg_integer()
   defp exponential_backoff_with_jitter(n) do
-    base_ms = min(1000 * 2 ** min(n, 10), 60_000)
+    base_ms = min(@base_backoff_ms * 2 ** min(n, @max_backoff_exponent), @max_backoff_ms)
     jitter_ms = :rand.uniform(@jitter_range_ms)
-    min(base_ms + jitter_ms, 60_000)
+    min(base_ms + jitter_ms, @max_backoff_ms)
   end
 
   @spec get_endpoint(Req.Request.t()) :: String.t()

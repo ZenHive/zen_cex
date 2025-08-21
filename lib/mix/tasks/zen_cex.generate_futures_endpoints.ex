@@ -23,6 +23,9 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
 
   use Mix.Task
 
+  # Default timeout for generated endpoints in milliseconds
+  @default_endpoint_timeout_ms 5_000
+
   # Core trading and account operations - skip market data
   @trading_operations [
     # Account operations
@@ -187,7 +190,7 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
         api_type: api_type,
         requires_auth: requires_auth?(item["name"]),
         weight: extract_weight_from_name(item["name"]),
-        timeout: 5_000,
+        timeout: @default_endpoint_timeout_ms,
         max_retries: 2,
         retry_on: [:rate_limited, :timeout],
         response_parser: derive_parser_from_path(path),

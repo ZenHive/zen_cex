@@ -20,6 +20,9 @@ defmodule Mix.Tasks.ZenCex.GenerateEndpoints do
 
   use Mix.Task
 
+  # Default timeout for generated endpoints in milliseconds
+  @default_endpoint_timeout_ms 5_000
+
   # Core trading and account operations - skip market data
   @trading_patterns [
     # Account endpoints
@@ -155,7 +158,7 @@ defmodule Mix.Tasks.ZenCex.GenerateEndpoints do
           requires_auth: requires_authentication?(spec),
           weight: extract_weight(spec),
           # Default, will be overridden by smart defaults
-          timeout: 5_000,
+          timeout: @default_endpoint_timeout_ms,
           # Default, will be overridden by smart defaults
           max_retries: 2,
           # Default

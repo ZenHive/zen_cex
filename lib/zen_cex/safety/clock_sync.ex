@@ -47,6 +47,10 @@ defmodule ZenCex.Safety.ClockSync do
   @max_skew_warning_ms 1000
   # Request timeout for time sync requests
   @sync_timeout_ms 5000
+  # GenServer call timeout buffer in milliseconds
+  @genserver_timeout_buffer_ms 1000
+  # Maximum exchanges multiplier for parallel sync
+  @max_exchanges_multiplier 3
 
   # Client API
 
@@ -128,7 +132,7 @@ defmodule ZenCex.Safety.ClockSync do
   """
   @spec sync_exchange(atom()) :: {:ok, integer()} | {:error, term()}
   def sync_exchange(exchange) do
-    GenServer.call(__MODULE__, {:sync_exchange, exchange}, @sync_timeout_ms + 1000)
+    GenServer.call(__MODULE__, {:sync_exchange, exchange}, @sync_timeout_ms + @genserver_timeout_buffer_ms)
   end
 
   @doc """
@@ -144,7 +148,11 @@ defmodule ZenCex.Safety.ClockSync do
   """
   @spec sync_all_exchanges() :: %{atom() => {:ok, integer()} | {:error, term()}}
   def sync_all_exchanges do
-    GenServer.call(__MODULE__, :sync_all_exchanges, @sync_timeout_ms * 3 + 1000)
+    GenServer.call(
+      __MODULE__,
+      :sync_all_exchanges,
+      @sync_timeout_ms * @max_exchanges_multiplier + @genserver_timeout_buffer_ms
+    )
   end
 
   @doc """

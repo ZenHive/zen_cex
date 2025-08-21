@@ -16,6 +16,9 @@ defmodule ZenCex.Adapters.Binance.Spot do
 
   require Logger
 
+  # Timeout for complex order operations (OCO, OTO, OTOCO) in milliseconds
+  @complex_order_timeout_ms 2_000
+
   # Import generated endpoints from OpenAPI specification
   # This is loaded at compile time as a module attribute for safety
   # Mark as external resource so recompilation happens when the file changes
@@ -40,7 +43,7 @@ defmodule ZenCex.Adapters.Binance.Spot do
                  :get_account ->
                    %{endpoint | operation: :get_balances, response_parser: &Parser.parse_balances/1}
 
-                 # Fix account commission to use fees parser  
+                 # Fix account commission to use fees parser
                  :"get_account/commission" ->
                    %{endpoint | operation: :get_commission_rates, response_parser: &Parser.parse_fees/1}
 
@@ -60,7 +63,7 @@ defmodule ZenCex.Adapters.Binance.Spot do
                  # Fix timeout for OCO operations (they're complex)
                  op when op in [:"place_orderList/oco", :"place_orderList/oto", :"place_orderList/otoco"] ->
                    # Never retry complex orders
-                   %{endpoint | timeout: 2_000, max_retries: 0, retry_on: []}
+                   %{endpoint | timeout: @complex_order_timeout_ms, max_retries: 0, retry_on: []}
 
                  _ ->
                    endpoint
@@ -93,7 +96,7 @@ defmodule ZenCex.Adapters.Binance.Spot do
   end
 
   # The EndpointRegistry macro automatically generates:
-  # - get_endpoint/1 
+  # - get_endpoint/1
   # - all_endpoints/0
   # - get_weight/1
   # - Individual endpoint functions with proper specs and docs
