@@ -318,7 +318,7 @@ defmodule ZenCex.Adapters.Binance.Strategies do
   end
 
   defp get_current_prices(balances) do
-    # Runtime check to prevent placeholder prices in production
+    # TODO: Runtime check to prevent placeholder prices in production
     env = ZenCex.Config.environment(:binance)
 
     if env == :prod do
@@ -354,7 +354,8 @@ defmodule ZenCex.Adapters.Binance.Strategies do
           # TODO: For testnet only - use a placeholder price since ticker endpoints 
           # are not available in current spot module
           # This is acceptable in testnet for development purposes
-          Logger.warning("[TESTNET] Using placeholder price for #{symbol} - implement real price fetching")
+          # TODO: implement real price fetching for testnet
+          Logger.warning("[TESTNET] Using placeholder price for #{symbol}")
           # Use non-zero price for testnet
           {symbol, Decimal.new("1000")}
         end)

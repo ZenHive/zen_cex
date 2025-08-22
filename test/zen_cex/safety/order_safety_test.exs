@@ -117,7 +117,7 @@ defmodule ZenCex.Safety.OrderSafetyTest do
       assert 0 = OrderSafety.cleanup_expired()
 
       stats = OrderSafety.get_stats()
-      assert stats.total_entries == 2
+      assert stats.idempotency_entries == 2
     end
   end
 
@@ -140,26 +140,26 @@ defmodule ZenCex.Safety.OrderSafetyTest do
       stats = OrderSafety.get_stats()
 
       assert is_map(stats)
-      assert Map.has_key?(stats, :total_entries)
+      assert Map.has_key?(stats, :idempotency_entries)
       assert Map.has_key?(stats, :window_ms)
-      assert Map.has_key?(stats, :memory_bytes)
+      assert Map.has_key?(stats, :total_memory_bytes)
 
-      assert stats.total_entries == 0
+      assert stats.idempotency_entries == 0
       # 30 minutes
       assert stats.window_ms == 30 * 60 * 1000
-      assert is_integer(stats.memory_bytes)
+      assert is_integer(stats.total_memory_bytes)
     end
 
     test "stats reflect current state" do
       initial_stats = OrderSafety.get_stats()
-      assert initial_stats.total_entries == 0
+      assert initial_stats.idempotency_entries == 0
 
       OrderSafety.record_order(:binance, "stat_test_1")
       OrderSafety.record_order(:kraken, "stat_test_2")
 
       updated_stats = OrderSafety.get_stats()
-      assert updated_stats.total_entries == 2
-      assert updated_stats.memory_bytes > initial_stats.memory_bytes
+      assert updated_stats.idempotency_entries == 2
+      assert updated_stats.total_memory_bytes > initial_stats.total_memory_bytes
     end
   end
 
@@ -171,12 +171,12 @@ defmodule ZenCex.Safety.OrderSafetyTest do
       OrderSafety.record_order(:deribit, "clear_3")
 
       stats = OrderSafety.get_stats()
-      assert stats.total_entries == 3
+      assert stats.idempotency_entries == 3
 
       assert :ok = OrderSafety.clear_all()
 
       stats = OrderSafety.get_stats()
-      assert stats.total_entries == 0
+      assert stats.idempotency_entries == 0
 
       # All should be new again
       assert {:ok, :new} = OrderSafety.check_existing_order(:binance, "clear_1")
@@ -257,6 +257,280 @@ defmodule ZenCex.Safety.OrderSafetyTest do
       # (In a real test, we'd need to mock time or wait 30 minutes)
       stats = OrderSafety.get_stats()
       assert stats.window_ms == 30 * 60 * 1000
+    end
+  end
+
+  # === NEW VALIDATION TESTS ===
+
+  describe "validate_order/2 - comprehensive validation" do
+    test "validates complete order successfully" do
+      # Enable trading first
+      OrderSafety.set_kill_switch(:binance, true)
+
+      valid_order = %{
+        symbol: "BTCUSDT",
+        side: :buy,
+        type: :limit,
+        quantity: "0.001",
+        price: "50000.00"
+      }
+
+      assert {:ok, validated_params} = OrderSafety.validate_order(:binance, valid_order)
+      assert Map.has_key?(validated_params, :client_order_id)
+      assert validated_params.symbol == "BTCUSDT"
+    end
+
+    test "rejects order when kill switch is active" do
+      OrderSafety.set_kill_switch(:binance, false)
+
+      order = %{symbol: "BTCUSDT", side: :buy, quantity: "0.001"}
+
+      assert {:error, :kill_switch_active} = OrderSafety.validate_order(:binance, order)
+    end
+
+    test "rejects order with invalid symbol" do
+      OrderSafety.set_kill_switch(:binance, true)
+
+      order = %{symbol: "INVALID", side: :buy, quantity: "0.001"}
+
+      assert {:error, {:invalid_symbol, "INVALID"}} = OrderSafety.validate_order(:binance, order)
+    end
+
+    test "rejects duplicate order" do
+      OrderSafety.set_kill_switch(:binance, true)
+
+      order = %{
+        symbol: "BTCUSDT",
+        side: :buy,
+        quantity: "0.001",
+        price: "50000.00",
+        client_order_id: "test_duplicate_#{System.unique_integer()}"
+      }
+
+      # First validation should succeed
+      assert {:ok, _} = OrderSafety.validate_order(:binance, order)
+
+      # Record the order
+      assert :ok = OrderSafety.record_order(:binance, order.client_order_id)
+
+      # Second validation should fail due to duplicate
+      assert {:error, :duplicate} = OrderSafety.validate_order(:binance, order)
+    end
+  end
+
+  describe "kill switch functionality" do
+    test "set_kill_switch/2 enables and disables trading" do
+      # Test enabling
+      assert :ok = OrderSafety.set_kill_switch(:binance, true)
+      assert OrderSafety.trading_enabled?(:binance) == true
+
+      # Test disabling
+      assert :ok = OrderSafety.set_kill_switch(:binance, false)
+      assert OrderSafety.trading_enabled?(:binance) == false
+    end
+
+    test "trading_enabled?/1 defaults to true for unknown exchange" do
+      assert OrderSafety.trading_enabled?(:unknown_exchange) == true
+    end
+
+    test "get_kill_switch_status/0 returns all exchanges" do
+      OrderSafety.set_kill_switch(:binance, false)
+      OrderSafety.set_kill_switch(:kraken, true)
+
+      status = OrderSafety.get_kill_switch_status()
+
+      assert is_map(status)
+      assert status[:binance] == false
+      assert status[:kraken] == true
+    end
+  end
+
+  describe "symbol validation" do
+    test "validate_symbol/2 accepts valid trading symbols" do
+      # Stub returns valid status for USDT pairs
+      assert :ok = OrderSafety.validate_symbol(:binance, "BTCUSDT")
+      assert :ok = OrderSafety.validate_symbol(:binance, "ETHUSDT")
+    end
+
+    test "validate_symbol/2 rejects invalid symbols" do
+      assert {:error, {:invalid_symbol, "INVALID"}} = OrderSafety.validate_symbol(:binance, "INVALID")
+    end
+
+    test "validate_symbol/2 rejects non-string symbols" do
+      assert {:error, {:invalid_symbol_type, _}} = OrderSafety.validate_symbol(:binance, :invalid)
+      assert {:error, {:invalid_symbol_type, _}} = OrderSafety.validate_symbol(:binance, 123)
+    end
+  end
+
+  describe "balance validation" do
+    test "validate_balance_for_order/2 validates buy orders" do
+      # Stub returns sufficient balance
+      order = %{symbol: "BTCUSDT", side: :buy, quantity: "0.001", price: "50000.00"}
+
+      assert :ok = OrderSafety.validate_balance_for_order(:binance, order)
+    end
+
+    test "validate_balance_for_order/2 validates sell orders" do
+      order = %{symbol: "BTCUSDT", side: :sell, quantity: "0.001"}
+
+      assert :ok = OrderSafety.validate_balance_for_order(:binance, order)
+    end
+
+    test "validate_balance_for_order/2 rejects invalid side" do
+      order = %{symbol: "BTCUSDT", side: :invalid, quantity: "0.001"}
+
+      assert {:error, {:invalid_side, :invalid}} = OrderSafety.validate_balance_for_order(:binance, order)
+    end
+
+    test "validate_balance_for_order/2 requires all parameters" do
+      assert {:error, {:missing_required_params, _}} = OrderSafety.validate_balance_for_order(:binance, %{})
+    end
+
+    test "validate_balance/3 with Decimal amounts" do
+      required_amount = Decimal.new("10.5")
+
+      # Stub returns 1000.0 balance which is sufficient
+      assert :ok = OrderSafety.validate_balance(:binance, "USDT", required_amount)
+    end
+  end
+
+  describe "notional validation" do
+    test "validate_notional_for_order/2 validates sufficient notional" do
+      order = %{symbol: "BTCUSDT", price: "50000.00", quantity: "0.001"}
+
+      assert :ok = OrderSafety.validate_notional_for_order(:binance, order)
+    end
+
+    test "validate_notional_for_order/2 allows market orders" do
+      order = %{symbol: "BTCUSDT", type: :market, quantity: "0.001"}
+
+      assert :ok = OrderSafety.validate_notional_for_order(:binance, order)
+    end
+
+    test "validate_notional_for_order/2 requires symbol" do
+      order = %{price: "50000.00", quantity: "0.001"}
+
+      assert {:error, {:missing_required_params, _}} = OrderSafety.validate_notional_for_order(:binance, order)
+    end
+
+    test "validate_notional/3 with specific values" do
+      # Default minimum is 10.00 for Binance
+      sufficient_notional = Decimal.new("50.00")
+      insufficient_notional = Decimal.new("5.00")
+
+      assert :ok = OrderSafety.validate_notional(:binance, "BTCUSDT", sufficient_notional)
+
+      assert {:error, {:notional_too_small, _}} =
+               OrderSafety.validate_notional(:binance, "BTCUSDT", insufficient_notional)
+    end
+  end
+
+  describe "price and size validation" do
+    test "validate_price_and_size/2 validates limit orders" do
+      order = %{symbol: "BTCUSDT", quantity: "0.001", price: "50000.00"}
+
+      assert :ok = OrderSafety.validate_price_and_size(:binance, order)
+    end
+
+    test "validate_price_and_size/2 validates market orders" do
+      order = %{symbol: "BTCUSDT", quantity: "0.001", type: :market}
+
+      assert :ok = OrderSafety.validate_price_and_size(:binance, order)
+    end
+
+    test "validate_price_and_size/2 rejects negative quantities" do
+      order = %{symbol: "BTCUSDT", quantity: "-0.001"}
+
+      assert {:error, {:invalid_quantity, _}} = OrderSafety.validate_price_and_size(:binance, order)
+    end
+
+    test "validate_price_and_size/2 rejects invalid quantity format" do
+      order = %{symbol: "BTCUSDT", quantity: "invalid"}
+
+      assert {:error, {:invalid_quantity_format, _}} = OrderSafety.validate_price_and_size(:binance, order)
+    end
+
+    test "validate_price_and_size/2 rejects negative prices" do
+      order = %{symbol: "BTCUSDT", quantity: "0.001", price: "-50000.00"}
+
+      assert {:error, {:invalid_price, _}} = OrderSafety.validate_price_and_size(:binance, order)
+    end
+
+    test "validate_price_and_size/2 rejects invalid price format" do
+      order = %{symbol: "BTCUSDT", quantity: "0.001", price: "invalid"}
+
+      assert {:error, {:invalid_price_format, _}} = OrderSafety.validate_price_and_size(:binance, order)
+    end
+
+    test "validate_price_and_size/2 requires symbol and quantity" do
+      assert {:error, {:missing_required_params, _}} = OrderSafety.validate_price_and_size(:binance, %{})
+    end
+  end
+
+  describe "updated get_stats/0" do
+    test "returns comprehensive statistics" do
+      # Add some data to tables
+      OrderSafety.record_order(:binance, "test_order_1")
+      OrderSafety.set_kill_switch(:binance, true)
+
+      stats = OrderSafety.get_stats()
+
+      assert is_map(stats)
+      assert Map.has_key?(stats, :idempotency_entries)
+      assert Map.has_key?(stats, :symbol_cache_entries)
+      assert Map.has_key?(stats, :kill_switch_entries)
+      assert Map.has_key?(stats, :window_ms)
+      assert Map.has_key?(stats, :symbol_cache_ttl_ms)
+      assert Map.has_key?(stats, :total_memory_bytes)
+
+      assert stats.idempotency_entries >= 1
+      assert stats.kill_switch_entries >= 1
+      # 30 minutes
+      assert stats.window_ms == 30 * 60 * 1000
+      # 5 minutes
+      assert stats.symbol_cache_ttl_ms == 5 * 60 * 1000
+      assert is_integer(stats.total_memory_bytes)
+    end
+  end
+
+  describe "updated clear_all/0" do
+    test "clears all caches and resets kill switch" do
+      # Add data to all tables
+      OrderSafety.record_order(:binance, "test_order")
+      OrderSafety.set_kill_switch(:binance, false)
+
+      stats_before = OrderSafety.get_stats()
+      assert stats_before.idempotency_entries > 0
+      assert OrderSafety.trading_enabled?(:binance) == false
+
+      # Clear all
+      assert :ok = OrderSafety.clear_all()
+
+      # Verify everything is cleared and reset
+      stats_after = OrderSafety.get_stats()
+      assert stats_after.idempotency_entries == 0
+      assert stats_after.symbol_cache_entries == 0
+
+      # Kill switch should be reset to enabled
+      assert OrderSafety.trading_enabled?(:binance) == true
+      assert OrderSafety.trading_enabled?(:kraken) == true
+    end
+  end
+
+  describe "cleanup_expired/0 with multiple tables" do
+    test "cleans up both idempotency and symbol cache" do
+      # Add some orders and simulate caching
+      OrderSafety.record_order(:binance, "cleanup_test_1")
+      OrderSafety.record_order(:binance, "cleanup_test_2")
+
+      # Immediate cleanup should not remove recent entries
+      deleted_count = OrderSafety.cleanup_expired()
+
+      # Should not delete recent entries
+      assert deleted_count == 0
+
+      stats = OrderSafety.get_stats()
+      assert stats.idempotency_entries == 2
     end
   end
 

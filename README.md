@@ -98,6 +98,39 @@ The `Adapters` namespace accurately reflects that these modules work together to
 ### Key Technologies
 - **HTTP Client**: Req with middleware pipeline (REST only)
 - **Rate Limiting**: ETS atomic counters for REST endpoints
+- **Order Safety**: Pre-trade validation with balance checks, symbol validation, kill switches
+- **Idempotency**: 30-minute sliding window duplicate protection
+
+## Order Safety Features
+
+```elixir
+# Comprehensive pre-trade validation
+order_params = %{
+  symbol: "BTCUSDT",
+  side: :buy,
+  quantity: "0.001",
+  price: "50000.00"
+}
+
+case ZenCex.Safety.OrderSafety.validate_order(:binance, order_params) do
+  {:ok, validated_params} ->
+    # Order is safe to place
+    Binance.Endpoints.spot_place_order(validated_params)
+  
+  {:error, :kill_switch_active} ->
+    # Trading disabled globally
+    
+  {:error, {:insufficient_balance, details}} ->
+    # Not enough funds
+    
+  {:error, :duplicate} ->
+    # Order already exists (idempotency check)
+end
+
+# Emergency kill switch
+ZenCex.Safety.OrderSafety.set_kill_switch(:binance, false)  # Disable all trading
+ZenCex.Safety.OrderSafety.set_kill_switch(:binance, true)   # Re-enable trading
+```
 - **Testing**: Req.Test for unit tests, real APIs for integration
 - **Auth**: Exchange-specific for REST APIs (HMAC, Nonce, OAuth2)
 - **Scope**: REST APIs only - no WebSocket, no FIX, no binary protocols
