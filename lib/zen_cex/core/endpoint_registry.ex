@@ -623,6 +623,7 @@ defmodule ZenCex.EndpointRegistry do
         |> Req.Request.put_private(:rate_limit_weight, config.weight)
         |> Req.Request.put_private(:endpoint_config, config)
         |> Req.Request.put_private(:endpoint_operation, config.operation)
+        |> Req.Request.put_private(:zen_cex_operation, config.operation)
       end
     end
   end

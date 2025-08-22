@@ -22,29 +22,29 @@ defmodule ZenCex.Adapters.Binance.RateLimiterTest do
   end
 
   describe "update_from_response/1" do
-    test "logs warning when approaching rate limit (80%)" do
+    test "logs warning when approaching rate limit (80% of regular capacity)" do
       response = %Req.Response{
         status: 200,
         headers: [
-          # 80% of 1200
-          {"x-mbx-used-weight-1m", "960"}
+          # 80% of regular capacity (864 out of 1080)
+          {"x-mbx-used-weight-1m", "864"}
         ],
         body: %{}
       }
 
       log =
-        capture_log([level: :warning], fn ->
+        capture_log([level: :info], fn ->
           assert :ok = RateLimiter.update_from_response(response)
         end)
 
-      assert log =~ "Binance spot API at 80% of rate limit"
+      assert log =~ "Binance spot API at 80% of regular capacity"
     end
 
-    test "logs critical when near rate limit (95%)" do
+    test "logs critical when in emergency reserve zone" do
       response = %Req.Response{
         status: 200,
         headers: [
-          # 95% of 1200
+          # In emergency reserve (1140 > 1080 regular limit)
           {"x-mbx-used-weight-1m", "1140"}
         ],
         body: %{}
@@ -55,25 +55,26 @@ defmodule ZenCex.Adapters.Binance.RateLimiterTest do
           assert :ok = RateLimiter.update_from_response(response)
         end)
 
-      assert log =~ "Binance spot API at 95% of rate limit"
+      assert log =~ "Binance spot API using EMERGENCY RESERVE"
+      assert log =~ "95% of total limit"
     end
 
     test "handles SAPI rate limit headers" do
       response = %Req.Response{
         status: 200,
         headers: [
-          # 80% of 12000
-          {"x-sapi-used-ip-weight-1m", "9600"}
+          # 80% of regular capacity for SAPI (8640 out of 10800)
+          {"x-sapi-used-ip-weight-1m", "8640"}
         ],
         body: %{}
       }
 
       log =
-        capture_log([level: :warning], fn ->
+        capture_log([level: :info], fn ->
           assert :ok = RateLimiter.update_from_response(response)
         end)
 
-      assert log =~ "Binance sapi API at 80% of rate limit"
+      assert log =~ "Binance sapi API at 80% of regular capacity"
     end
 
     test "handles missing headers gracefully" do

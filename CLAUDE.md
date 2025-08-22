@@ -29,6 +29,7 @@ ZenCex is an Elixir library for centralized cryptocurrency exchange (CEX) REST A
 
 **Current Implementation Status:**
 - **Binance**: Fully implemented with comprehensive endpoint coverage across Spot, Margin, USD-M Futures, COIN-M Futures APIs
+- **Bybit**: Not yet implemented (planned - Task 17)
 - **Kraken**: Partial implementation (auth, rate limiter, basic structure)
 - **Deribit**: Partial implementation (OAuth auth, basic structure)
 
@@ -279,6 +280,11 @@ The Binance adapter is the most complete implementation supporting multiple API 
    - `product_detector.ex` - API type detection
    - `strategies.ex` - Trading strategy helpers
 
+#### Bybit Adapter (Not Yet Implemented - Task 17)
+- Planned for unified v5 API support
+- Will support Spot, Linear, and Inverse derivatives
+- HMAC-SHA256 authentication similar to Binance
+
 #### Kraken & Deribit Adapters (Partial Implementation)
 - Basic auth and rate limiter modules exist
 - Full endpoint implementation pending
@@ -345,6 +351,12 @@ Endpoints.get_endpoint_info(:spot_get_balances)
 - Separate rate limits maintained per API type
 - ClockSync handles time synchronization per API type
 
+### Bybit (Not Yet Implemented)
+- Unified v5 API for all product types
+- HMAC-SHA256 authentication like Binance
+- Category parameter required for product type
+- Testnet at testnet.bybit.com
+
 ### Kraken
 - Uses nonce-based authentication (microseconds + counter)
 - All private endpoints use POST with `application/x-www-form-urlencoded`
@@ -364,6 +376,10 @@ Required for authenticated operations:
 # Binance
 BINANCE_API_KEY=your_key
 BINANCE_API_SECRET=your_secret
+
+# Bybit (when implemented)
+BYBIT_API_KEY=your_key
+BYBIT_API_SECRET=your_secret
 
 # Kraken
 KRAKEN_API_KEY=your_key
@@ -566,6 +582,7 @@ No mocks. No fixtures. No simulation. Just real testnet APIs.
 # These are the ONLY allowed URLs in test environment
 @test_hosts %{
   binance: "testnet.binance.vision",
+  bybit: "api-testnet.bybit.com",
   kraken: "api.kraken.com",  # Uses different endpoints for testnet
   deribit: "test.deribit.com"
 }

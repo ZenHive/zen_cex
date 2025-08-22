@@ -194,8 +194,11 @@ defmodule ZenCex.Core.HTTP do
       # Get weight from request.private if set by endpoint registry, otherwise default to 1
       weight = get_in(request.private, [:rate_limit_weight]) || 1
 
-      # Check rate limit with weight
-      case rate_limiter.check_and_increment(endpoint, weight) do
+      # Get operation atom if set by endpoint registry (for emergency detection)
+      operation = get_in(request.private, [:zen_cex_operation])
+
+      # Check rate limit with weight and operation
+      case rate_limiter.check_and_increment(endpoint, weight, operation) do
         :ok ->
           request
 

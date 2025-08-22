@@ -69,12 +69,14 @@ We want pragmatic simplicity, not naive simplicity. This means choosing solution
 # These are the ONLY allowed URLs in test environment
 @test_hosts %{
   binance: "testnet.binance.vision",
+  bybit: "api-testnet.bybit.com",
   kraken: "api.kraken.com",  # Uses different endpoints for testnet
   deribit: "test.deribit.com"
 }
 
 # Tests MUST verify testnet usage
 assert Application.get_env(:zen_cex, :binance_host) == "testnet.binance.vision"
+assert Application.get_env(:zen_cex, :bybit_host) == "api-testnet.bybit.com"
 ```
 
 ### Environment Variable Naming
@@ -85,9 +87,12 @@ assert Application.get_env(:zen_cex, :binance_host) == "testnet.binance.vision"
 # GOOD - Clear these are testnet credentials
 BINANCE_TESTNET_API_KEY=xxx
 BINANCE_TESTNET_API_SECRET=yyy
+BYBIT_TESTNET_API_KEY=xxx
+BYBIT_TESTNET_API_SECRET=yyy
 
 # BAD - Ambiguous, could be production
 BINANCE_API_KEY=xxx  # NEVER use in tests
+BYBIT_API_KEY=xxx    # NEVER use in tests
 ```
 
 ## ⚠️ CRITICAL: Task Grouping Guidelines
@@ -131,7 +136,7 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ---
 
-## Task Sequence (26 Tasks Total)
+## Task Sequence (27 Tasks Total)
 
 ### Phase 1: Core Foundation (5 tasks)
 done
@@ -154,14 +159,14 @@ done
 
 ### Phase 4: Production Safety (3 tasks)
 ```
-[ ] Task 14: EmergencyBypass for rate limiting         <- CRITICAL (30 min)
+[✅] Task 14: EmergencyBypass for rate limiting         <- COMPLETED
 [ ] Task 15: OrderSafety pre-trade validation          <- IMPORTANT (2 hrs)
 [ ] Task 16: Dynamic rate limit learning               <- USEFUL (1.5 hrs)
 ```
 
 **Task Details:**
 
-**Task 14: EmergencyBypass** - Ensure cancel_order, cancel_all, close_position always execute regardless of rate limits. Reserve 10% capacity for emergencies.
+**Task 14: EmergencyBypass** - ✅ COMPLETED - Implemented emergency bypass system that reserves 10% of rate limit capacity for critical operations. Cancel orders, close positions, and other emergency operations always execute regardless of rate limits. Added comprehensive tests and documentation.
 
 **Task 15: OrderSafety Enhancements** - Add pre-trade validation: balance checks, symbol validation, notional limits, price/size sanity checks, kill switch.
 
@@ -171,27 +176,37 @@ done
 - PositionReconciliation (needs real-time updates for effectiveness)
 - OrderLifecycle state machine (minimal value without streaming)
 
-### Phase 5: Additional Exchanges (5 tasks)
+### Phase 5: Additional Exchanges (6 tasks)
 ```
-[ ] Task 17: Kraken implementation (complete exchange)   <- Standalone
-[ ] Task 18: Deribit OAuth implementation (complete)     <- Standalone
-[ ] Task 19: Health monitoring with endpoint tracking   ┐
-[ ] Task 20: Multi-account rotation for resilience      ├─ Operations
-[ ] Task 21: Production runbook with exchange quirks    └─ group
+[ ] Task 17: Bybit REST API implementation (complete)    <- NEXT - Standalone
+[ ] Task 18: Kraken implementation (complete exchange)   <- Standalone
+[ ] Task 19: Deribit OAuth implementation (complete)     <- Standalone
+[ ] Task 20: Health monitoring with endpoint tracking   ┐
+[ ] Task 21: Multi-account rotation for resilience      ├─ Operations
+[ ] Task 22: Production runbook with exchange quirks    └─ group
 ```
 
+**Task 17 Details (Bybit REST API)**:
+- Complete REST API implementation for Bybit exchange
+- Support for Spot, Linear (USDT), and Inverse (Coin) derivatives
+- HMAC-SHA256 authentication similar to Binance
+- Rate limiting per endpoint category (GET vs POST)
+- Unified v5 API implementation
+- Testnet: testnet.bybit.com
+
 **Suggested Groupings**:
-- Task 17 alone (complete exchange)
-- Task 18 alone (complete exchange)
-- Tasks 19-21 together (operational excellence)
+- Task 17 alone (Bybit complete exchange) 
+- Task 18 alone (Kraken complete exchange)
+- Task 19 alone (Deribit complete exchange)
+- Tasks 20-22 together (operational excellence)
 
 ### Phase 6: WebSocket Implementation (Future - Not Current Scope)
 ```
-[ ] Task 22: WebSocket connection manager with reconnection
-[ ] Task 23: Real-time order status updates and fills
-[ ] Task 24: Live position tracking with balance updates
-[ ] Task 25: Market data streaming (order book, trades)
-[ ] Task 26: Automatic reconciliation with drift detection
+[ ] Task 23: WebSocket connection manager with reconnection
+[ ] Task 24: Real-time order status updates and fills
+[ ] Task 25: Live position tracking with balance updates
+[ ] Task 26: Market data streaming (order book, trades)
+[ ] Task 27: Automatic reconciliation with drift detection
 ```
 
 **Note**: WebSocket tasks are planned but explicitly out of scope for the current REST-only implementation. These features include:
@@ -261,11 +276,13 @@ done
 | Exchange | Auth Method | Critical Requirement | Common Gotcha |
 |----------|-------------|---------------------|---------------|
 | Binance | HMAC | Signature LAST in params | Spot vs Futures different URLs/limits |
+| Bybit | HMAC | Unified v5 API, timestamp required | Rate limits differ by endpoint category |
 | Kraken | Nonce+HMAC | Microsecond timestamp + counter | Async margin check after accept |
 | Deribit | OAuth2 | Refresh 120s before expiry | Mark price lags in volatility |
 
 **Critical Exchange Quirks**:
 - **Binance**: `recvWindow` max 60s, OCO orders = 2x weight, test orders consume limits
+- **Bybit**: Unified v5 API consolidates spot/derivatives, category parameter required, position API for derivatives only
 - **Kraken**: "EOrder:Insufficient funds" can occur AFTER accept, "Busy" needs backoff
 - **Deribit**: Weekly test reset Sunday 08:00 UTC, portfolio margin different endpoints
 

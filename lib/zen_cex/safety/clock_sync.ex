@@ -431,46 +431,30 @@ defmodule ZenCex.Safety.ClockSync do
   defp get_time_endpoint_url(unknown, _), do: {:error, {:unsupported_exchange, unknown}}
 
   defp get_binance_time_url(api_type) do
-    use_testnet = Application.get_env(:zen_cex, :use_testnet, false)
-
     case api_type do
-      nil ->
-        {:ok, "https://api.binance.com/api/v3/time"}
+      nil -> {:ok, "https://api.binance.com/api/v3/time"}
+      :spot -> {:ok, "https://api.binance.com/api/v3/time"}
+      :margin -> {:ok, "https://api.binance.com/api/v3/time"}
+      :usdm_futures -> {:ok, get_futures_time_url("fapi")}
+      :coinm_futures -> {:ok, get_futures_time_url("dapi")}
+      :portfolio -> {:ok, get_portfolio_time_url()}
+      _ -> {:ok, "https://api.binance.com/api/v3/time"}
+    end
+  end
 
-      :spot ->
-        {:ok, "https://api.binance.com/api/v3/time"}
+  defp get_futures_time_url(api_prefix) do
+    if Application.get_env(:zen_cex, :use_testnet, false) do
+      "https://testnet.binancefuture.com/#{api_prefix}/v1/time"
+    else
+      "https://#{api_prefix}.binance.com/#{api_prefix}/v1/time"
+    end
+  end
 
-      :usdm_futures ->
-        # USD-M Futures has its own time endpoint
-        if use_testnet do
-          {:ok, "https://testnet.binancefuture.com/fapi/v1/time"}
-        else
-          {:ok, "https://fapi.binance.com/fapi/v1/time"}
-        end
-
-      :coinm_futures ->
-        # COIN-M Futures has its own time endpoint
-        if use_testnet do
-          {:ok, "https://testnet.binancefuture.com/dapi/v1/time"}
-        else
-          {:ok, "https://dapi.binance.com/dapi/v1/time"}
-        end
-
-      :margin ->
-        # Margin uses spot time endpoint
-        {:ok, "https://api.binance.com/api/v3/time"}
-
-      :portfolio ->
-        # Portfolio Margin has its own time endpoint
-        if use_testnet do
-          {:ok, "https://testnet.binance.vision/papi/v1/time"}
-        else
-          {:ok, "https://papi.binance.com/papi/v1/time"}
-        end
-
-      _ ->
-        # Fallback to spot for unknown API types
-        {:ok, "https://api.binance.com/api/v3/time"}
+  defp get_portfolio_time_url do
+    if Application.get_env(:zen_cex, :use_testnet, false) do
+      "https://testnet.binance.vision/papi/v1/time"
+    else
+      "https://papi.binance.com/papi/v1/time"
     end
   end
 

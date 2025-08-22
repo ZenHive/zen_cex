@@ -116,6 +116,7 @@ The `Adapters` namespace accurately reflects that these modules work together to
 - 🔒 **Production Ready**: Circuit breakers, health monitoring, telemetry
 - 🧪 **Comprehensive Testing**: Unit (Req.Test) + Integration (real APIs)
 - 📊 **Rate Limiting**: Budget-based allocation with atomic operations
+- 🚨 **Emergency Bypass**: Critical operations (cancels) always execute
 - 🔄 **Request Coalescing**: Deduplication within time windows
 - 🏥 **Health Monitoring**: Clock sync validation, exchange status
 - ❌ **NOT for HFT**: This library is not designed for high-frequency trading
@@ -197,6 +198,33 @@ end
 ```
 
 See [docs/TELEMETRY.md](docs/TELEMETRY.md) for complete documentation.
+
+## Emergency Bypass (Safety Feature)
+
+ZenCex implements an emergency bypass system to ensure critical safety operations can always execute, even during rate limit pressure:
+
+### How It Works
+- **10% Capacity Reserved**: Regular operations can use up to 90% of rate limit capacity
+- **Emergency Operations Always Execute**: Cancel orders and close positions bypass limits
+- **Automatic Detection**: Operations identified by function name or endpoint pattern
+
+### Protected Operations
+- Order cancellation (single, batch, all)
+- Position closing
+- Risk management operations
+- Any operation matching: `:cancel_*`, `:close_*` patterns
+
+### Example
+```elixir
+# Regular operations respect 90% capacity limit
+{:error, {:rate_limited, retry_after}} = Binance.Endpoints.get_ticker(symbol: "BTCUSDT")
+
+# Emergency operations always execute
+{:ok, _} = Binance.Endpoints.cancel_order(symbol: "BTCUSDT", order_id: "12345")
+{:ok, _} = Binance.Endpoints.cancel_all_orders(symbol: "BTCUSDT")
+```
+
+This ensures traders can always exit positions and manage risk, even under extreme load.
 
 ## Debug Mode
 

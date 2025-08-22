@@ -150,8 +150,8 @@ We want pragmatic simplicity, not naive simplicity. This means choosing solution
 - [ ] Persists learned limits
 - [ ] Tests with real headers
 
-### Task #16: Kraken Implementation
-**Files**: `lib/zen_cex/adapters/kraken/*`
+### Task #17: Bybit Implementation
+**Files**: `lib/zen_cex/adapters/bybit/*`
 
 #### Required Elements:
 - [ ] Endpoints module with @endpoints configuration
@@ -162,7 +162,18 @@ We want pragmatic simplicity, not naive simplicity. This means choosing solution
 - [ ] Base64 secret handling
 - [ ] Tests with real API
 
-### Task #17: Deribit OAuth Implementation
+### Task #18: Kraken Implementation
+**Files**: `lib/zen_cex/adapters/kraken/*`
+
+#### Required Elements:
+- [ ] Endpoints module with @endpoints configuration
+- [ ] Auth module for nonce-based HMAC
+- [ ] RateLimiter with tier-based limits
+- [ ] Parser for response normalization
+- [ ] Registration in Core.Registry
+- [ ] Integration tests with testnet
+
+### Task #19: Deribit OAuth Implementation
 **Files**: `lib/zen_cex/adapters/deribit/*`
 
 #### Required Elements:
@@ -174,7 +185,7 @@ We want pragmatic simplicity, not naive simplicity. This means choosing solution
 - [ ] Test environment support
 - [ ] Tests with real OAuth flow
 
-### Task #18: Health Monitoring
+### Task #20: Health Monitoring
 **File**: `lib/zen_cex/core/health_monitor.ex`
 
 #### Required Elements:
