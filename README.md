@@ -198,6 +198,63 @@ end
 
 See [docs/TELEMETRY.md](docs/TELEMETRY.md) for complete documentation.
 
+## Debug Mode
+
+ZenCex includes a powerful debug mode for development and troubleshooting:
+
+### Features
+- Export failed requests as curl commands for easy reproduction
+- Capture and store recent failed requests for analysis
+- Telemetry integration for debug events
+- Automatic cleanup of old debug data
+
+### Quick Setup
+```elixir
+# Enable debug mode in config/dev.exs
+config :zen_cex, :debug,
+  enabled: true,        # Enable debug mode
+  export_curl: true,    # Export failed requests as curl
+  log_level: :debug     # Log level for debug output
+
+# Or enable at runtime
+ZenCex.Core.Debug.enable()
+```
+
+### Usage Examples
+```elixir
+# When a request fails, the curl command is automatically logged
+# [warning] [ZenCex.Debug] Request failed: {:error, :invalid_symbol}
+# 
+# Reproduce with curl:
+# curl -X GET -H 'X-MBX-APIKEY: xxx' 'https://api.binance.com/api/v3/account'
+
+# Get the last failed request as curl
+{:ok, curl_command} = ZenCex.Core.Debug.get_last_curl()
+IO.puts(curl_command)  # Copy and run in terminal
+
+# Get recent failed requests
+commands = ZenCex.Core.Debug.get_recent_curls(5)
+Enum.each(commands, &IO.puts/1)
+
+# Check debug statistics
+stats = ZenCex.Core.Debug.stats()
+# => %{
+#   total_captured: 3,
+#   debug_enabled: true,
+#   curl_export_enabled: true,
+#   recent_errors: [...]
+# }
+```
+
+### Installation
+Debug mode requires the optional `curl_req` dependency:
+```elixir
+# In mix.exs (already included as optional)
+{:curl_req, "~> 0.98", only: [:dev, :test], optional: true}
+```
+
+**Note**: Debug mode is only available in `:dev` and `:test` environments.
+
 ## Exchange-Specific Requirements
 
 | Exchange | Auth | Rate Limit | Critical Requirement |

@@ -10,7 +10,7 @@ defmodule ZenCex.Application do
     # Telemetry handlers disabled during rewrite
     # ZenCex.Telemetry.attach_handlers()
 
-    children = [
+    base_children = [
       # HTTP client for API requests - Req's connection pooling backend
       {Finch, name: ZenCex.Finch},
 
@@ -26,6 +26,14 @@ defmodule ZenCex.Application do
       # - Auth as stateless Req middleware steps (except Deribit OAuth)
       # - TODO: Add Deribit.Auth GenServer when OAuth is implemented
     ]
+
+    # Add debug table only in dev/test environments
+    children =
+      if Mix.env() in [:dev, :test] do
+        base_children ++ [ZenCex.Core.DebugTable]
+      else
+        base_children
+      end
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options

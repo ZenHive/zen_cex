@@ -131,7 +131,7 @@ You may implement **related tasks within the same phase** when they are tightly 
 
 ---
 
-## Task Sequence (28 Tasks Total)
+## Task Sequence (26 Tasks Total)
 
 ### Phase 1: Core Foundation (5 tasks)
 done
@@ -143,45 +143,55 @@ done
 ```
 [✅] Task 11: Circuit Breaker with req_fuse            <- COMPLETED
 [✅] Task 12: Enhanced Telemetry Documentation          <- COMPLETED
-[ ] Task 13: Debug Mode with curl_req                  └─ Observability
+[✅] Task 13: Debug Mode with curl_req                  <- COMPLETED
 ```
 
 **Task 11: Circuit Breaker** - ✅ COMPLETED - Added req_fuse as optional dependency for per-exchange circuit breaking. Opt-in config, emits telemetry, returns 503 when blown.
 
 **Task 12: Telemetry Docs** - ✅ COMPLETED - Created comprehensive telemetry documentation (docs/TELEMETRY.md), production-ready example handlers (lib/zen_cex/examples/telemetry_handlers.ex), and updated README with monitoring section. Leverages Req's built-in telemetry with ZenCex-specific events.
 
-**Task 13: Debug Mode** - Add curl_req (dev only) for debugging failed requests, export as curl commands.
+**Task 13: Debug Mode** - ✅ COMPLETED - Added curl_req as optional dev dependency for debugging. Created ZenCex.Core.Debug module that captures failed requests and exports them as curl commands. Automatic integration with HTTP error handling, ETS storage for recent requests, telemetry events, and comprehensive documentation in README.
 
-### Phase 4: Production Safety (5 tasks)
+### Phase 4: Production Safety (3 tasks)
 ```
-[ ] Task 14: OrderSafety enhancements                  <- Safety core
-[ ] Task 15: PositionReconciliation with drift         ├─ Safety group
-[ ] Task 16: EmergencyBypass for rate limiting         └─ (resilience)
-[ ] Task 17: OrderLifecycle state machine               <- Standalone
-[ ] Task 18: Dynamic rate limit learning                <- Enhancement
+[ ] Task 14: EmergencyBypass for rate limiting         <- CRITICAL (30 min)
+[ ] Task 15: OrderSafety pre-trade validation          <- IMPORTANT (2 hrs)
+[ ] Task 16: Dynamic rate limit learning               <- USEFUL (1.5 hrs)
 ```
+
+**Task Details:**
+
+**Task 14: EmergencyBypass** - Ensure cancel_order, cancel_all, close_position always execute regardless of rate limits. Reserve 10% capacity for emergencies.
+
+**Task 15: OrderSafety Enhancements** - Add pre-trade validation: balance checks, symbol validation, notional limits, price/size sanity checks, kill switch.
+
+**Task 16: Dynamic Rate Limit Learning** - Parse headers to learn actual limits, auto-adjust based on 429 patterns, self-tuning request spacing.
+
+**Deferred to WebSocket Phase:**
+- PositionReconciliation (needs real-time updates for effectiveness)
+- OrderLifecycle state machine (minimal value without streaming)
 
 ### Phase 5: Additional Exchanges (5 tasks)
 ```
-[ ] Task 19: Kraken implementation (complete exchange)   <- Standalone
-[ ] Task 20: Deribit OAuth implementation (complete)     <- Standalone
-[ ] Task 21: Health monitoring with endpoint tracking   ┐
-[ ] Task 22: Multi-account rotation for resilience      ├─ Operations
-[ ] Task 23: Production runbook with exchange quirks    └─ group
+[ ] Task 17: Kraken implementation (complete exchange)   <- Standalone
+[ ] Task 18: Deribit OAuth implementation (complete)     <- Standalone
+[ ] Task 19: Health monitoring with endpoint tracking   ┐
+[ ] Task 20: Multi-account rotation for resilience      ├─ Operations
+[ ] Task 21: Production runbook with exchange quirks    └─ group
 ```
 
 **Suggested Groupings**:
-- Task 19 alone (complete exchange)
-- Task 20 alone (complete exchange)
-- Tasks 21-23 together (operational excellence)
+- Task 17 alone (complete exchange)
+- Task 18 alone (complete exchange)
+- Tasks 19-21 together (operational excellence)
 
 ### Phase 6: WebSocket Implementation (Future - Not Current Scope)
 ```
-[ ] Task 24: WebSocket connection manager with reconnection
-[ ] Task 25: Real-time order status updates and fills
-[ ] Task 26: Live position tracking with balance updates
-[ ] Task 27: Market data streaming (order book, trades)
-[ ] Task 28: Automatic reconciliation with drift detection
+[ ] Task 22: WebSocket connection manager with reconnection
+[ ] Task 23: Real-time order status updates and fills
+[ ] Task 24: Live position tracking with balance updates
+[ ] Task 25: Market data streaming (order book, trades)
+[ ] Task 26: Automatic reconciliation with drift detection
 ```
 
 **Note**: WebSocket tasks are planned but explicitly out of scope for the current REST-only implementation. These features include:

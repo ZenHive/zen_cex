@@ -306,7 +306,7 @@ defmodule ZenCex.Adapters.Binance.Strategies do
         end
 
       :coin_m ->
-        # TODO: For now, use Portfolio Margin endpoint for unified view  
+        # TODO: For now, use Portfolio Margin endpoint for unified view
         case PortfolioMargin.query_cm_position_information() do
           {:ok, positions} -> {:ok, positions}
           {:error, reason} -> {:error, reason}
@@ -351,7 +351,8 @@ defmodule ZenCex.Adapters.Binance.Strategies do
         symbol = asset <> "USDT"
 
         Task.async(fn ->
-          # TODO: For testnet only - use a placeholder price since ticker endpoints are not available in current spot module
+          # TODO: For testnet only - use a placeholder price since ticker endpoints 
+          # are not available in current spot module
           # This is acceptable in testnet for development purposes
           Logger.warning("[TESTNET] Using placeholder price for #{symbol} - implement real price fetching")
           # Use non-zero price for testnet

@@ -58,9 +58,15 @@ defmodule ZenCex.Core.HTTP do
       |> Req.merge(skip_rate_limit: true)
   """
   alias ZenCex.Core.CircuitBreaker
+  alias ZenCex.Core.Debug
 
-  # Jitter range for exponential backoff in milliseconds
+  # Timing constants in milliseconds
+  # Random jitter added to exponential backoff
   @jitter_range_ms 500
+  # Default request timeout (15 seconds)
+  @default_timeout_ms 15_000
+  # Base delay for exponential backoff (1 second)
+  @base_backoff_ms 1_000
 
   # Operation timeout values in milliseconds
   # Critical path operations (order placement/cancellation)
@@ -272,6 +278,11 @@ defmodule ZenCex.Core.HTTP do
   defp handle_client_error(request, response) do
     exchange = request.options[:exchange]
 
+    # Capture client errors for debug if enabled
+    if Mix.env() in [:dev, :test] && response.status >= 400 do
+      Debug.capture_request(request, {:http_error, response.status, response.body})
+    end
+
     # Try to parse the error using the exchange's parser if available
     if exchange do
       parser_module = get_parser_module(exchange)
@@ -364,6 +375,11 @@ defmodule ZenCex.Core.HTTP do
         error: exception
       }
     )
+
+    # Capture request for debug if enabled
+    if Mix.env() in [:dev, :test] do
+      Debug.capture_request(request, exception)
+    end
 
     {request, exception}
   end
