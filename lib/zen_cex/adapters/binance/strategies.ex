@@ -351,7 +351,7 @@ defmodule ZenCex.Adapters.Binance.Strategies do
         symbol = asset <> "USDT"
 
         Task.async(fn ->
-          # TODO: For testnet only - use a placeholder price since ticker endpoints 
+          # TODO: For testnet only - use a placeholder price since ticker endpoints
           # are not available in current spot module
           # This is acceptable in testnet for development purposes
           # TODO: implement real price fetching for testnet
