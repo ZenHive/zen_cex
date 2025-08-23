@@ -32,3 +32,6 @@ zen_cex-*.tar
 
 # External files and directories
 external/*
+
+# Dialyzer PLT files
+/priv/plts/
