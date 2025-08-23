@@ -8,17 +8,15 @@ defmodule ZenCex.Adapters.Binance.RateLimiterEmergencyTest do
   - Emergency operations bypass normal rate limits
   - Regular operations are limited to 90% capacity
   """
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
+
+  import ZenCex.RateLimiterTestHelpers
 
   alias ZenCex.Adapters.Binance.RateLimiter
 
   setup do
-    # Clean up any existing ETS tables
-    case :ets.whereis(RateLimiter.Table) do
-      :undefined -> :ok
-      tid -> :ets.delete(tid)
-    end
-
+    # Clean up all rate limiter tables before each test
+    reset_all_binance_rate_limiter_tables()
     :ok
   end
 

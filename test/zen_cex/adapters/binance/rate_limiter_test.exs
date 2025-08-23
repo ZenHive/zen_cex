@@ -1,9 +1,16 @@
 defmodule ZenCex.Adapters.Binance.RateLimiterTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   import ExUnit.CaptureLog
+  import ZenCex.RateLimiterTestHelpers
 
   alias ZenCex.Adapters.Binance.RateLimiter
+
+  setup do
+    # Clean up all rate limiter tables before each test
+    reset_all_binance_rate_limiter_tables()
+    :ok
+  end
 
   describe "check_and_increment/2" do
     test "always returns :ok for regular operations (non-HFT approach)" do

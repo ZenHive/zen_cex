@@ -13,9 +13,16 @@ defmodule ZenCex.Adapters.Binance.RateLimiterApiTypeTest do
   use ZenCex.IntegrationCase, exchange: :binance
 
   import ExUnit.CaptureLog
+  import ZenCex.RateLimiterTestHelpers
 
   alias ZenCex.Adapters.Binance.RateLimiter
   alias ZenCex.Core.HTTP
+
+  setup do
+    # Clean up all rate limiter tables before each test
+    reset_all_binance_rate_limiter_tables()
+    :ok
+  end
 
   describe "real API rate limit monitoring" do
     test "monitors Spot API rate limits from real response headers" do
@@ -119,25 +126,28 @@ defmodule ZenCex.Adapters.Binance.RateLimiterApiTypeTest do
       # This test verifies the emergency bypass without making actual order calls
       # We'll simulate high usage and verify cancel operations would pass
 
-      # Simulate high usage by incrementing counter directly
-      # (TODO: In production this would come from response headers)
-      for _ <- 1..1000 do
+      # Reset to ensure clean state
+      RateLimiter.reset("/api/v3/ticker")
+
+      # Simulate high usage by incrementing counter to reach regular capacity
+      # Spot regular limit is 1080 (90% of 1200)
+      for _ <- 1..1080 do
         RateLimiter.check_and_increment("/api/v3/ticker", 1)
       end
 
       # Verify high usage is tracked
       status = RateLimiter.get_status("/api/v3/ticker")
-      assert status.used >= 1000
-      assert status.usage_percent > 80
+      assert status.used == 1080
+      assert status.usage_percent == 90
+      assert status.regular_usage_percent == 100
 
-      # Emergency operations should still return :ok
-      assert :ok = RateLimiter.check_and_increment("/api/v3/order", 1)
-      assert :ok = RateLimiter.check_and_increment("/fapi/v1/order", 1)
-      assert :ok = RateLimiter.check_and_increment("/fapi/v1/allOpenOrders", 1)
+      # Regular operations should now be rate limited
+      assert {:error, {:rate_limited, _}} = RateLimiter.check_and_increment("/api/v3/ticker", 1)
 
-      # Regular operations also return :ok (we don't block in non-HFT mode)
-      # but they would increment counters for monitoring
-      assert :ok = RateLimiter.check_and_increment("/api/v3/ticker", 1)
+      # Emergency operations should still return :ok when using operation atoms
+      assert :ok = RateLimiter.check_and_increment("/api/v3/order", 1, :cancel_order)
+      assert :ok = RateLimiter.check_and_increment("/fapi/v1/order", 1, :cancel_order)
+      assert :ok = RateLimiter.check_and_increment("/fapi/v1/allOpenOrders", 1, :cancel_all_open_orders)
     end
 
     test "handles missing rate limit headers gracefully" do

@@ -31,6 +31,8 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
 
   @behaviour ZenCex.Behaviors.RateLimiter
 
+  alias ZenCex.Core.RateLimiter, as: Core
+
   require Logger
 
   # API type limits per minute
@@ -47,16 +49,10 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
   # Emergency capacity reservation (10% of total limit)
   @regular_capacity_ratio 0.90
 
-  # Time conversion constants
-  @seconds_per_minute 60
   # Number of minutes to keep in ETS before cleanup
   @cleanup_age_minutes 2
-  # Next minute offset for reset calculation
-  @next_minute_offset 1
   # Percentage conversion
   @percentage_multiplier 100
-  # Retry buffer in milliseconds
-  @retry_buffer_ms 100
 
   # Emergency operations that should never be blocked
   # These patterns match DELETE operations for order cancellation and position closing
@@ -108,22 +104,27 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
     if is_emergency do
       # Emergency operations always proceed
       api_type = detect_api_type(endpoint)
-      increment_counter(api_type, weight, :emergency)
-      Logger.debug("Emergency operation #{operation || endpoint} bypassing rate limits")
+      table = get_or_create_table(api_type)
+      Core.check_and_increment(table, api_type, weight, get_limit_for_type(api_type))
+      log_emergency_usage(api_type, weight, operation || endpoint)
       :ok
     else
       # Regular operations check against 90% capacity
       api_type = detect_api_type(endpoint)
+      limit = get_limit_for_type(api_type)
+      regular_limit = trunc(limit * @regular_capacity_ratio)
+      table = get_or_create_table(api_type)
 
-      # Check if we're within regular capacity limits
-      if within_regular_capacity?(api_type, weight) do
-        increment_counter(api_type, weight, :regular)
-        :ok
-      else
-        # Rate limited - calculate retry after
-        retry_after_ms = calculate_retry_after(api_type)
-        Logger.warning("Rate limited on #{api_type}: regular capacity exceeded")
-        {:error, {:rate_limited, retry_after_ms}}
+      # Use core module with regular capacity limit
+      case Core.check_and_increment(table, api_type, weight, regular_limit) do
+        :ok ->
+          :ok
+
+        {:error, _} ->
+          # Rate limited - calculate retry after
+          retry_after_ms = Core.calculate_retry_after(:minute)
+          Logger.warning("Rate limited on #{api_type}: regular capacity exceeded")
+          {:error, {:rate_limited, retry_after_ms}}
       end
     end
   end
@@ -131,40 +132,34 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
   @impl true
   def update_from_response(%Req.Response{headers: headers} = response) do
     # Binance returns rate limit usage in headers
-    # x-mbx-used-weight-1m: weight used in last minute (Spot/Futures)
-    # x-sapi-used-ip-weight-1m: weight used in last minute (SAPI)
-    # Note: Futures uses same header name as Spot but has different limits
-
     headers_map = Map.new(headers)
 
     # Detect API type from URL if available
     api_type = detect_api_type_from_response(response)
 
-    # Check Spot/Futures API weight (same header, different limits)
-    if weight_header = headers_map["x-mbx-used-weight-1m"] do
-      weight_value = parse_weight_header(weight_header)
+    # Map headers to their respective API types
+    header_mappings = [
+      {"x-mbx-used-weight-1m", api_type, get_limit_for_type(api_type)},
+      {"x-sapi-used-ip-weight-1m", :sapi, @sapi_limit}
+    ]
 
-      case api_type do
-        :usdm_futures ->
-          check_and_log_usage(:usdm_futures, weight_value, @usdm_futures_limit)
+    Enum.each(header_mappings, fn {header_name, type, limit} ->
+      if weight_header = headers_map[header_name] do
+        weight_value = parse_weight_header(weight_header)
+        table = get_or_create_table(type)
 
-        :coinm_futures ->
-          check_and_log_usage(:coinm_futures, weight_value, @coinm_futures_limit)
+        # Update using core module
+        Core.update_from_headers(
+          table,
+          %{header_name => weight_header},
+          &parse_weight_header/1,
+          header_name
+        )
 
-        :portfolio ->
-          check_and_log_usage(:portfolio, weight_value, @portfolio_margin_limit)
-
-        _ ->
-          # Default to spot for regular API endpoints
-          check_and_log_usage(:spot, weight_value, @spot_limit)
+        # Log usage warnings
+        check_and_log_usage(type, weight_value, limit)
       end
-    end
-
-    # Check SAPI weight (separate header)
-    if sapi_weight = headers_map["x-sapi-used-ip-weight-1m"] do
-      weight_value = parse_weight_header(sapi_weight)
-      check_and_log_usage(:sapi, weight_value, @sapi_limit)
-    end
+    end)
 
     :ok
   end
@@ -193,7 +188,8 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
           spot: build_status(:spot),
           sapi: build_status(:sapi),
           usdm_futures: build_status(:usdm_futures),
-          coinm_futures: build_status(:coinm_futures)
+          coinm_futures: build_status(:coinm_futures),
+          portfolio: build_status(:portfolio)
         }
 
       type ->
@@ -205,13 +201,14 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
   def reset(endpoint) do
     if endpoint do
       api_type = detect_api_type(endpoint)
-      reset_counter(api_type)
+      table = get_or_create_table(api_type)
+      Core.reset(table, api_type)
     else
       # Reset all
-      reset_counter(:spot)
-      reset_counter(:sapi)
-      reset_counter(:usdm_futures)
-      reset_counter(:coinm_futures)
+      Enum.each([:spot, :sapi, :usdm_futures, :coinm_futures, :portfolio], fn api_type ->
+        table = get_or_create_table(api_type)
+        Core.reset(table, api_type)
+      end)
     end
 
     :ok
@@ -246,31 +243,29 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
   # Default to false
   defp emergency_operation?(_endpoint, _operation), do: false
 
-  defp within_regular_capacity?(api_type, weight) do
+  # Get or create table for specific API type
+  defp get_or_create_table(api_type) do
+    table_name = String.to_atom("#{__MODULE__}.Table.#{api_type}")
+    Core.init_table(table_name)
+    table_name
+  end
+
+  defp log_emergency_usage(api_type, _weight, operation) do
+    Logger.debug("Emergency operation #{operation} bypassing rate limits on #{api_type}")
+
+    # Check if we're using emergency reserve
+    table = get_or_create_table(api_type)
     limit = get_limit_for_type(api_type)
     regular_limit = trunc(limit * @regular_capacity_ratio)
 
-    table = get_or_create_table()
-    key = {api_type, current_minute()}
+    case Core.get_status(table, api_type, limit, :minute) do
+      %{used: used} when used > regular_limit ->
+        usage_percent = round(used / limit * @percentage_multiplier)
+        Logger.info("Emergency operation using reserved capacity on #{api_type}: #{usage_percent}% of total limit")
 
-    current_usage =
-      case :ets.lookup(table, key) do
-        [{^key, count}] -> count
-        [] -> 0
-      end
-
-    # Check if adding this weight would exceed regular capacity
-    current_usage + weight <= regular_limit
-  end
-
-  defp calculate_retry_after(_api_type) do
-    # Calculate how long until the next minute (rate limit reset)
-    current_second = System.system_time(:second)
-    next_minute = (div(current_second, @seconds_per_minute) + 1) * @seconds_per_minute
-    retry_after_seconds = next_minute - current_second
-
-    # Convert to milliseconds and add small buffer
-    retry_after_seconds * 1000 + @retry_buffer_ms
+      _ ->
+        :ok
+    end
   end
 
   defp get_limit_for_type(api_type) do
@@ -291,59 +286,6 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
       String.contains?(endpoint, "/papi/") -> :portfolio
       true -> :spot
     end
-  end
-
-  defp increment_counter(api_type, weight, type) do
-    # Track usage for monitoring and capacity management
-    table = get_or_create_table()
-    key = {api_type, current_minute()}
-
-    # Atomic increment
-    :ets.update_counter(table, key, {2, weight}, {key, 0})
-
-    # Log if emergency operation is using reserved capacity
-    if type == :emergency do
-      current_usage =
-        case :ets.lookup(table, key) do
-          [{^key, count}] -> count
-          [] -> weight
-        end
-
-      limit = get_limit_for_type(api_type)
-      regular_limit = trunc(limit * @regular_capacity_ratio)
-
-      if current_usage > regular_limit do
-        usage_percent = round(current_usage / limit * @percentage_multiplier)
-        Logger.info("Emergency operation using reserved capacity on #{api_type}: #{usage_percent}% of total limit")
-      end
-    end
-  catch
-    _error, _reason ->
-      # If ETS fails, don't block the request
-      :ok
-  end
-
-  defp get_or_create_table do
-    table_name = __MODULE__.Table
-
-    case :ets.whereis(table_name) do
-      :undefined ->
-        # Create table if it doesn't exist
-        :ets.new(table_name, [
-          :named_table,
-          :public,
-          :set,
-          {:write_concurrency, true}
-        ])
-
-      tid ->
-        tid
-    end
-  end
-
-  defp current_minute do
-    # Get current minute as unix timestamp
-    :second |> System.system_time() |> div(@seconds_per_minute)
   end
 
   defp parse_weight_header(value) when is_binary(value) do
@@ -394,68 +336,40 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
     limit = get_limit_for_type(api_type)
     regular_limit = trunc(limit * @regular_capacity_ratio)
     emergency_reserve = limit - regular_limit
+    table = get_or_create_table(api_type)
 
-    try do
-      table = get_or_create_table()
-      key = {api_type, current_minute()}
+    # Get base status from core module
+    base_status = Core.get_status(table, api_type, limit, :minute)
 
-      used =
-        case :ets.lookup(table, key) do
-          [{^key, count}] -> count
-          [] -> 0
-        end
+    # Enhance with Binance-specific fields
+    # Convert window atom to seconds for backward compatibility
+    window_seconds =
+      case base_status.window do
+        :minute -> 60
+        :hour -> 3600
+        :second -> 1
+        other -> other
+      end
 
-      %{
-        used: used,
-        limit: limit,
-        regular_limit: regular_limit,
-        emergency_reserve: emergency_reserve,
-        window: @seconds_per_minute,
-        reset_at: (current_minute() + @next_minute_offset) * @seconds_per_minute,
-        usage_percent: round(used / limit * @percentage_multiplier),
-        regular_usage_percent: round(used / regular_limit * @percentage_multiplier),
-        in_emergency_zone: used > regular_limit
-      }
-    catch
-      _error, _reason ->
-        %{
-          used: 0,
-          limit: limit,
-          regular_limit: regular_limit,
-          emergency_reserve: emergency_reserve,
-          window: @seconds_per_minute,
-          reset_at: 0,
-          usage_percent: 0,
-          regular_usage_percent: 0,
-          in_emergency_zone: false
-        }
-    end
-  end
-
-  defp reset_counter(api_type) do
-    table = get_or_create_table()
-    key = {api_type, current_minute()}
-    :ets.delete(table, key)
-  catch
-    _error, _reason ->
-      :ok
+    Map.merge(base_status, %{
+      window: window_seconds,
+      regular_limit: regular_limit,
+      emergency_reserve: emergency_reserve,
+      regular_usage_percent: round(base_status.used / regular_limit * @percentage_multiplier),
+      in_emergency_zone: base_status.used > regular_limit
+    })
   end
 
   @doc """
-  Cleans up old entries from ETS table.
+  Cleans up old entries from all API type tables.
   Should be called periodically (e.g., every minute) to prevent memory growth.
   """
   @spec cleanup_old_entries() :: non_neg_integer()
   def cleanup_old_entries do
-    table = get_or_create_table()
-    current = current_minute()
-
-    # Delete entries older than cleanup age
-    :ets.select_delete(table, [
-      {{{:"$1", :"$2"}, :_}, [{:<, :"$2", current - @cleanup_age_minutes}], [true]}
-    ])
-  catch
-    _error, _reason ->
-      0
+    Enum.reduce([:spot, :sapi, :usdm_futures, :coinm_futures, :portfolio], 0, fn api_type, acc ->
+      table = get_or_create_table(api_type)
+      deleted = Core.cleanup_old_windows(table, @cleanup_age_minutes)
+      acc + deleted
+    end)
   end
 end
