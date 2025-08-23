@@ -177,10 +177,16 @@ defmodule ZenCex.Core.RateLimiter do
   - `table`: ETS table reference
   - `api_type`: API type to check
   - `limit`: Maximum limit for this API type
-  - `window_seconds`: Time window in seconds (default: 60)
+  - `window_seconds`: Time window in seconds (default: 60 for minute-based limits)
 
   ## Returns
   - Map with current usage, limit, percentages, and reset time
+    - `:used` - Current usage count
+    - `:limit` - Maximum allowed usage
+    - `:window` - Time window in seconds (same as `window_seconds` parameter)
+    - `:reset_at` - Unix timestamp when the window resets
+    - `:usage_percent` - Usage as percentage of limit
+    - `:at_limit` - Boolean indicating if at or over limit
   """
   @spec get_status(table_ref(), api_type(), non_neg_integer(), non_neg_integer()) :: map()
   def get_status(table, api_type, limit, window_seconds \\ @seconds_per_minute) do

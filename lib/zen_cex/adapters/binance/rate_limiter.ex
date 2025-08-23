@@ -27,6 +27,13 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
   - Logs CRITICAL at 95% of regular capacity
   - Emergency operations always proceed even at 100% usage
   - Lets Req handle 429 responses with exponential backoff
+
+  ## ETS Table Management
+  This module creates separate ETS tables for each API type to prevent contention:
+  - Table naming convention: `Elixir.ZenCex.Adapters.Binance.RateLimiter.Table.{api_type}`
+  - Tables are created on-demand when first accessed
+  - Supported API types: `:spot`, `:sapi`, `:usdm_futures`, `:coinm_futures`, `:portfolio`
+  - Each table tracks rate limit usage independently with minute-based windows
   """
 
   @behaviour ZenCex.Behaviors.RateLimiter
@@ -338,21 +345,13 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
     emergency_reserve = limit - regular_limit
     table = get_or_create_table(api_type)
 
-    # Get base status from core module
-    base_status = Core.get_status(table, api_type, limit, :minute)
+    # Get base status from core module with window in seconds
+    # Binance uses minute-based rate limits (60 seconds)
+    window_seconds = 60
+    base_status = Core.get_status(table, api_type, limit, window_seconds)
 
     # Enhance with Binance-specific fields
-    # Convert window atom to seconds for backward compatibility
-    window_seconds =
-      case base_status.window do
-        :minute -> 60
-        :hour -> 3600
-        :second -> 1
-        other -> other
-      end
-
     Map.merge(base_status, %{
-      window: window_seconds,
       regular_limit: regular_limit,
       emergency_reserve: emergency_reserve,
       regular_usage_percent: round(base_status.used / regular_limit * @percentage_multiplier),
