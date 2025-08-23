@@ -160,7 +160,7 @@ done
 ### Phase 4: Production Safety (3 tasks)
 ```
 [✅] Task 14: EmergencyBypass for rate limiting         <- COMPLETED
-[ ] Task 15: OrderSafety pre-trade validation          <- IMPORTANT (2 hrs)
+[✅] Task 15: OrderSafety pre-trade validation          <- COMPLETED
 [ ] Task 16: Dynamic rate limit learning               <- USEFUL (1.5 hrs)
 ```
 
@@ -168,9 +168,15 @@ done
 
 **Task 14: EmergencyBypass** - ✅ COMPLETED - Implemented emergency bypass system that reserves 10% of rate limit capacity for critical operations. Cancel orders, close positions, and other emergency operations always execute regardless of rate limits. Added comprehensive tests and documentation.
 
-**Task 15: OrderSafety Enhancements** - Add pre-trade validation: balance checks, symbol validation, notional limits, price/size sanity checks, kill switch.
+**Task 15: OrderSafety** - ✅ COMPLETED - Implemented comprehensive pre-trade validation module with 30-minute sliding window idempotency, balance checks, symbol validation with caching, notional limits, price/size sanity checks, and global kill switch. TODOs added for real API integration when market data endpoints are available.
 
-**Task 16: Dynamic Rate Limit Learning** - Parse headers to learn actual limits, auto-adjust based on 429 patterns, self-tuning request spacing.
+**Task 16: Dynamic Rate Limit Learning** - **DEFERRED - Medium-High Complexity**
+  - **Architecture fits**: ETS tables, header parsing, Req middleware already in place
+  - **Implementation path**: 1) Passive observation phase (collect headers, track 429s), 2) Dynamic limits with confidence scoring, 3) Self-tuning request spacing
+  - **Key changes**: New `RateLimitLearner` module, enhanced header extraction (retry-after, actual limits), adaptive spacing algorithms
+  - **Benefits**: Auto-adapts to API changes, reduces 429s over time, no manual config updates
+  - **Risks**: Learning period uncertainty, complex edge cases during API changes
+  - **Recommendation**: Implement in phases after core functionality stable. Start with passive learning to validate approach.
 
 **Deferred to WebSocket Phase:**
 - PositionReconciliation (needs real-time updates for effectiveness)

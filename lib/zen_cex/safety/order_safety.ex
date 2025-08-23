@@ -479,9 +479,9 @@ defmodule ZenCex.Safety.OrderSafety do
       {:error, :not_found} ->
         {:error, {:invalid_symbol, symbol}}
 
-      # TODO: When fetch_symbol_info is replaced with real API calls,
-      # add error handling for network errors, rate limiting, etc.
-      # For now, stub only returns :ok or {:error, :not_found}
+        # TODO: When fetch_symbol_info is replaced with real API calls,
+        # add error handling for network errors, rate limiting, etc.
+        # For now, stub only returns :ok or {:error, :not_found}
     end
   end
 
@@ -553,9 +553,9 @@ defmodule ZenCex.Safety.OrderSafety do
           :ok
         end
 
-      # TODO: When get_account_balance is replaced with real API calls,
-      # add error handling for network errors, rate limiting, unauthorized, etc.
-      # For now, stub only returns {:ok, balance}
+        # TODO: When get_account_balance is replaced with real API calls,
+        # add error handling for network errors, rate limiting, unauthorized, etc.
+        # For now, stub only returns {:ok, balance}
     end
   end
 

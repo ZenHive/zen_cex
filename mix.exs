@@ -70,7 +70,7 @@ defmodule ZenCex.MixProject do
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:tidewave, "~> 0.4.1", only: :dev},
       {:bandit, "~> 1.0", only: :dev},
-      {:doctor, "~> 0.22.0", only: :dev},
+      {:doctor, "~> 0.22.0", only: [:dev, :test]},
       {:styler, "~> 1.5", only: [:dev, :test], runtime: false}
     ]
   end
@@ -78,12 +78,26 @@ defmodule ZenCex.MixProject do
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
+  def cli do
+    [
+      preferred_envs: [precommit: :test, "coveralls.html": :test]
+    ]
+  end
+
   defp aliases do
     [
       test: ["test"],
       "test.cover": ["coveralls.html"],
       tidewave: [
         "run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4000, allowed_origins: [\"//localhost\"]) end)'"
+      ],
+      precommit: [
+        "compile --warning-as-errors",
+        "deps.unlock --unused",
+        "format",
+        "test --cover",
+        "doctor",
+        "credo --strict --all"
       ]
     ]
   end
