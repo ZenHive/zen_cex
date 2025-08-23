@@ -24,31 +24,32 @@ defmodule Mix.Tasks.ZenCex.GenerateEndpoints do
   @default_endpoint_timeout_ms 5_000
 
   # Core trading and account operations - skip market data
-  @trading_patterns [
+  # Stored as strings to avoid compilation issues with regex references
+  @trading_pattern_strings [
     # Account endpoints
-    ~r{/api/v3/account},
-    ~r{/api/v3/tradingFee},
-    ~r{/api/v3/accountStatus},
+    "/api/v3/account",
+    "/api/v3/tradingFee",
+    "/api/v3/accountStatus",
 
     # Order management
     # place, cancel, get order
-    ~r{/api/v3/order$},
+    "/api/v3/order$",
     # get open orders
-    ~r{/api/v3/openOrders},
+    "/api/v3/openOrders",
     # order history
-    ~r{/api/v3/allOrders},
+    "/api/v3/allOrders",
     # OCO orders
-    ~r{/api/v3/orderList},
+    "/api/v3/orderList",
 
     # Trade history
     # trade history
-    ~r{/api/v3/myTrades},
+    "/api/v3/myTrades",
     # OCO history
-    ~r{/api/v3/allOrderList},
+    "/api/v3/allOrderList",
 
     # Test connectivity (useful for health checks)
-    ~r{/api/v3/ping},
-    ~r{/api/v3/time}
+    "/api/v3/ping",
+    "/api/v3/time"
   ]
 
   @doc """
@@ -141,11 +142,19 @@ defmodule Mix.Tasks.ZenCex.GenerateEndpoints do
   defp filter_trading_endpoints(openapi_spec) do
     paths = openapi_spec["paths"] || %{}
 
+    # Compile patterns at runtime to avoid compilation issues
+    patterns = trading_patterns()
+
     paths
     |> Enum.filter(fn {path, _operations} ->
-      Enum.any?(@trading_patterns, &Regex.match?(&1, path))
+      Enum.any?(patterns, &Regex.match?(&1, path))
     end)
     |> Map.new()
+  end
+
+  defp trading_patterns do
+    # Compile pattern strings into regexes at runtime
+    Enum.map(@trading_pattern_strings, &Regex.compile!/1)
   end
 
   defp map_to_endpoint_format(filtered_paths) do

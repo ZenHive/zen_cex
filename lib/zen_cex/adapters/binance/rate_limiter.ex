@@ -60,6 +60,8 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
   @cleanup_age_minutes 2
   # Percentage conversion
   @percentage_multiplier 100
+  # Binance rate limit window duration
+  @seconds_per_minute 60
 
   # Emergency operations that should never be blocked
   # These patterns match DELETE operations for order cancellation and position closing
@@ -155,11 +157,11 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
         weight_value = parse_weight_header(weight_header)
         table = get_or_create_table(type)
 
-        # Update using core module
+        # Update using core module - pass the correct api_type and headers map
         Core.update_from_headers(
           table,
+          type,
           %{header_name => weight_header},
-          &parse_weight_header/1,
           header_name
         )
 
@@ -224,11 +226,11 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
   @impl true
   def get_limits do
     %{
-      spot: %{limit: @spot_limit, window: 60},
-      sapi: %{limit: @sapi_limit, window: 60},
-      usdm_futures: %{limit: @usdm_futures_limit, window: 60},
-      coinm_futures: %{limit: @coinm_futures_limit, window: 60},
-      portfolio: %{limit: @portfolio_margin_limit, window: 60}
+      spot: %{limit: @spot_limit, window: @seconds_per_minute},
+      sapi: %{limit: @sapi_limit, window: @seconds_per_minute},
+      usdm_futures: %{limit: @usdm_futures_limit, window: @seconds_per_minute},
+      coinm_futures: %{limit: @coinm_futures_limit, window: @seconds_per_minute},
+      portfolio: %{limit: @portfolio_margin_limit, window: @seconds_per_minute}
     }
   end
 
@@ -265,7 +267,7 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
     limit = get_limit_for_type(api_type)
     regular_limit = trunc(limit * @regular_capacity_ratio)
 
-    case Core.get_status(table, api_type, limit, :minute) do
+    case Core.get_status(table, api_type, limit, @seconds_per_minute) do
       %{used: used} when used > regular_limit ->
         usage_percent = round(used / limit * @percentage_multiplier)
         Logger.info("Emergency operation using reserved capacity on #{api_type}: #{usage_percent}% of total limit")
@@ -346,8 +348,8 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
     table = get_or_create_table(api_type)
 
     # Get base status from core module with window in seconds
-    # Binance uses minute-based rate limits (60 seconds)
-    window_seconds = 60
+    # Binance uses minute-based rate limits
+    window_seconds = @seconds_per_minute
     base_status = Core.get_status(table, api_type, limit, window_seconds)
 
     # Enhance with Binance-specific fields
