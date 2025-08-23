@@ -158,20 +158,22 @@ Goal: Create reusable components while maintaining pragmatic simplicity.
 - Follows Req step patterns (request → request or halt)
 **Benefit**: Future exchanges (Bybit, Kraken, Deribit when implemented) save ~80 lines
 
-### Session 2: Core.ParameterBuilder Module ⏰ PENDING
+### Session 2: Core.ParameterBuilder Module ✅ COMPLETED
+**Status**: Completed on 2025-01-23
 **Scope**: Extract request parameter handling from Binance
 **Files**:
-- [ ] Create `lib/zen_cex/core/parameter_builder.ex`
-- [ ] Refactor `lib/zen_cex/adapters/binance/parameter_builder.ex` to use core
-- [ ] Create tests `test/zen_cex/core/parameter_builder_test.exs`
-**Key patterns to extract**:
-- Query string construction with proper encoding
-- Timestamp/nonce injection (respecting ClockSync offsets)
-- Parameter ordering for signatures (alphabetical for some exchanges)
-- Optional parameter filtering (nil removal)
-- recvWindow handling for time-sensitive requests
+- [x] Create `lib/zen_cex/core/parameter_builder.ex`
+- [x] Refactor `lib/zen_cex/adapters/binance/parameter_builder.ex` to use core
+- [x] Create tests `test/zen_cex/core/parameter_builder_test.exs`
+**Key patterns extracted**:
+- Query string construction with proper encoding and sorting
+- Optional parameter filtering (nil/empty removal)
+- Parameter validation for required fields
+- Parameter normalization (type conversion to strings)
+- Parameter merging with defaults
+- Parameter grouping by categories
 **Benefit**: Future exchanges save ~60 lines
-**Note**: Must maintain compatibility with Binance's specific requirements
+**Note**: Successfully maintained Binance-specific requirements (timing params, ordering)
 
 ### Session 3: Core.ResponseParser Module ⏰ PENDING
 **Scope**: Extract response normalization from Binance
@@ -215,13 +217,22 @@ Goal: Create reusable components while maintaining pragmatic simplicity.
 
 ## Progress Notes
 
-### Session 1 Notes (Completed 2025-08-23)
+### Session 1 Notes (Completed 2025-01-23)
 - Created Core.Auth module with reusable credential resolution patterns
 - Refactored Binance.Auth to use Core.Auth instead of duplicated logic
 - Changed from request.options to request.private for storing credentials (Req best practice)
 - Added comprehensive tests with proper environment variable handling using with_env macro
 - All existing tests pass without modification
 - Reduced Binance.Auth by ~20 lines of duplicated code
+
+### Session 2 Notes (Completed 2025-01-23)
+- Created Core.ParameterBuilder module with common parameter handling patterns
+- Extracted 6 reusable functions: build_query_string, filter_optional_params, validate_required_params, normalize_param_values, merge_with_defaults, split_params_by_groups
+- Refactored Binance.ParameterBuilder to delegate common operations to core module
+- Maintained Binance-specific logic: parameter ordering, timing parameter injection, recvWindow validation
+- Added comprehensive test coverage: 40 tests for core module, 23 for Binance-specific behavior
+- All tests pass (63 total parameter builder tests)
+- Reduced Binance.ParameterBuilder complexity while preserving functionality
 
 ## Success Metrics
 - [ ] All tests passing after each session (unit + integration)

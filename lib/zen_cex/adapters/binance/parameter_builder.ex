@@ -1,16 +1,18 @@
 defmodule ZenCex.Adapters.Binance.ParameterBuilder do
   @moduledoc """
-  Parameter management and query string construction for Binance API requests.
+  Binance-specific parameter management and query string construction.
 
-  This module handles:
-  - Binance-specific parameter ordering requirements
-  - Timing parameter management (timestamp, recvWindow)
-  - Query string construction with proper URL encoding
-  - Parameter validation and defaults
+  This module handles Binance-specific parameter requirements:
+  - Binance-specific parameter ordering (standard params → timestamp → recvWindow)
+  - Timing parameter management with ClockSync integration
+  - recvWindow validation according to Binance limits
+  - Signature-ready query string construction
 
+  For general parameter handling, delegates to ZenCex.Core.ParameterBuilder.
   All functions are pure with no side effects for reliable testing.
   """
 
+  alias ZenCex.Core.ParameterBuilder, as: CoreParams
   alias ZenCex.Safety.ClockSync
 
   require Logger
@@ -46,26 +48,30 @@ defmodule ZenCex.Adapters.Binance.ParameterBuilder do
 
   Parameter order is critical for Binance API signature validation.
   This function ensures consistent ordering that matches Binance expectations.
+  Delegates standard query string construction to Core.ParameterBuilder.
   """
   @spec build_query_string(map()) :: String.t()
   def build_query_string(params) do
-    # Standard parameters (non-timing) come first, sorted alphabetically
-    standard_params = Map.drop(params, ["timestamp", "recvWindow"])
-    timing_params = Map.take(params, ["timestamp", "recvWindow"])
+    # Split parameters into standard and timing groups
+    grouped_params =
+      CoreParams.split_params_by_groups(params,
+        standard: Map.keys(params) -- ["timestamp", "recvWindow"],
+        timing: ["timestamp", "recvWindow"]
+      )
 
-    param_pairs = []
+    # Build standard parameters query string (sorted)
+    standard_query = CoreParams.build_query_string(grouped_params.standard)
 
-    # Add standard params (sorted for consistency)
-    param_pairs =
-      param_pairs ++
-        (standard_params
-         |> Enum.sort()
-         |> Enum.map(fn {k, v} -> "#{k}=#{URI.encode_www_form(to_string(v))}" end))
+    # Build timing parameters in Binance-specific order
+    timing_query = build_timing_query_string(grouped_params.timing)
 
-    # Add timing params in specific order
-    param_pairs = add_timing_to_pairs(param_pairs, timing_params)
-
-    Enum.join(param_pairs, "&")
+    # Combine with proper ordering
+    case {standard_query, timing_query} do
+      {"", ""} -> ""
+      {"", timing} -> timing
+      {standard, ""} -> standard
+      {standard, timing} -> "#{standard}&#{timing}"
+    end
   end
 
   @doc """
@@ -89,22 +95,17 @@ defmodule ZenCex.Adapters.Binance.ParameterBuilder do
   """
   @spec build_ordered_query_string(map(), map(), String.t()) :: String.t()
   def build_ordered_query_string(existing_params, all_params, signature) do
-    param_pairs = []
+    # Build standard params query string using Core module
+    existing_query = CoreParams.build_query_string(existing_params)
 
-    # Add existing params (sorted for consistency)
-    param_pairs =
-      param_pairs ++
-        (existing_params
-         |> Enum.sort()
-         |> Enum.map(fn {k, v} -> "#{k}=#{URI.encode_www_form(to_string(v))}" end))
+    # Extract and build timing parameters
+    timing_params = Map.take(all_params, ["timestamp", "recvWindow"])
+    timing_query = build_required_timing_query_string(timing_params)
 
-    # Add timing params in required order
-    param_pairs = add_required_timing_pairs(param_pairs, all_params)
+    # Combine all parts with signature last
+    query_parts = Enum.reject([existing_query, timing_query, "signature=#{signature}"], &(&1 == ""))
 
-    # Add signature LAST (critical requirement)
-    param_pairs = param_pairs ++ ["signature=#{signature}"]
-
-    Enum.join(param_pairs, "&")
+    Enum.join(query_parts, "&")
   end
 
   @doc """
@@ -121,12 +122,18 @@ defmodule ZenCex.Adapters.Binance.ParameterBuilder do
   ## Examples
 
       iex> params = %{"symbol" => "BTCUSDT"}
-      iex> ParameterBuilder.ensure_timing_params(params, :spot)
-      %{"symbol" => "BTCUSDT", "timestamp" => "1234567890", "recvWindow" => "5000"}
+      iex> result = ParameterBuilder.ensure_timing_params(params, :spot)
+      iex> Map.has_key?(result, "timestamp")
+      true
+      iex> result["recvWindow"]
+      "5000"
+      iex> result["symbol"]
+      "BTCUSDT"
   """
   @spec ensure_timing_params(map(), api_type()) :: map()
   def ensure_timing_params(params, api_type) do
     params
+    |> CoreParams.filter_optional_params()
     |> add_timestamp_if_missing(api_type)
     |> add_recv_window_if_missing()
     |> validate_timing_parameters()
@@ -134,29 +141,32 @@ defmodule ZenCex.Adapters.Binance.ParameterBuilder do
 
   # Private helper functions
 
-  @spec add_timing_to_pairs([String.t()], map()) :: [String.t()]
-  defp add_timing_to_pairs(param_pairs, timing_params) do
-    param_pairs =
+  @spec build_timing_query_string(map()) :: String.t()
+  defp build_timing_query_string(timing_params) do
+    # Build timing parameters in specific Binance order: timestamp → recvWindow
+    timing_parts = []
+
+    timing_parts =
       if Map.has_key?(timing_params, "timestamp") do
-        param_pairs ++ ["timestamp=#{timing_params["timestamp"]}"]
+        timing_parts ++ ["timestamp=#{timing_params["timestamp"]}"]
       else
-        param_pairs
+        timing_parts
       end
 
-    if Map.has_key?(timing_params, "recvWindow") do
-      param_pairs ++ ["recvWindow=#{timing_params["recvWindow"]}"]
-    else
-      param_pairs
-    end
+    timing_parts =
+      if Map.has_key?(timing_params, "recvWindow") do
+        timing_parts ++ ["recvWindow=#{timing_params["recvWindow"]}"]
+      else
+        timing_parts
+      end
+
+    Enum.join(timing_parts, "&")
   end
 
-  @spec add_required_timing_pairs([String.t()], map()) :: [String.t()]
-  defp add_required_timing_pairs(param_pairs, all_params) do
-    param_pairs ++
-      [
-        "timestamp=#{all_params["timestamp"]}",
-        "recvWindow=#{all_params["recvWindow"]}"
-      ]
+  @spec build_required_timing_query_string(map()) :: String.t()
+  defp build_required_timing_query_string(timing_params) do
+    # Both timestamp and recvWindow are required in specific order
+    Enum.join(["timestamp=#{timing_params["timestamp"]}", "recvWindow=#{timing_params["recvWindow"]}"], "&")
   end
 
   @spec add_timestamp_if_missing(map(), api_type()) :: map()
