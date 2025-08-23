@@ -27,11 +27,7 @@ The current date is provided in the `<env>` section as "Today's date: YYYY-MM-DD
 
 ZenCex is an Elixir library for centralized cryptocurrency exchange (CEX) REST API integrations, extracted from the BlockWatch Phoenix application. It provides a unified interface for interacting with cryptocurrency exchanges through their REST APIs with a focus on reliable position management and trading operations.
 
-**Current Implementation Status:**
-- **Binance**: Fully implemented with comprehensive endpoint coverage across Spot, Margin, USD-M Futures, COIN-M Futures APIs
-- **Bybit**: Not yet implemented (planned - Task 17)
-- **Kraken**: Partial implementation (auth, rate limiter, basic structure)
-- **Deribit**: Partial implementation (OAuth auth, basic structure)
+**Implementation Status**: See `docs/AI-IMPLEMENTATION.md` for current task progress and implementation status.
 
 **IMPORTANT SCOPE**:
 - **REST APIs ONLY** - No WebSocket implementation planned or desired
@@ -221,7 +217,7 @@ If Tidewave connection issues occur:
 - **No custom HTTP client logic** - Req handles pooling (Finch), retry, telemetry
 - **Middleware as Req steps** - Auth and rate limiting are just request/response steps
 - **ETS over GenServers** - Atomic counters work better with Req's stateless pipeline
-- **Minimal supervision** - Only OAuth tokens need state (Deribit)
+- **Minimal supervision** - Only OAuth tokens need state (when implemented)
 - **Let Req handle complexity** - We just configure and compose
 
 ### Core Module Structure
@@ -229,7 +225,7 @@ If Tidewave connection issues occur:
 1. **Application** (`lib/zen_cex/application.ex`)
    - Initializes ETS tables for rate limiting
    - Starts Finch for Req's connection pooling
-   - Only supervises Deribit.Auth GenServer (OAuth state)
+   - Only supervises OAuth GenServers when needed (future Deribit implementation)
 
 2. **Core.Registry** (`lib/zen_cex/core/registry.ex`)
    - Maps exchange names to endpoint modules
@@ -280,14 +276,9 @@ The Binance adapter is the most complete implementation supporting multiple API 
    - `product_detector.ex` - API type detection
    - `strategies.ex` - Trading strategy helpers
 
-#### Bybit Adapter (Not Yet Implemented - Task 17)
-- Planned for unified v5 API support
-- Will support Spot, Linear, and Inverse derivatives
-- HMAC-SHA256 authentication similar to Binance
-
-#### Kraken & Deribit Adapters (Partial Implementation)
-- Basic auth and rate limiter modules exist
-- Full endpoint implementation pending
+#### Other Exchange Adapters
+- **Bybit, Kraken, Deribit**: Not yet implemented
+- See `docs/AI-IMPLEMENTATION.md` for implementation roadmap
 
 ### Why "Adapters" Namespace?
 
@@ -302,7 +293,7 @@ The `Adapters` namespace accurately describes the role of these modules:
 ```
 ZenCex.Application
 ├── Finch (named: ZenCex.Finch)  # Req's connection pooling
-└── ZenCex.Adapters.Deribit.Auth  # Only stateful component (OAuth)
+└── (Future: OAuth GenServers when needed)
 
 # No supervision needed for:
 # - Rate limiters (ETS tables with atomic ops)
@@ -315,7 +306,7 @@ ZenCex.Application
 1. **Req does the heavy lifting**: We configure, not reimplement - pooling, retry, telemetry all from Req
 2. **Steps over GenServers**: Auth/rate-limiting as Req steps, not separate processes
 3. **ETS for stateless ops**: Rate limit counters via ETS atomic ops fit Req's model
-4. **Supervision only when needed**: Just OAuth tokens (Deribit) need GenServer
+4. **Supervision only when needed**: OAuth tokens will need GenServer (future implementations)
 5. **REST-Only by design**: No WebSocket complexity - Req excels at REST
 6. **Leverage, don't build**: If Req has it, we use it; if not, we question if we need it
 
@@ -351,23 +342,8 @@ Endpoints.get_endpoint_info(:spot_get_balances)
 - Separate rate limits maintained per API type
 - ClockSync handles time synchronization per API type
 
-### Bybit (Not Yet Implemented)
-- Unified v5 API for all product types
-- HMAC-SHA256 authentication like Binance
-- Category parameter required for product type
-- Testnet at testnet.bybit.com
-
-### Kraken
-- Uses nonce-based authentication (microseconds + counter)
-- All private endpoints use POST with `application/x-www-form-urlencoded`
-- API secret is base64-encoded (library handles both encoded and raw for testing)
-- Rate limits based on verification tier
-
-### Deribit
-- OAuth2 with client credentials flow
-- Tokens cached with automatic refresh 120 seconds before expiry
-- JSON-RPC style API (even for REST endpoints)
-- Separate test environment at test.deribit.com
+### Other Exchanges
+For planned exchange implementations and their technical requirements, see `docs/AI-IMPLEMENTATION.md`.
 
 ## Environment Variables
 
@@ -377,30 +353,16 @@ Required for authenticated operations:
 BINANCE_API_KEY=your_key
 BINANCE_API_SECRET=your_secret
 
-# Bybit (when implemented)
-BYBIT_API_KEY=your_key
-BYBIT_API_SECRET=your_secret
-
-# Kraken
-KRAKEN_API_KEY=your_key
-KRAKEN_API_SECRET=your_secret
-
-# Deribit
-DERIBIT_CLIENT_ID=your_client_id
-DERIBIT_CLIENT_SECRET=your_secret
-DERIBIT_HOST=test.deribit.com  # or www.deribit.com for production
+# Other exchanges (when implemented)
+# See docs/AI-IMPLEMENTATION.md for required environment variables
 ```
 
 ## AI-Assisted Development Workflow
 
-This project uses AI-IMPLEMENTATION.md and AI-REVIEW.md for task management.
-
-### Workflow
-1. **AI Coder** reads AI-IMPLEMENTATION.md and implements current task
-2. **AI Reviewer** validates using AI-REVIEW.md checklists
-3. **Human** supervises and approves changes
-
-See docs/AI-IMPLEMENTATION.md for current task.
+This project uses structured task management for development:
+- **Task Tracking**: See `docs/AI-IMPLEMENTATION.md` for current tasks and progress
+- **Review Process**: See `docs/AI-REVIEW.md` for validation checklists
+- **Implementation Status**: Check AI-IMPLEMENTATION.md Phase sections for completed/pending work
 
 ### Documentation Writing Guidelines
 
@@ -456,17 +418,16 @@ The Binance adapter includes a `Strategies` module with pre-built trading strate
 
 These are high-level trading operations that coordinate multiple endpoints.
 
-### Current Status
-- **Req-centric architecture**: All HTTP operations leverage Req's built-in features
-- **Binance**: Production-ready with comprehensive multi-API support
-- **Endpoint Discovery**: Built-in functions to explore available endpoints
-- **Multi-API Support**: Single exchange can have multiple API types with separate rate limits
-- **ClockSync**: Supports per-API-type time synchronization
-- **Generated Code Pattern**: Uses macro-based generation to reduce boilerplate while maintaining flexibility
+### Current Features
+For current implementation status and completed features, see:
+- **Implementation Progress**: `docs/AI-IMPLEMENTATION.md` (Phase sections)
+- **Available Exchanges**: Currently only Binance is fully implemented
+- **Core Features**: Req-centric architecture, endpoint discovery, multi-API support, clock sync
+- **Safety Features**: Order validation, rate limiting with emergency bypass, idempotency protection
 
 ### Key Architectural Decisions
 - **Req-centric EVERYTHING**: If Req can do it, we don't build it
-- **Stateless by default**: OAuth tokens only exception (Deribit GenServer)
+- **Stateless by default**: OAuth tokens only exception (future implementations)
 - **ETS + Req steps**: Rate limiting via atomic ops, not processes
 - **No custom supervision**: Finch (via Req) manages connections
 - **REST-only focus**: Req is built for REST, so are we
@@ -580,11 +541,13 @@ No mocks. No fixtures. No simulation. Just real testnet APIs.
 
 ```elixir
 # These are the ONLY allowed URLs in test environment
+# Currently only Binance is implemented:
 @test_hosts %{
-  binance: "testnet.binance.vision",
-  bybit: "api-testnet.bybit.com",
-  kraken: "api.kraken.com",  # Uses different endpoints for testnet
-  deribit: "test.deribit.com"
+  binance: "testnet.binance.vision"
+  # Future implementations will add:
+  # bybit: "api-testnet.bybit.com"
+  # kraken: "api.kraken.com"
+  # deribit: "test.deribit.com"
 }
 
 # Tests MUST verify testnet usage - use the adapter's current_env() method
@@ -724,7 +687,7 @@ BINANCE_SECRET=yyy   # NEVER use in tests
 Critical internal dependencies to be aware of:
 - **Registry Pattern**: Endpoints modules (main adapter entry points) register with `Core.Registry` at compile time
 - **Delegation Chain**: `Core.HTTP` → `Core.Registry` → `Adapters.{Exchange}.Endpoints` → specific adapter modules
-- **Stateful Components**: Only `Deribit.Auth` runs as a GenServer for OAuth token management
+- **Stateful Components**: OAuth GenServers will be used when needed (future implementations)
 - **Rate Limiting**: Each adapter's RateLimiter manages its own ETS tables independently
 - **Telemetry**: All modules emit telemetry events for monitoring and debugging
 
