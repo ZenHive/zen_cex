@@ -110,6 +110,7 @@ defmodule ZenCex.Adapters.Binance.ParserHtmlErrorTest do
       </html>
       """
 
+      # When status is unknown (nil), we get generic message
       assert {:error, {:html_error, "Server returned HTML error page instead of JSON response"}} =
                Parser.parse_error(html)
     end
@@ -138,6 +139,7 @@ defmodule ZenCex.Adapters.Binance.ParserHtmlErrorTest do
     end
 
     test "returns unknown_error for non-HTML strings" do
+      # Plain text without HTML tags returns unknown_error when no status available
       assert {:error, :unknown_error} = Parser.parse_error("plain text error")
       assert {:error, :unknown_error} = Parser.parse_error("{not valid json}")
     end

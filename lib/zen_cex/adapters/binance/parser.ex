@@ -35,9 +35,11 @@ defmodule ZenCex.Adapters.Binance.Parser do
 
   import ZenCex.ParserMacros
 
+  alias ZenCex.Core.ResponseParser
+
   require Logger
 
-  # Constants for error mapping
+  # Constants for error mapping - Binance-specific error codes
   @error_codes %{
     -1121 => :invalid_symbol,
     -1013 => :invalid_quantity,
@@ -229,7 +231,7 @@ defmodule ZenCex.Adapters.Binance.Parser do
   @impl true
   def parse_error(%{"code" => code} = response) when is_integer(code) do
     # Log the actual error response for debugging
-    Logger.debug("Binance error response: #{inspect(response, pretty: true)}")
+    ResponseParser.log_error_response(response, "Binance")
 
     case Map.get(@error_codes, code) do
       nil ->
@@ -244,79 +246,40 @@ defmodule ZenCex.Adapters.Binance.Parser do
 
   def parse_error(%{"msg" => message} = response) do
     # Log the actual error response for debugging
-    Logger.debug("Binance error response (msg only): #{inspect(response, pretty: true)}")
+    ResponseParser.log_error_response(response, "Binance")
 
-    # Some responses only have message field
-    cond do
-      String.contains?(String.downcase(message), "insufficient") ->
-        {:error, :insufficient_balance}
-
-      String.contains?(String.downcase(message), "invalid symbol") ->
-        {:error, :invalid_symbol}
-
-      String.contains?(String.downcase(message), "unauthorized") ->
-        {:error, :invalid_credentials}
-
-      true ->
-        {:error, {:exchange_error, message}}
-    end
+    # Use core standardization for message-based errors
+    {:error, ResponseParser.standardize_error_message(message)}
   end
 
   def parse_error(response) when is_map(response) do
     # Log unexpected error format for debugging
-    Logger.debug("Binance unexpected error format: #{inspect(response, pretty: true)}")
+    ResponseParser.log_error_response(response, "Binance")
 
     # Generic error handling for unexpected formats
     {:error, {:unknown_error, response}}
   end
 
   def parse_error(response) do
+    # Delegate HTML error parsing to core module
     case response do
       html when is_binary(html) and byte_size(html) > 0 ->
-        cond do
-          # Check for specific error types first
-          String.contains?(html, "Request blocked") ->
-            {:error, {:waf_blocked, "Request blocked by WAF"}}
-
-          String.contains?(html, "CloudFlare") or String.contains?(html, "cloudflare") ->
-            {:error, {:cdn_error, "CloudFlare protection triggered"}}
-
-          # Then check if it's HTML
-          String.contains?(html, ["DOCTYPE", "<html", "<HTML"]) ->
-            # HTML error page from CDN/WAF
-            error_msg = extract_html_error_message(html)
-            {:error, {:html_error, error_msg}}
-
-          true ->
-            {:error, :unknown_error}
-        end
+        # Pass nil when status is unknown, let core module handle it
+        ResponseParser.parse_html_error(html, nil)
 
       _ ->
         {:error, :unknown_error}
     end
   end
 
-  # Helper to extract meaningful error from HTML pages
-  defp extract_html_error_message(html) do
-    cond do
-      String.contains?(html, "403 Forbidden") ->
-        "403 Forbidden - Access denied by server"
-
-      String.contains?(html, "429 Too Many Requests") ->
-        "429 Too Many Requests - Rate limit exceeded"
-
-      String.contains?(html, "502 Bad Gateway") ->
-        "502 Bad Gateway - Server temporarily unavailable"
-
-      String.contains?(html, "503 Service Unavailable") ->
-        "503 Service Unavailable - Server overloaded or under maintenance"
-
-      true ->
-        "Server returned HTML error page instead of JSON response"
-    end
-  end
-
-  # WebSocket parsing - marked as not implemented per project scope
+  @doc """
+  Parses WebSocket market data (NOT IMPLEMENTED).
+  
+  This function is part of the Parser behavior but WebSocket support
+  is explicitly out of scope for this REST-only library.
+  
+  Always returns `{:error, :not_implemented}`.
+  """
   @impl true
   def parse_market_data(_data) do
     # TODO: WebSocket market data parsing deferred to WebSocket implementation phase

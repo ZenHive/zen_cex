@@ -98,7 +98,7 @@ defmodule ZenCex.Behaviors.Parser do
     - `{:error, {atom(), details}}` - Error with details
 
   ## Common Error Atoms
-    - `:invalid_credentials` - Auth failure
+    - `:unauthorized` - Auth failure (401 status)
     - `:insufficient_balance` - Not enough funds
     - `:rate_limited` - Rate limit exceeded
     - `:invalid_symbol` - Unknown trading pair

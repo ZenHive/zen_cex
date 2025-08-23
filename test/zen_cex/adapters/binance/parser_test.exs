@@ -384,7 +384,7 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
       message_cases = [
         {%{"msg" => "Insufficient balance for transfer"}, {:error, :insufficient_balance}},
         {%{"msg" => "Invalid symbol INVALIDPAIR"}, {:error, :invalid_symbol}},
-        {%{"msg" => "Unauthorized request"}, {:error, :invalid_credentials}},
+        {%{"msg" => "Unauthorized request"}, {:error, :unauthorized}},
         {%{"msg" => "Some other error"}, {:error, {:exchange_error, "Some other error"}}}
       ]
 
