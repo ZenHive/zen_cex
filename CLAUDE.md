@@ -60,6 +60,9 @@ mix test test/zen_cex/exchange/http_test.exs:42
 # Run previously failed tests
 mix test --failed
 
+# Run pre-commit checks (format, credo, dialyzer, tests)
+mix precommit
+
 # Format code
 mix format
 

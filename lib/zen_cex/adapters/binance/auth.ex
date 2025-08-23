@@ -28,6 +28,7 @@ defmodule ZenCex.Adapters.Binance.Auth do
   """
   alias ZenCex.Adapters.Binance.ParameterBuilder
   alias ZenCex.Adapters.Binance.Signer
+  alias ZenCex.Core.Auth, as: CoreAuth
 
   require Logger
 
@@ -41,9 +42,9 @@ defmodule ZenCex.Adapters.Binance.Auth do
 
   ## Credential Priority Order
 
-  1. **Request options** (highest priority):
-     - `request.options[:auth_credentials][:api_key]`
-     - `request.options[:auth_credentials][:api_secret]`
+  1. **Request private data** (highest priority):
+     - `request.private[:auth_credentials][:api_key]`
+     - `request.private[:auth_credentials][:api_secret]`
 
   2. **Environment variables** (fallback):
      - When `BINANCE_TESTNET` is set: Uses `BINANCE_TESTNET_API_KEY` and `BINANCE_TESTNET_API_SECRET`
@@ -61,9 +62,9 @@ defmodule ZenCex.Adapters.Binance.Auth do
       # Using environment variables (automatic)
       request |> apply_auth()
 
-      # Passing credentials via request options (for multi-tenant apps)
+      # Passing credentials via request private data (for multi-tenant apps)
       request
-      |> Req.Request.put_option(:auth_credentials, %{
+      |> Req.Request.put_private(:auth_credentials, %{
         api_key: "user_specific_key",
         api_secret: "user_specific_secret"
       })
@@ -81,28 +82,17 @@ defmodule ZenCex.Adapters.Binance.Auth do
   """
   @spec apply_auth(Req.Request.t()) :: Req.Request.t()
   def apply_auth(request) do
-    # Get credentials from request options or environment
-    # Check for testnet credentials first if BINANCE_TESTNET is set
-    api_key =
-      get_in(request.options, [:auth_credentials, :api_key]) ||
-        get_api_key_from_env()
+    # Check if we have valid credentials using Core.Auth helper
+    if CoreAuth.valid_credentials?(request, :binance) do
+      # Get credentials and sign the request
+      {api_key, api_secret} = CoreAuth.get_credentials(request, :binance)
 
-    api_secret =
-      get_in(request.options, [:auth_credentials, :api_secret]) ||
-        get_api_secret_from_env()
+      # TODO: Remove debug logging once authentication is stable
+      CoreAuth.log_credential_status(:binance, api_key, api_secret)
 
-    # TODO: Remove debug logging once authentication is stable
-    Logger.debug("Binance Auth: api_key present: #{api_key != nil}, api_secret present: #{api_secret != nil}")
+      # Default to spot API type (could be made configurable via request.private)
+      api_type = get_in(request.private, [:api_type]) || :spot
 
-    if api_key == nil do
-      Logger.debug("Binance Auth: No API key found in options or env")
-    end
-
-    # Default to spot API type (could be made configurable via request.private)
-    api_type = get_in(request.private, [:api_type]) || :spot
-
-    if api_key && api_secret do
-      Logger.debug("Binance Auth: Signing request with credentials")
       sign_request(request, api_type, api_key, api_secret)
     else
       # Return request unchanged if no credentials available
@@ -154,26 +144,6 @@ defmodule ZenCex.Adapters.Binance.Auth do
   end
 
   # Applies timing parameters and signature to the request
-  # Helper functions to get credentials based on environment
-  # Returns the appropriate API key based on whether we're in testnet mode
-  @spec get_api_key_from_env() :: String.t() | nil
-  defp get_api_key_from_env do
-    if System.get_env("BINANCE_TESTNET") do
-      System.get_env("BINANCE_TESTNET_API_KEY") || System.get_env("BINANCE_API_KEY")
-    else
-      System.get_env("BINANCE_API_KEY")
-    end
-  end
-
-  # Returns the appropriate API secret based on whether we're in testnet mode
-  @spec get_api_secret_from_env() :: String.t() | nil
-  defp get_api_secret_from_env do
-    if System.get_env("BINANCE_TESTNET") do
-      System.get_env("BINANCE_TESTNET_API_SECRET") || System.get_env("BINANCE_API_SECRET")
-    else
-      System.get_env("BINANCE_API_SECRET")
-    end
-  end
 
   @spec apply_signature(Req.Request.t(), api_type(), String.t()) :: Req.Request.t()
   defp apply_signature(request, api_type, api_secret) do
