@@ -1,39 +1,44 @@
 # Bybit v5 REST API Implementation Tickets
 
+**Updated 2025-08-24**: Ticket estimates reduced by ~40% due to newly extracted Core modules (Core.Auth, Core.Signer, Core.ParameterBuilder, Core.ResponseParser) from refactor_core_sessions.md. Bybit implementation can now leverage these battle-tested utilities from the Binance adapter.
+
 ## Architecture Decision: Unified Approach
 Bybit v5 provides a unified API where the same endpoints serve spot, derivatives, and options - distinguished only by a `category` parameter. We'll mirror this design with a single unified module while providing category-prefixed helper functions for user convenience.
 
 ## Pass 1: Core Infrastructure (Pure Functions & ETS Tables)
 
-### ✅ Ticket #1: Bybit Signer Module (HMAC-SHA256)
-**Size:** 2 hours
+### ✅ Ticket #1: Bybit Signer Module (Leveraging Core.Signer)
+**Size:** 1 hour
 **Status:** TODO
 **Implementation:**
 - Create `lib/zen_cex/adapters/bybit/signer.ex`
-- HMAC-SHA256 signature generation (similar to Binance)
-- Sign with timestamp + api_key + recv_window + query_string pattern
-- Pure function: `sign(query_string, secret, timestamp, recv_window, api_key)`
+- Delegate to `Core.Signer.hmac_sha256/2` for signature generation
+- Bybit-specific signature format: timestamp + api_key + recv_window + query_string
+- Wrapper function: `create_signature(params, api_key, api_secret, timestamp, recv_window)`
 - Test with known test vectors from Bybit docs
+- ~20 lines instead of ~60 by using Core.Signer
 
-### ✅ Ticket #2: Bybit Parameter Builder
-**Size:** 2 hours  
+### ✅ Ticket #2: Bybit Parameter Builder (Leveraging Core.ParameterBuilder)
+**Size:** 1 hour  
 **Status:** TODO
 **Implementation:**
 - Create `lib/zen_cex/adapters/bybit/parameter_builder.ex`
-- Handle unified v5 API parameter structure
-- Auto-inject `category` parameter based on operation prefix
-- Timestamp and recv_window handling
-- Parameter ordering for signature generation
+- Delegate to Core.ParameterBuilder for: build_query_string, filter_optional_params, normalize_param_values
+- Bybit-specific: Auto-inject `category` parameter based on operation prefix
+- Bybit-specific: Timestamp (ms) and recv_window (5000ms default) handling
+- Parameter ordering for signature (alphabetical for Bybit)
+- ~30 lines instead of ~80 by using Core.ParameterBuilder
 
-### ✅ Ticket #3: Bybit Parser Module  
-**Size:** 3 hours
+### ✅ Ticket #3: Bybit Parser Module (Leveraging Core.ResponseParser)
+**Size:** 1.5 hours
 **Status:** TODO
 **Implementation:**
 - Create `lib/zen_cex/adapters/bybit/parser.ex`
-- Response normalization for v5 unified responses
-- Error code mapping (10001-80014 range)
+- Delegate to Core.ResponseParser for: parse_json_body, normalize_response, standardize_error_message
+- Bybit-specific: Handle retCode/retMsg/result structure
+- Bybit-specific: Error code mapping (10001-80014 range)
 - Single parser handles all product types
-- Handle retCode/retMsg/result structure
+- ~40 lines instead of ~100 by using Core.ResponseParser
 
 ### ✅ Ticket #4: ETS-based Rate Limiter
 **Size:** 3 hours
@@ -48,15 +53,17 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 
 ## Pass 2: Request Infrastructure
 
-### ✅ Ticket #5: Bybit Auth Module (Req Step)
-**Size:** 3 hours
+### ✅ Ticket #5: Bybit Auth Module (Leveraging Core.Auth)
+**Size:** 2 hours
 **Status:** TODO
 **Implementation:**
 - Create `lib/zen_cex/adapters/bybit/auth.ex`
+- Delegate to Core.Auth for: get_credentials, valid_credentials?, log_credential_status
 - Implement as Req request step
 - Add headers: X-BAPI-API-KEY, X-BAPI-TIMESTAMP, X-BAPI-SIGN, X-BAPI-RECV-WINDOW
-- Coordinate with Signer and ParameterBuilder
-- Support testnet/production environment switching
+- Coordinate with Bybit.Signer and Bybit.ParameterBuilder
+- Support testnet/production via BYBIT_TESTNET env var
+- ~50 lines instead of ~120 by using Core.Auth
 
 ### ✅ Ticket #6: Request Helper Module
 **Size:** 2 hours
@@ -164,13 +171,15 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 - GET /v5/apilimit/query endpoint
 - UID-based rate limit management
 
-## Implementation Order
+## Implementation Order & Time Savings
 
-1. **Core Infrastructure First** (Tickets 1-4): Pure functions and ETS tables
-2. **Request Layer** (Tickets 5-7): Auth and HTTP integration  
-3. **Unified Endpoints** (Tickets 8-9): Single module for all products
-4. **Testing** (Tickets 10-12): Real API integration tests
-5. **Optional Features** (Tickets 13-14): If needed
+1. **Core Infrastructure First** (Tickets 1-4): Pure functions and ETS tables (~6.5 hours, saved ~4 hours)
+2. **Request Layer** (Tickets 5-7): Auth and HTTP integration (~6 hours, saved ~2 hours)  
+3. **Unified Endpoints** (Tickets 8-9): Single module for all products (8 hours, unchanged)
+4. **Testing** (Tickets 10-12): Real API integration tests (8 hours, unchanged)
+5. **Optional Features** (Tickets 13-14): If needed (4 hours, unchanged)
+
+**Total estimate: ~32.5 hours (down from ~45 hours) - 28% reduction thanks to Core modules**
 
 ## Key Architecture Notes
 
