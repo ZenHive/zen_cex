@@ -15,6 +15,7 @@ defmodule ZenCex.Adapters.Bybit.Signer do
   All functions are pure and deterministic for easy testing.
   """
 
+  alias ZenCex.Adapters.Bybit.ParameterBuilder
   alias ZenCex.Core.Signer, as: CoreSigner
 
   @default_recv_window "5000"
@@ -111,10 +112,7 @@ defmodule ZenCex.Adapters.Bybit.Signer do
   defp build_query_string(params) when params == %{}, do: ""
 
   defp build_query_string(params) do
-    # TODO: Delegate to ParameterBuilder when it's created
-    # TODO: For now, use simple alphabetical ordering as per Bybit requirements
-    params
-    |> Enum.sort_by(fn {k, _v} -> to_string(k) end)
-    |> Enum.map_join("&", fn {k, v} -> "#{k}=#{v}" end)
+    # Delegate to ParameterBuilder for consistent query string formatting
+    ParameterBuilder.build_query_string(params)
   end
 end

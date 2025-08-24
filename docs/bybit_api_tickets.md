@@ -20,7 +20,7 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 
 ### ✅ Ticket #2: Bybit Parameter Builder (Leveraging Core.ParameterBuilder)
 **Size:** 1 hour  
-**Status:** TODO
+**Status:** ✅ COMPLETED
 **Implementation:**
 - Create `lib/zen_cex/adapters/bybit/parameter_builder.ex`
 - Delegate to Core.ParameterBuilder for: build_query_string, filter_optional_params, normalize_param_values
