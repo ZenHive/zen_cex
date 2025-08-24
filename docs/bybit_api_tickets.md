@@ -31,7 +31,7 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 
 ### ✅ Ticket #3: Bybit Parser Module (Leveraging Core.ResponseParser)
 **Size:** 1.5 hours
-**Status:** TODO
+**Status:** ✅ COMPLETED
 **Implementation:**
 - Create `lib/zen_cex/adapters/bybit/parser.ex`
 - Delegate to Core.ResponseParser for: parse_json_body, normalize_response, standardize_error_message
