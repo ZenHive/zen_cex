@@ -9,7 +9,7 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 
 ### ✅ Ticket #1: Bybit Signer Module (Leveraging Core.Signer)
 **Size:** 1 hour
-**Status:** TODO
+**Status:** ✅ COMPLETED
 **Implementation:**
 - Create `lib/zen_cex/adapters/bybit/signer.ex`
 - Delegate to `Core.Signer.hmac_sha256/2` for signature generation
