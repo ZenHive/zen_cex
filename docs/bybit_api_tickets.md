@@ -42,7 +42,7 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 
 ### ✅ Ticket #4: ETS-based Rate Limiter
 **Size:** 3 hours
-**Status:** TODO
+**Status:** ✅ COMPLETED
 **Implementation:**
 - Create `lib/zen_cex/adapters/bybit/rate_limiter.ex`
 - 600 requests per 5-second window per IP
