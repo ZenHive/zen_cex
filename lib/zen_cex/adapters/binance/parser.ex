@@ -274,10 +274,10 @@ defmodule ZenCex.Adapters.Binance.Parser do
 
   @doc """
   Parses WebSocket market data (NOT IMPLEMENTED).
-  
+
   This function is part of the Parser behavior but WebSocket support
   is explicitly out of scope for this REST-only library.
-  
+
   Always returns `{:error, :not_implemented}`.
   """
   @impl true

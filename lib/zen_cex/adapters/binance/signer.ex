@@ -1,19 +1,21 @@
 defmodule ZenCex.Adapters.Binance.Signer do
   @moduledoc """
-  Pure HMAC-SHA256 signature generation for Binance API authentication.
+  Binance-specific HMAC-SHA256 signature generation.
 
-  This module contains the cryptographic operations needed for Binance API
-  signatures. It is a focused module that handles only signature generation,
-  with no side effects or external dependencies.
+  This module handles Binance's specific signature requirements, delegating
+  the actual cryptographic operations to Core.Signer. It maintains Binance's
+  specific parameter ordering and signature formatting requirements.
 
   ## Signature Process
 
-  1. Build query string from parameters (delegated to ParameterBuilder)
-  2. Compute HMAC-SHA256 hash using API secret
-  3. Encode result as lowercase hexadecimal string
+  1. Build query string from parameters with Binance-specific ordering
+  2. Sign with HMAC-SHA256 (via Core.Signer)
+  3. Return lowercase hexadecimal string
 
   All functions are pure and deterministic for easy testing.
   """
+
+  alias ZenCex.Core.Signer, as: CoreSigner
 
   @doc """
   Creates HMAC-SHA256 signature for Binance API request parameters.
@@ -59,29 +61,28 @@ defmodule ZenCex.Adapters.Binance.Signer do
 
       iex> Signer.sign_payload("symbol=BTCUSDT&timestamp=1234567890", "secret")
       "a1b2c3..."  # 64-character lowercase hex string
+
+  ## Implementation Note
+
+  Delegates to `ZenCex.Core.Signer.sign_payload/3` with Binance-specific options:
+  - `algorithm: :sha256` (Binance uses SHA256)
+  - `encoding: :hex` (returns hexadecimal string)
+  - `case: :lower` (Binance requires lowercase hex)
+
+  See `ZenCex.Core.Signer` for other available algorithms and encoding options.
   """
   @spec sign_payload(String.t(), String.t()) :: String.t()
   def sign_payload(payload, api_secret) do
-    payload
-    |> compute_hmac_sha256(api_secret)
-    |> encode_signature()
+    # Binance requires lowercase hex encoding for SHA256 signatures
+    CoreSigner.sign_payload(payload, api_secret, algorithm: :sha256, encoding: :hex, case: :lower)
   end
 
   # Private implementation functions
 
   @spec build_signature_payload(map()) :: String.t()
   defp build_signature_payload(params) do
-    # Delegate to ParameterBuilder for consistent query string construction
+    # Delegate to ParameterBuilder for Binance-specific query string construction
+    # (handles parameter ordering and filtering requirements)
     ZenCex.Adapters.Binance.ParameterBuilder.build_query_string(params)
-  end
-
-  @spec compute_hmac_sha256(String.t(), String.t()) :: binary()
-  defp compute_hmac_sha256(payload, secret) do
-    :crypto.mac(:hmac, :sha256, secret, payload)
-  end
-
-  @spec encode_signature(binary()) :: String.t()
-  defp encode_signature(raw_signature) do
-    Base.encode16(raw_signature, case: :lower)
   end
 end
