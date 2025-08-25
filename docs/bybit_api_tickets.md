@@ -89,7 +89,7 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 
 ### ✅ Ticket #8: Unified Endpoints Module
 **Size:** 6 hours
-**Status:** TODO
+**Status:** ✅ COMPLETED
 **Implementation:**
 - Create `lib/zen_cex/adapters/bybit/endpoints.ex`
 - Single module for ALL v5 endpoints

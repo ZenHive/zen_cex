@@ -108,12 +108,63 @@ defmodule ZenCex.Adapters.Bybit.EndpointsTest do
       assert :get_announcements in endpoints
     end
 
-    test "list_available_endpoints/1 with trading categories returns empty (not yet implemented)" do
-      # These will be implemented in Ticket #8
-      assert Endpoints.list_available_endpoints(:spot) == []
-      assert Endpoints.list_available_endpoints(:linear) == []
-      assert Endpoints.list_available_endpoints(:inverse) == []
-      assert Endpoints.list_available_endpoints(:option) == []
+    test "list_available_endpoints/1 with :unified returns unified endpoints" do
+      endpoints = Endpoints.list_available_endpoints(:unified)
+
+      assert is_list(endpoints)
+      assert :place_order in endpoints
+      assert :get_positions in endpoints
+      refute :get_server_time in endpoints
+    end
+
+    test "list_available_endpoints/1 with :spot returns spot-specific endpoints" do
+      endpoints = Endpoints.list_available_endpoints(:spot)
+
+      # Spot has basic trading operations
+      assert :place_order in endpoints
+      assert :cancel_order in endpoints
+      assert :get_order in endpoints
+      assert :get_wallet_balance in endpoints
+
+      # Spot doesn't have position management
+      refute :get_positions in endpoints
+      refute :set_leverage in endpoints
+      refute :set_trading_stop in endpoints
+    end
+
+    test "list_available_endpoints/1 with :linear returns linear futures endpoints" do
+      endpoints = Endpoints.list_available_endpoints(:linear)
+
+      # Linear has all operations
+      assert :place_order in endpoints
+      assert :cancel_order in endpoints
+      assert :get_positions in endpoints
+      assert :set_leverage in endpoints
+      assert :set_trading_stop in endpoints
+    end
+
+    test "list_available_endpoints/1 with :inverse returns inverse futures endpoints" do
+      endpoints = Endpoints.list_available_endpoints(:inverse)
+
+      # Inverse has all operations like linear
+      assert :place_order in endpoints
+      assert :cancel_order in endpoints
+      assert :get_positions in endpoints
+      assert :set_leverage in endpoints
+      assert :set_trading_stop in endpoints
+    end
+
+    test "list_available_endpoints/1 with :option returns options endpoints" do
+      endpoints = Endpoints.list_available_endpoints(:option)
+
+      # Options have positions but not leverage/stops
+      assert :place_order in endpoints
+      assert :cancel_order in endpoints
+      assert :get_positions in endpoints
+
+      # Options don't have leverage or trading stops
+      refute :set_leverage in endpoints
+      refute :set_trading_stop in endpoints
     end
 
     test "list_available_endpoints/1 with invalid category returns empty list" do
@@ -130,6 +181,16 @@ defmodule ZenCex.Adapters.Bybit.EndpointsTest do
       assert info.method == :get
       assert info.path == "/v5/market/time"
       assert info.requires_auth == false
+    end
+
+    test "get_endpoint_info/1 returns config for unified operation" do
+      info = Endpoints.get_endpoint_info(:place_order)
+
+      assert is_map(info)
+      assert info.operation == :place_order
+      assert info.method == :post
+      assert info.path == "/v5/order/create"
+      assert info.requires_auth == true
     end
 
     test "get_endpoint_info/1 returns nil for invalid operation" do
@@ -149,6 +210,90 @@ defmodule ZenCex.Adapters.Bybit.EndpointsTest do
       assert function_exported?(Endpoints, :get_announcements, 0)
       assert function_exported?(Endpoints, :get_announcements, 1)
       assert function_exported?(Endpoints, :get_announcements, 2)
+    end
+
+    test "delegates unified trading endpoints" do
+      assert function_exported?(Endpoints, :get_wallet_balance, 1)
+      assert function_exported?(Endpoints, :get_wallet_balance, 2)
+      assert function_exported?(Endpoints, :place_order, 1)
+      assert function_exported?(Endpoints, :place_order, 2)
+      assert function_exported?(Endpoints, :cancel_order, 1)
+      assert function_exported?(Endpoints, :cancel_order, 2)
+      assert function_exported?(Endpoints, :cancel_all_orders, 1)
+      assert function_exported?(Endpoints, :cancel_all_orders, 2)
+      assert function_exported?(Endpoints, :get_order, 1)
+      assert function_exported?(Endpoints, :get_order, 2)
+      assert function_exported?(Endpoints, :get_order_history, 1)
+      assert function_exported?(Endpoints, :get_order_history, 2)
+      assert function_exported?(Endpoints, :get_positions, 1)
+      assert function_exported?(Endpoints, :get_positions, 2)
+      assert function_exported?(Endpoints, :set_leverage, 1)
+      assert function_exported?(Endpoints, :set_leverage, 2)
+      assert function_exported?(Endpoints, :set_trading_stop, 1)
+      assert function_exported?(Endpoints, :set_trading_stop, 2)
+      assert function_exported?(Endpoints, :get_trades, 1)
+      assert function_exported?(Endpoints, :get_trades, 2)
+    end
+  end
+
+  describe "category-prefixed convenience functions" do
+    test "spot convenience functions are exported" do
+      assert function_exported?(Endpoints, :spot_place_order, 1)
+      assert function_exported?(Endpoints, :spot_place_order, 2)
+      assert function_exported?(Endpoints, :spot_cancel_order, 1)
+      assert function_exported?(Endpoints, :spot_cancel_order, 2)
+      assert function_exported?(Endpoints, :spot_cancel_all_orders, 0)
+      assert function_exported?(Endpoints, :spot_cancel_all_orders, 1)
+      assert function_exported?(Endpoints, :spot_cancel_all_orders, 2)
+      assert function_exported?(Endpoints, :spot_get_order, 1)
+      assert function_exported?(Endpoints, :spot_get_order, 2)
+      assert function_exported?(Endpoints, :spot_get_order_history, 0)
+      assert function_exported?(Endpoints, :spot_get_order_history, 1)
+      assert function_exported?(Endpoints, :spot_get_order_history, 2)
+      assert function_exported?(Endpoints, :spot_get_trades, 0)
+      assert function_exported?(Endpoints, :spot_get_trades, 1)
+      assert function_exported?(Endpoints, :spot_get_trades, 2)
+    end
+
+    test "linear convenience functions are exported" do
+      assert function_exported?(Endpoints, :linear_place_order, 1)
+      assert function_exported?(Endpoints, :linear_place_order, 2)
+      assert function_exported?(Endpoints, :linear_cancel_order, 1)
+      assert function_exported?(Endpoints, :linear_cancel_order, 2)
+      assert function_exported?(Endpoints, :linear_get_positions, 0)
+      assert function_exported?(Endpoints, :linear_get_positions, 1)
+      assert function_exported?(Endpoints, :linear_get_positions, 2)
+      assert function_exported?(Endpoints, :linear_set_leverage, 1)
+      assert function_exported?(Endpoints, :linear_set_leverage, 2)
+      assert function_exported?(Endpoints, :linear_set_trading_stop, 1)
+      assert function_exported?(Endpoints, :linear_set_trading_stop, 2)
+    end
+
+    test "inverse convenience functions are exported" do
+      assert function_exported?(Endpoints, :inverse_place_order, 1)
+      assert function_exported?(Endpoints, :inverse_place_order, 2)
+      assert function_exported?(Endpoints, :inverse_cancel_order, 1)
+      assert function_exported?(Endpoints, :inverse_cancel_order, 2)
+      assert function_exported?(Endpoints, :inverse_get_positions, 0)
+      assert function_exported?(Endpoints, :inverse_get_positions, 1)
+      assert function_exported?(Endpoints, :inverse_get_positions, 2)
+      assert function_exported?(Endpoints, :inverse_set_leverage, 1)
+      assert function_exported?(Endpoints, :inverse_set_leverage, 2)
+      assert function_exported?(Endpoints, :inverse_set_trading_stop, 1)
+      assert function_exported?(Endpoints, :inverse_set_trading_stop, 2)
+    end
+
+    test "option convenience functions are exported" do
+      assert function_exported?(Endpoints, :option_place_order, 1)
+      assert function_exported?(Endpoints, :option_place_order, 2)
+      assert function_exported?(Endpoints, :option_cancel_order, 1)
+      assert function_exported?(Endpoints, :option_cancel_order, 2)
+      assert function_exported?(Endpoints, :option_get_positions, 0)
+      assert function_exported?(Endpoints, :option_get_positions, 1)
+      assert function_exported?(Endpoints, :option_get_positions, 2)
+      assert function_exported?(Endpoints, :option_get_trades, 0)
+      assert function_exported?(Endpoints, :option_get_trades, 1)
+      assert function_exported?(Endpoints, :option_get_trades, 2)
     end
   end
 end

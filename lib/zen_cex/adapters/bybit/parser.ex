@@ -254,4 +254,142 @@ defmodule ZenCex.Adapters.Bybit.Parser do
       {:error, _} -> {:error, :invalid_json}
     end
   end
+
+  @doc """
+  Parses wallet balance response.
+  """
+  @spec parse_wallet_balance(map() | binary()) :: {:ok, map()} | {:error, term()}
+  def parse_wallet_balance(body) when is_map(body) do
+    handle_bybit_response(body, 200, %{})
+  end
+
+  def parse_wallet_balance(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
+
+  @doc """
+  Parses order response (place, cancel, get).
+  """
+  @spec parse_order(map() | binary()) :: {:ok, map()} | {:error, term()}
+  def parse_order(body) when is_map(body) do
+    handle_bybit_response(body, 200, %{})
+  end
+
+  def parse_order(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
+
+  @doc """
+  Parses multiple orders response.
+  """
+  @spec parse_orders(map() | binary()) :: {:ok, list()} | {:error, term()}
+  def parse_orders(body) when is_map(body) do
+    case handle_bybit_response(body, 200, %{}) do
+      {:ok, result} when is_map(result) ->
+        # Extract list from result (handle both direct list and nested structure)
+        orders = Map.get(result, "list", result)
+        {:ok, orders}
+
+      {:ok, result} when is_list(result) ->
+        {:ok, result}
+
+      error ->
+        error
+    end
+  end
+
+  def parse_orders(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} -> parse_orders(decoded)
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
+
+  @doc """
+  Parses batch cancel response.
+  """
+  @spec parse_batch_cancel(map() | binary()) :: {:ok, map()} | {:error, term()}
+  def parse_batch_cancel(body) when is_map(body) do
+    handle_bybit_response(body, 200, %{})
+  end
+
+  def parse_batch_cancel(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
+
+  @doc """
+  Parses positions response.
+  """
+  @spec parse_positions(map() | binary()) :: {:ok, list()} | {:error, term()}
+  def parse_positions(body) when is_map(body) do
+    case handle_bybit_response(body, 200, %{}) do
+      {:ok, result} when is_map(result) ->
+        # Extract list from result
+        positions = Map.get(result, "list", [])
+        {:ok, positions}
+
+      {:ok, result} when is_list(result) ->
+        {:ok, result}
+
+      error ->
+        error
+    end
+  end
+
+  def parse_positions(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} -> parse_positions(decoded)
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
+
+  @doc """
+  Parses trades/executions response.
+  """
+  @spec parse_trades(map() | binary()) :: {:ok, list()} | {:error, term()}
+  def parse_trades(body) when is_map(body) do
+    case handle_bybit_response(body, 200, %{}) do
+      {:ok, result} when is_map(result) ->
+        # Extract list from result
+        trades = Map.get(result, "list", [])
+        {:ok, trades}
+
+      {:ok, result} when is_list(result) ->
+        {:ok, result}
+
+      error ->
+        error
+    end
+  end
+
+  def parse_trades(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} -> parse_trades(decoded)
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
+
+  @doc """
+  Parses generic response (for operations that don't need special handling).
+  """
+  @spec parse_generic(map() | binary()) :: {:ok, map()} | {:error, term()}
+  def parse_generic(body) when is_map(body) do
+    handle_bybit_response(body, 200, %{})
+  end
+
+  def parse_generic(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
 end
