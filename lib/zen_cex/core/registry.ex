@@ -10,6 +10,7 @@ defmodule ZenCex.Core.Registry do
 
   Currently supported exchanges:
   - `:binance` - Binance exchange endpoints
+  - `:bybit` - Bybit exchange endpoints
 
   ## Examples
 
@@ -24,7 +25,8 @@ defmodule ZenCex.Core.Registry do
   """
 
   @endpoints %{
-    binance: ZenCex.Adapters.Binance.Endpoints
+    binance: ZenCex.Adapters.Binance.Endpoints,
+    bybit: ZenCex.Adapters.Bybit.Endpoints
     # kraken: ZenCex.Adapters.Kraken.Endpoints,  # TODO: Implement Kraken endpoints
     # deribit: ZenCex.Adapters.Deribit.Endpoints  # TODO: Implement Deribit endpoints
   }

@@ -63,6 +63,7 @@ defmodule ZenCex.IntegrationCase do
   def enforce_testnet!(exchange, api_type \\ nil) do
     case exchange do
       :binance -> enforce_binance_testnet!(api_type)
+      :bybit -> enforce_bybit_testnet!(api_type)
       :kraken -> enforce_kraken_testnet!(api_type)
       :deribit -> enforce_deribit_testnet!(api_type)
       _ -> raise "Unknown exchange: #{exchange}"
@@ -175,6 +176,63 @@ defmodule ZenCex.IntegrationCase do
 
       url ->
         url
+    end
+  end
+
+  # Bybit testnet enforcement
+  defp enforce_bybit_testnet!(_api_type) do
+    alias ZenCex.Adapters.Bybit.Endpoints
+
+    # Check environment is set to test
+    env = Endpoints.current_env()
+
+    if env != :test do
+      raise """
+      TESTNET REQUIRED: Environment is #{env}, expected :test.
+      Set BYBIT_TESTNET=true to enable testnet mode.
+      """
+    end
+
+    # Verify base URL (Bybit uses unified API)
+    actual_url = Endpoints.base_url()
+    expected_url = "https://api-testnet.bybit.com"
+
+    if actual_url != expected_url do
+      raise """
+      TESTNET URL REQUIRED: Got #{actual_url}, expected #{expected_url}
+      Ensure BYBIT_TESTNET=true is set.
+      """
+    end
+
+    # Bybit testnet doesn't require API keys for public endpoints
+    # For authenticated tests, would check:
+    # api_key = fetch_testnet_credential!("BYBIT_TESTNET_API_KEY",
+    #   "BYBIT_TESTNET_API_KEY required for authenticated tests")
+    # api_secret = fetch_testnet_credential!("BYBIT_TESTNET_API_SECRET",
+    #   "BYBIT_TESTNET_API_SECRET required for authenticated tests")
+
+    # Verify connectivity to Bybit testnet
+    verify_bybit_connectivity!()
+
+    {:ok, []}
+  end
+
+  defp verify_bybit_connectivity! do
+    alias ZenCex.Adapters.Bybit.Common
+
+    case Common.get_server_time() do
+      {:ok, _} ->
+        :ok
+
+      {:error, reason} ->
+        raise """
+        Cannot connect to Bybit testnet: #{inspect(reason)}
+
+        Please verify:
+        1. Your internet connection is working
+        2. Bybit testnet is accessible from your location
+        3. The testnet API is operational
+        """
     end
   end
 

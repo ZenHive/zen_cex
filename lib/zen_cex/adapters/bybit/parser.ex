@@ -97,6 +97,11 @@ defmodule ZenCex.Adapters.Bybit.Parser do
     end
   end
 
+  # Handle case where Req has already decoded the JSON to a map
+  def parse(%{status: status, body: body} = response) when is_map(body) do
+    handle_bybit_response(body, status, response)
+  end
+
   def parse(%{status: status}) do
     # No body or non-binary body
     {:error, ResponseParser.map_http_status_to_error(status)}
@@ -183,5 +188,70 @@ defmodule ZenCex.Adapters.Bybit.Parser do
       _, acc ->
         acc
     end)
+  end
+
+  # Specialized parsers for common endpoints
+
+  @doc """
+  Parses server time response body directly.
+
+  ## Examples
+
+      iex> parse_server_time(%{"retCode" => 0, "retMsg" => "OK", "result" => %{"timeSecond" => "1672211736", "timeNano" => "1672211736359000000"}})
+      {:ok, %{"timeSecond" => "1672211736", "timeNano" => "1672211736359000000"}}
+  """
+  @spec parse_server_time(map() | binary()) :: {:ok, map()} | {:error, term()}
+  def parse_server_time(body) when is_map(body) do
+    # Body is already decoded by Req
+    handle_bybit_response(body, 200, %{})
+  end
+
+  def parse_server_time(body) when is_binary(body) do
+    # If still a string, decode it first
+    case Jason.decode(body) do
+      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
+
+  @doc """
+  Parses error response body directly.
+  """
+  @spec parse_error(map() | binary()) :: {:error, term()}
+  def parse_error(body) when is_map(body) do
+    # For errors, we expect a Bybit error structure
+    case handle_bybit_response(body, 400, %{}) do
+      {:ok, _} -> {:error, :unexpected_success}
+      error -> error
+    end
+  end
+
+  def parse_error(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} -> parse_error(decoded)
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
+
+  @doc """
+  Parses announcements response body directly.
+
+  ## Examples
+
+      iex> parse_announcements(%{"retCode" => 0, "retMsg" => "OK", "result" => %{"list" => [...]}})
+      {:ok, %{"list" => [...]}}
+  """
+  @spec parse_announcements(map() | binary()) :: {:ok, map()} | {:error, term()}
+  def parse_announcements(body) when is_map(body) do
+    # Body is already decoded by Req
+    handle_bybit_response(body, 200, %{})
+  end
+
+  def parse_announcements(body) when is_binary(body) do
+    # If still a string, decode it first
+    case Jason.decode(body) do
+      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
+      {:error, _} -> {:error, :invalid_json}
+    end
   end
 end

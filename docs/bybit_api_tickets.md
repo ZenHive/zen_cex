@@ -77,7 +77,7 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 
 ### ✅ Ticket #7: Common Endpoints Module
 **Size:** 2 hours
-**Status:** TODO
+**Status:** ✅ COMPLETED
 **Implementation:**
 - Create `lib/zen_cex/adapters/bybit/common.ex`
 - Server time endpoint: GET /v5/market/time

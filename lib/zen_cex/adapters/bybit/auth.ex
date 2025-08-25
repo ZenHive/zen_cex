@@ -123,7 +123,7 @@ defmodule ZenCex.Adapters.Bybit.Auth do
   @spec sign_request(Req.Request.t(), String.t(), String.t()) :: Req.Request.t()
   def sign_request(request, api_key, api_secret) do
     # TODO: Remove debug logging once authentication is stable
-    Logger.debug("Bybit Auth: Starting to sign request", exchange: :bybit, url: request.url)
+    Logger.debug("Bybit Auth: Starting to sign request", exchange: :bybit)
 
     # Extract parameters from request
     {all_params, has_json_option, body_params} = extract_request_params(request)

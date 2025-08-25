@@ -29,7 +29,7 @@ defmodule ZenCex.Core.RegistryTest do
     test "returns all supported exchanges" do
       exchanges = Registry.list_exchanges()
       assert :binance in exchanges
-      assert length(exchanges) == 1
+      assert length(exchanges) == 2
     end
   end
 end

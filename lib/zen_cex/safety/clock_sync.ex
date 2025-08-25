@@ -421,14 +421,23 @@ defmodule ZenCex.Safety.ClockSync do
   end
 
   defp get_time_endpoint_url(:binance, api_type), do: get_binance_time_url(api_type)
+  defp get_time_endpoint_url(:bybit, _), do: get_bybit_time_url()
   defp get_time_endpoint_url(:kraken, _), do: {:ok, "https://api.kraken.com/0/public/Time"}
 
   defp get_time_endpoint_url(:deribit, _) do
-    # TODO: Use test/prod host from config
+    # TODO: Use test/prod host from config - should use Deribit adapter's base_url method
     {:ok, "https://test.deribit.com/api/v2/public/get_time"}
   end
 
   defp get_time_endpoint_url(unknown, _), do: {:error, {:unsupported_exchange, unknown}}
+
+  defp get_bybit_time_url do
+    if Application.get_env(:zen_cex, :use_testnet, false) do
+      {:ok, "https://api-testnet.bybit.com/v5/market/time"}
+    else
+      {:ok, "https://api.bybit.com/v5/market/time"}
+    end
+  end
 
   defp get_binance_time_url(api_type) do
     case api_type do
@@ -461,6 +470,7 @@ defmodule ZenCex.Safety.ClockSync do
   defp parse_server_time(exchange, body) do
     case exchange do
       :binance -> parse_binance_time(body)
+      :bybit -> parse_bybit_time(body)
       :kraken -> parse_kraken_time(body)
       :deribit -> parse_deribit_time(body)
       _unknown -> {:error, {:unsupported_exchange, exchange}}
@@ -483,6 +493,42 @@ defmodule ZenCex.Safety.ClockSync do
     # Fallback for string body (shouldn't happen with Req, but kept for compatibility)
     case Jason.decode(body) do
       {:ok, decoded} -> parse_binance_time(decoded)
+      {:error, reason} -> {:error, {:json_decode_error, reason}}
+    end
+  end
+
+  defp parse_bybit_time(body) when is_map(body) do
+    # Bybit V5 API returns: {"retCode": 0, "retMsg": "OK",
+    # "result": {"timeSecond": "1234567890", "timeNano": "1234567890123456789"},
+    # "time": 1234567890123}
+    # The "time" field at root level is server time in milliseconds
+    # The "result.timeSecond" is server time in seconds (as string)
+    # The "result.timeNano" is server time in nanoseconds (as string)
+    case body do
+      # V5 API format with time field at root level (milliseconds)
+      %{"time" => server_time} when is_integer(server_time) ->
+        {:ok, server_time}
+
+      # V5 API format with result containing timeSecond (seconds as string)
+      %{"result" => %{"timeSecond" => time_str}} when is_binary(time_str) ->
+        case Integer.parse(time_str) do
+          {seconds, ""} -> {:ok, seconds * 1000}
+          _ -> {:error, {:invalid_time_format, time_str}}
+        end
+
+      # Error response
+      %{"retCode" => code} when code != 0 ->
+        {:error, {:bybit_error, body["retMsg"] || "Unknown error"}}
+
+      data ->
+        {:error, {:invalid_response, data}}
+    end
+  end
+
+  defp parse_bybit_time(body) when is_binary(body) do
+    # Fallback for string body (shouldn't happen with Req, but kept for compatibility)
+    case Jason.decode(body) do
+      {:ok, decoded} -> parse_bybit_time(decoded)
       {:error, reason} -> {:error, {:json_decode_error, reason}}
     end
   end
