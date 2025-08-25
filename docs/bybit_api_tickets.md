@@ -67,7 +67,7 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 
 ### ✅ Ticket #6: Request Helper Module
 **Size:** 2 hours
-**Status:** TODO
+**Status:** ✅ COMPLETED
 **Implementation:**
 - Create `lib/zen_cex/adapters/bybit/request_helper.ex`
 - URL construction for v5 endpoints
