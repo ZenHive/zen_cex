@@ -55,7 +55,7 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 
 ### ✅ Ticket #5: Bybit Auth Module (Leveraging Core.Auth)
 **Size:** 2 hours
-**Status:** TODO
+**Status:** ✅ COMPLETED
 **Implementation:**
 - Create `lib/zen_cex/adapters/bybit/auth.ex`
 - Delegate to Core.Auth for: get_credentials, valid_credentials?, log_credential_status

@@ -91,6 +91,15 @@ iex -S mix
 mix deps.clean --all  # Avoid unless necessary
 ```
 
+### Shell Shortcuts (from .zprofile)
+```bash
+# Mix shortcuts for faster development
+mf   # mix format
+mt   # mix format && time mix test
+mtw  # mix test.watch
+mc   # time mix compile --warnings-as-errors
+```
+
 ### Test Categories
 The test suite is organized into three categories:
 - **Unit tests**: `*_test.exs` - Test individual functions and modules
