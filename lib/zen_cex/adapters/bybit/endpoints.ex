@@ -155,104 +155,57 @@ defmodule ZenCex.Adapters.Bybit.Endpoints do
   defdelegate get_trade_history(params), to: Unified
   defdelegate get_trade_history(params, opts), to: Unified
 
-  # Category-prefixed convenience functions for spot trading
-  def spot_place_order(params), do: place_order(Map.put(params, :category, "spot"))
-  def spot_place_order(params, opts), do: place_order(Map.put(params, :category, "spot"), opts)
+  # ============================================================================
+  # Category-prefixed convenience functions (auto-generated)
+  # ============================================================================
 
-  def spot_cancel_order(params), do: cancel_order(Map.put(params, :category, "spot"))
-  def spot_cancel_order(params, opts), do: cancel_order(Map.put(params, :category, "spot"), opts)
+  # Helper functions to generate category-prefixed wrapper functions
+  # This eliminates ~98 lines of duplicated code across 4 categories
 
-  def spot_cancel_all_orders(params \\ %{}), do: cancel_all_orders(Map.put(params, :category, "spot"))
-  def spot_cancel_all_orders(params, opts), do: cancel_all_orders(Map.put(params, :category, "spot"), opts)
+  # Common functions available to all categories
+  @base_functions [
+    {:place_order, false},
+    {:cancel_order, false},
+    {:cancel_all_orders, true},
+    {:get_open_closed_orders, false},
+    {:get_order_history, true},
+    {:get_trade_history, true}
+  ]
 
-  def spot_get_open_closed_orders(params), do: get_open_closed_orders(Map.put(params, :category, "spot"))
-  def spot_get_open_closed_orders(params, opts), do: get_open_closed_orders(Map.put(params, :category, "spot"), opts)
+  # Position-related functions for futures and options
+  @position_functions [
+    {:get_position_list, true},
+    {:set_leverage, false},
+    {:create_trading_stop, false}
+  ]
 
-  def spot_get_order_history(params \\ %{}), do: get_order_history(Map.put(params, :category, "spot"))
-  def spot_get_order_history(params, opts), do: get_order_history(Map.put(params, :category, "spot"), opts)
+  # Generate category functions using compile-time metaprogramming
+  for {category, functions} <- [
+        {:spot, @base_functions},
+        {:linear, @base_functions ++ @position_functions},
+        {:inverse, @base_functions ++ @position_functions},
+        {:option, @base_functions ++ [{:get_position_list, true}]}
+      ] do
+    category_str = Atom.to_string(category)
 
-  def spot_get_trade_history(params \\ %{}), do: get_trade_history(Map.put(params, :category, "spot"))
-  def spot_get_trade_history(params, opts), do: get_trade_history(Map.put(params, :category, "spot"), opts)
+    for {base_func, has_default} <- functions do
+      func_name = "#{category}_#{base_func}"
+      prefixed_func = String.to_atom(func_name)
 
-  # Category-prefixed convenience functions for linear futures (USDT perpetual)
-  def linear_place_order(params), do: place_order(Map.put(params, :category, "linear"))
-  def linear_place_order(params, opts), do: place_order(Map.put(params, :category, "linear"), opts)
+      if has_default do
+        def unquote(prefixed_func)(params \\ %{}),
+          do: unquote(base_func)(Map.put(params, :category, unquote(category_str)))
 
-  def linear_cancel_order(params), do: cancel_order(Map.put(params, :category, "linear"))
-  def linear_cancel_order(params, opts), do: cancel_order(Map.put(params, :category, "linear"), opts)
+        def unquote(prefixed_func)(params, opts),
+          do: unquote(base_func)(Map.put(params, :category, unquote(category_str)), opts)
+      else
+        def unquote(prefixed_func)(params), do: unquote(base_func)(Map.put(params, :category, unquote(category_str)))
 
-  def linear_cancel_all_orders(params \\ %{}), do: cancel_all_orders(Map.put(params, :category, "linear"))
-  def linear_cancel_all_orders(params, opts), do: cancel_all_orders(Map.put(params, :category, "linear"), opts)
-
-  def linear_get_open_closed_orders(params), do: get_open_closed_orders(Map.put(params, :category, "linear"))
-  def linear_get_open_closed_orders(params, opts), do: get_open_closed_orders(Map.put(params, :category, "linear"), opts)
-
-  def linear_get_order_history(params \\ %{}), do: get_order_history(Map.put(params, :category, "linear"))
-  def linear_get_order_history(params, opts), do: get_order_history(Map.put(params, :category, "linear"), opts)
-
-  def linear_get_position_list(params \\ %{}), do: get_position_list(Map.put(params, :category, "linear"))
-  def linear_get_position_list(params, opts), do: get_position_list(Map.put(params, :category, "linear"), opts)
-
-  def linear_set_leverage(params), do: set_leverage(Map.put(params, :category, "linear"))
-  def linear_set_leverage(params, opts), do: set_leverage(Map.put(params, :category, "linear"), opts)
-
-  def linear_create_trading_stop(params), do: create_trading_stop(Map.put(params, :category, "linear"))
-  def linear_create_trading_stop(params, opts), do: create_trading_stop(Map.put(params, :category, "linear"), opts)
-
-  def linear_get_trade_history(params \\ %{}), do: get_trade_history(Map.put(params, :category, "linear"))
-  def linear_get_trade_history(params, opts), do: get_trade_history(Map.put(params, :category, "linear"), opts)
-
-  # Category-prefixed convenience functions for inverse futures (coin-margined)
-  def inverse_place_order(params), do: place_order(Map.put(params, :category, "inverse"))
-  def inverse_place_order(params, opts), do: place_order(Map.put(params, :category, "inverse"), opts)
-
-  def inverse_cancel_order(params), do: cancel_order(Map.put(params, :category, "inverse"))
-  def inverse_cancel_order(params, opts), do: cancel_order(Map.put(params, :category, "inverse"), opts)
-
-  def inverse_cancel_all_orders(params \\ %{}), do: cancel_all_orders(Map.put(params, :category, "inverse"))
-  def inverse_cancel_all_orders(params, opts), do: cancel_all_orders(Map.put(params, :category, "inverse"), opts)
-
-  def inverse_get_open_closed_orders(params), do: get_open_closed_orders(Map.put(params, :category, "inverse"))
-
-  def inverse_get_open_closed_orders(params, opts),
-    do: get_open_closed_orders(Map.put(params, :category, "inverse"), opts)
-
-  def inverse_get_order_history(params \\ %{}), do: get_order_history(Map.put(params, :category, "inverse"))
-  def inverse_get_order_history(params, opts), do: get_order_history(Map.put(params, :category, "inverse"), opts)
-
-  def inverse_get_position_list(params \\ %{}), do: get_position_list(Map.put(params, :category, "inverse"))
-  def inverse_get_position_list(params, opts), do: get_position_list(Map.put(params, :category, "inverse"), opts)
-
-  def inverse_set_leverage(params), do: set_leverage(Map.put(params, :category, "inverse"))
-  def inverse_set_leverage(params, opts), do: set_leverage(Map.put(params, :category, "inverse"), opts)
-
-  def inverse_create_trading_stop(params), do: create_trading_stop(Map.put(params, :category, "inverse"))
-  def inverse_create_trading_stop(params, opts), do: create_trading_stop(Map.put(params, :category, "inverse"), opts)
-
-  def inverse_get_trade_history(params \\ %{}), do: get_trade_history(Map.put(params, :category, "inverse"))
-  def inverse_get_trade_history(params, opts), do: get_trade_history(Map.put(params, :category, "inverse"), opts)
-
-  # Category-prefixed convenience functions for options trading
-  def option_place_order(params), do: place_order(Map.put(params, :category, "option"))
-  def option_place_order(params, opts), do: place_order(Map.put(params, :category, "option"), opts)
-
-  def option_cancel_order(params), do: cancel_order(Map.put(params, :category, "option"))
-  def option_cancel_order(params, opts), do: cancel_order(Map.put(params, :category, "option"), opts)
-
-  def option_cancel_all_orders(params \\ %{}), do: cancel_all_orders(Map.put(params, :category, "option"))
-  def option_cancel_all_orders(params, opts), do: cancel_all_orders(Map.put(params, :category, "option"), opts)
-
-  def option_get_open_closed_orders(params), do: get_open_closed_orders(Map.put(params, :category, "option"))
-  def option_get_open_closed_orders(params, opts), do: get_open_closed_orders(Map.put(params, :category, "option"), opts)
-
-  def option_get_order_history(params \\ %{}), do: get_order_history(Map.put(params, :category, "option"))
-  def option_get_order_history(params, opts), do: get_order_history(Map.put(params, :category, "option"), opts)
-
-  def option_get_position_list(params \\ %{}), do: get_position_list(Map.put(params, :category, "option"))
-  def option_get_position_list(params, opts), do: get_position_list(Map.put(params, :category, "option"), opts)
-
-  def option_get_trade_history(params \\ %{}), do: get_trade_history(Map.put(params, :category, "option"))
-  def option_get_trade_history(params, opts), do: get_trade_history(Map.put(params, :category, "option"), opts)
+        def unquote(prefixed_func)(params, opts),
+          do: unquote(base_func)(Map.put(params, :category, unquote(category_str)), opts)
+      end
+    end
+  end
 
   @doc """
   Lists all available endpoints for this exchange.
