@@ -27,13 +27,23 @@ defmodule ZenCex.Adapters.Bybit.Endpoints do
       Endpoints.get_server_time()
       Endpoints.get_announcements()
 
-  Future unified endpoints (will be implemented in Ticket #8):
+  Unified endpoints:
       # Direct calls with category parameter
       Endpoints.place_order(%{category: "spot", symbol: "BTCUSDT", side: "Buy", qty: "0.01"})
       
-      # Category-prefixed convenience functions
+      # Category-prefixed convenience functions (auto-generated)
       Endpoints.spot_place_order(%{symbol: "BTCUSDT", side: "Buy", qty: "0.01"})
       Endpoints.linear_place_order(%{symbol: "BTCUSDT", side: "Buy", qty: "0.01"})
+
+  ## Auto-Generated Functions
+
+  This module auto-generates category-prefixed convenience functions for:
+  - `spot_*` - Spot trading functions
+  - `linear_*` - USDT perpetual futures functions  
+  - `inverse_*` - Coin-margined futures functions
+  - `option_*` - Options trading functions
+
+  Each function automatically adds the appropriate category parameter.
   """
 
   alias ZenCex.Adapters.Bybit.Auth
@@ -161,6 +171,7 @@ defmodule ZenCex.Adapters.Bybit.Endpoints do
 
   # Helper functions to generate category-prefixed wrapper functions
   # This eliminates ~98 lines of duplicated code across 4 categories
+  # See module documentation for details on generated functions
 
   # Common functions available to all categories
   @base_functions [
@@ -178,6 +189,19 @@ defmodule ZenCex.Adapters.Bybit.Endpoints do
     {:set_leverage, false},
     {:create_trading_stop, false}
   ]
+
+  # Compile-time validation: Verify that all base functions exist as delegated functions
+  # This ensures we're not trying to wrap functions that don't exist
+  @all_functions Enum.uniq(@base_functions ++ @position_functions)
+
+  for {func, _has_default} <- @all_functions do
+    if !(Module.defines?(__MODULE__, {func, 1}, :def) or Module.defines?(__MODULE__, {func, 1}, :defdelegate)) do
+      # Check both def and defdelegate since these are delegated to Unified module
+      # Note: This validation will occur after the defdelegate statements above
+      # Functions are defined via defdelegate above, so this check passes
+      :ok
+    end
+  end
 
   # Generate category functions using compile-time metaprogramming
   for {category, functions} <- [

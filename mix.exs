@@ -90,7 +90,7 @@ defmodule ZenCex.MixProject do
       tidewave: [
         "run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4000) end)'"
         # "run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4000, allowed_origins: [\"//localhost\"]) end)'"
-        # ~s{run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, allowed_origins: ["//localhost", "//127.0.0.1", "//0.0.0.0", "//::1"], port: 4000) end)'}
+        # ~s{run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, allowed_origins: ["//localhost:4000", "//127.0.0.1:4000", "//0.0.0.0:4000", "//::1:4000"]) end)'}
       ],
       precommit: [
         "compile --warning-as-errors",
