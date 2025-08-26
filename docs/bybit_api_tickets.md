@@ -112,7 +112,7 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 
 ### ✅ Ticket #9: Mix Task for Trading Endpoint Generation from Postman Collection
 **Size:** 3 hours
-**Status:** TODO
+**Status:** ✅ COMPLETED
 **Implementation:**
 - Create `lib/mix/tasks/zen_cex.generate_bybit_endpoints.ex`
 - Fetch and parse Bybit v5 Postman collection from:

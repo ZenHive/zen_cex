@@ -105,6 +105,12 @@ defmodule ZenCex.Adapters.Bybit.Parser do
     handle_bybit_response(body, status, response)
   end
 
+  # Handle direct map response (from successful requests)
+  def parse(%{"retCode" => _} = body) do
+    # This is a direct Bybit response body
+    handle_bybit_response(body, 200, %{})
+  end
+
   def parse(%{status: status}) do
     # No body or non-binary body
     {:error, ResponseParser.map_http_status_to_error(status)}
@@ -198,6 +204,13 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   # Specialized parsers for common endpoints
 
   @doc """
+  Parses unified trading API responses.
+  This is an alias for the main parse/1 function used by generated endpoints.
+  """
+  @spec parse_unified_response(map() | binary()) :: {:ok, term()} | {:error, term()}
+  def parse_unified_response(response), do: parse(response)
+
+  @doc """
   Parses server time response body directly.
 
   ## Examples
@@ -223,6 +236,14 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   Parses error response body directly.
   """
   @spec parse_error(map() | binary()) :: {:error, term()}
+  def parse_error(%{"retCode" => _} = body) do
+    # Direct Bybit response body
+    case handle_bybit_response(body, 400, %{}) do
+      {:ok, _} -> {:error, :unexpected_success}
+      error -> error
+    end
+  end
+
   def parse_error(body) when is_map(body) do
     # For errors, we expect a Bybit error structure
     case handle_bybit_response(body, 400, %{}) do

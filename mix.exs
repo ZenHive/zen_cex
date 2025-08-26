@@ -38,6 +38,8 @@ defmodule ZenCex.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:tidewave, "~> 0.3.1", only: :dev},
+      {:bandit, "~> 1.0", only: :dev},
       # HTTP client
       {:req, "~> 0.5.0"},
       {:finch, "~> 0.20.0"},
@@ -63,13 +65,10 @@ defmodule ZenCex.MixProject do
 
       # Testing & development
       {:plug, "~> 1.0", only: [:dev, :test]},
-      # {:mock, "~> 0.3.8", only: :test},
       {:excoveralls, "~> 0.18", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
-      {:tidewave, "~> 0.4.1", only: :dev},
-      {:bandit, "~> 1.0", only: :dev},
       {:doctor, "~> 0.22.0", only: [:dev, :test]},
       {:styler, "~> 1.5", only: [:dev, :test], runtime: false}
     ]
@@ -89,7 +88,9 @@ defmodule ZenCex.MixProject do
       test: ["test"],
       "test.cover": ["coveralls.html"],
       tidewave: [
-        "run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4000, allowed_origins: [\"//localhost\"]) end)'"
+        "run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4000) end)'"
+        # "run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4000, allowed_origins: [\"//localhost\"]) end)'"
+        # ~s{run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, allowed_origins: ["//localhost", "//127.0.0.1", "//0.0.0.0", "//::1"], port: 4000) end)'}
       ],
       precommit: [
         "compile --warning-as-errors",

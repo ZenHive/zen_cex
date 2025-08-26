@@ -91,8 +91,7 @@ defmodule ZenCex.Adapters.Bybit.RateLimiter do
     :option_cancel_all_orders
   ]
 
-  # MapSet for O(1) emergency operation lookup
-  @emergency_operations_set MapSet.new(@emergency_operations)
+  # Emergency operations list for membership checking
 
   @impl true
   @spec check_and_increment(String.t() | atom(), non_neg_integer()) ::
@@ -225,7 +224,7 @@ defmodule ZenCex.Adapters.Bybit.RateLimiter do
 
   # Check by operation atom using MapSet for O(1) lookup
   defp emergency_operation?(_endpoint, operation) when is_atom(operation) do
-    MapSet.member?(@emergency_operations_set, operation)
+    operation in @emergency_operations
   end
 
   # Check by endpoint path patterns

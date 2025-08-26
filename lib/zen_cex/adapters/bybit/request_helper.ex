@@ -43,6 +43,9 @@ defmodule ZenCex.Adapters.Bybit.RequestHelper do
   # HTTP status code ranges
   @success_status_range 200..299
 
+  # Retry configuration - milliseconds per retry attempt for linear backoff
+  @backoff_multiplier_ms 1000
+
   # Bybit production and testnet base URLs
   @production_base_url "https://api.bybit.com"
   @testnet_base_url "https://api-testnet.bybit.com"
@@ -151,13 +154,20 @@ defmodule ZenCex.Adapters.Bybit.RequestHelper do
   @spec execute_request(map(), map(), keyword(), String.t(), atom(), atom()) ::
           {:ok, any()} | {:error, term()}
   def execute_request(config, request_params, opts, base_url, exchange, operation_type) do
-    # Build base options
+    # Build retry configuration from endpoint config
+    retry_config = build_retry_config(config)
+
+    # Build base options with proper Req retry configuration
     base_opts = %{
       method: config.method,
       url: base_url <> config.path,
       receive_timeout: Keyword.get(opts, :timeout, config.timeout),
       skip_auth: not config.requires_auth,
-      retry: false
+      retry: retry_config,
+      max_retries: config.max_retries,
+      # Linear backoff: 1s, 2s, 3s, 4s...
+      # TODO: Consider exponential backoff for production: 1s, 2s, 4s, 8s...
+      retry_delay: fn attempt -> attempt * @backoff_multiplier_ms end
     }
 
     # Only add params if they exist and are not empty
@@ -188,6 +198,47 @@ defmodule ZenCex.Adapters.Bybit.RequestHelper do
       {:error, exception} ->
         Logger.error("Request failed: #{inspect(exception)}")
         {:error, exception}
+    end
+  end
+
+  # Builds retry configuration from endpoint config.
+  # Returns :safe_transient, :transient, false, or a custom function based on config.
+  # Critical operations like order placement should have max_retries: 0.
+  @spec build_retry_config(map()) :: atom() | false | fun()
+  defp build_retry_config(config) do
+    max_retries = Map.get(config, :max_retries, 0)
+    retry_on = Map.get(config, :retry_on, [])
+
+    cond do
+      max_retries == 0 or retry_on == [] ->
+        # No retry for critical operations
+        false
+
+      # For GET requests with standard retry conditions, use Req's built-in :safe_transient
+      config.method == :get and retry_on == [:timeout, :server_error] ->
+        :safe_transient
+
+      # For other safe operations with retries, use :transient
+      retry_on == [:timeout, :server_error] ->
+        :transient
+
+      # For timeout-only retries, use custom function
+      retry_on == [:timeout] ->
+        fn _request, error ->
+          case error do
+            %Mint.TransportError{reason: :timeout} -> true
+            %Req.TransportError{reason: :timeout} -> true
+            _ -> false
+          end
+        end
+
+      # Default to :safe_transient for other GET requests
+      config.method == :get ->
+        :safe_transient
+
+      # Default to no retry for other methods
+      true ->
+        false
     end
   end
 
