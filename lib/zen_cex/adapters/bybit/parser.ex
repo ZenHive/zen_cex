@@ -58,6 +58,9 @@ defmodule ZenCex.Adapters.Bybit.Parser do
     110_025 => :position_not_found,
     110_043 => :order_would_trigger_immediately,
 
+    # Business errors (170xxx)
+    170_131 => :insufficient_balance,
+
     # System errors (10000+)
     10_016 => :server_error,
     10_018 => :too_many_requests,
@@ -148,7 +151,9 @@ defmodule ZenCex.Adapters.Bybit.Parser do
     error_atom = Map.get(@error_code_atoms, code)
 
     if error_atom do
-      {:error, error_atom}
+      # Preserve both the atom and original message for debugging context
+      # This allows callers to match on the atom while still having access to the detailed message
+      {:error, {error_atom, msg}}
     else
       # Unknown error code - use standardized error message parsing
       case ResponseParser.standardize_error_message(msg) do

@@ -7,6 +7,9 @@ defmodule ZenCex.Core.DebugTest do
     # Clear any existing debug data
     Debug.clear()
 
+    # Ensure debug is disabled before each test
+    Debug.disable()
+
     # Save original config
     original_config = Application.get_env(:zen_cex, :debug, [])
 
@@ -14,6 +17,7 @@ defmodule ZenCex.Core.DebugTest do
       # Restore original config
       Application.put_env(:zen_cex, :debug, original_config)
       Debug.clear()
+      Debug.disable()
     end)
 
     :ok

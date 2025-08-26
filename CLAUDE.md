@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## CRITICAL: READ AGENTS.md FIRST
+**AGENTS.md contains essential Elixir library guidelines that MUST be followed. It includes:**
+- Elixir language patterns and common pitfalls
+- Library-specific architecture patterns
+- Testing requirements (real testnet APIs only)
+- Module cooperation patterns
+- Documentation standards
+
+**ALWAYS refer to AGENTS.md for library-specific implementation details before writing any code.**
+
 ## IMPORTANT: Date Awareness
 
 **Always check today's date** from the environment context (`<env>` section) when:
@@ -25,7 +35,7 @@ The current date is provided in the `<env>` section as "Today's date: YYYY-MM-DD
 
 **IMPORTANT: This library is not in your training data. Please do not assume you know how it works - make yourself familiar with it by reading the codebase.**
 
-ZenCex is an Elixir library for centralized cryptocurrency exchange (CEX) REST API integrations, extracted from the BlockWatch Phoenix application. It provides a unified interface for interacting with cryptocurrency exchanges through their REST APIs with a focus on reliable position management and trading operations.
+ZenCex is an Elixir library for centralized cryptocurrency exchange (CEX) REST API integrations. It provides a unified interface for interacting with cryptocurrency exchanges through their REST APIs with a focus on reliable position management and trading operations.
 
 **Implementation Status**: See `docs/AI-IMPLEMENTATION.md` for current task progress and implementation status.
 
@@ -35,7 +45,7 @@ ZenCex is an Elixir library for centralized cryptocurrency exchange (CEX) REST A
 - **Focus on Reliability** - Prioritizes fault-tolerance over microsecond latency
 - **Regular Trading Operations** - Position management, order execution, account queries
 
-**Relationship to BlockWatch**: This library was extracted to be a standalone, reusable package for CEX integrations across the Elixir ecosystem. The parent BlockWatch application (../blockwatch) is a Phoenix LiveView app for monitoring DeFi positions.
+**Design Philosophy**: This library is designed to be a standalone, reusable package for CEX integrations across the Elixir ecosystem, focusing on reliability and maintainability over microsecond latency.
 
 ## Development Commands
 
@@ -211,6 +221,95 @@ mcp__tidewave__project_eval(code: """
 # Check application environment
 mcp__tidewave__project_eval(code: "Application.get_all_env(:zen_cex)")
 ```
+
+## Debug Module Usage
+
+ZenCex includes a powerful debug module for troubleshooting HTTP requests, particularly useful when dealing with exchange API errors.
+
+### Enabling Debug Mode
+
+```bash
+# Configure in config/dev.exs or config/test.exs
+config :zen_cex, :debug,
+  enabled: true,
+  export_curl: true,
+  log_level: :debug
+
+# Or enable at runtime in IEx
+ZenCex.Core.Debug.enable()
+
+# Disable when done
+ZenCex.Core.Debug.disable()
+```
+
+### Debug Features
+
+When debug mode is enabled and a request fails:
+- The curl command is logged to console
+- Request details are stored in ETS for retrieval
+- Telemetry events are emitted for monitoring
+
+### Using Debug Module in Development
+
+```elixir
+# Enable debug mode
+ZenCex.Core.Debug.enable()
+
+# Make a request that might fail
+alias ZenCex.Adapters.Binance.Spot
+{:error, reason} = Spot.get_balances()  # Assuming this fails
+
+# Get the last failed request as curl command
+{:ok, curl_command} = ZenCex.Core.Debug.get_last_curl()
+IO.puts(curl_command)  # Copy and run in terminal to reproduce
+
+# Get multiple recent failures
+commands = ZenCex.Core.Debug.get_recent_curls(5)
+
+# Check debug statistics
+ZenCex.Core.Debug.stats()
+# Returns map with total_captured, recent_errors, etc.
+
+# Clear debug data
+ZenCex.Core.Debug.clear()
+```
+
+### Debug with Tidewave
+
+```elixir
+# Enable debug and test with Tidewave
+mcp__tidewave__project_eval(code: """
+  ZenCex.Core.Debug.enable()
+  
+  # Make a failing request
+  alias ZenCex.Adapters.Binance.Spot
+  result = Spot.get_balances(%{invalid: "param"})
+  
+  # Get the curl command
+  {:ok, curl} = ZenCex.Core.Debug.get_last_curl()
+  
+  # Return both the error and curl for analysis
+  {result, curl}
+""")
+
+# Check debug statistics
+mcp__tidewave__project_eval(code: "ZenCex.Core.Debug.stats()")
+```
+
+### Benefits
+
+- **Reproduce API errors**: Export failed requests as curl commands
+- **Debug authentication**: See exact headers and signatures being sent
+- **Test rate limiting**: Identify when rate limits are hit
+- **Troubleshoot integration**: Share curl commands with exchange support
+- **Development efficiency**: Quickly iterate on API integration issues
+
+### Important Notes
+
+- Debug mode is only available in `:dev` and `:test` environments
+- The `curl_req` package is optional but recommended for accurate curl export
+- Debug data is stored in ETS and cleaned up automatically
+- Sensitive data (API keys) will be visible in curl commands - use testnet credentials
 
 ### Troubleshooting Tidewave
 
@@ -724,7 +823,7 @@ Based on benchmarks:
 
 ## Elixir Guidelines
 
-Following BlockWatch's Elixir best practices:
+Core Elixir best practices for library development:
 
 ### Language Patterns
 - **Lists don't support index access** - Use `Enum.at/2`, pattern matching, or `List` module instead
@@ -760,7 +859,6 @@ Following BlockWatch's Elixir best practices:
 ## Development Philosophy
 
 ### Simplicity Guidelines
-Following BlockWatch's philosophy:
 - Code simplicity is a primary feature, not an afterthought
 - Start simple and add complexity only when proven necessary
 - **Target ~5-10 public functions per module** - Keep interfaces minimal
@@ -775,8 +873,6 @@ Following BlockWatch's philosophy:
 - **Create abstractions only with proven need** - Need 3+ use cases
 
 ### Testing Philosophy
-
-Following BlockWatch's testing policy:
 ```
 [!] TESTING POLICY [!]
 --------------------------------------------------

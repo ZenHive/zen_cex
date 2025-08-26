@@ -1,6 +1,8 @@
-# TDD Helper for Phoenix LiveView
+# TDD Helper for Elixir Libraries
 
-You are helping to implement Test-Driven Development (TDD) for Phoenix LiveView applications following the template's patterns.
+You are helping to implement Test-Driven Development (TDD) for the ZenCex library following its testing philosophy.
+
+**IMPORTANT**: Refer to AGENTS.md for essential testing requirements - especially the mandate to test against real testnet APIs only.
 
 The user wants TDD for the following functionality: $ARGUMENTS. Ask for more clarity if not enough is provided.
 
@@ -14,166 +16,188 @@ The user wants TDD for the following functionality: $ARGUMENTS. Ask for more cla
 2. **Test-First Approach**:
    - Start with business requirements
    - Write tests that describe expected behavior
+   - Test against REAL testnet APIs first
    - Implement features to satisfy tests
    - Refactor with confidence
 
-3. **LiveView TDD Patterns**:
+3. **ZenCex TDD Patterns**:
 
-### **Context Testing (Business Logic)**
+### **Integration Testing (Real APIs First)**
 ```elixir
-# Test business logic first
-test "create_product/1 with valid data creates a product" do
-  valid_attrs = %{name: "Test Product", price: 100}
-
-  assert {:ok, %Product{} = product} = Catalog.create_product(valid_attrs)
-  assert product.name == "Test Product"
-  assert product.price == 100
+# Test against REAL testnet API first
+test "get_balances returns real testnet balances" do
+  # This calls the REAL Binance testnet API
+  assert {:ok, balances} = Binance.Spot.get_balances()
+  assert is_list(balances)
+  
+  # Document actual response structure from TESTNET
+  # Binance testnet returns: [%{"asset" => "BTC", "free" => "0.0", "locked" => "0.0"}, ...]
 end
 
-test "create_product/1 with invalid data returns error changeset" do
-  invalid_attrs = %{name: "", price: -1}
+test "place_order with invalid symbol returns real error" do
+  # This gets REAL error from Binance TESTNET
+  assert {:error, reason} = Binance.Spot.place_order(%{
+    symbol: "INVALID",
+    side: "BUY",
+    quantity: "1"
+  })
 
-  assert {:error, %Ecto.Changeset{}} = Catalog.create_product(invalid_attrs)
+  # Document what Binance TESTNET actually returns
+  # Binance testnet error: {"code": -1121, "msg": "Invalid symbol."}
+  assert reason =~ "Invalid symbol" or reason == {:invalid_symbol, _}
 end
 ```
 
-### **LiveView Integration Testing**
+### **Unit Testing (Pure Functions)**
 ```elixir
-# Test LiveView interactions
-test "displays product list", %{conn: conn} do
-  product = insert(:product)
-
-  {:ok, lv, _html} = live(conn, ~p"/products")
-
-  assert has_element?(lv, "#product-#{product.id}")
-  assert has_element?(lv, "[data-testid='product-name']", product.name)
+# Test pure functions without API calls
+test "normalize_symbol/1 formats trading pairs correctly" do
+  assert Parser.normalize_symbol("BTC-USDT") == "BTCUSDT"
+  assert Parser.normalize_symbol("btc_usdt") == "BTCUSDT"
+  assert Parser.normalize_symbol("BTC/USDT") == "BTCUSDT"
 end
 
-test "creates product via form submission", %{conn: conn} do
-  {:ok, lv, _html} = live(conn, ~p"/products/new")
-
-  assert lv
-    |> form("#product-form", product: %{name: "New Product", price: 50})
-    |> render_submit()
-
-  assert_redirect(lv, ~p"/products")
-  assert Catalog.get_product_by_name("New Product")
+test "calculate_order_value/2 computes correct values" do
+  assert Calculator.order_value("100.5", "25.50") == Decimal.new("2562.75")
+  assert Calculator.order_value("0.001", "50000") == Decimal.new("50")
 end
 ```
 
-### **Component Testing**
+### **Rate Limiter Testing**
 ```elixir
-# Test individual components
-test "renders product card with all details" do
-  product = build(:product, name: "Test Product", price: 100)
-
-  html = render_component(&ProductCard.render/1, product: product)
-
-  assert html =~ "Test Product"
-  assert html =~ "$100"
-  assert html =~ "data-testid=\"product-card\""
+# Test rate limiting with real behavior
+test "rate limiter enforces limits" do
+  # Reset rate limiter
+  RateLimiter.reset(:spot_request)
+  
+  # Make requests up to limit
+  for _ <- 1..1200 do
+    assert :ok = RateLimiter.check_and_increment(:spot_request)
+  end
+  
+  # Next request should be rate limited
+  assert {:error, :rate_limited} = RateLimiter.check_and_increment(:spot_request)
 end
 ```
 
 4. **TDD Best Practices**:
 
-### **Start with High-Level Feature Tests**
-- Write acceptance tests for user stories
-- Test the complete user journey
-- Use descriptive test names that explain business value
+### **Start with Integration Tests**
+- Test against real testnet APIs first
+- Document actual API responses
+- Understand real error conditions
+- Only then create unit tests
 
 ### **Work from Outside-In**
-- Start with controller/LiveView tests
-- Move to context tests
-- End with individual function tests
+- Start with adapter endpoint tests
+- Move to core module tests
+- End with helper function tests
 
-### **Use Factories for Test Data**
-- Create realistic test data with ExMachina
-- Use build/insert strategically
-- Keep tests isolated and independent
+### **Test Real Behavior**
+- Never mock without testing real API first
+- Document actual response formats
+- Test actual error messages
+- Verify rate limit behavior
 
-### **Test Behavior, Not Implementation**
-- Focus on what the code should do
-- Test public interfaces
-- Avoid testing internal implementation details
-
-5. **LiveView-Specific TDD Patterns**:
-
-### **Event Handling**
+### **Test Error Cases**
 ```elixir
-# Test event handling
-test "clicking delete button removes product", %{conn: conn} do
-  product = insert(:product)
+# Test authentication errors
+test "invalid API key returns proper error" do
+  with_env [{"BINANCE_TESTNET_API_KEY", "invalid"}] do
+    assert {:error, reason} = Binance.Spot.get_balances()
+    # Document actual error from testnet
+  end
+end
 
-  {:ok, lv, _html} = live(conn, ~p"/products")
-
-  lv |> element("[data-testid='delete-product-#{product.id}']") |> render_click()
-
-  refute has_element?(lv, "#product-#{product.id}")
-  assert is_nil(Catalog.get_product(product.id))
+# Test network errors
+test "handles connection timeout" do
+  # Configure short timeout
+  opts = [timeout: 1]
+  assert {:error, :timeout} = Binance.Spot.get_ticker("BTCUSDT", opts)
 end
 ```
 
-### **Form Validation**
+5. **Library-Specific TDD Patterns**:
+
+### **Endpoint Discovery Testing**
 ```elixir
-# Test real-time validation
-test "displays validation errors on invalid input", %{conn: conn} do
-  {:ok, lv, _html} = live(conn, ~p"/products/new")
+# Test endpoint registration and discovery
+test "lists all available endpoints" do
+  endpoints = Binance.Endpoints.list_available_endpoints()
+  assert :spot_get_balances in endpoints
+  assert :margin_get_account in endpoints
+end
 
-  lv
-  |> form("#product-form", product: %{name: "", price: -1})
-  |> render_change()
-
-  assert has_element?(lv, "[data-testid='name-error']", "can't be blank")
-  assert has_element?(lv, "[data-testid='price-error']", "must be greater than 0")
+test "provides endpoint metadata" do
+  info = Binance.Endpoints.get_endpoint_info(:spot_place_order)
+  assert info.method == :post
+  assert info.auth_required == true
+  assert info.rate_weight == 1
 end
 ```
 
-### **Authentication Testing**
+### **Clock Sync Testing**
 ```elixir
-# Test authentication flows
-test "redirects unauthenticated user to login", %{conn: conn} do
-  {:error, {:redirect, %{to: "/users/log_in"}}} = live(conn, ~p"/dashboard")
+# Test time synchronization
+test "syncs with exchange server time" do
+  assert :ok = ClockSync.sync(:binance, :spot)
+  
+  # Verify offset is reasonable (< 1 second)
+  offset = ClockSync.get_offset(:binance, :spot)
+  assert abs(offset) < 1000
 end
+```
 
-test "authenticated user can access dashboard", %{conn: conn} do
-  user = insert(:user)
-
-  {:ok, lv, _html} =
-    conn
-    |> log_in_user(user)
-    |> live(~p"/dashboard")
-
-  assert has_element?(lv, "[data-testid='welcome']", "Welcome, #{user.email}")
+### **Debug Module Testing**
+```elixir
+# Test debug capabilities
+test "captures failed requests as curl commands" do
+  Debug.enable()
+  
+  # Make a failing request
+  {:error, _} = Binance.Spot.place_order(%{invalid: "params"})
+  
+  # Get the curl command
+  {:ok, curl} = Debug.get_last_curl()
+  assert curl =~ "curl"
+  assert curl =~ "testnet.binance.vision"
 end
 ```
 
 6. **TDD Workflow Helper**:
 
-### **Step 1: Write the Test**
-- Describe the expected behavior
-- Use clear, descriptive test names
-- Set up necessary test data
+### **Step 1: Write Integration Test**
+- Test against real testnet API
+- Document actual responses
+- Capture real error messages
 
 ### **Step 2: Run Tests (Red)**
-- Ensure the test fails for the right reason
-- Verify error messages are helpful
+- Ensure test fails correctly
+- Verify testnet is being used
+- Check credentials are configured
 
-### **Step 3: Write Minimal Code (Green)**
-- Implement just enough to make the test pass
-- Don't over-engineer the solution
+### **Step 3: Implement (Green)**
+- Write minimal code to pass
+- Handle actual API responses
+- Process real error formats
 
 ### **Step 4: Refactor**
-- Improve code quality while keeping tests green
 - Extract common patterns
-- Follow Phoenix conventions
+- Improve error messages
+- Add telemetry events
+- Optimize performance
+
+### **Step 5: Add Unit Tests**
+- Test pure functions
+- Test edge cases
+- Test calculations and parsing
 
 ## Example Usage
 
 Tell me:
-- What feature are you implementing?
-- What is the expected user behavior?
-- What LiveView interactions are needed?
-- What business rules should be enforced?
+- What exchange/API are you integrating?
+- What endpoint/operation are you implementing?
+- What are the expected parameters?
+- What errors should be handled?
 
-I'll help you write tests first, then implement the feature following TDD principles and the template's patterns.
+I'll help you write tests against real testnet APIs first, then implement the feature following TDD principles and ZenCex patterns.

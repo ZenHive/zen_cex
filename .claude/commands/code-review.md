@@ -1,6 +1,8 @@
-# Phoenix Code Review
+# Elixir Library Code Review
 
-You are helping to review Phoenix code following the template's conventions and best practices.
+You are helping to review Elixir library code following ZenCex conventions and best practices.
+
+**IMPORTANT**: Refer to AGENTS.md for essential library guidelines including Elixir patterns, testing requirements, and architectural decisions.
 
 The code you are reviewing is the current diff from HEAD in git.
 
@@ -8,11 +10,11 @@ Use git commands to figure out what the changes are.
 
 ## Instructions
 
-1. **Review Code Against Template Standards**:
-   - Check adherence to Phoenix conventions and patterns
-   - Verify proper use of contexts, controllers, and LiveViews
-   - Ensure consistent naming and organization
-   - Validate security best practices
+1. **Review Code Against Library Standards**:
+   - Check adherence to library design patterns
+   - Verify proper module organization and naming
+   - Ensure consistent error handling
+   - Validate security best practices for API integrations
 
 2. **Code Quality Checklist**:
 
@@ -21,72 +23,76 @@ Use git commands to figure out what the changes are.
 - [ ] Function names clearly describe their purpose
 - [ ] Single responsibility principle is followed
 - [ ] Functions are easily testable with clear inputs/outputs
+- [ ] Public API is minimal (5-10 functions per module)
 
 ### **Code Organization**
-- [ ] Proper separation of concerns (business logic in contexts, presentation in views)
-- [ ] Logical file structure following Phoenix conventions
+- [ ] Proper separation of concerns (adapters, core, safety modules)
+- [ ] Logical file structure following library conventions
 - [ ] Related functions are grouped together
 - [ ] Public and private functions are properly separated
 
 ### **Security**
-- [ ] All user inputs are validated and sanitized
-- [ ] Proper authentication and authorization checks
-- [ ] CSRF protection enabled for forms
-- [ ] SQL injection prevention (using Ecto queries)
-- [ ] XSS prevention (proper escaping in templates)
+- [ ] API keys are never hardcoded or logged
+- [ ] Request signing is properly implemented
+- [ ] Testnet vs production safety checks
+- [ ] Rate limiting is respected
+- [ ] Sensitive data is not exposed in errors
 
 ### **Performance**
-- [ ] No N+1 database queries (proper use of preloads)
-- [ ] Database indexes for frequently queried fields
-- [ ] Minimal assigns in LiveView
-- [ ] Efficient database queries with proper selects
+- [ ] ETS operations use atomic functions
+- [ ] Connection pooling configured appropriately
+- [ ] No unnecessary GenServer overhead
+- [ ] Efficient use of Req middleware pipeline
+- [ ] Proper telemetry for monitoring
 
 ### **Error Handling**
-- [ ] Proper pattern matching for error cases
-- [ ] Consistent error return formats (`{:ok, result}` or `{:error, changeset}`)
+- [ ] Consistent {:ok, result} / {:error, reason} tuples
+- [ ] Raw errors passed without wrapping
 - [ ] Appropriate use of `with` statements
-- [ ] Graceful handling of edge cases
+- [ ] Graceful handling of API errors
+- [ ] Clear error messages for debugging
 
 ### **Testing**
-- [ ] All public functions have tests
+- [ ] Integration tests use real testnet APIs
+- [ ] No mocks without testing real API first
+- [ ] Actual API responses documented
 - [ ] Both success and failure scenarios tested
-- [ ] Descriptive test names that explain intent
-- [ ] Proper use of factories for test data
-- [ ] LiveView interactions properly tested
+- [ ] Testnet URLs enforced in tests
 
 ### **Documentation**
-- [ ] Complex functions have `@doc` strings with examples
-- [ ] Code is self-documenting through good naming
-- [ ] Comments only where absolutely necessary
+- [ ] All public functions have @spec annotations
+- [ ] Complex functions have @doc strings with examples
 - [ ] Module documentation explains purpose
+- [ ] Code is self-documenting through good naming
+- [ ] API behavior documented from real testing
 
-### **Phoenix Conventions**
-- [ ] Proper use of contexts for business logic
-- [ ] Controllers are thin and delegate to contexts
-- [ ] LiveViews follow proper lifecycle patterns
-- [ ] Changesets used for all data validation
-- [ ] Templates use semantic HTML with accessibility considerations
+### **Library Conventions**
+- [ ] Adapter pattern properly implemented
+- [ ] Req middleware used effectively
+- [ ] ETS for stateless operations
+- [ ] Endpoint registry pattern when applicable
+- [ ] Clock synchronization for time-sensitive APIs
 
-3. **Delta Watch-Specific Patterns**:
-   - Using standard `Ecto.Schema` for all schemas
-   - Following DaisyUI + Tailwind styling conventions
-   - Proper authentication patterns with `UserAuth`
-   - Using existing core components when possible
-   - Following integer primary key conventions
+3. **ZenCex-Specific Patterns**:
+   - Req-centric architecture (don't reimplement what Req provides)
+   - ETS atomic operations for rate limiting
+   - Endpoint discovery and runtime introspection
+   - Multi-API support (spot, futures, margin)
+   - Debug module for troubleshooting
 
 4. **Provide Specific Feedback**:
    - Point out specific issues with line numbers
    - Suggest concrete improvements
-   - Reference template patterns and examples
-   - Prioritize security and performance issues
+   - Reference library patterns and examples
+   - Prioritize security and reliability issues
    - Recommend refactoring opportunities
 
 ## Example Usage
 
-Paste the code you want reviewed, and I'll analyze it against these standards and provide specific feedback on:
+Run git diff to see changes, and I'll analyze them against these standards and provide specific feedback on:
 - Code quality and organization
 - Security considerations
 - Performance optimizations
-- Phoenix convention adherence
+- Library convention adherence
 - Testing recommendations
-- Refactoring suggestions
+- Integration best practices

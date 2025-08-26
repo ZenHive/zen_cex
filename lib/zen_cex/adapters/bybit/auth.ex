@@ -138,8 +138,11 @@ defmodule ZenCex.Adapters.Bybit.Auth do
     # Build query string for signature (params without timing)
     query_params = Map.drop(params_with_timing, ["timestamp", "recv_window"])
 
-    # Generate signature using Bybit format
-    signature = Signer.create_signature(query_params, api_key, api_secret, timestamp, recv_window)
+    # Determine HTTP method from request
+    method = request.method || :get
+
+    # Generate signature using Bybit format with correct method
+    signature = Signer.create_signature(query_params, api_key, api_secret, timestamp, recv_window, method: method)
 
     # Apply authentication headers
     request

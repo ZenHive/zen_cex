@@ -110,14 +110,28 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 - Register with Core.Registry
 - Implement discovery functions
 
-### ✅ Ticket #9: Generated Endpoints File
-**Size:** 2 hours
+### ✅ Ticket #9: Mix Task for Trading Endpoint Generation from Postman Collection
+**Size:** 3 hours
 **Status:** TODO
 **Implementation:**
-- Create `lib/zen_cex/adapters/bybit/generated_endpoints.ex`
-- Single generated file for all endpoints
-- EndpointLoader adapts to unified structure
-- Category parameter handling in macro
+- Create `lib/mix/tasks/zen_cex.generate_bybit_endpoints.ex`
+- Fetch and parse Bybit v5 Postman collection from:
+  `https://raw.githubusercontent.com/bybit-exchange/QuickStartWithPostman/refs/heads/main/V5APIs/Open%20API%20V5.postman_collection.json`
+- **SKIP all market data endpoints** (kline, orderbook, tickers, etc.)
+- **ONLY include trading-related endpoints**:
+  - Account management (wallet, fees, collateral)
+  - Order management (create, cancel, history)
+  - Position management (list, leverage, stops)
+  - Trade execution history
+  - Asset management (deposits, withdrawals, transfers)
+- Currently have 10 core endpoints, should expand to ~20-25 trading endpoints
+- Map Postman format to our endpoint structure:
+  - Extract method, path, parameters
+  - Determine auth requirements
+  - Set appropriate weights and timeouts
+  - Add retry logic (except for order placement)
+  - Generate operation names from paths
+- Handle unified API structure with category parameter
 
 ## Pass 4: Integration & Testing
 
