@@ -134,10 +134,17 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 - Handle unified API structure with category parameter
 
 ## Pass 4: Integration & Testing
+**Status:** ✅ COMPLETED (August 27, 2025)
+
+**Summary:**
+- All integration tests working with real testnet API
+- Clock sync integrated and functioning (13ms offset typical)
+- Rate limiting with emergency bypass fully implemented
+- Telemetry automatically handled by Req/Finch + ZenCex application layer events
 
 ### ✅ Ticket #10: Integration Case Setup
 **Size:** 2 hours
-**Status:** TODO
+**Status:** ✅ COMPLETED
 **Implementation:**
 - Update `test/support/integration_case.ex` for Bybit
 - Testnet URL enforcement: api-testnet.bybit.com
@@ -146,7 +153,7 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 
 ### ✅ Ticket #11: Unified Integration Tests
 **Size:** 4 hours
-**Status:** TODO
+**Status:** ✅ COMPLETED
 **Implementation:**
 - Create `endpoints_integration_test.exs`
 - Test spot operations with category="spot"
@@ -158,7 +165,7 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 
 ### ✅ Ticket #12: Clock Synchronization
 **Size:** 2 hours
-**Status:** TODO
+**Status:** ✅ COMPLETED
 **Implementation:**
 - Update `ZenCex.Safety.ClockSync` for Bybit
 - Add Bybit server time endpoint

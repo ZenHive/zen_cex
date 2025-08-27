@@ -184,21 +184,15 @@ done
 
 ### Phase 5: Additional Exchanges (6 tasks)
 ```
-[ ] Task 17: Bybit REST API implementation (complete)    <- NEXT - Standalone
-[ ] Task 18: Kraken implementation (complete exchange)   <- Standalone
+[✅] Task 17: Bybit REST API implementation (complete)    <- COMPLETED
+[ ] Task 18: Kraken implementation (complete exchange)   <- NEXT - Standalone
 [ ] Task 19: Deribit OAuth implementation (complete)     <- Standalone
 [ ] Task 20: Health monitoring with endpoint tracking   ┐
 [ ] Task 21: Multi-account rotation for resilience      ├─ Operations
 [ ] Task 22: Production runbook with exchange quirks    └─ group
 ```
 
-**Task 17 Details (Bybit REST API)**:
-- Complete REST API implementation for Bybit exchange
-- Support for Spot, Linear (USDT), and Inverse (Coin) derivatives
-- HMAC-SHA256 authentication similar to Binance
-- Rate limiting per endpoint category (GET vs POST)
-- Unified v5 API implementation
-- Testnet: testnet.bybit.com
+**Task 17: Bybit REST API** - ✅ COMPLETED - Full Bybit v5 API implementation with unified account support, HMAC-SHA256 auth, rate limiting, and comprehensive endpoint coverage for spot and derivatives trading. Includes base adapter modules for code reuse across exchanges.
 
 **Suggested Groupings**:
 - Task 17 alone (Bybit complete exchange) 
