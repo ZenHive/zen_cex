@@ -21,6 +21,10 @@ defmodule ZenCex.Adapters.BaseRequestHelper do
       end
   """
 
+  @doc """
+  Makes a module use the BaseRequestHelper behavior.
+  """
+  @spec __using__(keyword()) :: Macro.t()
   defmacro __using__(_opts \\ []) do
     quote do
       alias ZenCex.Core.HTTP
@@ -28,7 +32,7 @@ defmodule ZenCex.Adapters.BaseRequestHelper do
       require Logger
 
       @success_status_range 200..299
-      # 30 seconds
+      # 30 seconds in milliseconds
       @default_timeout 30_000
 
       @doc """
@@ -43,9 +47,12 @@ defmodule ZenCex.Adapters.BaseRequestHelper do
       - operation_type: The operation being performed (for telemetry/logging)
 
       ## Returns
-      - {:ok, response} for successful requests
-      - {:error, reason} for failed requests
+      - {:ok, response} for successful requests (2xx status codes)
+      - {:error, {:http_error, status, body}} for HTTP errors (non-2xx status codes)
+      - {:error, exception} for network or other exceptions
       """
+      @spec execute_request(map(), map(), keyword(), String.t(), atom(), atom()) ::
+              {:ok, any()} | {:error, term()}
       def execute_request(config, request_params, opts, base_url, exchange, operation_type) do
         api_type = Map.get(config, :api_type, Keyword.get(opts, :api_type, :spot))
 
@@ -86,9 +93,10 @@ defmodule ZenCex.Adapters.BaseRequestHelper do
           {:ok, %Req.Response{status: status, body: body}} when status in @success_status_range ->
             {:ok, body}
 
-          {:ok, %Req.Response{status: status, body: body}} ->
+          {:ok, %Req.Response{status: status, body: body} = response} ->
             Logger.warning("Request failed with status #{status}: #{inspect(body)}")
-            {:error, format_error_message(status, body)}
+            # Return HTTP error tuple with status and body for consistent error handling
+            {:error, {:http_error, status, body}}
 
           {:error, exception} ->
             Logger.error("Request failed with error: #{inspect(exception)}")
@@ -98,7 +106,11 @@ defmodule ZenCex.Adapters.BaseRequestHelper do
 
       @doc """
       Builds the base options map for the request.
+
+      ## Override
+      Adapters may override this to add exchange-specific options.
       """
+      @spec build_base_options(map(), keyword(), String.t(), atom()) :: map()
       def build_base_options(config, opts, base_url, api_type) do
         %{
           method: config.method,
@@ -114,7 +126,11 @@ defmodule ZenCex.Adapters.BaseRequestHelper do
 
       @doc """
       Builds request options including query params or body based on method.
+
+      ## Override
+      Adapters may override this to handle exchange-specific parameter requirements.
       """
+      @spec build_request_options(map(), map(), map()) :: map()
       def build_request_options(%{method: :get} = _config, params, base_opts) when map_size(params) > 0 do
         Map.put(base_opts, :params, params)
       end
@@ -152,14 +168,8 @@ defmodule ZenCex.Adapters.BaseRequestHelper do
         %{}
       end
 
-      defp format_error_message(status, body) when is_map(body) do
-        # Try common error message fields
-        body["msg"] || body["message"] || body["error"] || "HTTP #{status}: #{inspect(body)}"
-      end
-
-      defp format_error_message(status, body) do
-        "HTTP #{status}: #{inspect(body)}"
-      end
+      # NOTE: format_error_message functions removed - we now return raw responses
+      # for consistent error handling per library philosophy
 
       # Allow adapters to override these if needed
       defoverridable execute_request: 6,

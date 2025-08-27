@@ -1,7 +1,8 @@
 defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   import ZenCex.IntegrationCase, only: [with_env: 2]
+  import ZenCex.TestHelpers, only: [clear_environment_cache: 1]
 
   alias ZenCex.Adapters.Binance.Common
   alias ZenCex.Adapters.Binance.Endpoints
@@ -219,45 +220,56 @@ defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
   end
 
   describe "environment handling" do
-    # Helper to clear persistent_term cache before each test
-    defp clear_env_cache do
-      :persistent_term.erase({Endpoints, :current_env})
-    rescue
-      _ -> nil
-    end
-
     test "current_env/0 respects BINANCE_TESTNET env variable for production (default)" do
       # Test production (default)
       with_env [{"BINANCE_TESTNET", nil}] do
-        clear_env_cache()
+        clear_environment_cache(Endpoints)
         assert Endpoints.current_env() == :prod
       end
 
       with_env [{"BINANCE_TESTNET", "false"}] do
-        clear_env_cache()
+        clear_environment_cache(Endpoints)
         assert Endpoints.current_env() == :prod
       end
 
       with_env [{"BINANCE_TESTNET", ""}] do
-        clear_env_cache()
+        clear_environment_cache(Endpoints)
         assert Endpoints.current_env() == :prod
       end
     end
 
     test "current_env/0 respects BINANCE_TESTNET env variable for testnet" do
       with_env [{"BINANCE_TESTNET", "true"}] do
-        clear_env_cache()
+        clear_environment_cache(Endpoints)
         assert Endpoints.current_env() == :test
       end
 
       with_env [{"BINANCE_TESTNET", "1"}] do
-        clear_env_cache()
+        clear_environment_cache(Endpoints)
         assert Endpoints.current_env() == :test
       end
 
-      with_env [{"BINANCE_TESTNET", "yes"}] do
-        clear_env_cache()
+      with_env [{"BINANCE_TESTNET", "TRUE"}] do
+        clear_environment_cache(Endpoints)
         assert Endpoints.current_env() == :test
+      end
+    end
+
+    test "current_env/0 raises error for invalid BINANCE_TESTNET values" do
+      with_env [{"BINANCE_TESTNET", "yes"}] do
+        clear_environment_cache(Endpoints)
+
+        assert_raise ArgumentError, ~r/Invalid value for BINANCE_TESTNET: "yes"/, fn ->
+          Endpoints.current_env()
+        end
+      end
+
+      with_env [{"BINANCE_TESTNET", "maybe"}] do
+        clear_environment_cache(Endpoints)
+
+        assert_raise ArgumentError, ~r/Invalid value for BINANCE_TESTNET: "maybe"/, fn ->
+          Endpoints.current_env()
+        end
       end
     end
   end

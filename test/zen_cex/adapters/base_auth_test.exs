@@ -1,5 +1,5 @@
 defmodule ZenCex.Adapters.BaseAuthTest do
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   import ZenCex.IntegrationCase, only: [with_env: 2]
 

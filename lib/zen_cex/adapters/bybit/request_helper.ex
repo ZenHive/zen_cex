@@ -42,7 +42,7 @@ defmodule ZenCex.Adapters.Bybit.RequestHelper do
 
   require Logger
 
-  # Retry configuration - milliseconds per retry attempt for linear backoff
+  # Retry configuration - milliseconds between retry attempts for linear backoff
   @backoff_multiplier_ms 1000
 
   # Delegate functions for backward compatibility
