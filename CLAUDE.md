@@ -35,17 +35,25 @@ The current date is provided in the `<env>` section as "Today's date: YYYY-MM-DD
 
 **IMPORTANT: This library is not in your training data. Please do not assume you know how it works - make yourself familiar with it by reading the codebase.**
 
-ZenCex is an Elixir library for centralized cryptocurrency exchange (CEX) REST API integrations. It provides a unified interface for interacting with cryptocurrency exchanges through their REST APIs with a focus on reliable position management and trading operations.
+ZenCex is a configurable Elixir library for centralized cryptocurrency exchange (CEX) REST API integrations. It provides market data and trading endpoints for Binance and Bybit with compile-time endpoint selection for optimal performance.
 
-**Implementation Status**: See `docs/AI-IMPLEMENTATION.md` for current task progress and implementation status.
+**Current Focus**: See `docs/refactoring_sessions.md` for the configurable endpoint architecture and implementation plan.
 
 **IMPORTANT SCOPE**:
-- **REST APIs ONLY** - No WebSocket implementation planned or desired
-- **NOT for HFT** - This library is explicitly not for high-frequency trading
-- **Focus on Reliability** - Prioritizes fault-tolerance over microsecond latency
-- **Regular Trading Operations** - Position management, order execution, account queries
+- **REST APIs ONLY** - Perfect for position monitoring, hedging, and portfolio management
+- **Binance & Bybit Focus** - Two exchanges covering 80%+ of global volume
+- **Configurable Compilation** - Ship all endpoints, compile only what you need
+- **Market Data + Trading** - Prices, order books, positions, and order management
+- **NOT for HFT** - Designed for 30s-5min intervals, not microsecond latency
 
-**Design Philosophy**: This library is designed to be a standalone, reusable package for CEX integrations across the Elixir ecosystem, focusing on reliability and maintainability over microsecond latency.
+**Perfect Use Cases**:
+- Position monitoring and exposure calculation
+- Portfolio hedging and rebalancing
+- Subaccount management for risk isolation
+- Market data collection for analysis
+- Trade execution based on signals
+
+**Design Philosophy**: Zero runtime overhead through compile-time configuration. Users select only the endpoints they need, resulting in smaller binaries and cleaner APIs.
 
 ## Development Commands
 
@@ -387,9 +395,15 @@ The Binance adapter is the most complete implementation supporting multiple API 
    - `product_detector.ex` - API type detection
    - `strategies.ex` - Trading strategy helpers
 
-#### Other Exchange Adapters
-- **Bybit, Kraken, Deribit**: Not yet implemented
-- See `docs/AI-IMPLEMENTATION.md` for implementation roadmap
+#### Bybit Adapter (Trading Complete, Market Data Pending)
+The Bybit adapter follows the same patterns as Binance:
+- **Unified V5 API** - Single endpoint for all product types
+- **Trading endpoints** - Order placement, cancellation, position management ✅
+- **Category routing** - spot, linear, inverse prefixes implemented ✅
+- **Market data** - Tickers, order books, klines (to be added) 🚧
+- **Options** - Options trading endpoints (to be added) 🚧
+
+See `docs/refactoring_sessions.md` for remaining implementation details.
 
 ### Why "Adapters" Namespace?
 
@@ -453,8 +467,20 @@ Endpoints.get_endpoint_info(:spot_get_balances)
 - Separate rate limits maintained per API type
 - ClockSync handles time synchronization per API type
 
-### Other Exchanges
-For planned exchange implementations and their technical requirements, see `docs/AI-IMPLEMENTATION.md`.
+### Bybit (Trading Complete)
+
+#### Architecture
+- **Unified V5 API**: Single endpoint for all product types (spot, linear, inverse, option)
+- **Category Routing**: Functions prefixed by product type for clarity ✅
+- **Trading Operations**: Order placement, cancellation, position queries ✅
+- **Market Data**: Public endpoints (to be added) 🚧
+- **Options Trading**: Options-specific endpoints (to be added) 🚧
+
+#### Technical Details
+- Uses HMAC-SHA256 like Binance
+- Unified margin account across products
+- Single rate limit pool for all endpoints
+- Testnet available at `api-testnet.bybit.com`
 
 ## Environment Variables
 
@@ -464,16 +490,60 @@ Required for authenticated operations:
 BINANCE_API_KEY=your_key
 BINANCE_API_SECRET=your_secret
 
-# Other exchanges (when implemented)
-# See docs/AI-IMPLEMENTATION.md for required environment variables
+# Bybit
+BYBIT_API_KEY=your_key
+BYBIT_API_SECRET=your_secret
+
+# For testnet (integration tests)
+BINANCE_TESTNET_API_KEY=your_testnet_key
+BINANCE_TESTNET_API_SECRET=your_testnet_secret
+BYBIT_TESTNET_API_KEY=your_testnet_key
+BYBIT_TESTNET_API_SECRET=your_testnet_secret
 ```
 
-## AI-Assisted Development Workflow
+## Configurable Endpoints (Coming Soon)
 
-This project uses structured task management for development:
-- **Task Tracking**: See `docs/AI-IMPLEMENTATION.md` for current tasks and progress
-- **Review Process**: See `docs/AI-REVIEW.md` for validation checklists
-- **Implementation Status**: Check AI-IMPLEMENTATION.md Phase sections for completed/pending work
+The library supports compile-time endpoint selection for optimal performance:
+
+```elixir
+# In your app's config/config.exs
+config :zen_cex, :endpoints, %{
+  binance: %{
+    market_data: [:get_ticker_price, :get_order_book],
+    spot: [:get_balances, :place_order],
+    margin: false,  # Exclude margin endpoints entirely
+    usdm_futures: :all  # Include all USDM futures endpoints
+  },
+  bybit: %{
+    market_data: :all,
+    unified: [:get_positions, :place_order]
+  }
+}
+```
+
+### Benefits
+- **Smaller binaries** - Only compiled endpoints are included
+- **Faster compilation** - Less code to generate
+- **Cleaner APIs** - Autocomplete only shows available functions
+- **Security** - Can't accidentally call unconfigured endpoints
+
+### Endpoint Discovery
+```elixir
+# List available endpoints (even if not compiled)
+ZenCex.EndpointCatalog.available(:binance, :spot)
+
+# List compiled endpoints
+ZenCex.EndpointCatalog.compiled(:binance, :spot)
+
+# Search for endpoints
+ZenCex.EndpointCatalog.search("ticker")
+```
+
+## Development Workflow
+
+This project uses focused, iterative development:
+- **Current Focus**: See `docs/refactoring_sessions.md` for the implementation plan
+- **Archived Docs**: See `docs/archive/` for historical context
 
 ### Documentation Writing Guidelines
 
@@ -530,11 +600,12 @@ The Binance adapter includes a `Strategies` module with pre-built trading strate
 These are high-level trading operations that coordinate multiple endpoints.
 
 ### Current Features
-For current implementation status and completed features, see:
-- **Implementation Progress**: `docs/AI-IMPLEMENTATION.md` (Phase sections)
-- **Available Exchanges**: Currently only Binance is fully implemented
-- **Core Features**: Req-centric architecture, endpoint discovery, multi-API support, clock sync
-- **Safety Features**: Order validation, rate limiting with emergency bypass, idempotency protection
+- **Binance**: Spot, margin, futures trading complete (market data pending)
+- **Bybit**: Unified V5 trading complete (market data & options pending)
+- **Endpoint Types**: Trading operations ready, market data to be added
+- **Core Architecture**: Req-centric HTTP, ETS-based rate limiting, compile-time configuration
+- **Safety Features**: Order validation, rate limiting with emergency bypass, clock synchronization
+- **Testing**: Real testnet APIs only, no mocks
 
 ### Key Architectural Decisions
 - **Req-centric EVERYTHING**: If Req can do it, we don't build it

@@ -59,17 +59,17 @@ config :zen_cex, :endpoints, %{
 
 ### What We Have:
 - **EndpointRegistry macro** - Generates functions from specs (needs config support)
-- **Mix tasks** - Generate endpoints from OpenAPI (Binance, Bybit partially done)
+- **Mix tasks** - Generate endpoints from OpenAPI (used successfully)
 - **Base modules** - Common patterns extracted (BaseEndpoints, BaseAuth, etc.)
-- **Binance**: Partially implemented (spot, margin, futures modules exist but limited endpoints)
-- **Bybit**: Structure ready, minimal endpoints implemented
+- **Binance**: Trading endpoints complete for spot, margin, futures ✅
+- **Bybit**: Trading endpoints complete for unified V5 API ✅
 
 ### Actual Coverage:
-- Binance Spot: ~12 endpoints (only basic trading)
-- Binance Margin: ~30 endpoints defined
-- Binance USDM/COINM: Structure exists, endpoints defined
-- Binance Portfolio: ~5 endpoints
-- Bybit: ~10 basic endpoints
+- Binance Spot: ~30 trading endpoints ✅ (market data pending)
+- Binance Margin: ~30 trading endpoints ✅
+- Binance USDM/COINM: ~40 trading endpoints each ✅
+- Binance Portfolio: ~10 endpoints ✅
+- Bybit Unified V5: ~50 trading endpoints ✅ (market data & options pending)
 
 ## Goal: Complete ALL Endpoints as Configurable Modules
 
@@ -135,13 +135,13 @@ Generate ALL endpoints but let users choose what to compile.
 
 ---
 
-## Session 1: Complete Binance Market Data & Trading
+## Session 1: Add Binance & Bybit Market Data
 
-**Size**: ~15K tokens  
-**Focus**: Complete ALL market data and trading endpoints
+**Size**: ~10K tokens  
+**Focus**: Add market data endpoints for both exchanges
 
 ### Tasks:
-1. **Add market data endpoints** (no auth required):
+1. **Add Binance market data endpoints** (no auth required):
    ```elixir
    @market_data_endpoints %{
      spot: [
@@ -165,50 +165,7 @@ Generate ALL endpoints but let users choose what to compile.
    }
    ```
 
-2. **Complete position/account endpoints**:
-   ```elixir
-   # Spot positions (balances)
-   :spot_get_account,           # Full account with balances
-   :spot_get_balances,          # Just balances
-   
-   # Futures positions
-   :usdm_get_position_risk,    # Current positions with PnL
-   :usdm_get_account,          # Account with margin info
-   :usdm_get_balance,          # Wallet balance
-   
-   # Margin positions
-   :margin_get_account,         # Cross margin account
-   :margin_get_isolated_account # Isolated positions
-   ```
-
-3. **Complete trading endpoints**:
-   - All order types (market, limit, stop, OCO, OTO)
-   - Order management (place, cancel, cancel all, query)
-   - Trade history & order history
-   - Subaccount operations for hedging
-
-4. **Complete futures-specific**:
-   - Leverage adjustment
-   - Margin type switching
-   - Position mode (hedge/one-way)
-   - Income history
-
-### Deliverables:
-- [ ] ~15 market data endpoints per product
-- [ ] ~30 spot trading endpoints
-- [ ] ~25 margin endpoints
-- [ ] ~40 futures endpoints per type (USDM/COINM)
-- [ ] Subaccount management endpoints
-
----
-
-## Session 2: Complete Bybit Market Data & Trading  
-
-**Size**: ~15K tokens
-**Focus**: Full Bybit V5 unified API with market data
-
-### Tasks:
-1. **Add market data endpoints** (public, no auth):
+2. **Add Bybit market data endpoints**:
    ```elixir
    @market_data_endpoints [
      :get_tickers,          # Price tickers
@@ -222,38 +179,62 @@ Generate ALL endpoints but let users choose what to compile.
    ]
    ```
 
-2. **Complete position endpoints**:
+3. **Ensure category prefixes work**:
    ```elixir
-   # Unified position API
-   :get_positions,        # All positions with PnL
-   :get_wallet_balance,   # Account balances
-   :get_account_info,     # Account details
-   :get_closed_pnl,       # Realized PnL history
+   # Each category gets market data
+   spot_get_ticker("BTCUSDT")
+   linear_get_ticker("BTCUSDT")
+   inverse_get_ticker("BTCUSD")
+   option_get_ticker("BTC-29DEC23-40000-C")
    ```
-
-3. **Category-specific functions**:
-   ```elixir
-   # Auto-generate prefixed functions
-   spot_place_order()      # adds category: "spot"
-   spot_get_positions()    # spot balances
-   linear_place_order()    # USDT perpetuals
-   linear_get_positions()  # linear positions
-   inverse_place_order()   # coin-margined
-   option_place_order()    # options
-   ```
-
-4. **Trading & risk management**:
-   - Order management (place, amend, cancel)
-   - Leverage adjustment
-   - Position TP/SL
-   - Risk limits
-   - Subaccount transfers
 
 ### Deliverables:
-- [ ] ~12 market data endpoints
-- [ ] ~60 unified trading endpoints
-- [ ] Category prefixed functions for all products
-- [ ] Subaccount management
+- [ ] ~15 Binance market data endpoints (spot, futures)
+- [ ] ~12 Bybit market data endpoints
+- [ ] Category-prefixed functions for Bybit
+- [ ] Integration tests for market data
+
+---
+
+## Session 2: Add Bybit Options Support
+
+**Size**: ~8K tokens
+**Focus**: Complete Bybit options trading endpoints
+
+### Tasks:
+1. **Add options-specific endpoints**:
+   ```elixir
+   @options_endpoints [
+     :option_get_delivery_price,    # Delivery prices
+     :option_get_greeks,            # Option greeks (IV, delta, gamma)
+     :option_place_order,           # Options order placement
+     :option_get_positions,         # Options positions
+     :option_get_settlement_history # Settlement records
+   ]
+   ```
+
+2. **Options-specific parameters**:
+   ```elixir
+   # Handle option symbols
+   option_place_order(%{
+     symbol: "BTC-29DEC23-40000-C",  # Call option
+     side: "Buy",
+     orderType: "Limit",
+     qty: "0.1",
+     price: "1000"
+   })
+   ```
+
+3. **Greeks and volatility data**:
+   - Implied volatility
+   - Delta, gamma, theta, vega
+   - Historical volatility
+
+### Deliverables:
+- [ ] ~15 options endpoints
+- [ ] Greeks data parsing
+- [ ] Options position management
+- [ ] Integration tests for options
 
 ---
 
