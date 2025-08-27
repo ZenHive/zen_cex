@@ -42,12 +42,14 @@ defmodule ZenCex.Adapters.Bybit.AuthTest do
   describe "sign_request/3" do
     test "adds all required Bybit authentication headers" do
       request =
-        Req.new(
-          url: "/v5/account/wallet-balance",
-          params: %{"accountType" => "UNIFIED"}
-        )
+        [url: "/v5/account/wallet-balance", params: %{"accountType" => "UNIFIED"}]
+        |> Req.new()
+        |> Req.Request.put_private(:auth_credentials, %{
+          api_key: "test_key",
+          api_secret: "test_secret"
+        })
 
-      signed = Auth.sign_request(request, "test_key", "test_secret")
+      signed = Auth.apply_auth(request)
 
       # Verify all headers are present
       assert ["test_key"] == Req.Request.get_header(signed, "x-bapi-api-key")
@@ -65,12 +67,14 @@ defmodule ZenCex.Adapters.Bybit.AuthTest do
 
     test "preserves existing query parameters" do
       request =
-        Req.new(
-          url: "/v5/order/realtime",
-          params: %{"category" => "spot", "symbol" => "BTCUSDT"}
-        )
+        [url: "/v5/order/realtime", params: %{"category" => "spot", "symbol" => "BTCUSDT"}]
+        |> Req.new()
+        |> Req.Request.put_private(:auth_credentials, %{
+          api_key: "test_key",
+          api_secret: "test_secret"
+        })
 
-      signed = Auth.sign_request(request, "test_key", "test_secret")
+      signed = Auth.apply_auth(request)
 
       # Verify parameters are preserved in options
       assert signed.options[:params]["category"] == "spot"
@@ -79,7 +83,7 @@ defmodule ZenCex.Adapters.Bybit.AuthTest do
 
     test "handles POST requests with JSON body" do
       request =
-        Req.new(
+        [
           url: "/v5/order/create",
           method: :post,
           json: %{
@@ -90,9 +94,14 @@ defmodule ZenCex.Adapters.Bybit.AuthTest do
             "qty" => "0.001",
             "price" => "30000"
           }
-        )
+        ]
+        |> Req.new()
+        |> Req.Request.put_private(:auth_credentials, %{
+          api_key: "test_key",
+          api_secret: "test_secret"
+        })
 
-      signed = Auth.sign_request(request, "test_key", "test_secret")
+      signed = Auth.apply_auth(request)
 
       # Verify authentication headers are added
       assert ["test_key"] == Req.Request.get_header(signed, "x-bapi-api-key")

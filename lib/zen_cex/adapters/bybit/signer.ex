@@ -1,22 +1,15 @@
 defmodule ZenCex.Adapters.Bybit.Signer do
   @moduledoc """
-  Bybit-specific HMAC-SHA256 signature generation.
+  Bybit-specific signature generation.
 
-  This module handles Bybit's v5 API signature requirements, delegating
-  the actual cryptographic operations to Core.Signer. It maintains Bybit's
-  specific parameter concatenation and signature formatting requirements.
-
-  ## Signature Process
-
-  Bybit v5 API requires different signature formats for GET and POST:
+  Handles Bybit v5 API signature requirements which differ from other exchanges.
+  Bybit requires different signature formats for GET and POST:
   - GET: timestamp + api_key + recv_window + query_string
   - POST: timestamp + api_key + recv_window + json_body
-
-  All functions are pure and deterministic for easy testing.
   """
 
   alias ZenCex.Adapters.Bybit.ParameterBuilder
-  alias ZenCex.Core.Signer, as: CoreSigner
+  alias ZenCex.Adapters.CommonSigner
 
   @default_recv_window "5000"
 
@@ -63,32 +56,10 @@ defmodule ZenCex.Adapters.Bybit.Signer do
 
   @doc """
   Signs a pre-built payload string with HMAC-SHA256.
-
-  This is a pure function that performs the cryptographic signing operation.
-  Useful for testing and when you already have a formatted payload string.
-
-  ## Parameters
-
-    * `payload` - The string to sign
-    * `api_secret` - The secret key for HMAC signing
-
-  ## Examples
-
-      iex> Signer.sign_payload("1658385579423APIKEY5000symbol=BTCUSDT", "secret")
-      "a1b2c3..."  # 64-character lowercase hex string
-
-  ## Implementation Note
-
-  Delegates to `ZenCex.Core.Signer.sign_payload/3` with Bybit-specific options:
-  - `algorithm: :sha256` (Bybit uses SHA256)
-  - `encoding: :hex` (returns hexadecimal string)
-  - `case: :lower` (Bybit requires lowercase hex)
+  Delegates to CommonSigner for consistency across adapters.
   """
   @spec sign_payload(String.t(), String.t()) :: String.t()
-  def sign_payload(payload, api_secret) do
-    # Bybit requires lowercase hex encoding for SHA256 signatures
-    CoreSigner.sign_payload(payload, api_secret, algorithm: :sha256, encoding: :hex, case: :lower)
-  end
+  defdelegate sign_payload(payload, api_secret), to: CommonSigner
 
   # Private implementation functions
 

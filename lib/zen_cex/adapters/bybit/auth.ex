@@ -1,31 +1,18 @@
 defmodule ZenCex.Adapters.Bybit.Auth do
   @moduledoc """
-  Bybit authentication module implementing HMAC-SHA256 signing as a Req step.
+  Bybit authentication module implementing HMAC-SHA256 signing.
 
-  Bybit v5 uses a unified API where the same endpoints serve all product types
-  (spot, derivatives, options) distinguished by a `category` parameter.
-
-  Authentication requirements:
+  Bybit v5 authentication requirements:
   - HMAC-SHA256 signature in X-BAPI-SIGN header
   - X-BAPI-API-KEY header with API key
   - X-BAPI-TIMESTAMP header with request timestamp
   - X-BAPI-RECV-WINDOW header with receive window (default 5000ms)
   - Signature format: timestamp + api_key + recv_window + query_string
-
-  ## Architecture
-
-  This module coordinates authentication by delegating to focused modules:
-  - `Core.Auth` - Credential resolution from environment or request options
-  - `Signer` - Pure HMAC-SHA256 signature generation
-  - `ParameterBuilder` - Parameter handling and query string construction
-
-  ## Clock Synchronization
-
-  This module integrates with `ZenCex.Safety.ClockSync` to ensure accurate
-  timestamps that account for clock drift between local system and Bybit servers.
   """
+
+  use ZenCex.Adapters.BaseAuth, exchange: :bybit
+
   alias ZenCex.Adapters.Bybit.Signer
-  alias ZenCex.Core.Auth, as: CoreAuth
   alias ZenCex.Safety.ClockSync
 
   require Logger
@@ -34,99 +21,14 @@ defmodule ZenCex.Adapters.Bybit.Auth do
   # 5 seconds
   @recv_window_default 5000
 
-  @doc """
-  Simplified auth function for use with endpoint registry and Core.HTTP.
+  @impl true
+  def sign_request(request, api_key, api_secret, opts) do
+    all_params = opts[:all_params] || %{}
+    has_json_option = opts[:has_json_option] || false
+    body_params = opts[:body_params] || %{}
 
-  This function reads credentials from request options or environment variables
-  and applies Bybit authentication to the request.
-
-  ## Credential Priority Order
-
-  1. **Request private data** (highest priority):
-     - `request.private[:auth_credentials][:api_key]`
-     - `request.private[:auth_credentials][:api_secret]`
-
-  2. **Environment variables** (fallback):
-     - When `BYBIT_TESTNET` is set: Uses `BYBIT_TESTNET_API_KEY` and `BYBIT_TESTNET_API_SECRET`
-     - Otherwise: Uses `BYBIT_API_KEY` and `BYBIT_API_SECRET`
-
-  ## Parameters
-    * `request` - The Req.Request struct to sign
-
-  ## Returns
-    * Modified request with Bybit authentication applied (headers and signature)
-    * Returns request unchanged if no credentials are available
-
-  ## Examples
-
-      # Using environment variables (automatic)
-      request |> apply_auth()
-
-      # Passing credentials via request private data (for multi-tenant apps)
-      request
-      |> Req.Request.put_private(:auth_credentials, %{
-        api_key: "user_specific_key",
-        api_secret: "user_specific_secret"
-      })
-      |> apply_auth()
-
-  ## Environment Variables
-
-  For production:
-  - `BYBIT_API_KEY` - Your Bybit API key
-  - `BYBIT_API_SECRET` - Your Bybit API secret
-
-  For testnet (when `BYBIT_TESTNET` is set to any value except "false" or ""):
-  - `BYBIT_TESTNET_API_KEY` - Your Bybit testnet API key
-  - `BYBIT_TESTNET_API_SECRET` - Your Bybit testnet API secret
-  """
-  @spec apply_auth(Req.Request.t()) :: Req.Request.t()
-  def apply_auth(request) do
-    # Check if we have valid credentials using Core.Auth helper
-    if CoreAuth.valid_credentials?(request, :bybit) do
-      # Get credentials and sign the request
-      {api_key, api_secret} = CoreAuth.get_credentials(request, :bybit)
-
-      # TODO: Remove debug logging once authentication is stable
-      CoreAuth.log_credential_status(:bybit, api_key, api_secret)
-
-      sign_request(request, api_key, api_secret)
-    else
-      # Return request unchanged if no credentials available
-      # Core.HTTP will handle the error appropriately
-      request
-    end
-  end
-
-  @doc """
-  Signs a Req request with Bybit HMAC-SHA256 authentication.
-
-  This function works as a Req request step, adding:
-  - X-BAPI-API-KEY header
-  - X-BAPI-TIMESTAMP header with clock-synchronized timestamp
-  - X-BAPI-RECV-WINDOW header with receive window
-  - X-BAPI-SIGN header with HMAC-SHA256 signature
-
-  ## Parameters
-
-    * `request` - The Req.Request struct to sign
-    * `api_key` - The Bybit API key
-    * `api_secret` - The Bybit API secret
-
-  ## Examples
-
-      iex> request = Req.new(url: "/v5/account/wallet-balance")
-      iex> signed = Auth.sign_request(request, "key", "secret")
-      iex> Req.Request.get_header(signed, "x-bapi-api-key")
-      ["key"]
-  """
-  @spec sign_request(Req.Request.t(), String.t(), String.t()) :: Req.Request.t()
-  def sign_request(request, api_key, api_secret) do
     # TODO: Remove debug logging once authentication is stable
     Logger.debug("Bybit Auth: Starting to sign request", exchange: :bybit)
-
-    # Extract parameters from request
-    {all_params, has_json_option, body_params} = extract_request_params(request)
 
     # Add timing parameters using clock-synchronized time
     params_with_timing = ensure_timing_params(all_params)
@@ -148,18 +50,6 @@ defmodule ZenCex.Adapters.Bybit.Auth do
     request
     |> add_auth_headers(api_key, timestamp, recv_window, signature)
     |> update_request_options(query_params, has_json_option, body_params)
-  end
-
-  # Extract params from request options
-  # Returns {all_params, has_json_option, body_params}
-  @spec extract_request_params(Req.Request.t()) :: {map(), boolean(), map()}
-  defp extract_request_params(request) do
-    has_json_option = Map.has_key?(request.options, :json)
-    query_params = request.options[:params] || %{}
-    body_params = request.options[:json] || %{}
-    all_params = Map.merge(body_params, query_params)
-
-    {all_params, has_json_option, body_params}
   end
 
   # Ensures timestamp and recv_window parameters are present
@@ -223,7 +113,7 @@ defmodule ZenCex.Adapters.Bybit.Auth do
   """
   @spec base_url() :: String.t()
   def base_url do
-    if CoreAuth.testnet?(:bybit) do
+    if ZenCex.Core.Auth.testnet?(:bybit) do
       "https://api-testnet.bybit.com"
     else
       "https://api.bybit.com"

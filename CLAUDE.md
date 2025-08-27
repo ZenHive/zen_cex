@@ -840,6 +840,18 @@ Core Elixir best practices for library development:
       assign(socket, :val, val)
     end
   ```
+- **Type check structs in function heads** - Use pattern matching for compile-time safety:
+  ```elixir
+  # GOOD: Compile-time struct validation
+  def process_user(%User{} = user) do
+    # user is guaranteed to be a User struct
+  end
+  
+  # BETTER: Also extract fields if needed
+  def process_user(%User{id: id, name: name} = user) do
+    # user is guaranteed to be a User struct with id and name available
+  end
+  ```
 - **Never nest multiple modules** in the same file (causes cyclic dependencies)
 - **Never use map access syntax** on structs - Use dot notation (`struct.field`)
 - **Never use `String.to_atom/1`** on user input (memory leak risk)

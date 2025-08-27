@@ -18,6 +18,7 @@ Your core competencies include:
 - Proper error handling using tagged tuples {:ok, result} and {:error, reason}
 - The "let it crash" philosophy and when to apply it vs defensive programming
 - Pattern matching for control flow and data destructuring
+- Type checking structs in function heads: `def process(%User{} = user)` for compile-time safety
 - Pipe operator usage for data transformation clarity
 - Proper use of with statements for happy path programming
 - Module design with clear public APIs and private implementation details

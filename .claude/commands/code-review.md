@@ -24,6 +24,7 @@ Use git commands to figure out what the changes are.
 - [ ] Single responsibility principle is followed
 - [ ] Functions are easily testable with clear inputs/outputs
 - [ ] Public API is minimal (5-10 functions per module)
+- [ ] Structs are type-checked in function heads: `def process(%User{} = user)`
 
 ### **Code Organization**
 - [ ] Proper separation of concerns (adapters, core, safety modules)

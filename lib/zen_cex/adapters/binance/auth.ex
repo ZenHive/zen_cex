@@ -1,175 +1,70 @@
 defmodule ZenCex.Adapters.Binance.Auth do
   @moduledoc """
-  Binance authentication module implementing HMAC-SHA256 signing as a Req step.
+  Binance authentication module implementing HMAC-SHA256 signing.
 
-  Supports all five Binance API types:
-  - Spot & Cross Margin (api.binance.com)
-  - USD-M Futures (fapi.binance.com)
-  - COIN-M Futures (dapi.binance.com)
-  - Portfolio Margin (papi.binance.com)
-
-  Authentication is identical across all APIs:
+  Supports all five Binance API types with identical authentication:
   - HMAC-SHA256 signature as LAST query parameter
   - X-MBX-APIKEY header with API key
-  - timestamp and optional recvWindow parameters
-  - Automatic clock synchronization for accurate timestamps
-
-  ## Architecture
-
-  This module coordinates authentication by delegating to focused modules:
-  - `Signer` - Pure HMAC-SHA256 signature generation
-  - `ParameterBuilder` - Parameter ordering and timing management
-
-  ## Clock Synchronization
-
-  This module integrates with `ZenCex.Safety.ClockSync` to ensure accurate
-  timestamps that account for clock drift between local system and Binance servers.
-  This prevents authentication failures due to timestamp skew.
+  - Clock-synchronized timestamps
   """
+
+  use ZenCex.Adapters.BaseAuth, exchange: :binance
+
   alias ZenCex.Adapters.Binance.ParameterBuilder
   alias ZenCex.Adapters.Binance.Signer
-  alias ZenCex.Core.Auth, as: CoreAuth
 
   require Logger
 
   @type api_type :: :spot | :margin | :usdm_futures | :coinm_futures | :portfolio
 
   @doc """
-  Simplified auth function for use with endpoint registry and Core.HTTP.
-
-  This function reads credentials from request options or environment variables
-  and applies Binance authentication to the request.
-
-  ## Credential Priority Order
-
-  1. **Request private data** (highest priority):
-     - `request.private[:auth_credentials][:api_key]`
-     - `request.private[:auth_credentials][:api_secret]`
-
-  2. **Environment variables** (fallback):
-     - When `BINANCE_TESTNET` is set: Uses `BINANCE_TESTNET_API_KEY` and `BINANCE_TESTNET_API_SECRET`
-     - Otherwise: Uses `BINANCE_API_KEY` and `BINANCE_API_SECRET`
-
-  ## Parameters
-    * `request` - The Req.Request struct to sign
-
-  ## Returns
-    * Modified request with Binance authentication applied (headers and signature)
-    * Returns request unchanged if no credentials are available
-
-  ## Examples
-
-      # Using environment variables (automatic)
-      request |> apply_auth()
-
-      # Passing credentials via request private data (for multi-tenant apps)
-      request
-      |> Req.Request.put_private(:auth_credentials, %{
-        api_key: "user_specific_key",
-        api_secret: "user_specific_secret"
-      })
-      |> apply_auth()
-
-  ## Environment Variables
-
-  For production:
-  - `BINANCE_API_KEY` - Your Binance API key
-  - `BINANCE_API_SECRET` - Your Binance API secret
-
-  For testnet (when `BINANCE_TESTNET` is set to any value except "false" or ""):
-  - `BINANCE_TESTNET_API_KEY` - Your Binance testnet API key
-  - `BINANCE_TESTNET_API_SECRET` - Your Binance testnet API secret
+  Signs a request with the API type, API key, and secret.
+  The API type can be passed either:
+  - In the request's private data under :api_type
+  - As the second parameter (for backward compatibility)
   """
-  @spec apply_auth(Req.Request.t()) :: Req.Request.t()
-  def apply_auth(request) do
-    # Check if we have valid credentials using Core.Auth helper
-    if CoreAuth.valid_credentials?(request, :binance) do
-      # Get credentials and sign the request
-      {api_key, api_secret} = CoreAuth.get_credentials(request, :binance)
+  @spec sign_request_with_type(Req.Request.t(), api_type(), String.t(), String.t()) :: Req.Request.t()
+  def sign_request_with_type(request, api_type, api_key, api_secret)
+      when is_atom(api_type) and is_binary(api_key) and is_binary(api_secret) do
+    # Extract params from request options
+    all_params = request.options[:params] || %{}
+    has_json_option = Map.has_key?(request.options, :json)
+    body_params = request.options[:json] || %{}
 
-      # TODO: Remove debug logging once authentication is stable
-      CoreAuth.log_credential_status(:binance, api_key, api_secret)
+    # Add API type to request private data
+    request = Req.Request.put_private(request, :api_type, api_type)
 
-      # Default to spot API type (could be made configurable via request.private)
-      api_type = get_in(request.private, [:api_type]) || :spot
-
-      sign_request(request, api_type, api_key, api_secret)
-    else
-      # Return request unchanged if no credentials available
-      # Core.HTTP will handle the error appropriately
-      request
-    end
+    # Call the BaseAuth implementation
+    sign_request(request, api_key, api_secret,
+      all_params: all_params,
+      has_json_option: has_json_option,
+      body_params: body_params
+    )
   end
 
-  @doc """
-  Signs a Req request with Binance HMAC-SHA256 authentication.
+  @impl true
+  def sign_request(request, api_key, api_secret, opts) do
+    api_type = get_in(request.private, [:api_type]) || :spot
+    all_params = opts[:all_params] || %{}
+    has_json_option = opts[:has_json_option] || false
+    body_params = opts[:body_params] || %{}
 
-  This function works as a Req request step, adding:
-  - X-MBX-APIKEY header
-  - Clock-synchronized timestamp if not provided
-  - Default recvWindow if not provided
-  - HMAC-SHA256 signature as the LAST query parameter
-
-  ## Parameters
-
-    * `request` - The Req.Request struct to sign
-    * `api_type` - The Binance API type (:spot, :margin, :usdm_futures, :coinm_futures, :portfolio)
-    * `api_key` - The Binance API key
-    * `api_secret` - The Binance API secret
-
-  ## Examples
-
-      iex> request = Req.new(url: "/api/v3/account")
-      iex> signed = Auth.sign_request(request, :spot, "key", "secret")
-      iex> Req.Request.get_header(signed, "x-mbx-apikey")
-      ["key"]
-  """
-  @spec sign_request(Req.Request.t(), api_type(), String.t(), String.t()) :: Req.Request.t()
-  def sign_request(request, api_type, api_key, api_secret) do
     # Validate API type
     _base_url = base_url(api_type)
 
     # TODO: Remove debug logging once authentication is stable
     Logger.debug("Binance Auth: Starting to sign request for #{request.url}")
 
-    request
-    |> prepare_authentication(api_key)
-    |> apply_signature(api_type, api_secret)
-  end
-
-  # Prepares the request with authentication headers
-  @spec prepare_authentication(Req.Request.t(), String.t()) :: Req.Request.t()
-  defp prepare_authentication(request, api_key) do
-    add_auth_headers(request, api_key)
-  end
-
-  # Applies timing parameters and signature to the request
-
-  @spec apply_signature(Req.Request.t(), api_type(), String.t()) :: Req.Request.t()
-  defp apply_signature(request, api_type, api_secret) do
-    # Extract parameters from request
-    {all_params, has_json_option, body_params} = extract_request_params(request)
-
-    # Add timing parameters (delegate to ParameterBuilder)
+    # Add timing parameters
     params_with_timing = ParameterBuilder.ensure_timing_params(all_params, api_type)
 
-    # Generate signature (delegate to Signer)
+    # Generate signature
     signature = Signer.create_signature(params_with_timing, api_secret)
 
-    # Build final authenticated request
-    build_authenticated_request(
-      request,
-      params_with_timing,
-      signature,
-      has_json_option,
-      body_params
-    )
-  end
-
-  # Adds authentication headers to the request
-  @spec add_auth_headers(Req.Request.t(), String.t()) :: Req.Request.t()
-  defp add_auth_headers(request, api_key) do
-    Req.Request.put_header(request, "x-mbx-apikey", api_key)
+    # Build authenticated request
+    request
+    |> Req.Request.put_header("x-mbx-apikey", api_key)
+    |> build_authenticated_request(params_with_timing, signature, has_json_option, body_params)
   end
 
   # Builds the final authenticated request with signed URL
@@ -199,18 +94,6 @@ defmodule ZenCex.Adapters.Binance.Auth do
   defp update_request_options(request, has_json_option, body_params) do
     updated_options = clean_request_options(request.options, has_json_option, body_params)
     %{request | options: updated_options}
-  end
-
-  # Extract params from request options
-  # Returns {all_params, has_json_option, body_params}
-  @spec extract_request_params(Req.Request.t()) :: {map(), boolean(), map()}
-  defp extract_request_params(request) do
-    has_json_option = Map.has_key?(request.options, :json)
-    query_params = request.options[:params] || %{}
-    body_params = request.options[:json] || %{}
-    all_params = Map.merge(body_params, query_params)
-
-    {all_params, has_json_option, body_params}
   end
 
   # Build the final URL with signed query string
