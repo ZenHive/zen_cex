@@ -69,6 +69,7 @@ defmodule ZenCex.Adapters.BaseAuth do
       end
 
       @doc false
+      @spec extract_request_params(Req.Request.t()) :: {map(), boolean(), map()}
       defp extract_request_params(request) do
         has_json_option = Map.has_key?(request.options, :json)
         query_params = request.options[:params] || %{}
@@ -81,6 +82,7 @@ defmodule ZenCex.Adapters.BaseAuth do
       end
 
       @doc false
+      @spec log_credential_status(atom(), String.t(), String.t()) :: :ok
       defp log_credential_status(exchange, api_key, api_secret) do
         if Application.get_env(:zen_cex, :debug_auth, false) do
           key_preview = String.slice(api_key, 0..7) <> "..."
@@ -91,6 +93,7 @@ defmodule ZenCex.Adapters.BaseAuth do
       end
 
       @doc false
+      @spec auth_required?(Req.Request.t()) :: boolean()
       defp auth_required?(request) do
         get_in(request.private, [:auth_required]) != false
       end

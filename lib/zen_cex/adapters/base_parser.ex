@@ -83,6 +83,7 @@ defmodule ZenCex.Adapters.BaseParser do
 
       # Private helpers
 
+      @spec normalize_balance(map()) :: map()
       defp normalize_balance(balance) do
         %{
           asset: get_asset_name(balance),
@@ -92,31 +93,49 @@ defmodule ZenCex.Adapters.BaseParser do
         }
       end
 
+      @spec get_asset_name(map()) :: String.t() | nil
       defp get_asset_name(%{"asset" => asset}), do: asset
       defp get_asset_name(%{"coin" => coin}), do: coin
       defp get_asset_name(%{"currency" => currency}), do: currency
       defp get_asset_name(_), do: nil
 
+      @spec get_free_amount(map()) :: String.t() | number() | nil
       defp get_free_amount(%{"free" => amount}), do: amount
       defp get_free_amount(%{"available" => amount}), do: amount
       defp get_free_amount(%{"availableBalance" => amount}), do: amount
       defp get_free_amount(_), do: "0"
 
+      @spec get_locked_amount(map()) :: String.t() | number() | nil
       defp get_locked_amount(%{"locked" => amount}), do: amount
       defp get_locked_amount(%{"frozen" => amount}), do: amount
       defp get_locked_amount(%{"lockedBalance" => amount}), do: amount
       defp get_locked_amount(_), do: "0"
 
-      defp get_total_amount(%{"total" => amount}), do: amount
-      defp get_total_amount(%{"balance" => amount}), do: amount
-      defp get_total_amount(%{"walletBalance" => amount}), do: amount
-
-      defp get_total_amount(balance) do
-        free = parse_decimal(get_free_amount(balance))
-        locked = parse_decimal(get_locked_amount(balance))
-        free |> Decimal.add(locked) |> Decimal.to_string()
+      @spec get_total_amount(map()) :: String.t()
+      defp get_total_amount(%{"total" => amount}) do
+        amount |> Decimal.new() |> Decimal.to_string()
       end
 
+      defp get_total_amount(%{"balance" => amount}) do
+        amount |> Decimal.new() |> Decimal.to_string()
+      end
+
+      defp get_total_amount(%{"walletBalance" => amount}) do
+        amount |> Decimal.new() |> Decimal.to_string()
+      end
+
+      defp get_total_amount(balance) do
+        # Calculate total only if no total field exists
+        free_value = get_free_amount(balance)
+        locked_value = get_locked_amount(balance)
+
+        free_value
+        |> parse_decimal()
+        |> Decimal.add(parse_decimal(locked_value))
+        |> Decimal.to_string()
+      end
+
+      @spec parse_decimal(nil | String.t() | number()) :: Decimal.t()
       defp parse_decimal(nil), do: Decimal.new(0)
       defp parse_decimal(value) when is_binary(value), do: Decimal.new(value)
       defp parse_decimal(value) when is_number(value), do: Decimal.new(value)

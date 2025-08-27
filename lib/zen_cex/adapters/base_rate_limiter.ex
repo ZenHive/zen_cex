@@ -17,9 +17,13 @@ defmodule ZenCex.Adapters.BaseRateLimiter do
       require Logger
 
       # Common thresholds across all exchanges
+      # Alert at 80% capacity usage
       @warning_threshold 0.80
+      # Critical alert at 95% capacity
       @critical_threshold 0.95
+      # Reserve 10% capacity for emergency operations
       @regular_capacity_ratio 0.90
+      # Convert decimal ratios to percentages
       @percentage_multiplier 100
 
       @doc """

@@ -6,8 +6,11 @@ defmodule ZenCex.Adapters.BaseParameterBuilder do
   and timestamp generation across exchanges.
   """
 
+  # Default 5-second window for timestamp tolerance (in milliseconds)
+  @default_recv_window_ms 5000
+
   defmacro __using__(opts) do
-    default_recv_window = Keyword.get(opts, :default_recv_window, 5000)
+    default_recv_window = Keyword.get(opts, :default_recv_window, @default_recv_window_ms)
 
     quote do
       alias ZenCex.Core.ParameterBuilder, as: Core
@@ -53,6 +56,7 @@ defmodule ZenCex.Adapters.BaseParameterBuilder do
 
       # Private helpers
 
+      @spec generate_timestamp_for_exchange(atom()) :: String.t()
       defp generate_timestamp_for_exchange(exchange) do
         try_result =
           try do
@@ -67,6 +71,7 @@ defmodule ZenCex.Adapters.BaseParameterBuilder do
         to_string(try_result)
       end
 
+      @spec ensure_string_value(any()) :: String.t()
       defp ensure_string_value(value) when is_binary(value), do: value
       defp ensure_string_value(value), do: to_string(value)
 
