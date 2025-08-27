@@ -1,5 +1,7 @@
 defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
+
+  import ZenCex.IntegrationCase, only: [with_env: 2]
 
   alias ZenCex.Adapters.Binance.Common
   alias ZenCex.Adapters.Binance.Endpoints
@@ -217,51 +219,45 @@ defmodule ZenCex.Adapters.Binance.EndpointsRouterTest do
   end
 
   describe "environment handling" do
-    test "current_env/0 respects BINANCE_TESTNET env variable" do
-      original = System.get_env("BINANCE_TESTNET")
+    # Helper to clear persistent_term cache before each test
+    defp clear_env_cache do
+      :persistent_term.erase({Endpoints, :current_env})
+    rescue
+      _ -> nil
+    end
 
-      try do
-        # Helper to clear cache before each test
-        clear_cache = fn ->
-          try do
-            :persistent_term.erase({Endpoints, :current_env})
-          rescue
-            _ -> nil
-          end
-        end
-
-        # Test production (default)
-        System.delete_env("BINANCE_TESTNET")
-        clear_cache.()
+    test "current_env/0 respects BINANCE_TESTNET env variable for production (default)" do
+      # Test production (default)
+      with_env [{"BINANCE_TESTNET", nil}] do
+        clear_env_cache()
         assert Endpoints.current_env() == :prod
+      end
 
-        System.put_env("BINANCE_TESTNET", "false")
-        clear_cache.()
+      with_env [{"BINANCE_TESTNET", "false"}] do
+        clear_env_cache()
         assert Endpoints.current_env() == :prod
+      end
 
-        System.put_env("BINANCE_TESTNET", "")
-        clear_cache.()
+      with_env [{"BINANCE_TESTNET", ""}] do
+        clear_env_cache()
         assert Endpoints.current_env() == :prod
+      end
+    end
 
-        # Test testnet
-        System.put_env("BINANCE_TESTNET", "true")
-        clear_cache.()
+    test "current_env/0 respects BINANCE_TESTNET env variable for testnet" do
+      with_env [{"BINANCE_TESTNET", "true"}] do
+        clear_env_cache()
         assert Endpoints.current_env() == :test
+      end
 
-        System.put_env("BINANCE_TESTNET", "1")
-        clear_cache.()
+      with_env [{"BINANCE_TESTNET", "1"}] do
+        clear_env_cache()
         assert Endpoints.current_env() == :test
+      end
 
-        System.put_env("BINANCE_TESTNET", "yes")
-        clear_cache.()
+      with_env [{"BINANCE_TESTNET", "yes"}] do
+        clear_env_cache()
         assert Endpoints.current_env() == :test
-      after
-        # Restore original value
-        if original do
-          System.put_env("BINANCE_TESTNET", original)
-        else
-          System.delete_env("BINANCE_TESTNET")
-        end
       end
     end
   end

@@ -46,17 +46,16 @@ defmodule ZenCex.Adapters.Bybit.Endpoints do
   Each function automatically adds the appropriate category parameter.
   """
 
+  use ZenCex.Adapters.BaseEndpoints,
+    exchange: :bybit,
+    prod_url: "https://api.bybit.com",
+    test_url: "https://api-testnet.bybit.com"
+
   alias ZenCex.Adapters.Bybit.Auth
   alias ZenCex.Adapters.Bybit.Common
   alias ZenCex.Adapters.Bybit.Parser
   alias ZenCex.Adapters.Bybit.RateLimiter
   alias ZenCex.Adapters.Bybit.Unified
-
-  @doc """
-  Returns the exchange name for this adapter.
-  """
-  @spec __exchange__() :: :bybit
-  def __exchange__, do: :bybit
 
   @doc """
   Returns the auth module for this adapter.
@@ -76,35 +75,7 @@ defmodule ZenCex.Adapters.Bybit.Endpoints do
   @spec parser() :: module()
   def parser, do: Parser
 
-  @doc """
-  Returns the current environment based on BYBIT_TESTNET env variable.
-
-  The value is cached using :persistent_term for performance, avoiding 
-  repeated System.get_env calls. The cache persists for the VM lifetime.
-  """
-  @spec current_env() :: :test | :prod
-  def current_env do
-    # Use persistent_term for efficient caching across processes
-    key = {__MODULE__, :current_env}
-
-    case :persistent_term.get(key, :not_cached) do
-      :not_cached ->
-        env =
-          case System.get_env("BYBIT_TESTNET") do
-            nil -> :prod
-            "false" -> :prod
-            "" -> :prod
-            _ -> :test
-          end
-
-        :persistent_term.put(key, env)
-        env
-
-      cached_env ->
-        cached_env
-    end
-  end
-
+  # Override base_url from BaseEndpoints to add support for explicit env parameter
   @doc """
   Returns the base URL for the current environment.
   """

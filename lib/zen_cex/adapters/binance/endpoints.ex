@@ -42,6 +42,11 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
       Endpoints.get_server_time()
   """
 
+  use ZenCex.Adapters.BaseEndpoints,
+    exchange: :binance,
+    prod_url: "https://api.binance.com",
+    test_url: "https://testnet.binance.vision"
+
   alias ZenCex.Adapters.Binance.Auth
   alias ZenCex.Adapters.Binance.CoinmFutures
   alias ZenCex.Adapters.Binance.Common
@@ -51,12 +56,6 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   alias ZenCex.Adapters.Binance.RateLimiter
   alias ZenCex.Adapters.Binance.Spot
   alias ZenCex.Adapters.Binance.UsdmFutures
-
-  @doc """
-  Returns the exchange name for this adapter.
-  """
-  @spec __exchange__() :: :binance
-  def __exchange__, do: :binance
 
   @doc """
   Returns the auth module for this adapter.
@@ -76,35 +75,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   @spec parser() :: module()
   def parser, do: Parser
 
-  @doc """
-  Returns the current environment based on BINANCE_TESTNET env variable.
-
-  The value is cached using :persistent_term for performance, avoiding 
-  repeated System.get_env calls. The cache persists for the VM lifetime.
-  """
-  @spec current_env() :: :test | :prod
-  def current_env do
-    # Use persistent_term for efficient caching across processes
-    key = {__MODULE__, :current_env}
-
-    case :persistent_term.get(key, :not_cached) do
-      :not_cached ->
-        env =
-          case System.get_env("BINANCE_TESTNET") do
-            nil -> :prod
-            "false" -> :prod
-            "" -> :prod
-            _ -> :test
-          end
-
-        :persistent_term.put(key, env)
-        env
-
-      cached_env ->
-        cached_env
-    end
-  end
-
+  # Override base_url to support API type-specific URLs
   @doc """
   Returns the base URL for the current environment.
   """
