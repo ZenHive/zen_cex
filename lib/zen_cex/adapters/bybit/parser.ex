@@ -418,4 +418,32 @@ defmodule ZenCex.Adapters.Bybit.Parser do
       {:error, _} -> {:error, :invalid_json}
     end
   end
+
+  @doc """
+  Parses market data API responses.
+
+  Market data responses can be:
+  - Simple result for single items (ticker, instrument info)
+  - List-based result for collections (klines, trades, order book)
+  - Paginated results with nextPageCursor
+
+  ## Examples
+
+      iex> parse_market_data_response(%{"retCode" => 0, "retMsg" => "OK", "result" => %{"list" => [...]}})
+      {:ok, %{"list" => [...]}}
+      
+      iex> parse_market_data_response(%{"retCode" => 0, "retMsg" => "OK", "result" => %{"symbol" => "BTCUSDT"}})
+      {:ok, %{"symbol" => "BTCUSDT"}}
+  """
+  @spec parse_market_data_response(map() | binary()) :: {:ok, term()} | {:error, term()}
+  def parse_market_data_response(body) when is_map(body) do
+    handle_bybit_response(body, 200, %{})
+  end
+
+  def parse_market_data_response(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
 end

@@ -53,6 +53,7 @@ defmodule ZenCex.Adapters.Bybit.Endpoints do
 
   alias ZenCex.Adapters.Bybit.Auth
   alias ZenCex.Adapters.Bybit.Common
+  alias ZenCex.Adapters.Bybit.MarketData
   alias ZenCex.Adapters.Bybit.Parser
   alias ZenCex.Adapters.Bybit.RateLimiter
   alias ZenCex.Adapters.Bybit.Unified
@@ -136,6 +137,49 @@ defmodule ZenCex.Adapters.Bybit.Endpoints do
   defdelegate get_trade_history(params), to: Unified
   defdelegate get_trade_history(params, opts), to: Unified
 
+  # Market data endpoints (public, no auth required)
+  defdelegate get_tickers(params), to: MarketData
+  defdelegate get_tickers(params, opts), to: MarketData
+
+  defdelegate get_orderbook(params), to: MarketData
+  defdelegate get_orderbook(params, opts), to: MarketData
+
+  defdelegate get_recent_trades(params), to: MarketData
+  defdelegate get_recent_trades(params, opts), to: MarketData
+
+  defdelegate get_klines(params), to: MarketData
+  defdelegate get_klines(params, opts), to: MarketData
+
+  defdelegate get_mark_price_klines(params), to: MarketData
+  defdelegate get_mark_price_klines(params, opts), to: MarketData
+
+  defdelegate get_index_price_klines(params), to: MarketData
+  defdelegate get_index_price_klines(params, opts), to: MarketData
+
+  defdelegate get_premium_index_klines(params), to: MarketData
+  defdelegate get_premium_index_klines(params, opts), to: MarketData
+
+  defdelegate get_open_interest(params), to: MarketData
+  defdelegate get_open_interest(params, opts), to: MarketData
+
+  defdelegate get_funding_history(params), to: MarketData
+  defdelegate get_funding_history(params, opts), to: MarketData
+
+  defdelegate get_instruments_info(params), to: MarketData
+  defdelegate get_instruments_info(params, opts), to: MarketData
+
+  defdelegate get_risk_limit(params), to: MarketData
+  defdelegate get_risk_limit(params, opts), to: MarketData
+
+  defdelegate get_delivery_price(params), to: MarketData
+  defdelegate get_delivery_price(params, opts), to: MarketData
+
+  defdelegate get_historical_volatility(params), to: MarketData
+  defdelegate get_historical_volatility(params, opts), to: MarketData
+
+  defdelegate get_insurance_info(params), to: MarketData
+  defdelegate get_insurance_info(params, opts), to: MarketData
+
   # ============================================================================
   # Category-prefixed convenience functions (auto-generated)
   # ============================================================================
@@ -209,7 +253,7 @@ defmodule ZenCex.Adapters.Bybit.Endpoints do
   """
   @spec list_available_endpoints() :: [atom()]
   def list_available_endpoints do
-    (Common.all_endpoints() ++ Unified.all_endpoints())
+    (Common.all_endpoints() ++ Unified.all_endpoints() ++ MarketData.all_endpoints())
     |> Enum.map(& &1.operation)
     |> Enum.uniq()
   end
@@ -217,7 +261,7 @@ defmodule ZenCex.Adapters.Bybit.Endpoints do
   @doc """
   Lists available endpoints filtered by category.
 
-  For Bybit, categories are: :common, :spot, :linear, :inverse, :option, :unified
+  For Bybit, categories are: :common, :spot, :linear, :inverse, :option, :unified, :market_data
   """
   @spec list_available_endpoints(atom()) :: [atom()]
   def list_available_endpoints(category) when category in [:common] do
@@ -227,6 +271,11 @@ defmodule ZenCex.Adapters.Bybit.Endpoints do
   def list_available_endpoints(category) when category in [:unified] do
     # All unified endpoints without filtering
     Enum.map(Unified.all_endpoints(), & &1.operation)
+  end
+
+  def list_available_endpoints(category) when category in [:market_data] do
+    # All market data endpoints
+    Enum.map(MarketData.all_endpoints(), & &1.operation)
   end
 
   def list_available_endpoints(category) when category in [:spot, :linear, :inverse, :option] do
@@ -268,7 +317,14 @@ defmodule ZenCex.Adapters.Bybit.Endpoints do
     case Common.get_endpoint(operation) do
       nil ->
         # Try Unified module
-        Unified.get_endpoint(operation)
+        case Unified.get_endpoint(operation) do
+          nil ->
+            # Try MarketData module
+            MarketData.get_endpoint(operation)
+
+          endpoint ->
+            endpoint
+        end
 
       endpoint ->
         endpoint
