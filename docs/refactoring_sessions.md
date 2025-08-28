@@ -202,7 +202,7 @@ Generate ALL endpoints but let users choose what to compile.
 
 ---
 
-## Session 2: Add Bybit Options Support
+## Session 3: Add Bybit Options Support 📋 TODO
 
 **Size**: ~8K tokens
 **Focus**: Complete Bybit options trading endpoints
@@ -244,12 +244,7 @@ Generate ALL endpoints but let users choose what to compile.
 
 ---
 
-## Session 3: Testing & Documentation
-
-**Size**: ~10K tokens
-**Focus**: Quality assurance for market data and trading
-
-## Session 3: Integration & Documentation 🚧 IN PROGRESS
+## Session 4: Integration & Documentation 📋 TODO
 
 **Size**: ~15K tokens
 **Focus**: Document and test the configurable endpoint system
@@ -261,7 +256,7 @@ Generate ALL endpoints but let users choose what to compile.
    test "monitor positions and hedge when needed" do
      {:ok, spot} = Binance.spot_get_account()
      {:ok, futures} = Binance.usdm_get_position_risk()
-     {:ok, price} = Binance.spot_get_ticker_price("BTCUSDT")
+     {:ok, price} = Binance.get_ticker_price(%{symbol: "BTCUSDT"})
 
      exposure = calculate_exposure(spot, futures, price)
      assert exposure < hedge_threshold
@@ -394,7 +389,7 @@ ZenCex.EndpointCatalog.suggest(:binance, "withdraw")
 
 ---
 
-## Session 4: Generator Architecture Refinement 📋 TODO
+## Session 5: Generator Architecture Refinement 📋 TODO
 
 **Size**: ~20K tokens
 **Focus**: Refactor endpoint data into declarative format
