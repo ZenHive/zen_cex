@@ -36,58 +36,19 @@ defmodule ZenCex.Adapters.Bybit.RequestHelper do
   - `{:error, %Req.Response.AsyncError{}}` - Request timeout
   """
 
-  alias ZenCex.Core.HTTP
+  use ZenCex.Adapters.BaseRequestHelper
+
+  alias ZenCex.Adapters.Bybit.Endpoints
 
   require Logger
 
-  # HTTP status code ranges
-  @success_status_range 200..299
+  # Retry configuration - milliseconds between retry attempts for linear backoff
+  @backoff_multiplier_ms 1000
 
-  # Bybit production and testnet base URLs
-  @production_base_url "https://api.bybit.com"
-  @testnet_base_url "https://api-testnet.bybit.com"
-
-  @doc """
-  Gets the base URL for the current environment.
-
-  ## Examples
-
-      iex> base_url()
-      "https://api.bybit.com"
-
-      iex> base_url(:test)
-      "https://api-testnet.bybit.com"
-  """
-  @spec base_url() :: String.t()
-  @spec base_url(atom()) :: String.t()
-  def base_url(env \\ current_env()) do
-    case env do
-      :test -> @testnet_base_url
-      _ -> @production_base_url
-    end
-  end
-
-  @doc """
-  Gets the current environment based on BYBIT_TESTNET environment variable.
-
-  ## Examples
-
-      iex> System.put_env("BYBIT_TESTNET", "true")
-      iex> current_env()
-      :test
-
-      iex> System.delete_env("BYBIT_TESTNET")
-      iex> current_env()
-      :prod
-  """
-  @spec current_env() :: atom()
-  def current_env do
-    if System.get_env("BYBIT_TESTNET") == "true" do
-      :test
-    else
-      :prod
-    end
-  end
+  # Delegate functions for backward compatibility
+  defdelegate current_env(), to: Endpoints
+  defdelegate base_url(), to: Endpoints
+  defdelegate base_url(env), to: Endpoints
 
   @doc """
   Executes a request with standard preprocessing for Bybit API modules.
@@ -117,8 +78,8 @@ defmodule ZenCex.Adapters.Bybit.RequestHelper do
   @spec execute_request_for_unified_api(map(), map(), keyword()) ::
           {:ok, any()} | {:error, term()}
   def execute_request_for_unified_api(config, params, opts) do
-    # Get base URL for current environment
-    base_url = base_url()
+    # Get base URL for current environment from Endpoints module
+    base_url = Endpoints.base_url()
 
     # Determine operation type from config
     operation_type = determine_operation_type(config)
@@ -130,64 +91,72 @@ defmodule ZenCex.Adapters.Bybit.RequestHelper do
     execute_request(config, request_params, opts, base_url, :bybit, operation_type)
   end
 
+  # NOTE: Bybit uses the default parameter handling from BaseRequestHelper
+  # - GET requests: all params in query string
+  # - POST/PUT/DELETE: all params in JSON body
+  # No overrides needed as the defaults match Bybit's requirements
+
+  # Override the base execute_request to add Bybit-specific retry logic
   @doc """
-  Low-level request execution function.
+  Low-level request execution function with Bybit-specific retry configuration.
 
-  This function handles the actual HTTP request execution and should not
-  be called directly by endpoint modules. Use execute_request_for_unified_api/3 instead.
-
-  ## Parameters
-  - `config` - Endpoint configuration map containing method, path, parsers, etc.
-  - `request_params` - Map with `:params` and/or `:json` keys for request data
-  - `opts` - Additional options like custom timeout or auth credentials
-  - `base_url` - The base URL for the API endpoint
-  - `exchange` - The exchange atom (:bybit)
-  - `operation_type` - The operation type for Core.HTTP (:standard, :trading, :market, :health)
-
-  ## Returns
-  - `{:ok, body}` - Raw response body for successful requests (parser called by macro)
-  - `{:error, response_or_exception}` - Error response or exception
+  This overrides the base implementation to add Bybit's retry configuration.
   """
   @spec execute_request(map(), map(), keyword(), String.t(), atom(), atom()) ::
           {:ok, any()} | {:error, term()}
   def execute_request(config, request_params, opts, base_url, exchange, operation_type) do
-    # Build base options
-    base_opts = %{
-      method: config.method,
-      url: base_url <> config.path,
-      receive_timeout: Keyword.get(opts, :timeout, config.timeout),
-      skip_auth: not config.requires_auth,
-      retry: false
-    }
+    # Build retry configuration from endpoint config
+    retry_config = build_retry_config(config)
 
-    # Only add params if they exist and are not empty
-    base_opts = maybe_add_option(base_opts, :params, request_params[:params])
-    base_opts = maybe_add_option(base_opts, :json, request_params[:json])
+    # Add Bybit-specific options
+    bybit_opts =
+      opts
+      |> Keyword.put(:retry, retry_config)
+      |> Keyword.put(:max_retries, Map.get(config, :max_retries, 0))
+      |> Keyword.put(:retry_delay, fn attempt -> attempt * @backoff_multiplier_ms end)
 
-    # Build and execute request
-    request =
-      exchange
-      |> HTTP.base_request(operation_type)
-      |> Req.merge(Map.to_list(base_opts))
-      |> Req.merge(opts)
-      |> Req.Request.put_private(:rate_limit_weight, config.weight)
-      |> Req.Request.put_private(:endpoint_config, config)
-      |> Req.Request.put_private(:endpoint_operation, config.operation)
-      |> Req.Request.put_private(:zen_cex_operation, config.operation)
+    # Delegate to base implementation with Bybit-specific options
+    super(config, request_params, bybit_opts, base_url, exchange, operation_type)
+  end
 
-    # Execute request and return response for parsing
-    case Req.request(request) do
-      {:ok, %Req.Response{status: status, body: body}} when status in @success_status_range ->
-        # Return raw body - calling module will apply parser
-        {:ok, body}
+  # Builds retry configuration from endpoint config.
+  # Returns :safe_transient, :transient, false, or a custom function based on config.
+  # Critical operations like order placement should have max_retries: 0.
+  @spec build_retry_config(map()) :: atom() | false | fun()
+  defp build_retry_config(config) do
+    max_retries = Map.get(config, :max_retries, 0)
+    retry_on = Map.get(config, :retry_on, [])
 
-      {:ok, %Req.Response{status: status, body: body}} ->
-        # Return error response - calling module will apply error mapping
-        {:error, %Req.Response{status: status, body: body}}
+    cond do
+      max_retries == 0 or retry_on == [] ->
+        # No retry for critical operations
+        false
 
-      {:error, exception} ->
-        Logger.error("Request failed: #{inspect(exception)}")
-        {:error, exception}
+      # For GET requests with standard retry conditions, use Req's built-in :safe_transient
+      config.method == :get and retry_on == [:timeout, :server_error] ->
+        :safe_transient
+
+      # For other safe operations with retries, use :transient
+      retry_on == [:timeout, :server_error] ->
+        :transient
+
+      # For timeout-only retries, use custom function
+      retry_on == [:timeout] ->
+        fn _request, error ->
+          case error do
+            %Mint.TransportError{reason: :timeout} -> true
+            %Req.TransportError{reason: :timeout} -> true
+            _ -> false
+          end
+        end
+
+      # Default to :safe_transient for other GET requests
+      config.method == :get ->
+        :safe_transient
+
+      # Default to no retry for other methods
+      true ->
+        false
     end
   end
 
@@ -201,13 +170,19 @@ defmodule ZenCex.Adapters.Bybit.RequestHelper do
   @spec build_request_params(map(), map()) :: map()
   def build_request_params(config, params) do
     case config.method do
-      :get ->
+      :get when map_size(params) > 0 ->
         %{params: params}
 
-      _ ->
+      :get ->
+        %{}
+
+      _ when map_size(params) > 0 ->
         # For POST/PUT/DELETE, all params go in JSON body
         # Auth signature is handled via headers by Auth module
         %{json: params}
+
+      _ ->
+        %{}
     end
   end
 
@@ -254,12 +229,16 @@ defmodule ZenCex.Adapters.Bybit.RequestHelper do
   """
   @spec build_url(String.t()) :: String.t()
   @spec build_url(String.t(), atom()) :: String.t()
-  def build_url(path, env \\ current_env()) do
-    base_url(env) <> path
-  end
+  def build_url(path, env \\ nil) do
+    # Use provided env or get current env
+    actual_env = env || Endpoints.current_env()
 
-  # Helper to conditionally add non-empty options
-  defp maybe_add_option(opts, _key, nil), do: opts
-  defp maybe_add_option(opts, _key, %{} = value) when map_size(value) == 0, do: opts
-  defp maybe_add_option(opts, key, value), do: Map.put(opts, key, value)
+    base_url =
+      case actual_env do
+        :test -> "https://api-testnet.bybit.com"
+        _ -> "https://api.bybit.com"
+      end
+
+    base_url <> path
+  end
 end

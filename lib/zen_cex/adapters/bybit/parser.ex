@@ -58,6 +58,9 @@ defmodule ZenCex.Adapters.Bybit.Parser do
     110_025 => :position_not_found,
     110_043 => :order_would_trigger_immediately,
 
+    # Business errors (170xxx)
+    170_131 => :insufficient_balance,
+
     # System errors (10000+)
     10_016 => :server_error,
     10_018 => :too_many_requests,
@@ -100,6 +103,12 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   # Handle case where Req has already decoded the JSON to a map
   def parse(%{status: status, body: body} = response) when is_map(body) do
     handle_bybit_response(body, status, response)
+  end
+
+  # Handle direct map response (from successful requests)
+  def parse(%{"retCode" => _} = body) do
+    # This is a direct Bybit response body
+    handle_bybit_response(body, 200, %{})
   end
 
   def parse(%{status: status}) do
@@ -148,7 +157,9 @@ defmodule ZenCex.Adapters.Bybit.Parser do
     error_atom = Map.get(@error_code_atoms, code)
 
     if error_atom do
-      {:error, error_atom}
+      # Preserve both the atom and original message for debugging context
+      # This allows callers to match on the atom while still having access to the detailed message
+      {:error, {error_atom, msg}}
     else
       # Unknown error code - use standardized error message parsing
       case ResponseParser.standardize_error_message(msg) do
@@ -193,6 +204,13 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   # Specialized parsers for common endpoints
 
   @doc """
+  Parses unified trading API responses.
+  This is an alias for the main parse/1 function used by generated endpoints.
+  """
+  @spec parse_unified_response(map() | binary()) :: {:ok, term()} | {:error, term()}
+  def parse_unified_response(response), do: parse(response)
+
+  @doc """
   Parses server time response body directly.
 
   ## Examples
@@ -218,6 +236,14 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   Parses error response body directly.
   """
   @spec parse_error(map() | binary()) :: {:error, term()}
+  def parse_error(%{"retCode" => _} = body) do
+    # Direct Bybit response body
+    case handle_bybit_response(body, 400, %{}) do
+      {:ok, _} -> {:error, :unexpected_success}
+      error -> error
+    end
+  end
+
   def parse_error(body) when is_map(body) do
     # For errors, we expect a Bybit error structure
     case handle_bybit_response(body, 400, %{}) do
@@ -249,6 +275,172 @@ defmodule ZenCex.Adapters.Bybit.Parser do
 
   def parse_announcements(body) when is_binary(body) do
     # If still a string, decode it first
+    case Jason.decode(body) do
+      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
+
+  @doc """
+  Parses wallet balance response.
+  """
+  @spec parse_wallet_balance(map() | binary()) :: {:ok, map()} | {:error, term()}
+  def parse_wallet_balance(body) when is_map(body) do
+    handle_bybit_response(body, 200, %{})
+  end
+
+  def parse_wallet_balance(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
+
+  @doc """
+  Parses order response (place, cancel, get).
+  """
+  @spec parse_order(map() | binary()) :: {:ok, map()} | {:error, term()}
+  def parse_order(body) when is_map(body) do
+    handle_bybit_response(body, 200, %{})
+  end
+
+  def parse_order(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
+
+  @doc """
+  Parses multiple orders response.
+  """
+  @spec parse_orders(map() | binary()) :: {:ok, list()} | {:error, term()}
+  def parse_orders(body) when is_map(body) do
+    case handle_bybit_response(body, 200, %{}) do
+      {:ok, result} when is_map(result) ->
+        # Extract list from result (handle both direct list and nested structure)
+        orders = Map.get(result, "list", result)
+        {:ok, orders}
+
+      {:ok, result} when is_list(result) ->
+        {:ok, result}
+
+      error ->
+        error
+    end
+  end
+
+  def parse_orders(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} -> parse_orders(decoded)
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
+
+  @doc """
+  Parses batch cancel response.
+  """
+  @spec parse_batch_cancel(map() | binary()) :: {:ok, map()} | {:error, term()}
+  def parse_batch_cancel(body) when is_map(body) do
+    handle_bybit_response(body, 200, %{})
+  end
+
+  def parse_batch_cancel(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
+
+  @doc """
+  Parses positions response.
+  """
+  @spec parse_positions(map() | binary()) :: {:ok, list()} | {:error, term()}
+  def parse_positions(body) when is_map(body) do
+    case handle_bybit_response(body, 200, %{}) do
+      {:ok, result} when is_map(result) ->
+        # Extract list from result
+        positions = Map.get(result, "list", [])
+        {:ok, positions}
+
+      {:ok, result} when is_list(result) ->
+        {:ok, result}
+
+      error ->
+        error
+    end
+  end
+
+  def parse_positions(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} -> parse_positions(decoded)
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
+
+  @doc """
+  Parses trades/executions response.
+  """
+  @spec parse_trades(map() | binary()) :: {:ok, list()} | {:error, term()}
+  def parse_trades(body) when is_map(body) do
+    case handle_bybit_response(body, 200, %{}) do
+      {:ok, result} when is_map(result) ->
+        # Extract list from result
+        trades = Map.get(result, "list", [])
+        {:ok, trades}
+
+      {:ok, result} when is_list(result) ->
+        {:ok, result}
+
+      error ->
+        error
+    end
+  end
+
+  def parse_trades(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} -> parse_trades(decoded)
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
+
+  @doc """
+  Parses generic response (for operations that don't need special handling).
+  """
+  @spec parse_generic(map() | binary()) :: {:ok, map()} | {:error, term()}
+  def parse_generic(body) when is_map(body) do
+    handle_bybit_response(body, 200, %{})
+  end
+
+  def parse_generic(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
+
+  @doc """
+  Parses market data API responses.
+
+  Market data responses can be:
+  - Simple result for single items (ticker, instrument info)
+  - List-based result for collections (klines, trades, order book)
+  - Paginated results with nextPageCursor
+
+  ## Examples
+
+      iex> parse_market_data_response(%{"retCode" => 0, "retMsg" => "OK", "result" => %{"list" => [...]}})
+      {:ok, %{"list" => [...]}}
+      
+      iex> parse_market_data_response(%{"retCode" => 0, "retMsg" => "OK", "result" => %{"symbol" => "BTCUSDT"}})
+      {:ok, %{"symbol" => "BTCUSDT"}}
+  """
+  @spec parse_market_data_response(map() | binary()) :: {:ok, term()} | {:error, term()}
+  def parse_market_data_response(body) when is_map(body) do
+    handle_bybit_response(body, 200, %{})
+  end
+
+  def parse_market_data_response(body) when is_binary(body) do
     case Jason.decode(body) do
       {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
       {:error, _} -> {:error, :invalid_json}

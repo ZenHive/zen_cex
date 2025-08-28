@@ -45,7 +45,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
           }
         ]
         |> Req.new()
-        |> Auth.sign_request(:usdm_futures, api_key, api_secret)
+        |> Auth.sign_request_with_type(:usdm_futures, api_key, api_secret)
 
       {:ok, response} = Req.get(request)
 
@@ -80,7 +80,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
           }
         ]
         |> Req.new()
-        |> Auth.sign_request(:coinm_futures, api_key, api_secret)
+        |> Auth.sign_request_with_type(:coinm_futures, api_key, api_secret)
 
       {:ok, response} = Req.get(request)
 
@@ -153,7 +153,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
           }
         ]
         |> Req.new()
-        |> Auth.sign_request(:portfolio, api_key, api_secret)
+        |> Auth.sign_request_with_type(:portfolio, api_key, api_secret)
 
       {:ok, response} = Req.get(request)
 
@@ -181,7 +181,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
           }
         ]
         |> Req.new()
-        |> Auth.sign_request(:spot, api_key, api_secret)
+        |> Auth.sign_request_with_type(:spot, api_key, api_secret)
 
       # Auth module puts params in URL query string, not in options
       params = get_query_params(request)
@@ -206,7 +206,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
           }
         ]
         |> Req.new()
-        |> Auth.sign_request(:spot, api_key, api_secret)
+        |> Auth.sign_request_with_type(:spot, api_key, api_secret)
 
       assert Req.Request.get_header(request, "x-mbx-apikey") == [api_key]
     end
@@ -228,7 +228,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
           }
         ]
         |> Req.new()
-        |> Req.Request.append_request_steps(binance_auth: &Auth.sign_request(&1, :spot, api_key, api_secret))
+        |> Req.Request.append_request_steps(binance_auth: &Auth.sign_request_with_type(&1, :spot, api_key, api_secret))
 
       # Run the step - this actually runs the request step pipeline
       {request, _} = Req.Request.run_request(request)
@@ -252,7 +252,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
       request =
         [base_url: "https://testnet.binance.vision", url: "/api/v3/account", params: %{}]
         |> Req.new()
-        |> Auth.sign_request(:spot, api_key, api_secret)
+        |> Auth.sign_request_with_type(:spot, api_key, api_secret)
 
       # Auth module puts params in URL query string, not in options
       params = get_query_params(request)
@@ -286,7 +286,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
           }
         ]
         |> Req.new()
-        |> Auth.sign_request(:spot, api_key, api_secret)
+        |> Auth.sign_request_with_type(:spot, api_key, api_secret)
 
       # Auth module puts params in URL query string, not in options
       params = get_query_params(request)
@@ -311,7 +311,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
           }
         ]
         |> Req.new()
-        |> Auth.sign_request(:spot, api_key, api_secret)
+        |> Auth.sign_request_with_type(:spot, api_key, api_secret)
 
       # Auth module puts params in URL query string, not in options
       params = get_query_params(request)
@@ -333,7 +333,7 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
           }
         ]
         |> Req.new()
-        |> Auth.sign_request(:spot, api_key, api_secret)
+        |> Auth.sign_request_with_type(:spot, api_key, api_secret)
 
       # Auth module puts params in URL query string, not in options
       params = get_query_params(request)

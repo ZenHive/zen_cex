@@ -204,17 +204,27 @@ defmodule ZenCex.IntegrationCase do
       """
     end
 
-    # Bybit testnet doesn't require API keys for public endpoints
-    # For authenticated tests, would check:
-    # api_key = fetch_testnet_credential!("BYBIT_TESTNET_API_KEY",
-    #   "BYBIT_TESTNET_API_KEY required for authenticated tests")
-    # api_secret = fetch_testnet_credential!("BYBIT_TESTNET_API_SECRET",
-    #   "BYBIT_TESTNET_API_SECRET required for authenticated tests")
+    # Check credentials for authenticated endpoints
+    api_key =
+      fetch_testnet_credential!("BYBIT_TESTNET_API_KEY", """
+      BYBIT_TESTNET_API_KEY required for integration tests.
+
+      Get testnet credentials at: https://testnet.bybit.com/
+      Then run: export BYBIT_TESTNET_API_KEY=your_key
+      """)
+
+    api_secret =
+      fetch_testnet_credential!("BYBIT_TESTNET_API_SECRET", """
+      BYBIT_TESTNET_API_SECRET required for integration tests.
+
+      Get testnet credentials at: https://testnet.bybit.com/
+      Then run: export BYBIT_TESTNET_API_SECRET=your_secret
+      """)
 
     # Verify connectivity to Bybit testnet
     verify_bybit_connectivity!()
 
-    {:ok, []}
+    {:ok, api_key: api_key, api_secret: api_secret, exchange: :bybit}
   end
 
   defp verify_bybit_connectivity! do

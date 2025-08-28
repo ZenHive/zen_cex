@@ -1,8 +1,15 @@
 # ZenCex
 
-A production-ready Elixir library for centralized cryptocurrency exchange (CEX) REST API integrations, featuring a plugin architecture with Req middleware pipeline for Binance, Kraken, and Deribit.
+A configurable Elixir library for cryptocurrency exchange REST APIs, featuring compile-time endpoint selection and focused on Binance and Bybit integrations.
 
-**IMPORTANT**: This is a REST-only library designed for reliable position management and trading operations. It does NOT support High-Frequency Trading (HFT) or WebSocket streaming. For HFT or real-time market data streaming, please look elsewhere.
+**Key Features**:
+- 🎯 **Configurable Compilation** - Ship all endpoints, compile only what you need
+- 📊 **Market Data & Trading** - Prices, order books, positions, and order management  
+- 🏦 **Two Major Exchanges** - Binance and Bybit (80%+ of global volume)
+- ⚡ **REST-Only Design** - Perfect for position monitoring, hedging, and portfolio management
+- 🔒 **Production Ready** - Rate limiting, clock sync, comprehensive error handling
+
+**Perfect for**: Position monitoring (30s-5min intervals), portfolio hedging, subaccount management, and automated trading strategies. **NOT for HFT** or microsecond latency requirements.
 
 ## Installation
 
@@ -23,77 +30,79 @@ be found at <https://hexdocs.pm/zen_cex>.
 
 ## Quick Start
 
-### AI-Assisted Development Workflow
+### Configuration (Coming Soon)
 
-This project uses a two-document AI workflow:
+Configure which endpoints to compile in your application:
 
-1. **AI Coder**: Uses [docs/AI-IMPLEMENTATION.md](docs/AI-IMPLEMENTATION.md) (201 lines) to implement tasks
-2. **AI Reviewer**: Uses [docs/AI-REVIEW.md](docs/AI-REVIEW.md) (700+ lines) to validate implementations
-
-#### For AI Coders
-```bash
-# Start with the current task
-"Read docs/AI-IMPLEMENTATION.md and implement the current task"
+```elixir
+# config/config.exs
+config :zen_cex, :endpoints, %{
+  binance: %{
+    market_data: [:get_ticker_price, :get_order_book],
+    spot: [:get_balances, :place_order, :cancel_order],
+    usdm_futures: :all  # Include all USDM futures endpoints
+  },
+  bybit: %{
+    market_data: :all,
+    unified: [:get_positions, :place_order]
+  }
+}
 ```
 
-The implementation guide provides:
-- ✅ One task per session rule (critical for quality)
-- ✅ Current task assignment (Task #1: OrderSafety)
-- ✅ Quick pattern references (5-10 lines each)
-- ✅ Common mistakes to avoid
-- ✅ Clear success criteria
+### Basic Usage
 
-#### For AI Reviewers
-```bash
-# Review completed implementations
-"Read docs/AI-REVIEW.md and validate the implementation"
+```elixir
+# Market data (no auth required)
+{:ok, price} = ZenCex.Binance.spot_get_ticker_price("BTCUSDT")
+{:ok, orderbook} = ZenCex.Bybit.get_orderbook("BTCUSDT")
+
+# Trading (requires API keys)
+{:ok, balances} = ZenCex.Binance.spot_get_balances()
+{:ok, positions} = ZenCex.Binance.usdm_get_position_risk()
+
+# Place orders
+{:ok, order} = ZenCex.Binance.spot_place_order(%{
+  symbol: "BTCUSDT",
+  side: "BUY",
+  type: "LIMIT",
+  quantity: "0.001",
+  price: "40000"
+})
 ```
 
-The review guide provides:
-- ✅ Detailed checklists per task
-- ✅ Full pattern implementations
-- ✅ Performance targets
-- ✅ Security requirements
-- ✅ Pass/fail criteria
+### Development Workflow
 
-### For Human Developers
+See [docs/refactoring_sessions.md](docs/refactoring_sessions.md) for the current implementation plan and architecture details.
 
-1. **Set up environment**:
-   ```bash
-   export BINANCE_API_KEY="your_key"
-   export BINANCE_API_SECRET="your_secret"
-   mix deps.get
-   mix test
-   ```
-2. **Follow the workflow**: Implementation → Review → Deploy
-3. **Monitor progress**: Check task completion in AI-IMPLEMENTATION.md
+## Environment Setup
+
+```bash
+# Production credentials
+export BINANCE_API_KEY="your_key"
+export BINANCE_API_SECRET="your_secret"
+export BYBIT_API_KEY="your_key"
+export BYBIT_API_SECRET="your_secret"
+
+# Testnet credentials (for testing)
+export BINANCE_TESTNET_API_KEY="your_testnet_key"
+export BINANCE_TESTNET_API_SECRET="your_testnet_secret"
+
+mix deps.get
+mix test
+```
 
 ## Architecture Overview
 
 **Adapter Pattern with Req-centric REST Design** - Each exchange adapter consists of multiple cooperating modules that collectively adapt external APIs to ZenCex's unified interface.
 
-```
-lib/zen_cex/
-├── core/                    # Thin coordination layer
-│   ├── registry.ex         # Maps exchanges to endpoint modules
-│   ├── http.ex            # Req client with middleware pipeline
-│   └── endpoint_registry.ex # Macro for declarative endpoints
-├── behaviors/              # Contracts for adapter modules
-└── adapters/               # Exchange adapters (collection of modules)
-    ├── binance/            # Binance adapter modules
-    │   ├── endpoints.ex    # Main entry point (uses EndpointRegistry)
-    │   ├── auth.ex        # HMAC-SHA256 authentication
-    │   ├── rate_limiter.ex # ETS-based rate limiting
-    │   └── parser.ex      # Response normalization
-    ├── kraken/            # (Future: Nonce-based, HTTP/1.1)
-    └── deribit/           # (Future: OAuth2 with GenServer)
-```
+### Key Design Principles
 
-### Why "Adapters"?
-The `Adapters` namespace accurately reflects that these modules work together to adapt external exchange APIs to ZenCex's interface. Each adapter is not just endpoints, but a complete integration package.
-
-**Why minimal supervision**: Req provides connection pooling (Finch), retry with backoff, telemetry, and middleware pipeline
-**Only GenServer needed**: Deribit OAuth token management (stateful)
+- **Configurable Compilation**: Select endpoints at compile time for optimal performance
+- **Req-Centric**: Leverages Req's connection pooling, retry, and middleware
+- **ETS for State**: Rate limiting uses atomic counters, no GenServers needed
+- **Testnet-First Testing**: All tests run against real testnet APIs
+- **Declarative Endpoints**: Use `@endpoints` pattern for standard operations
+- **Generated Code**: Macro-based function generation from endpoint specs
 
 ### Key Technologies
 - **HTTP Client**: Req with middleware pipeline (REST only)
@@ -137,33 +146,32 @@ ZenCex.Safety.OrderSafety.set_kill_switch(:binance, true)   # Re-enable trading
 
 ## Current Status
 
-- **Architecture**: Declarative Endpoint Registry with Req middleware pipeline
-- **Binance**: Fully implemented with EndpointRegistry pattern
-- **Kraken/Deribit**: Planned, following the same adapter structure
-- **Focus**: REST APIs only - no WebSocket/streaming support
+- ✅ **Binance**: Spot, margin, futures implemented (missing: market data endpoints)
+- ✅ **Bybit**: Unified V5 trading implemented (missing: market data, options)
+- 🚧 **Market Data**: To be added for both exchanges (prices, order books, klines)
+- 🎯 **Configurable**: Compile-time endpoint selection (coming soon)
 
-## Key Features
+## Use Cases
 
-- 🚀 **Plugin Architecture**: Isolated exchange adapters for REST APIs
-- ⚡ **Reliable Performance**: 10,000+ concurrent REST requests in <100ms
-- 🔒 **Production Ready**: Circuit breakers, health monitoring, telemetry
-- 🧪 **Comprehensive Testing**: Unit (Req.Test) + Integration (real APIs)
-- 📊 **Rate Limiting**: Budget-based allocation with atomic operations
-- 🚨 **Emergency Bypass**: Critical operations (cancels) always execute
-- 🔄 **Request Coalescing**: Deduplication within time windows
-- 🏥 **Health Monitoring**: Clock sync validation, exchange status
-- ❌ **NOT for HFT**: This library is not designed for high-frequency trading
-- ❌ **No WebSocket**: REST APIs only, no streaming market data support
+This library is perfect for:
+- **Position Monitoring**: Check balances and positions every 30s-5min
+- **Portfolio Hedging**: Calculate exposure and place hedge orders
+- **Automated Trading**: Execute trades based on signals or conditions
+- **Risk Management**: Monitor PnL and adjust positions accordingly
+- **Market Analysis**: Collect OHLCV data for technical indicators
 
+Not suitable for:
+- High-frequency trading (use WebSocket/FIX for that)
+- Market making with microsecond requirements
+- Real-time order book streaming
 ## Documentation
 
-### Single Source of Truth
-**[docs/AI-IMPLEMENTATION.md](docs/AI-IMPLEMENTATION.md)** - 242 lines (was 2,346 across 4 files)
-- Combines architecture, implementation, progress, and review
-- Optimized for AI coders with directive commands
-- Essential patterns with minimal code examples
-- One-task-per-session enforcement
-- Common mistakes and solutions
+### Current Focus
+**[docs/refactoring_sessions.md](docs/refactoring_sessions.md)** - Implementation roadmap
+- Configurable endpoint architecture
+- Session-based development plan
+- Market data and trading endpoints
+- Binance and Bybit focus
 
 ### Telemetry and Monitoring
 **[docs/TELEMETRY.md](docs/TELEMETRY.md)** - Comprehensive telemetry guide
@@ -318,17 +326,16 @@ Debug mode requires the optional `curl_req` dependency:
 
 ## Exchange-Specific Requirements
 
-| Exchange | Auth | Rate Limit | Critical Requirement |
-|----------|------|------------|---------------------|
-| Binance | HMAC-SHA256 | 1200/min | Signature MUST be last param |
-| Kraken | Nonce | 15/tier | Microsecond + counter, HTTP/1.1 |
-| Deribit | OAuth2 | 20/sec | Refresh 120s before expiry |
+| Exchange | Auth | Rate Limit | Testnet | Status |
+|----------|------|------------|---------|---------|
+| Binance | HMAC-SHA256 | 1200/min | testnet.binance.vision | ✅ Trading Complete, 🚧 Market Data |
+| Bybit | HMAC-SHA256 | Variable | api-testnet.bybit.com | ✅ Trading Complete, 🚧 Market Data & Options |
 
 ## Contributing
 
-1. Read `docs/AI-IMPLEMENTATION.md`
-2. Pick the current task (shown in guide)
-3. Implement ONE task per PR
+1. Read `docs/refactoring_sessions.md` for the development plan
+2. Follow the session-based approach
+3. Test against real testnet APIs
 4. Ensure all tests pass
-5. Update task status in guide
+5. Update task status in the roadmap
 

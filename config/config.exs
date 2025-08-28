@@ -3,7 +3,7 @@ import Config
 # Logger configuration
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
-  metadata: [:endpoint, :operation, :exchange, :request_id]
+  metadata: [:endpoint, :operation, :exchange, :request_id, :response]
 
 # Circuit breaker configuration (opt-in, disabled by default)
 # Uncomment and configure to enable circuit breakers per exchange

@@ -28,7 +28,7 @@ defmodule ZenCex.Adapters.Bybit.ParserTest do
         body: ~s({"retCode":10006,"retMsg":"Too many visits!","result":null})
       }
 
-      assert {:error, :rate_limited} = Parser.parse(response)
+      assert {:error, {:rate_limited, "Too many visits!"}} = Parser.parse(response)
     end
 
     test "parses authentication error" do
@@ -37,7 +37,7 @@ defmodule ZenCex.Adapters.Bybit.ParserTest do
         body: ~s({"retCode":10004,"retMsg":"error sign!","result":null})
       }
 
-      assert {:error, :signature_not_valid} = Parser.parse(response)
+      assert {:error, {:signature_not_valid, "error sign!"}} = Parser.parse(response)
     end
 
     test "parses insufficient balance error" do
@@ -46,7 +46,7 @@ defmodule ZenCex.Adapters.Bybit.ParserTest do
         body: ~s({"retCode":110004,"retMsg":"Insufficient balance","result":null})
       }
 
-      assert {:error, :insufficient_balance} = Parser.parse(response)
+      assert {:error, {:insufficient_balance, "Insufficient balance"}} = Parser.parse(response)
     end
 
     test "parses order not found error" do
@@ -55,7 +55,7 @@ defmodule ZenCex.Adapters.Bybit.ParserTest do
         body: ~s({"retCode":110001,"retMsg":"Order not found","result":null})
       }
 
-      assert {:error, :order_not_found} = Parser.parse(response)
+      assert {:error, {:order_not_found, "Order not found"}} = Parser.parse(response)
     end
 
     test "parses invalid symbol error" do
@@ -64,7 +64,7 @@ defmodule ZenCex.Adapters.Bybit.ParserTest do
         body: ~s({"retCode":110012,"retMsg":"Invalid symbol","result":null})
       }
 
-      assert {:error, :invalid_symbol} = Parser.parse(response)
+      assert {:error, {:invalid_symbol, "Invalid symbol"}} = Parser.parse(response)
     end
 
     test "parses unknown error code with message" do
@@ -229,7 +229,7 @@ defmodule ZenCex.Adapters.Bybit.ParserTest do
           body: Jason.encode!(%{"retCode" => code, "retMsg" => "Error"})
         }
 
-        assert {:error, ^expected_error} = Parser.parse(response)
+        assert {:error, {^expected_error, "Error"}} = Parser.parse(response)
       end
     end
 
@@ -254,7 +254,7 @@ defmodule ZenCex.Adapters.Bybit.ParserTest do
           body: Jason.encode!(%{"retCode" => code, "retMsg" => "Error"})
         }
 
-        assert {:error, ^expected_error} = Parser.parse(response)
+        assert {:error, {^expected_error, "Error"}} = Parser.parse(response)
       end
     end
 

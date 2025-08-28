@@ -42,21 +42,21 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
       Endpoints.get_server_time()
   """
 
+  use ZenCex.Adapters.BaseEndpoints,
+    exchange: :binance,
+    prod_url: "https://api.binance.com",
+    test_url: "https://testnet.binance.vision"
+
   alias ZenCex.Adapters.Binance.Auth
   alias ZenCex.Adapters.Binance.CoinmFutures
   alias ZenCex.Adapters.Binance.Common
   alias ZenCex.Adapters.Binance.Margin
+  alias ZenCex.Adapters.Binance.MarketData
   alias ZenCex.Adapters.Binance.Parser
   alias ZenCex.Adapters.Binance.PortfolioMargin
   alias ZenCex.Adapters.Binance.RateLimiter
   alias ZenCex.Adapters.Binance.Spot
   alias ZenCex.Adapters.Binance.UsdmFutures
-
-  @doc """
-  Returns the exchange name for this adapter.
-  """
-  @spec __exchange__() :: :binance
-  def __exchange__, do: :binance
 
   @doc """
   Returns the auth module for this adapter.
@@ -76,35 +76,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   @spec parser() :: module()
   def parser, do: Parser
 
-  @doc """
-  Returns the current environment based on BINANCE_TESTNET env variable.
-
-  The value is cached using :persistent_term for performance, avoiding 
-  repeated System.get_env calls. The cache persists for the VM lifetime.
-  """
-  @spec current_env() :: :test | :prod
-  def current_env do
-    # Use persistent_term for efficient caching across processes
-    key = {__MODULE__, :current_env}
-
-    case :persistent_term.get(key, :not_cached) do
-      :not_cached ->
-        env =
-          case System.get_env("BINANCE_TESTNET") do
-            nil -> :prod
-            "false" -> :prod
-            "" -> :prod
-            _ -> :test
-          end
-
-        :persistent_term.put(key, env)
-        env
-
-      cached_env ->
-        cached_env
-    end
-  end
-
+  # Override base_url to support API type-specific URLs
   @doc """
   Returns the base URL for the current environment.
   """
@@ -179,6 +151,68 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   # Common endpoints (shared across all API types - no prefix needed)
   defdelegate get_server_time(), to: Common
   defdelegate get_server_time(opts), to: Common
+
+  # Market data endpoints (public, no auth required)
+  # Spot market data
+  defdelegate get_ticker_price(params), to: MarketData
+  defdelegate get_ticker_price(params, opts), to: MarketData
+  defdelegate get_ticker_24hr(params), to: MarketData
+  defdelegate get_ticker_24hr(params, opts), to: MarketData
+  defdelegate get_order_book(params), to: MarketData
+  defdelegate get_order_book(params, opts), to: MarketData
+  defdelegate get_recent_trades(params), to: MarketData
+  defdelegate get_recent_trades(params, opts), to: MarketData
+  defdelegate get_klines(params), to: MarketData
+  defdelegate get_klines(params, opts), to: MarketData
+  defdelegate get_avg_price(params), to: MarketData
+  defdelegate get_avg_price(params, opts), to: MarketData
+  defdelegate get_exchange_info(), to: MarketData
+  defdelegate get_exchange_info(opts), to: MarketData
+  defdelegate get_exchange_info(params, opts), to: MarketData
+  defdelegate get_book_ticker(params), to: MarketData
+  defdelegate get_book_ticker(params, opts), to: MarketData
+
+  # USDM Futures market data
+  defdelegate usdm_get_ticker_price(params), to: MarketData
+  defdelegate usdm_get_ticker_price(params, opts), to: MarketData
+  defdelegate usdm_get_ticker_24hr(params), to: MarketData
+  defdelegate usdm_get_ticker_24hr(params, opts), to: MarketData
+  defdelegate usdm_get_order_book(params), to: MarketData
+  defdelegate usdm_get_order_book(params, opts), to: MarketData
+  defdelegate usdm_get_recent_trades(params), to: MarketData
+  defdelegate usdm_get_recent_trades(params, opts), to: MarketData
+  defdelegate usdm_get_klines(params), to: MarketData
+  defdelegate usdm_get_klines(params, opts), to: MarketData
+  defdelegate usdm_get_mark_price(params), to: MarketData
+  defdelegate usdm_get_mark_price(params, opts), to: MarketData
+  defdelegate usdm_get_funding_rate(params), to: MarketData
+  defdelegate usdm_get_funding_rate(params, opts), to: MarketData
+  defdelegate usdm_get_open_interest(params), to: MarketData
+  defdelegate usdm_get_open_interest(params, opts), to: MarketData
+  defdelegate usdm_get_exchange_info(), to: MarketData
+  defdelegate usdm_get_exchange_info(opts), to: MarketData
+  defdelegate usdm_get_exchange_info(params, opts), to: MarketData
+
+  # COINM Futures market data
+  defdelegate coinm_get_ticker_price(params), to: MarketData
+  defdelegate coinm_get_ticker_price(params, opts), to: MarketData
+  defdelegate coinm_get_ticker_24hr(params), to: MarketData
+  defdelegate coinm_get_ticker_24hr(params, opts), to: MarketData
+  defdelegate coinm_get_order_book(params), to: MarketData
+  defdelegate coinm_get_order_book(params, opts), to: MarketData
+  defdelegate coinm_get_recent_trades(params), to: MarketData
+  defdelegate coinm_get_recent_trades(params, opts), to: MarketData
+  defdelegate coinm_get_klines(params), to: MarketData
+  defdelegate coinm_get_klines(params, opts), to: MarketData
+  defdelegate coinm_get_mark_price(params), to: MarketData
+  defdelegate coinm_get_mark_price(params, opts), to: MarketData
+  defdelegate coinm_get_funding_rate(params), to: MarketData
+  defdelegate coinm_get_funding_rate(params, opts), to: MarketData
+  defdelegate coinm_get_open_interest(params), to: MarketData
+  defdelegate coinm_get_open_interest(params, opts), to: MarketData
+  defdelegate coinm_get_exchange_info(), to: MarketData
+  defdelegate coinm_get_exchange_info(opts), to: MarketData
+  defdelegate coinm_get_exchange_info(params, opts), to: MarketData
 
   # Spot trading endpoints with spot_ prefix
   defdelegate spot_get_balances(), to: Spot, as: :get_balances
@@ -259,9 +293,12 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
         PortfolioMargin.get_endpoint(base_op)
 
       nil ->
-        # No prefix - check if it's a common operation
+        # No prefix - check common and market data operations
         if operation in [:get_server_time] do
           Common.get_endpoint(operation)
+        else
+          # Check if it's a market data endpoint
+          MarketData.get_endpoint(operation)
         end
     end
   end
@@ -296,6 +333,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   @spec all_endpoints() :: [map()]
   def all_endpoints do
     Common.all_endpoints() ++
+      MarketData.all_endpoints() ++
       Spot.all_endpoints() ++
       UsdmFutures.all_endpoints() ++
       CoinmFutures.all_endpoints() ++
@@ -373,6 +411,11 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
 
       :common ->
         Common.all_endpoints()
+        |> Enum.map(& &1.operation)
+        |> Enum.sort()
+
+      :market_data ->
+        MarketData.all_endpoints()
         |> Enum.map(& &1.operation)
         |> Enum.sort()
 

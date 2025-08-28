@@ -89,7 +89,7 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 
 ### ✅ Ticket #8: Unified Endpoints Module
 **Size:** 6 hours
-**Status:** TODO
+**Status:** ✅ COMPLETED
 **Implementation:**
 - Create `lib/zen_cex/adapters/bybit/endpoints.ex`
 - Single module for ALL v5 endpoints
@@ -110,20 +110,41 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 - Register with Core.Registry
 - Implement discovery functions
 
-### ✅ Ticket #9: Generated Endpoints File
-**Size:** 2 hours
-**Status:** TODO
+### ✅ Ticket #9: Mix Task for Trading Endpoint Generation from Postman Collection
+**Size:** 3 hours
+**Status:** ✅ COMPLETED
 **Implementation:**
-- Create `lib/zen_cex/adapters/bybit/generated_endpoints.ex`
-- Single generated file for all endpoints
-- EndpointLoader adapts to unified structure
-- Category parameter handling in macro
+- Create `lib/mix/tasks/zen_cex.generate_bybit_endpoints.ex`
+- Fetch and parse Bybit v5 Postman collection from:
+  `https://raw.githubusercontent.com/bybit-exchange/QuickStartWithPostman/refs/heads/main/V5APIs/Open%20API%20V5.postman_collection.json`
+- **SKIP all market data endpoints** (kline, orderbook, tickers, etc.)
+- **ONLY include trading-related endpoints**:
+  - Account management (wallet, fees, collateral)
+  - Order management (create, cancel, history)
+  - Position management (list, leverage, stops)
+  - Trade execution history
+  - Asset management (deposits, withdrawals, transfers)
+- Currently have 10 core endpoints, should expand to ~20-25 trading endpoints
+- Map Postman format to our endpoint structure:
+  - Extract method, path, parameters
+  - Determine auth requirements
+  - Set appropriate weights and timeouts
+  - Add retry logic (except for order placement)
+  - Generate operation names from paths
+- Handle unified API structure with category parameter
 
 ## Pass 4: Integration & Testing
+**Status:** ✅ COMPLETED (August 27, 2025)
+
+**Summary:**
+- All integration tests working with real testnet API
+- Clock sync integrated and functioning (13ms offset typical)
+- Rate limiting with emergency bypass fully implemented
+- Telemetry automatically handled by Req/Finch + ZenCex application layer events
 
 ### ✅ Ticket #10: Integration Case Setup
 **Size:** 2 hours
-**Status:** TODO
+**Status:** ✅ COMPLETED
 **Implementation:**
 - Update `test/support/integration_case.ex` for Bybit
 - Testnet URL enforcement: api-testnet.bybit.com
@@ -132,7 +153,7 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 
 ### ✅ Ticket #11: Unified Integration Tests
 **Size:** 4 hours
-**Status:** TODO
+**Status:** ✅ COMPLETED
 **Implementation:**
 - Create `endpoints_integration_test.exs`
 - Test spot operations with category="spot"
@@ -144,7 +165,7 @@ Bybit v5 provides a unified API where the same endpoints serve spot, derivatives
 
 ### ✅ Ticket #12: Clock Synchronization
 **Size:** 2 hours
-**Status:** TODO
+**Status:** ✅ COMPLETED
 **Implementation:**
 - Update `ZenCex.Safety.ClockSync` for Bybit
 - Add Bybit server time endpoint

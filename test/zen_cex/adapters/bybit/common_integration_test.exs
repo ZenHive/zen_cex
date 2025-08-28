@@ -51,8 +51,8 @@ defmodule ZenCex.Adapters.Bybit.CommonIntegrationTest do
       assert Endpoints.current_env() == :test
       assert Endpoints.base_url() == "https://api-testnet.bybit.com"
 
-      # Call the real Bybit testnet API
-      result = Common.get_announcements()
+      # Call the real Bybit testnet API - locale parameter is required
+      result = Common.get_announcements(%{locale: "en-US"})
 
       case result do
         {:ok, data} ->
@@ -82,7 +82,7 @@ defmodule ZenCex.Adapters.Bybit.CommonIntegrationTest do
     end
 
     test "accepts optional parameters" do
-      # Test with parameters
+      # Test with parameters - locale is required
       params = %{
         locale: "en-US",
         limit: 10
@@ -95,8 +95,9 @@ defmodule ZenCex.Adapters.Bybit.CommonIntegrationTest do
     end
 
     test "handles pagination parameters" do
-      # Test with pagination
+      # Test with pagination - locale is required
       params = %{
+        locale: "en-US",
         page: 1,
         limit: 5
       }

@@ -14,3 +14,9 @@ config :logger,
     # Suppress OrderSafety cache clearing warnings
     [module: ZenCex.Safety.OrderSafety, level_lower_than: :error]
   ]
+
+# Debug mode configuration - enabled for testing
+config :zen_cex, :debug,
+  enabled: true,
+  export_curl: true,
+  log_level: :debug
