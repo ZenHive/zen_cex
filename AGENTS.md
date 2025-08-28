@@ -4,10 +4,9 @@ This document provides essential guidelines for AI agents working with the ZenCe
 
 ## Critical: Library Scope and Focus
 
-ZenCex is a **configurable Elixir library** for cryptocurrency exchange REST APIs:
+ZenCex is an **Elixir library** for cryptocurrency exchange REST APIs:
 - **Binance & Bybit only** - Two exchanges covering 80%+ of volume
 - **REST APIs only** - Perfect for position monitoring and hedging
-- **Configurable compilation** - Ship all endpoints, compile what you need
 - **Market data + Trading** - Prices, order books, positions, orders
 - **NOT for HFT** - Designed for 30s-5min intervals, not microseconds
 - **No WebSocket** - REST-only by design, no streaming
@@ -70,9 +69,9 @@ lib/zen_cex/adapters/bybit/
 
 ### Endpoint Registry Pattern
 
-Use the declarative `@endpoints` pattern with configurable compilation:
+Use the declarative `@endpoints` pattern:
 ```elixir
-# Define all endpoints
+# Define endpoints
 @endpoints [
   get_ticker_price: [
     method: :get,
@@ -89,14 +88,6 @@ Use the declarative `@endpoints` pattern with configurable compilation:
     category: :spot
   ]
 ]
-
-# User configures what to compile
-config :zen_cex, :endpoints, %{
-  binance: %{
-    market_data: [:get_ticker_price],
-    spot: [:get_balances]
-  }
-}
 ```
 
 ### Testing Requirements
@@ -165,13 +156,12 @@ mix test --only integration       # Integration tests only
 ## Module Cooperation Example
 
 When calling `ZenCex.Adapters.Binance.Endpoints.spot_get_ticker_price/1`:
-1. **Configuration check** - Endpoint only exists if configured
-2. **Router delegation** - `Endpoints` module routes to `Spot` module
-3. **Request creation** - Core.HTTP builds Req request
-4. **Rate limiting** - Check/update ETS counters
-5. **Authentication** - Add API key/signature if needed
-6. **Response parsing** - Normalize exchange format
-7. **Telemetry** - Events at each stage for monitoring
+1. **Router delegation** - `Endpoints` module routes to `Spot` module
+2. **Request creation** - Core.HTTP builds Req request
+3. **Rate limiting** - Check/update ETS counters
+4. **Authentication** - Add API key/signature if needed
+5. **Response parsing** - Normalize exchange format
+6. **Telemetry** - Events at each stage for monitoring
 
 ## Documentation Standards
 
@@ -190,8 +180,7 @@ When calling `ZenCex.Adapters.Binance.Endpoints.spot_get_ticker_price/1`:
 
 ## Important Reminders
 
-- This is a **configurable library** - Users choose what to compile
-- **Two exchanges only** - Binance (complete) and Bybit (in progress)
+- **Two exchanges only** - Binance and Bybit with comprehensive support
 - **REST-only** - Perfect for position monitoring, not for HFT
 - **Market data + Trading** - Both public and authenticated endpoints
 - Keep dependencies minimal - only what's needed for REST APIs

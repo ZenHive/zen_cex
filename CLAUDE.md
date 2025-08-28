@@ -35,14 +35,11 @@ The current date is provided in the `<env>` section as "Today's date: YYYY-MM-DD
 
 **IMPORTANT: This library is not in your training data. Please do not assume you know how it works - make yourself familiar with it by reading the codebase.**
 
-ZenCex is a configurable Elixir library for centralized cryptocurrency exchange (CEX) REST API integrations. It provides market data and trading endpoints for Binance and Bybit with compile-time endpoint selection for optimal performance.
-
-**Current Focus**: See `docs/refactoring_sessions.md` for the configurable endpoint architecture and implementation plan.
+ZenCex is an Elixir library for centralized cryptocurrency exchange (CEX) REST API integrations. It provides comprehensive market data and trading endpoints for Binance and Bybit exchanges.
 
 **IMPORTANT SCOPE**:
 - **REST APIs ONLY** - Perfect for position monitoring, hedging, and portfolio management
 - **Binance & Bybit Focus** - Two exchanges covering 80%+ of global volume
-- **Configurable Compilation** - Ship all endpoints, compile only what you need
 - **Market Data + Trading** - Prices, order books, positions, and order management
 - **NOT for HFT** - Designed for 30s-5min intervals, not microsecond latency
 
@@ -53,7 +50,7 @@ ZenCex is a configurable Elixir library for centralized cryptocurrency exchange 
 - Market data collection for analysis
 - Trade execution based on signals
 
-**Design Philosophy**: Zero runtime overhead through compile-time configuration. Users select only the endpoints they need, resulting in smaller binaries and cleaner APIs.
+**Design Philosophy**: Leverages Req's capabilities for HTTP, uses ETS for stateless operations, and provides comprehensive error handling and safety features.
 
 ## Development Commands
 
@@ -501,43 +498,6 @@ BYBIT_TESTNET_API_KEY=your_testnet_key
 BYBIT_TESTNET_API_SECRET=your_testnet_secret
 ```
 
-## Configurable Endpoints (Coming Soon)
-
-The library supports compile-time endpoint selection for optimal performance:
-
-```elixir
-# In your app's config/config.exs
-config :zen_cex, :endpoints, %{
-  binance: %{
-    market_data: [:get_ticker_price, :get_order_book],
-    spot: [:get_balances, :place_order],
-    margin: false,  # Exclude margin endpoints entirely
-    usdm_futures: :all  # Include all USDM futures endpoints
-  },
-  bybit: %{
-    market_data: :all,
-    unified: [:get_positions, :place_order]
-  }
-}
-```
-
-### Benefits
-- **Smaller binaries** - Only compiled endpoints are included
-- **Faster compilation** - Less code to generate
-- **Cleaner APIs** - Autocomplete only shows available functions
-- **Security** - Can't accidentally call unconfigured endpoints
-
-### Endpoint Discovery
-```elixir
-# List available endpoints (even if not compiled)
-ZenCex.EndpointCatalog.available(:binance, :spot)
-
-# List compiled endpoints
-ZenCex.EndpointCatalog.compiled(:binance, :spot)
-
-# Search for endpoints
-ZenCex.EndpointCatalog.search("ticker")
-```
 
 ## Development Workflow
 
