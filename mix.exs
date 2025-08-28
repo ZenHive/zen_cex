@@ -90,7 +90,7 @@ defmodule ZenCex.MixProject do
       "test.cover": ["cmd MIX_ENV=test mix coveralls"],
       "test.cover.html": ["cmd MIX_ENV=test mix coveralls.html"],
       tidewave: [
-        "run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4000) end)'"
+        "run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4001) end)'"
         # "run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4000, allowed_origins: [\"//localhost\"]) end)'"
         # ~s{run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4000, allowed_origins: ["//localhost", "//127.0.0.1", "//0.0.0.0", "//::1"]) end)'}
       ],

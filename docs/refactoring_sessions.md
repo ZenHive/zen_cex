@@ -77,7 +77,7 @@ Generate ALL endpoints but let users choose what to compile.
 
 ---
 
-## Session 0: Add Configurability to EndpointRegistry
+## Session 2: Add Configurability to EndpointRegistry 🚧 IN PROGRESS
 
 **Size**: ~10K tokens
 **Focus**: Make endpoint compilation configurable
@@ -88,10 +88,10 @@ Generate ALL endpoints but let users choose what to compile.
    defmacro __using__(opts) do
      adapter = Keyword.fetch!(opts, :adapter)
      module_type = detect_module_type(__CALLER__.module)
-     
+
      # Read config at compile time
      included_endpoints = read_endpoint_config(adapter, module_type)
-     
+
      # Filter endpoints based on config
      filtered_endpoints = filter_by_config(@endpoints, included_endpoints)
    end
@@ -112,10 +112,10 @@ Generate ALL endpoints but let users choose what to compile.
    defmodule ZenCex.EndpointCatalog do
      # Returns all available endpoints (even if not compiled)
      def list_all_available_endpoints(exchange)
-     
+
      # Returns only compiled endpoints
      def list_compiled_endpoints(exchange)
-     
+
      # Search endpoints by name/path
      def search_endpoints(pattern)
    end
@@ -135,13 +135,13 @@ Generate ALL endpoints but let users choose what to compile.
 
 ---
 
-## Session 1: Add Binance & Bybit Market Data
+## Session 1: Add Binance & Bybit Market Data ✅ COMPLETED
 
-**Size**: ~10K tokens  
+**Size**: ~10K tokens
 **Focus**: Add market data endpoints for both exchanges
 
 ### Tasks:
-1. **Add Binance market data endpoints** (no auth required):
+1. **Add Binance market data endpoints** (no auth required) ✅ COMPLETED:
    ```elixir
    @market_data_endpoints %{
      spot: [
@@ -195,10 +195,10 @@ Generate ALL endpoints but let users choose what to compile.
    ```
 
 ### Deliverables:
-- [ ] ~15 Binance market data endpoints (spot, futures)
+- [x] 26 Binance market data endpoints (8 spot, 9 USDM, 9 COINM) ✅
 - [x] 14 Bybit market data endpoints ✅
-- [x] Market data module with proper delegation ✅
-- [x] Integration tests for market data (23 tests, all passing) ✅
+- [x] Market data modules with proper delegation ✅
+- [x] Integration tests for market data (Bybit: 23 tests, Binance: 27 tests, all passing) ✅
 
 ---
 
@@ -249,6 +249,11 @@ Generate ALL endpoints but let users choose what to compile.
 **Size**: ~10K tokens
 **Focus**: Quality assurance for market data and trading
 
+## Session 3: Integration & Documentation 🚧 IN PROGRESS
+
+**Size**: ~15K tokens
+**Focus**: Document and test the configurable endpoint system
+
 ### Tasks:
 1. **Integration tests for key use cases**:
    ```elixir
@@ -257,16 +262,16 @@ Generate ALL endpoints but let users choose what to compile.
      {:ok, spot} = Binance.spot_get_account()
      {:ok, futures} = Binance.usdm_get_position_risk()
      {:ok, price} = Binance.spot_get_ticker_price("BTCUSDT")
-     
+
      exposure = calculate_exposure(spot, futures, price)
      assert exposure < hedge_threshold
    end
-   
+
    # Market data for decision making
    test "fetch market data for trading decision" do
      {:ok, orderbook} = Bybit.get_orderbook("BTCUSDT")
      {:ok, klines} = Bybit.get_kline("BTCUSDT", "1h")
-     
+
      signal = analyze_market(orderbook, klines)
      assert signal in [:buy, :sell, :hold]
    end
@@ -289,7 +294,7 @@ Generate ALL endpoints but let users choose what to compile.
        usdm_futures: [:get_position_risk, :get_account]
      }
    }
-   
+
    # Hedge bot config
    config :zen_cex, :endpoints, %{
      binance: %{
@@ -335,7 +340,7 @@ defmacro __using__(opts) do
   all_endpoints = EndpointData.all_endpoints()
   configured = read_user_config()
   selected = filter_endpoints(all_endpoints, configured)
-  
+
   # Only generate functions for selected endpoints
   generate_functions(selected)
 end
@@ -357,7 +362,7 @@ config :zen_cex, :endpoints, %{
 ZenCex.EndpointCatalog.available(:binance, :spot)
 # => Lists all 200+ spot endpoints
 
-ZenCex.EndpointCatalog.compiled(:binance, :spot)  
+ZenCex.EndpointCatalog.compiled(:binance, :spot)
 # => Only shows [:get_balances, :place_order]
 
 ZenCex.EndpointCatalog.suggest(:binance, "withdraw")
@@ -375,17 +380,36 @@ ZenCex.EndpointCatalog.suggest(:binance, "withdraw")
 
 ## Success Metrics
 
-- [ ] Complete coverage for Binance & Bybit:
-  - Market Data: ~15 endpoints per exchange
-  - Spot: ~30-50 endpoints
-  - Margin: ~25-40 endpoints (Binance)
-  - Futures/Perps: ~40-60 endpoints
-  - Options: ~30 endpoints (Bybit)
-- [ ] Configurable compilation for all endpoints
-- [ ] Integration tests for position monitoring & hedging flows
+- [x] Complete coverage for Binance & Bybit:
+  - Market Data: ✅ 26 Binance + 14 Bybit endpoints
+  - Spot: ✅ ~50 endpoints (Binance)
+  - Margin: ✅ ~40 endpoints (Binance)
+  - Futures/Perps: ✅ ~60 endpoints each (USDM/COINM)
+  - Options: 🚧 ~30 endpoints (Bybit - TODO)
+- [ ] Configurable compilation for all endpoints (Session 2 - IN PROGRESS)
+- [ ] Integration tests for position monitoring & hedging flows (Session 3 - IN PROGRESS)
 - [ ] REST-only implementation perfect for portfolio management
 - [ ] <100ms endpoint discovery
 - [ ] Example configs for common use cases (hedging, monitoring, trading)
+
+---
+
+## Session 4: Generator Architecture Refinement 📋 TODO
+
+**Size**: ~20K tokens
+**Focus**: Refactor endpoint data into declarative format
+
+### Tasks:
+1. Extract all endpoint definitions to data modules
+2. Separate generation logic from endpoint data
+3. Create unified generator for all exchanges
+4. Improve introspection and discovery tools
+
+### Deliverables:
+- [ ] Declarative endpoint data format
+- [ ] Unified generator module
+- [ ] Runtime discovery improvements
+- [ ] Better compile-time validation
 
 ---
 

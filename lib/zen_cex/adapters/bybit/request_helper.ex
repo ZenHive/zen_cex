@@ -91,16 +91,10 @@ defmodule ZenCex.Adapters.Bybit.RequestHelper do
     execute_request(config, request_params, opts, base_url, :bybit, operation_type)
   end
 
-  # Override extract_query_params and extract_body_params for Bybit's parameter handling
-  defp extract_query_params(params) when is_map(params) do
-    # For Bybit, GET requests use all params in query string
-    params
-  end
-
-  defp extract_body_params(params) when is_map(params) do
-    # For Bybit POST/PUT/DELETE, all params go in JSON body
-    params
-  end
+  # NOTE: Bybit uses the default parameter handling from BaseRequestHelper
+  # - GET requests: all params in query string
+  # - POST/PUT/DELETE: all params in JSON body
+  # No overrides needed as the defaults match Bybit's requirements
 
   # Override the base execute_request to add Bybit-specific retry logic
   @doc """

@@ -809,4 +809,48 @@ defmodule ZenCex.Adapters.Binance.Parser do
 
   # The safe_decimal functionality is now provided by the safe_decimal_field macro
   # imported from ZenCex.ParserMacros at the top of the module
+
+  @doc """
+  Parses market data API responses.
+
+  Market data responses from Binance can be:
+  - Single objects (ticker, average price)
+  - Arrays of objects (klines, trades, order book)
+  - Objects with nested arrays (exchange info)
+
+  ## Examples
+
+      iex> parse_market_data_response(%{"symbol" => "BTCUSDT", "price" => "50000.00"})
+      {:ok, %{"symbol" => "BTCUSDT", "price" => "50000.00"}}
+      
+      iex> parse_market_data_response([%{"symbol" => "BTCUSDT", "price" => "50000.00"}])
+      {:ok, [%{"symbol" => "BTCUSDT", "price" => "50000.00"}]}
+  """
+  @spec parse_market_data_response(term()) :: {:ok, term()} | {:error, term()}
+  def parse_market_data_response(response) when is_map(response) do
+    # Check for error codes in the response
+    case response do
+      %{"code" => code, "msg" => msg} ->
+        {:error, {code, msg}}
+
+      _ ->
+        # Valid market data response
+        {:ok, response}
+    end
+  end
+
+  def parse_market_data_response(response) when is_list(response) do
+    # Arrays are valid market data responses (klines, trades, etc.)
+    {:ok, response}
+  end
+
+  def parse_market_data_response(response) when is_binary(response) do
+    # If response is still a string, try to decode it
+    case Jason.decode(response) do
+      {:ok, decoded} -> parse_market_data_response(decoded)
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
+
+  def parse_market_data_response(_), do: {:error, :invalid_format}
 end
