@@ -342,7 +342,7 @@ defmodule ZenCex.EndpointRegistry do
     func_name = config.operation
 
     quote do
-      @spec unquote(func_name)(map(), keyword()) ::
+      @spec unquote(func_name)(map(), keyword() | map()) ::
               {:ok, term()} | {:error, term()}
       def unquote(func_name)(params, opts) do
         endpoint_config =
@@ -374,6 +374,7 @@ defmodule ZenCex.EndpointRegistry do
     # Always generate helper functions - they use defp so won't conflict
     # The Elixir compiler will handle duplicate private function definitions
     [
+      generate_opts_normalizer(),
       generate_config_builder(),
       generate_params_transformer(),
       generate_telemetry_executor(),
@@ -381,18 +382,31 @@ defmodule ZenCex.EndpointRegistry do
     ]
   end
 
+  @spec generate_opts_normalizer() :: Macro.t()
+  defp generate_opts_normalizer do
+    quote do
+      # Helper to normalize options to keyword list (accepts both maps and keyword lists)
+      defp normalize_opts_to_keyword_list(opts) when is_list(opts), do: opts
+      defp normalize_opts_to_keyword_list(opts) when is_map(opts), do: Map.to_list(opts)
+      defp normalize_opts_to_keyword_list(_), do: []
+    end
+  end
+
   @spec generate_config_builder() :: Macro.t()
   defp generate_config_builder do
     quote do
       defp build_endpoint_config(base_config, opts) do
+        # Normalize opts to keyword list (accept both maps and keyword lists)
+        opts_list = normalize_opts_to_keyword_list(opts)
+
         config = %{
           operation: base_config.operation,
           method: base_config.method,
           path: base_config.path,
           requires_auth: base_config.requires_auth,
           weight: base_config.weight,
-          timeout: Keyword.get(opts, :timeout, base_config.timeout),
-          max_retries: Keyword.get(opts, :max_retries, base_config.max_retries),
+          timeout: Keyword.get(opts_list, :timeout, base_config.timeout),
+          max_retries: Keyword.get(opts_list, :max_retries, base_config.max_retries),
           retry_on: base_config.retry_on,
           response_parser: base_config.response_parser,
           error_mapping: base_config.error_mapping

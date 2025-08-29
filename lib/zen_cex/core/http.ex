@@ -230,6 +230,18 @@ defmodule ZenCex.Core.HTTP do
     if request.options[:skip_auth] do
       request
     else
+      # Move auth_credentials from options to private if present
+      request =
+        case request.options[:auth_credentials] do
+          nil ->
+            request
+
+          creds when is_map(creds) or is_list(creds) ->
+            # Convert to map if it's a keyword list
+            creds_map = if is_list(creds), do: Map.new(creds), else: creds
+            Req.Request.put_private(request, :auth_credentials, creds_map)
+        end
+
       exchange = request.options[:exchange]
       endpoints = ZenCex.Core.Registry.get_endpoints!(exchange)
 
@@ -237,7 +249,7 @@ defmodule ZenCex.Core.HTTP do
       auth = endpoints.auth()
 
       # Call the unified apply_auth function
-      # The auth module will handle getting credentials from options or environment
+      # The auth module will handle getting credentials from private or environment
       auth.apply_auth(request)
     end
   end

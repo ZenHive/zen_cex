@@ -21,6 +21,16 @@ defmodule ZenCex.Core.Auth do
      - When `{EXCHANGE}_TESTNET` is set: Uses testnet credentials
      - Otherwise: Uses production credentials
 
+  ## Memory Management for Credentials
+
+  Custom credentials stored in `request.private[:auth_credentials]` are automatically
+  cleaned up by Req when the request completes. The Req.Request struct and its private
+  data are garbage collected after the HTTP request lifecycle ends, ensuring no memory
+  leaks. This is part of Req's standard request lifecycle management.
+
+  Note: Credentials are only stored in the request struct for the duration of the
+  HTTP operation and are not persisted beyond that scope.
+
   ## Testnet Support
 
   The module automatically detects testnet mode via environment variables:
@@ -92,7 +102,13 @@ defmodule ZenCex.Core.Auth do
     # Use safer access pattern for better debugging
     case Map.fetch(request.private || %{}, :auth_credentials) do
       {:ok, creds} when is_map(creds) ->
-        Map.get(creds, :api_key) || get_api_key_from_env(exchange)
+        # If auth_credentials are explicitly provided, use them exclusively (no fallback)
+        # Explicit validation to prevent silent failures
+        case Map.fetch(creds, :api_key) do
+          {:ok, key} when is_binary(key) and byte_size(key) > 0 -> key
+          # Let caller handle missing or invalid key
+          _ -> nil
+        end
 
       _ ->
         get_api_key_from_env(exchange)
@@ -135,7 +151,13 @@ defmodule ZenCex.Core.Auth do
     # Use safer access pattern for better debugging
     case Map.fetch(request.private || %{}, :auth_credentials) do
       {:ok, creds} when is_map(creds) ->
-        Map.get(creds, :api_secret) || get_api_secret_from_env(exchange)
+        # If auth_credentials are explicitly provided, use them exclusively (no fallback)
+        # Explicit validation to prevent silent failures
+        case Map.fetch(creds, :api_secret) do
+          {:ok, secret} when is_binary(secret) and byte_size(secret) > 0 -> secret
+          # Let caller handle missing or invalid secret
+          _ -> nil
+        end
 
       _ ->
         get_api_secret_from_env(exchange)
@@ -262,6 +284,46 @@ defmodule ZenCex.Core.Auth do
       {_, _} -> true
     end
   end
+
+  @doc """
+  Validates that credentials have the correct format and are non-empty.
+
+  This function validates the structure and content of credentials map
+  without performing any network authentication. It ensures that both
+  api_key and api_secret are present, are binary strings, and are non-empty.
+
+  ## Parameters
+    * `credentials` - A map that should contain `:api_key` and `:api_secret`
+
+  ## Returns
+    * `:ok` if credentials are valid
+    * `{:error, :invalid_credentials}` if credentials are missing, empty, or wrong type
+
+  ## Examples
+
+      # Valid credentials
+      Auth.validate_credentials(%{api_key: "key123", api_secret: "secret456"})
+      # => :ok
+
+      # Missing api_key
+      Auth.validate_credentials(%{api_secret: "secret456"})
+      # => {:error, :invalid_credentials}
+
+      # Empty api_key
+      Auth.validate_credentials(%{api_key: "", api_secret: "secret456"})
+      # => {:error, :invalid_credentials}
+
+      # Non-binary api_key
+      Auth.validate_credentials(%{api_key: 123, api_secret: "secret456"})
+      # => {:error, :invalid_credentials}
+  """
+  @spec validate_credentials(map()) :: :ok | {:error, :invalid_credentials}
+  def validate_credentials(%{api_key: key, api_secret: secret})
+      when is_binary(key) and is_binary(secret) and byte_size(key) > 0 and byte_size(secret) > 0 do
+    :ok
+  end
+
+  def validate_credentials(_), do: {:error, :invalid_credentials}
 
   @doc """
   Checks if the exchange is in testnet mode.

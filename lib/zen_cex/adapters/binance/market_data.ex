@@ -78,11 +78,19 @@ defmodule ZenCex.Adapters.Binance.MarketData do
 
   # The EndpointRegistry macro automatically generates functions for all operations
 
+  # Helper to normalize options to keyword list (accepts both maps and keyword lists)
+  defp normalize_opts_to_keyword_list(opts) when is_list(opts), do: opts
+  defp normalize_opts_to_keyword_list(opts) when is_map(opts), do: Map.to_list(opts)
+  defp normalize_opts_to_keyword_list(_), do: []
+
   # Custom implementation for execute_endpoint_request
   # Market data endpoints don't require auth, so we use a simplified helper
   defp execute_endpoint_request(config, params, opts, _adapter) do
+    # Normalize opts to keyword list (accept both maps and keyword lists)
+    opts_list = normalize_opts_to_keyword_list(opts)
+
     # Market data is always public, set skip_auth
-    opts_with_no_auth = Keyword.put(opts, :skip_auth, true)
+    opts_with_no_auth = Keyword.put(opts_list, :skip_auth, true)
 
     # Determine API type from the endpoint config
     api_type = config[:api_type] || :spot

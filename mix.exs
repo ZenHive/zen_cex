@@ -46,11 +46,11 @@ defmodule ZenCex.MixProject do
       {:finch, "~> 0.20.0"},
 
       # Circuit breaker (optional)
-      {:req_fuse, "~> 0.3", optional: true},
-      {:fuse, "~> 2.5", optional: true},
+      {:req_fuse, "~> 0.3"},
+      {:fuse, "~> 2.5"},
 
       # Debug mode (dev only, optional)
-      {:curl_req, "~> 0.98", only: [:dev, :test], optional: true},
+      {:curl_req, "~> 0.98", only: [:dev, :test]},
 
       # JSON handling
       {:jason, "~> 1.4"},

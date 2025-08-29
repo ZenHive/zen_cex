@@ -90,6 +90,22 @@ Use the declarative `@endpoints` pattern:
 ]
 ```
 
+### Authentication Options
+
+Endpoints support custom credentials via options (keyword list or map):
+```elixir
+# Using environment variables (default)
+{:ok, data} = Exchange.spot_get_balances()
+
+# Using custom credentials as keyword list
+opts = [auth_credentials: %{api_key: "key", api_secret: "secret"}]
+{:ok, data} = Exchange.spot_get_balances(%{}, opts)
+
+# Using custom credentials as map
+opts = %{auth_credentials: %{api_key: "key", api_secret: "secret"}}
+{:ok, data} = Exchange.spot_get_balances(%{}, opts)
+```
+
 ### Testing Requirements
 
 **CRITICAL: Test against REAL TESTNET APIs only**

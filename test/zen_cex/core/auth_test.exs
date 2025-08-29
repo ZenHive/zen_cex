@@ -178,6 +178,139 @@ defmodule ZenCex.Core.AuthTest do
     end
   end
 
+  describe "edge cases with invalid credentials" do
+    test "handles empty auth_credentials map" do
+      request = Req.Request.put_private(Req.new(), :auth_credentials, %{})
+
+      with_env [{"BINANCE_API_KEY", nil}, {"BINANCE_API_SECRET", nil}] do
+        assert Auth.get_api_key(request, :binance) == nil
+        assert Auth.get_api_secret(request, :binance) == nil
+        assert {nil, nil} = Auth.get_credentials(request, :binance)
+        assert Auth.valid_credentials?(request, :binance) == false
+      end
+    end
+
+    test "handles partial credentials with only api_key" do
+      request = Req.Request.put_private(Req.new(), :auth_credentials, %{api_key: "key123"})
+
+      with_env [{"BINANCE_API_SECRET", nil}] do
+        assert Auth.get_api_key(request, :binance) == "key123"
+        assert Auth.get_api_secret(request, :binance) == nil
+        assert {nil, nil} = Auth.get_credentials(request, :binance)
+        assert Auth.valid_credentials?(request, :binance) == false
+      end
+    end
+
+    test "handles partial credentials with only api_secret" do
+      request = Req.Request.put_private(Req.new(), :auth_credentials, %{api_secret: "secret456"})
+
+      with_env [{"BINANCE_API_KEY", nil}] do
+        assert Auth.get_api_key(request, :binance) == nil
+        assert Auth.get_api_secret(request, :binance) == "secret456"
+        assert {nil, nil} = Auth.get_credentials(request, :binance)
+        assert Auth.valid_credentials?(request, :binance) == false
+      end
+    end
+
+    test "handles non-string api_key values" do
+      # Integer api_key
+      request = Req.Request.put_private(Req.new(), :auth_credentials, %{api_key: 12_345, api_secret: "secret"})
+      assert Auth.get_api_key(request, :binance) == nil
+
+      # Atom api_key
+      request = Req.Request.put_private(Req.new(), :auth_credentials, %{api_key: :invalid, api_secret: "secret"})
+      assert Auth.get_api_key(request, :binance) == nil
+
+      # List api_key
+      request = Req.Request.put_private(Req.new(), :auth_credentials, %{api_key: ["invalid"], api_secret: "secret"})
+      assert Auth.get_api_key(request, :binance) == nil
+
+      # Map api_key
+      request = Req.Request.put_private(Req.new(), :auth_credentials, %{api_key: %{invalid: true}, api_secret: "secret"})
+      assert Auth.get_api_key(request, :binance) == nil
+    end
+
+    test "handles non-string api_secret values" do
+      # Integer api_secret
+      request = Req.Request.put_private(Req.new(), :auth_credentials, %{api_key: "key", api_secret: 67_890})
+      assert Auth.get_api_secret(request, :binance) == nil
+
+      # Atom api_secret
+      request = Req.Request.put_private(Req.new(), :auth_credentials, %{api_key: "key", api_secret: :invalid})
+      assert Auth.get_api_secret(request, :binance) == nil
+
+      # List api_secret
+      request = Req.Request.put_private(Req.new(), :auth_credentials, %{api_key: "key", api_secret: ["invalid"]})
+      assert Auth.get_api_secret(request, :binance) == nil
+
+      # Map api_secret
+      request = Req.Request.put_private(Req.new(), :auth_credentials, %{api_key: "key", api_secret: %{invalid: true}})
+      assert Auth.get_api_secret(request, :binance) == nil
+    end
+
+    test "handles empty string credentials" do
+      request = Req.Request.put_private(Req.new(), :auth_credentials, %{api_key: "", api_secret: ""})
+
+      assert Auth.get_api_key(request, :binance) == nil
+      assert Auth.get_api_secret(request, :binance) == nil
+      assert {nil, nil} = Auth.get_credentials(request, :binance)
+      assert Auth.valid_credentials?(request, :binance) == false
+    end
+
+    test "handles nil values in credentials map" do
+      request = Req.Request.put_private(Req.new(), :auth_credentials, %{api_key: nil, api_secret: nil})
+
+      assert Auth.get_api_key(request, :binance) == nil
+      assert Auth.get_api_secret(request, :binance) == nil
+      assert {nil, nil} = Auth.get_credentials(request, :binance)
+      assert Auth.valid_credentials?(request, :binance) == false
+    end
+  end
+
+  describe "validate_credentials/1" do
+    test "validates correct credentials" do
+      assert :ok = Auth.validate_credentials(%{api_key: "key123", api_secret: "secret456"})
+    end
+
+    test "rejects missing api_key" do
+      assert {:error, :invalid_credentials} = Auth.validate_credentials(%{api_secret: "secret456"})
+    end
+
+    test "rejects missing api_secret" do
+      assert {:error, :invalid_credentials} = Auth.validate_credentials(%{api_key: "key123"})
+    end
+
+    test "rejects empty api_key" do
+      assert {:error, :invalid_credentials} = Auth.validate_credentials(%{api_key: "", api_secret: "secret456"})
+    end
+
+    test "rejects empty api_secret" do
+      assert {:error, :invalid_credentials} = Auth.validate_credentials(%{api_key: "key123", api_secret: ""})
+    end
+
+    test "rejects non-binary api_key" do
+      assert {:error, :invalid_credentials} = Auth.validate_credentials(%{api_key: 123, api_secret: "secret456"})
+      assert {:error, :invalid_credentials} = Auth.validate_credentials(%{api_key: :atom, api_secret: "secret456"})
+      assert {:error, :invalid_credentials} = Auth.validate_credentials(%{api_key: nil, api_secret: "secret456"})
+    end
+
+    test "rejects non-binary api_secret" do
+      assert {:error, :invalid_credentials} = Auth.validate_credentials(%{api_key: "key123", api_secret: 456})
+      assert {:error, :invalid_credentials} = Auth.validate_credentials(%{api_key: "key123", api_secret: :atom})
+      assert {:error, :invalid_credentials} = Auth.validate_credentials(%{api_key: "key123", api_secret: nil})
+    end
+
+    test "rejects empty map" do
+      assert {:error, :invalid_credentials} = Auth.validate_credentials(%{})
+    end
+
+    test "rejects non-map input" do
+      assert {:error, :invalid_credentials} = Auth.validate_credentials(nil)
+      assert {:error, :invalid_credentials} = Auth.validate_credentials("invalid")
+      assert {:error, :invalid_credentials} = Auth.validate_credentials(api_key: "key", api_secret: "secret")
+    end
+  end
+
   describe "environment variable fallback" do
     test "uses testnet credentials when EXCHANGE_TESTNET is set" do
       request = Req.new()

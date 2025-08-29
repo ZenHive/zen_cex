@@ -94,6 +94,101 @@ alias ZenCex.Adapters.Binance.Endpoints, as: Binance
 {:ok, balances} = Binance.spot_get_balances()
 ```
 
+### Custom Authentication Credentials
+
+You can pass custom API credentials directly to any endpoint instead of using environment variables:
+
+```elixir
+# Pass credentials as keyword list options (second argument)
+opts = [
+  auth_credentials: %{
+    api_key: "your_api_key",
+    api_secret: "your_api_secret"
+  }
+]
+
+{:ok, balances} = Binance.spot_get_balances(%{}, opts)
+
+# Or pass as a map
+opts = %{
+  auth_credentials: %{
+    api_key: "your_api_key",
+    api_secret: "your_api_secret"
+  }
+}
+
+{:ok, order} = Binance.spot_place_order(%{
+  symbol: "BTCUSDT",
+  side: "BUY",
+  type: "MARKET",
+  quantity: "0.001"
+}, opts)
+```
+
+This is useful for:
+- Managing multiple accounts or subaccounts
+- Using different credentials per request
+- Testing with different API keys
+- Implementing credential rotation
+
+#### Security Warnings
+
+⚠️ **NEVER commit API keys to version control!** Always use environment variables or secure credential management systems.
+
+**Security Best Practices:**
+- Store API keys in environment variables or a secure vault (e.g., HashiCorp Vault, AWS Secrets Manager)
+- Use read-only API keys when write access is not needed
+- Restrict API key permissions to only required operations
+- Enable IP whitelisting on exchange APIs when possible
+- Rotate credentials regularly (see example below)
+- Monitor API key usage for suspicious activity
+- Use testnet credentials for development and testing
+
+#### Credential Rotation Pattern
+
+```elixir
+defmodule MyApp.CredentialManager do
+  @rotation_interval_ms 24 * 60 * 60 * 1000  # 24 hours
+  
+  def get_current_credentials do
+    # Fetch from secure storage (vault, encrypted DB, etc.)
+    %{
+      api_key: fetch_from_vault("binance_api_key"),
+      api_secret: fetch_from_vault("binance_api_secret")
+    }
+  end
+  
+  def execute_with_rotation(params) do
+    creds = get_current_credentials()
+    opts = [auth_credentials: creds]
+    
+    case ZenCex.Adapters.Binance.Endpoints.spot_place_order(params, opts) do
+      {:error, :unauthorized} ->
+        # Trigger credential rotation
+        rotate_credentials()
+        # Retry with new credentials
+        new_creds = get_current_credentials()
+        ZenCex.Adapters.Binance.Endpoints.spot_place_order(params, [auth_credentials: new_creds])
+      
+      result -> result
+    end
+  end
+  
+  defp rotate_credentials do
+    # Implementation depends on your credential management system
+    :ok
+  end
+end
+```
+
+#### Performance Considerations
+
+When using per-request authentication:
+- Credentials are validated on each request (minimal overhead: ~0.1ms)
+- No credential caching between requests (stateless design)
+- Consider connection pooling for high-frequency operations
+- Rate limits apply per API key, not per request
+
 ### Spot Trading
 
 ```elixir

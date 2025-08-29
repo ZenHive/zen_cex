@@ -64,7 +64,7 @@ defmodule ZenCex.Adapters.Binance.RequestHelper do
       # Complex case (Spot with operation type logic)
       execute_request_for_api_type(config, params, opts, :spot, &determine_spot_operation_type/1)
   """
-  @spec execute_request_for_api_type(map(), map(), keyword(), atom(), (map() -> atom())) ::
+  @spec execute_request_for_api_type(map(), map(), keyword() | map(), atom(), (map() -> atom())) ::
           {:ok, any()} | {:error, term()}
   def execute_request_for_api_type(config, params, opts, api_type, operation_type_resolver) do
     # Get base URL for the API type
@@ -123,17 +123,20 @@ defmodule ZenCex.Adapters.Binance.RequestHelper do
         :trading
       )
   """
-  @spec execute_request(map(), map(), keyword(), String.t(), atom(), atom()) ::
+  @spec execute_request(map(), map(), keyword() | map(), String.t(), atom(), atom()) ::
           {:ok, any()} | {:error, term()}
   def execute_request(config, request_params, opts, base_url, exchange, operation_type) do
     # Get API type from config if present (for rate limiter)
     api_type = Map.get(config, :api_type, :spot)
 
+    # Normalize opts to keyword list (accept both maps and keyword lists)
+    opts_list = normalize_to_keyword_list(opts)
+
     # Build base options
     base_opts = %{
       method: config.method,
       url: base_url <> config.path,
-      receive_timeout: Keyword.get(opts, :timeout, config.timeout),
+      receive_timeout: Keyword.get(opts_list, :timeout, config.timeout),
       skip_auth: not config.requires_auth,
       retry: false
     }
@@ -147,7 +150,7 @@ defmodule ZenCex.Adapters.Binance.RequestHelper do
       exchange
       |> HTTP.base_request(operation_type)
       |> Req.merge(Map.to_list(base_opts))
-      |> Req.merge(opts)
+      |> Req.merge(opts_list)
       |> Req.Request.put_private(:rate_limit_weight, config.weight)
       |> Req.Request.put_private(:endpoint_config, config)
       |> Req.Request.put_private(:endpoint_operation, config.operation)
@@ -224,6 +227,11 @@ defmodule ZenCex.Adapters.Binance.RequestHelper do
       true -> :standard
     end
   end
+
+  # Helper to normalize options to keyword list (accepts both maps and keyword lists)
+  defp normalize_to_keyword_list(opts) when is_list(opts), do: opts
+  defp normalize_to_keyword_list(opts) when is_map(opts), do: Map.to_list(opts)
+  defp normalize_to_keyword_list(_), do: []
 
   # Helper to conditionally add non-empty options
   defp maybe_add_option(opts, _key, nil), do: opts

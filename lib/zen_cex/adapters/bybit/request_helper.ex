@@ -108,9 +108,12 @@ defmodule ZenCex.Adapters.Bybit.RequestHelper do
     # Build retry configuration from endpoint config
     retry_config = build_retry_config(config)
 
+    # Normalize opts to keyword list (accept both maps and keyword lists)
+    opts_list = if is_list(opts), do: opts, else: Map.to_list(opts)
+
     # Add Bybit-specific options
     bybit_opts =
-      opts
+      opts_list
       |> Keyword.put(:retry, retry_config)
       |> Keyword.put(:max_retries, Map.get(config, :max_retries, 0))
       |> Keyword.put(:retry_delay, fn attempt -> attempt * @backoff_multiplier_ms end)
