@@ -1,13 +1,14 @@
 defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
   use ZenCex.IntegrationCase, exchange: :bybit, api_type: :unified
 
-  alias ZenCex.Adapters.Bybit.Endpoints
+  alias ZenCex.Adapters.Bybit.Common
+  alias ZenCex.Adapters.Bybit.Unified
 
   require Logger
 
   describe "health check endpoints" do
     test "get_server_time returns successful response" do
-      assert {:ok, response} = Endpoints.get_server_time()
+      assert {:ok, response} = Common.get_server_time()
       # Bybit returns timeSecond and timeNano fields directly
       assert is_map(response)
       assert Map.has_key?(response, "timeSecond") or Map.has_key?(response, "time")
@@ -16,7 +17,7 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
 
     test "get_announcements returns announcements list" do
       # Bybit announcements endpoint requires locale parameter
-      assert {:ok, response} = Endpoints.get_announcements(%{locale: "en-US"})
+      assert {:ok, response} = Common.get_announcements(%{locale: "en-US"})
       assert is_map(response)
       Logger.debug("TESTNET get_announcements response: #{inspect(response, limit: 3)}")
     end
@@ -25,13 +26,13 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
   describe "account information endpoints (requires auth)" do
     test "get_wallet_balance returns testnet account balances" do
       # Bybit unified API requires accountType parameter
-      assert {:ok, response} = Endpoints.get_wallet_balance(%{accountType: "UNIFIED"})
+      assert {:ok, response} = Unified.get_wallet_balance(%{accountType: "UNIFIED"})
       assert is_map(response)
       Logger.debug("TESTNET get_wallet_balance response: #{inspect(response, limit: 3)}")
     end
 
     test "get_wallet_balance with spot account type" do
-      result = Endpoints.get_wallet_balance(%{accountType: "SPOT"})
+      result = Unified.get_wallet_balance(%{accountType: "SPOT"})
       Logger.debug("TESTNET get_wallet_balance SPOT response: #{inspect(result, limit: 3)}")
 
       case result do
@@ -46,7 +47,7 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
 
   describe "spot trading endpoints" do
     test "spot_get_order_history returns order history" do
-      result = Endpoints.spot_get_order_history()
+      result = Unified.get_order_history(%{category: "spot"})
       Logger.debug("TESTNET spot_get_order_history response: #{inspect(result)}")
 
       case result do
@@ -59,7 +60,7 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
     end
 
     test "spot_get_open_closed_orders returns orders" do
-      result = Endpoints.spot_get_open_closed_orders(%{})
+      result = Unified.get_open_closed_orders(%{category: "spot"})
       Logger.debug("TESTNET spot_get_open_closed_orders response: #{inspect(result)}")
 
       case result do
@@ -72,7 +73,7 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
     end
 
     test "spot_get_trade_history returns trades" do
-      result = Endpoints.spot_get_trade_history()
+      result = Unified.get_trade_history(%{category: "spot"})
       Logger.debug("TESTNET spot_get_trade_history response: #{inspect(result)}")
 
       case result do
@@ -92,7 +93,8 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
     test "spot_place_order with invalid parameters returns error" do
       # Use obviously invalid params to get error response
       result =
-        Endpoints.spot_place_order(%{
+        Unified.place_order(%{
+          category: "spot",
           symbol: "INVALID",
           side: "Buy",
           orderType: "Limit",
@@ -110,7 +112,8 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
     test "spot_cancel_order with invalid order returns error" do
       # Try to cancel non-existent order
       result =
-        Endpoints.spot_cancel_order(%{
+        Unified.cancel_order(%{
+          category: "spot",
           symbol: "BTCUSDT",
           orderId: "99999999-9999-9999-9999-999999999999"
         })
@@ -121,7 +124,7 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
 
     test "spot_cancel_all_orders returns appropriate response" do
       # This is safer - cancels any existing orders but won't place new ones
-      result = Endpoints.spot_cancel_all_orders()
+      result = Unified.cancel_all_orders(%{category: "spot"})
       Logger.debug("TESTNET spot_cancel_all_orders response: #{inspect(result)}")
 
       case result do
@@ -137,7 +140,7 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
 
   describe "linear futures endpoints" do
     test "linear_get_position_list returns positions" do
-      result = Endpoints.linear_get_position_list()
+      result = Unified.get_position_list(%{category: "linear"})
       Logger.debug("TESTNET linear_get_position_list response: #{inspect(result)}")
 
       case result do
@@ -150,7 +153,7 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
     end
 
     test "linear_get_order_history returns order history" do
-      result = Endpoints.linear_get_order_history()
+      result = Unified.get_order_history(%{category: "linear"})
       Logger.debug("TESTNET linear_get_order_history response: #{inspect(result)}")
 
       case result do
@@ -163,7 +166,7 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
     end
 
     test "linear_get_trade_history returns trades" do
-      result = Endpoints.linear_get_trade_history()
+      result = Unified.get_trade_history(%{category: "linear"})
       Logger.debug("TESTNET linear_get_trade_history response: #{inspect(result)}")
 
       case result do
@@ -180,7 +183,8 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
     test "linear_place_order with invalid parameters returns error" do
       # Use obviously invalid params to get error response
       result =
-        Endpoints.linear_place_order(%{
+        Unified.place_order(%{
+          category: "linear",
           symbol: "INVALID",
           side: "Buy",
           orderType: "Limit",
@@ -194,7 +198,8 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
 
     test "linear_cancel_order with invalid order returns error" do
       result =
-        Endpoints.linear_cancel_order(%{
+        Unified.cancel_order(%{
+          category: "linear",
           symbol: "BTCUSDT",
           orderId: "99999999-9999-9999-9999-999999999999"
         })
@@ -204,7 +209,7 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
     end
 
     test "linear_cancel_all_orders returns appropriate response" do
-      result = Endpoints.linear_cancel_all_orders()
+      result = Unified.cancel_all_orders(%{category: "linear"})
       Logger.debug("TESTNET linear_cancel_all_orders response: #{inspect(result)}")
 
       case result do
@@ -219,7 +224,8 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
 
     test "linear_set_leverage with invalid params returns error" do
       result =
-        Endpoints.linear_set_leverage(%{
+        Unified.set_leverage(%{
+          category: "linear",
           symbol: "INVALID",
           buyLeverage: "100",
           sellLeverage: "100"
@@ -231,7 +237,8 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
 
     test "linear_create_trading_stop with invalid params returns error" do
       result =
-        Endpoints.linear_create_trading_stop(%{
+        Unified.create_trading_stop(%{
+          category: "linear",
           symbol: "INVALID",
           stopLoss: "0",
           takeProfit: "999999"
@@ -244,7 +251,7 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
 
   describe "inverse futures endpoints" do
     test "inverse_get_position_list returns positions" do
-      result = Endpoints.inverse_get_position_list()
+      result = Unified.get_position_list(%{category: "inverse"})
       Logger.debug("TESTNET inverse_get_position_list response: #{inspect(result)}")
 
       case result do
@@ -257,7 +264,7 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
     end
 
     test "inverse_get_order_history returns order history" do
-      result = Endpoints.inverse_get_order_history()
+      result = Unified.get_order_history(%{category: "inverse"})
       Logger.debug("TESTNET inverse_get_order_history response: #{inspect(result)}")
 
       case result do
@@ -273,7 +280,7 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
   describe "unified endpoint with direct category parameter" do
     test "place_order with spot category" do
       result =
-        Endpoints.place_order(%{
+        Unified.place_order(%{
           category: "spot",
           symbol: "INVALID",
           side: "Buy",
@@ -287,7 +294,7 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
     end
 
     test "get_order_history with linear category" do
-      result = Endpoints.get_order_history(%{category: "linear"})
+      result = Unified.get_order_history(%{category: "linear"})
       Logger.debug("TESTNET get_order_history with linear category response: #{inspect(result)}")
 
       case result do
@@ -304,7 +311,7 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
     test "authentication errors are properly formatted" do
       # TODO: Temporarily break auth to test error formatting
       with_env [{"BYBIT_TESTNET_API_KEY", "invalid_key"}] do
-        result = Endpoints.get_wallet_balance(%{accountType: "UNIFIED"})
+        result = Unified.get_wallet_balance(%{accountType: "UNIFIED"})
         assert {:error, reason} = result
         Logger.debug("TESTNET auth error format: #{inspect(reason)}")
       end
@@ -314,7 +321,7 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
       # Make rapid requests to potentially trigger rate limits
       results =
         for _i <- 1..5 do
-          Endpoints.get_server_time()
+          Common.get_server_time()
         end
 
       # At least some should succeed
@@ -340,10 +347,14 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
 
   describe "environment configuration" do
     test "current_env returns :test in test environment" do
+      alias ZenCex.Adapters.Bybit.Endpoints
+
       assert Endpoints.current_env() == :test
     end
 
     test "base_url returns testnet URL in test environment" do
+      alias ZenCex.Adapters.Bybit.Endpoints
+
       assert Endpoints.base_url() == "https://api-testnet.bybit.com"
     end
   end

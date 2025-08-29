@@ -24,7 +24,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     @tag :integration
     test "get_tickers returns spot ticker data" do
       assert {:ok, result} =
-               Endpoints.get_tickers(%{
+               MarketData.get_tickers(%{
                  category: "spot",
                  symbol: @test_symbol_spot
                })
@@ -41,7 +41,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     @tag :integration
     test "get_tickers returns linear futures ticker data" do
       assert {:ok, result} =
-               Endpoints.get_tickers(%{
+               MarketData.get_tickers(%{
                  category: "linear",
                  symbol: @test_symbol_linear
                })
@@ -60,7 +60,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     @tag :integration
     test "get_orderbook returns spot order book" do
       assert {:ok, result} =
-               Endpoints.get_orderbook(%{
+               MarketData.get_orderbook(%{
                  category: "spot",
                  symbol: @test_symbol_spot,
                  limit: 10
@@ -85,7 +85,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     @tag :integration
     test "get_orderbook returns linear futures order book" do
       assert {:ok, result} =
-               Endpoints.get_orderbook(%{
+               MarketData.get_orderbook(%{
                  category: "linear",
                  symbol: @test_symbol_linear,
                  limit: 5
@@ -102,7 +102,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     @tag :integration
     test "get_klines returns spot candlestick data" do
       assert {:ok, result} =
-               Endpoints.get_klines(%{
+               MarketData.get_klines(%{
                  category: "spot",
                  symbol: @test_symbol_spot,
                  # 5 minutes
@@ -131,7 +131,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     @tag :integration
     test "get_klines returns linear futures candlestick data" do
       assert {:ok, result} =
-               Endpoints.get_klines(%{
+               MarketData.get_klines(%{
                  category: "linear",
                  symbol: @test_symbol_linear,
                  # 15 minutes
@@ -146,7 +146,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     @tag :integration
     test "get_mark_price_klines returns mark price candlesticks" do
       assert {:ok, result} =
-               Endpoints.get_mark_price_klines(%{
+               MarketData.get_mark_price_klines(%{
                  category: "linear",
                  symbol: @test_symbol_linear,
                  # 1 hour
@@ -163,7 +163,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     @tag :integration
     test "get_recent_trades returns spot trades" do
       assert {:ok, result} =
-               Endpoints.get_recent_trades(%{
+               MarketData.get_recent_trades(%{
                  category: "spot",
                  symbol: @test_symbol_spot,
                  limit: 20
@@ -182,7 +182,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     @tag :integration
     test "get_recent_trades returns linear futures trades" do
       assert {:ok, result} =
-               Endpoints.get_recent_trades(%{
+               MarketData.get_recent_trades(%{
                  category: "linear",
                  symbol: @test_symbol_linear,
                  limit: 10
@@ -197,7 +197,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     @tag :integration
     test "get_open_interest returns open interest data" do
       assert {:ok, result} =
-               Endpoints.get_open_interest(%{
+               MarketData.get_open_interest(%{
                  category: "linear",
                  symbol: @test_symbol_linear,
                  # Required parameter
@@ -217,7 +217,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     @tag :integration
     test "get_funding_history returns funding rate history" do
       assert {:ok, result} =
-               Endpoints.get_funding_history(%{
+               MarketData.get_funding_history(%{
                  category: "linear",
                  symbol: @test_symbol_linear,
                  limit: 5
@@ -238,7 +238,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     @tag :integration
     test "get_instruments_info returns spot trading rules" do
       assert {:ok, result} =
-               Endpoints.get_instruments_info(%{
+               MarketData.get_instruments_info(%{
                  category: "spot",
                  symbol: @test_symbol_spot
                })
@@ -262,7 +262,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     @tag :integration
     test "get_instruments_info returns all spot instruments when no symbol specified" do
       assert {:ok, result} =
-               Endpoints.get_instruments_info(%{
+               MarketData.get_instruments_info(%{
                  category: "spot"
                })
 
@@ -274,7 +274,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     @tag :integration
     test "get_risk_limit returns risk limit info" do
       assert {:ok, result} =
-               Endpoints.get_risk_limit(%{
+               MarketData.get_risk_limit(%{
                  category: "linear",
                  symbol: @test_symbol_linear
                })
@@ -288,7 +288,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     @tag :integration
     test "get_delivery_price returns options delivery price" do
       assert {:ok, result} =
-               Endpoints.get_delivery_price(%{
+               MarketData.get_delivery_price(%{
                  category: "option",
                  baseCoin: "BTC"
                })
@@ -313,7 +313,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     @tag :integration
     test "get_historical_volatility returns volatility data" do
       assert {:ok, result} =
-               Endpoints.get_historical_volatility(%{
+               MarketData.get_historical_volatility(%{
                  category: "option",
                  baseCoin: "BTC",
                  # Add period parameter
@@ -352,7 +352,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
       tasks =
         for _ <- 1..5 do
           Task.async(fn ->
-            Endpoints.get_tickers(%{
+            MarketData.get_tickers(%{
               category: "spot",
               symbol: @test_symbol_spot
             })
@@ -372,7 +372,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     @tag :integration
     test "returns error for invalid symbol" do
       assert {:error, reason} =
-               Endpoints.get_tickers(%{
+               MarketData.get_tickers(%{
                  category: "spot",
                  symbol: "INVALID_SYMBOL_XYZ"
                })
@@ -388,7 +388,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     @tag :integration
     test "returns error for invalid category" do
       assert {:error, _reason} =
-               Endpoints.get_tickers(%{
+               MarketData.get_tickers(%{
                  category: "invalid_category",
                  symbol: @test_symbol_spot
                })
@@ -398,7 +398,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
     test "returns error for missing required parameters" do
       # get_open_interest requires intervalTime
       assert {:error, reason} =
-               Endpoints.get_open_interest(%{
+               MarketData.get_open_interest(%{
                  category: "linear",
                  symbol: @test_symbol_linear
                  # Missing intervalTime

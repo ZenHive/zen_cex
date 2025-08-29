@@ -19,9 +19,9 @@ defmodule ZenCex.Adapters.Bybit.Unified do
       Unified.place_order(%{category: "spot", symbol: "BTCUSDT", side: "Buy", qty: "0.01"})
       Unified.cancel_order(%{category: "linear", symbol: "BTCUSDT", orderId: "abc123"})
 
-  Or use the category-prefixed convenience functions defined in the main Endpoints module:
-      Endpoints.spot_place_order(%{symbol: "BTCUSDT", side: "Buy", qty: "0.01"})
-      Endpoints.linear_cancel_order(%{symbol: "BTCUSDT", orderId: "abc123"})
+  The Unified module provides direct access to all trading operations:
+      Unified.place_order(%{category: "spot", symbol: "BTCUSDT", side: "Buy", qty: "0.01"})
+      Unified.cancel_order(%{category: "linear", symbol: "BTCUSDT", orderId: "abc123"})
   """
 
   use ZenCex.EndpointRegistry, adapter: ZenCex.Adapters.Bybit.Endpoints

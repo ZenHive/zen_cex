@@ -6,7 +6,7 @@ defmodule ZenCex.Adapters.Binance.AuthCredentialsIntegrationTest do
   use ZenCex.IntegrationCase, exchange: :binance, api_type: :spot
 
   alias ZenCex.Adapters.Binance.CoinmFutures
-  alias ZenCex.Adapters.Binance.Endpoints
+  alias ZenCex.Adapters.Binance.Spot
   alias ZenCex.Adapters.Binance.UsdmFutures
 
   describe "Spot API with auth_credentials" do
@@ -26,8 +26,8 @@ defmodule ZenCex.Adapters.Binance.AuthCredentialsIntegrationTest do
         }
       ]
 
-      # Test with spot_get_balances which requires auth
-      assert {:ok, balances} = Endpoints.spot_get_balances(%{}, opts)
+      # Test with get_balances which requires auth
+      assert {:ok, balances} = Spot.get_balances(%{}, opts)
       assert is_list(balances)
     end
 
@@ -47,8 +47,8 @@ defmodule ZenCex.Adapters.Binance.AuthCredentialsIntegrationTest do
         }
       }
 
-      # Test with spot_get_balances which requires auth
-      assert {:ok, balances} = Endpoints.spot_get_balances(%{}, opts)
+      # Test with get_balances which requires auth
+      assert {:ok, balances} = Spot.get_balances(%{}, opts)
       assert is_list(balances)
     end
 
@@ -63,7 +63,7 @@ defmodule ZenCex.Adapters.Binance.AuthCredentialsIntegrationTest do
       ]
 
       # Should get authentication error
-      assert {:error, _reason} = Endpoints.spot_get_balances(%{}, opts)
+      assert {:error, _reason} = Spot.get_balances(%{}, opts)
     end
   end
 
@@ -82,9 +82,9 @@ defmodule ZenCex.Adapters.Binance.AuthCredentialsIntegrationTest do
         }
       ]
 
-      # Test margin account info - using spot_get_balances as margin endpoints may not be available on testnet
+      # Test margin account info - using get_balances as margin endpoints may not be available on testnet
       # This still tests auth_credentials passing
-      assert {:ok, _balances} = Endpoints.spot_get_balances(%{}, opts)
+      assert {:ok, _balances} = Spot.get_balances(%{}, opts)
     end
 
     @tag :integration
@@ -101,9 +101,9 @@ defmodule ZenCex.Adapters.Binance.AuthCredentialsIntegrationTest do
         }
       }
 
-      # Test margin account info - using spot_get_balances as margin endpoints may not be available on testnet
+      # Test margin account info - using get_balances as margin endpoints may not be available on testnet
       # This still tests auth_credentials passing
-      assert {:ok, _balances} = Endpoints.spot_get_balances(%{}, opts)
+      assert {:ok, _balances} = Spot.get_balances(%{}, opts)
     end
   end
 
@@ -218,8 +218,8 @@ defmodule ZenCex.Adapters.Binance.AuthCredentialsIntegrationTest do
       }
 
       # Both should work independently
-      assert {:ok, _balances1} = Endpoints.spot_get_balances(%{}, account1_opts)
-      assert {:ok, _balances2} = Endpoints.spot_get_balances(%{}, account2_opts)
+      assert {:ok, _balances1} = Spot.get_balances(%{}, account1_opts)
+      assert {:ok, _balances2} = Spot.get_balances(%{}, account2_opts)
     end
   end
 

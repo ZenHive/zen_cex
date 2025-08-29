@@ -49,10 +49,10 @@ defmodule ZenCex.Adapters.Bybit.MarketData do
         limit: 100
       })
 
-  Or use the category-prefixed convenience functions from the main Endpoints module:
+  The MarketData module provides direct access to all market data operations:
 
-      Endpoints.spot_get_tickers(%{symbol: "BTCUSDT"})
-      Endpoints.linear_get_orderbook(%{symbol: "BTCUSDT", limit: 25})
+      MarketData.get_tickers(%{category: "spot", symbol: "BTCUSDT"})
+      MarketData.get_orderbook(%{category: "linear", symbol: "BTCUSDT", limit: 25})
   """
 
   use ZenCex.EndpointRegistry, adapter: ZenCex.Adapters.Bybit.Endpoints

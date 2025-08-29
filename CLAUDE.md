@@ -367,8 +367,8 @@ Each exchange adapter in `ZenCex.Adapters.{Exchange}.*` consists of these cooper
 #### Binance Adapter (Fully Implemented)
 The Binance adapter is the most complete implementation supporting multiple API types:
 
-1. **Router Module** (`endpoints.ex`) - Main entry point that delegates based on function prefixes
-2. **API Type Modules** - Each handles specific trading types:
+1. **Registry Module** (`endpoints.ex`) - Provides discovery functions and registry for Core.Registry
+2. **API Type Modules** - Each handles specific trading types (use these directly):
    - `spot.ex` - Spot trading
    - `margin.ex` - Cross and isolated margin
    - `usdm_futures.ex` - USD-M futures/USDT-margined
@@ -396,7 +396,7 @@ The Binance adapter is the most complete implementation supporting multiple API 
 The Bybit adapter follows the same patterns as Binance:
 - **Unified V5 API** - Single endpoint for all product types
 - **Trading endpoints** - Order placement, cancellation, position management ✅
-- **Category routing** - spot, linear, inverse prefixes implemented ✅
+- **Direct module usage** - Use `Bybit.Unified`, `Bybit.Common`, `Bybit.MarketData` directly
 - **Market data** - Tickers, order books, klines (to be added) 🚧
 - **Options** - Options trading endpoints (to be added) 🚧
 
@@ -437,23 +437,32 @@ ZenCex.Application
 ### Binance (Fully Implemented)
 
 #### Architecture
-- **Router Pattern**: Main `Endpoints` module delegates to API-specific modules based on function prefixes
-- **Function Prefixes**: `spot_*`, `margin_*`, `usdm_*`, `coinm_*`, `portfolio_*` for clarity
+- **Direct Module Pattern**: Use API-specific modules directly (e.g., `Spot`, `UsdmFutures`)
+- **Registry Module**: `Endpoints` module provides discovery and registry functions only
 - **Generated + Manual**: Combines macro-generated standard endpoints with hand-written complex operations
 
-#### Endpoint Discovery
+#### Endpoint Discovery and Direct Usage
 ```elixir
+# Use modules directly (recommended)
+alias ZenCex.Adapters.Binance.Spot
+alias ZenCex.Adapters.Binance.UsdmFutures
+alias ZenCex.Adapters.Binance.Common
+
+Spot.get_balances()
+UsdmFutures.get_positions()
+Common.get_server_time()
+
+# Discovery functions (for exploration)
+alias ZenCex.Adapters.Binance.Endpoints
+
 # List all available endpoints
 Endpoints.list_available_endpoints()
 
-# List endpoints by API type
+# List endpoints by API type  
 Endpoints.list_available_endpoints(:spot)
-Endpoints.list_available_endpoints(:margin)
-Endpoints.list_available_endpoints(:usdm_futures)
 
 # Get detailed endpoint information
-Endpoints.get_endpoint_info(:spot_get_balances)
-# => Returns map with method, path, auth requirements, rate limits, etc.
+Endpoints.get_endpoint_info(:get_balances, :spot)
 ```
 
 #### Technical Details
@@ -468,7 +477,7 @@ Endpoints.get_endpoint_info(:spot_get_balances)
 
 #### Architecture
 - **Unified V5 API**: Single endpoint for all product types (spot, linear, inverse, option)
-- **Category Routing**: Functions prefixed by product type for clarity ✅
+- **Direct Module Usage**: Use `Unified`, `Common`, `MarketData` modules directly
 - **Trading Operations**: Order placement, cancellation, position queries ✅
 - **Market Data**: Public endpoints (to be added) 🚧
 - **Options Trading**: Options-specific endpoints (to be added) 🚧
@@ -527,8 +536,8 @@ The library uses a sophisticated declarative endpoint registry pattern:
 #### How It Works
 1. **Endpoint Definition**: Each API module defines `@endpoints` with endpoint specifications
 2. **Code Generation**: `EndpointRegistry` macro generates functions at compile time
-3. **Router Delegation**: Main `Endpoints` module routes prefixed functions to appropriate modules
-4. **Runtime Discovery**: Built-in functions for endpoint exploration and documentation
+3. **Direct Usage**: Call API modules directly without delegation layers
+4. **Runtime Discovery**: Registry module provides endpoint exploration functions
 
 #### Key Features
 - **Automatic Function Generation**: Standard operations generated from declarations
@@ -827,16 +836,16 @@ BINANCE_SECRET=yyy   # NEVER use in tests
 ## Module Dependencies
 
 Critical internal dependencies to be aware of:
-- **Registry Pattern**: Endpoints modules (main adapter entry points) register with `Core.Registry` at compile time
-- **Delegation Chain**: `Core.HTTP` → `Core.Registry` → `Adapters.{Exchange}.Endpoints` → specific adapter modules
+- **Registry Pattern**: Endpoints modules provide discovery/registry functions for `Core.Registry`
+- **Direct Usage**: `Core.HTTP` → `Core.Registry` → Direct API module calls (e.g., `Binance.Spot`)
 - **Stateful Components**: OAuth GenServers will be used when needed (future implementations)
 - **Rate Limiting**: Each adapter's RateLimiter manages its own ETS tables independently
 - **Telemetry**: All modules emit telemetry events for monitoring and debugging
 
 ### Module Cooperation Example
 
-When calling `Binance.Endpoints.get_balances/1`:
-1. The Endpoints module defines the operation via `@endpoints`
+When calling `Binance.Spot.get_balances/1`:
+1. The Spot module defines the operation via `@endpoints`
 2. Core.HTTP creates the Req request with middleware
 3. Binance.Auth signs the request with HMAC-SHA256
 4. Binance.RateLimiter checks and updates rate limits

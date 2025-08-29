@@ -96,87 +96,6 @@ defmodule ZenCex.Adapters.Binance.EndpointsTest do
     end
   end
 
-  describe "get_endpoint/1" do
-    test "returns endpoint configuration for known operations" do
-      # Test common endpoint (we know this exists)
-      endpoint = Endpoints.get_endpoint(:get_server_time)
-      assert is_map(endpoint)
-      assert endpoint.path == "/api/v3/time"
-      assert endpoint.method == :get
-      assert endpoint.requires_auth == false
-      assert endpoint.weight == 1
-    end
-
-    test "returns nil for unknown operations" do
-      assert Endpoints.get_endpoint(:unknown_operation) == nil
-      assert Endpoints.get_endpoint(:not_defined) == nil
-    end
-  end
-
-  describe "all_endpoints/0" do
-    test "returns all registered endpoints as a list" do
-      endpoints = Endpoints.all_endpoints()
-
-      # Should be a list
-      assert is_list(endpoints)
-      assert length(endpoints) > 0
-
-      # Each endpoint should be a map with required fields
-      Enum.each(endpoints, fn config ->
-        assert is_map(config)
-        assert Map.has_key?(config, :path)
-        assert Map.has_key?(config, :method)
-        assert Map.has_key?(config, :operation)
-        # Note: uses requires_auth, not auth
-        assert Map.has_key?(config, :requires_auth)
-      end)
-    end
-
-    test "endpoints have valid method values" do
-      endpoints = Endpoints.all_endpoints()
-
-      valid_methods = [:get, :post, :delete, :put]
-
-      Enum.each(endpoints, fn config ->
-        assert config.method in valid_methods,
-               "Endpoint #{config.operation} has invalid method: #{config.method}"
-      end)
-    end
-
-    test "endpoints have valid requires_auth values" do
-      endpoints = Endpoints.all_endpoints()
-
-      Enum.each(endpoints, fn config ->
-        assert is_boolean(config.requires_auth),
-               "Endpoint #{config.operation} has invalid requires_auth value: #{config.requires_auth}"
-      end)
-    end
-
-    test "endpoints have weight values" do
-      endpoints = Endpoints.all_endpoints()
-
-      Enum.each(endpoints, fn config ->
-        if Map.has_key?(config, :weight) do
-          assert is_integer(config.weight) and config.weight > 0,
-                 "Endpoint #{config.operation} has invalid weight: #{config.weight}"
-        end
-      end)
-    end
-  end
-
-  describe "get_weight/1" do
-    test "returns weight for operations with defined weights" do
-      # Test with an operation we know exists
-      weight = Endpoints.get_weight(:get_server_time)
-      assert weight == 1
-    end
-
-    test "returns nil for unknown operations" do
-      assert Endpoints.get_weight(:unknown_operation) == nil
-      assert Endpoints.get_weight(:not_defined) == nil
-    end
-  end
-
   describe "module exports" do
     test "module implements required callbacks" do
       # Verify the module exports the required functions
@@ -190,29 +109,80 @@ defmodule ZenCex.Adapters.Binance.EndpointsTest do
       assert {:base_url, 0} in exports
       assert {:base_url, 1} in exports
       assert {:base_url, 2} in exports
-      assert {:get_endpoint, 1} in exports
-      assert {:all_endpoints, 0} in exports
-      assert {:get_weight, 1} in exports
+      # Registry and discovery functions
+      assert {:get_module, 1} in exports
+      assert {:list_api_types, 0} in exports
+      assert {:list_available_endpoints, 0} in exports
+      assert {:list_available_endpoints, 1} in exports
+      assert {:get_endpoint_info, 2} in exports
     end
   end
 
-  describe "edge cases and error handling" do
-    test "handles nil operation names gracefully" do
-      assert Endpoints.get_endpoint(nil) == nil
-      assert Endpoints.get_weight(nil) == nil
+  describe "discovery functions" do
+    test "get_module/1 returns correct modules" do
+      assert Endpoints.get_module(:spot) == ZenCex.Adapters.Binance.Spot
+      assert Endpoints.get_module(:margin) == ZenCex.Adapters.Binance.Margin
+      assert Endpoints.get_module(:usdm_futures) == ZenCex.Adapters.Binance.UsdmFutures
+      assert Endpoints.get_module(:coinm_futures) == ZenCex.Adapters.Binance.CoinmFutures
+      assert Endpoints.get_module(:portfolio) == ZenCex.Adapters.Binance.PortfolioMargin
+      assert Endpoints.get_module(:common) == ZenCex.Adapters.Binance.Common
+      assert Endpoints.get_module(:market_data) == ZenCex.Adapters.Binance.MarketData
+      assert Endpoints.get_module(:unknown) == nil
     end
 
-    test "handles atom operations that don't match any pattern" do
-      assert Endpoints.get_endpoint(:some_random_atom) == nil
-      assert Endpoints.get_weight(:some_random_atom) == nil
+    test "list_api_types/0 returns all API types" do
+      api_types = Endpoints.list_api_types()
+      assert :spot in api_types
+      assert :margin in api_types
+      assert :usdm_futures in api_types
+      assert :coinm_futures in api_types
+      assert :portfolio in api_types
+      assert :common in api_types
+      assert :market_data in api_types
     end
 
-    test "all_endpoints returns consistent structure" do
-      endpoints1 = Endpoints.all_endpoints()
-      endpoints2 = Endpoints.all_endpoints()
+    test "list_available_endpoints/0 returns endpoints from all modules" do
+      endpoints = Endpoints.list_available_endpoints()
+      assert is_list(endpoints)
+      assert length(endpoints) > 0
 
-      # Should return the same list each time
-      assert endpoints1 == endpoints2
+      # Check that endpoints are atoms
+      Enum.each(endpoints, fn operation ->
+        assert is_atom(operation)
+      end)
+
+      # Should include endpoints from various modules
+      # from Common
+      assert :get_server_time in endpoints
+      # from Spot
+      assert :get_balances in endpoints
+    end
+
+    test "list_available_endpoints/1 filters by API type" do
+      spot_endpoints = Endpoints.list_available_endpoints(:spot)
+      assert is_list(spot_endpoints)
+      assert length(spot_endpoints) > 0
+
+      # All endpoints should be atoms
+      Enum.each(spot_endpoints, fn operation ->
+        assert is_atom(operation)
+      end)
+
+      # Should include spot-specific endpoints
+      assert :get_balances in spot_endpoints
+      assert :place_order in spot_endpoints
+    end
+
+    test "get_endpoint_info/2 returns endpoint details" do
+      # Test with Common module's get_server_time
+      info = Endpoints.get_endpoint_info(:get_server_time, :common)
+      assert is_map(info)
+      assert info.path == "/api/v3/time"
+      assert info.method == :get
+      assert info.requires_auth == false
+
+      # Test with unknown endpoint
+      assert Endpoints.get_endpoint_info(:unknown, :spot) == nil
     end
   end
 end

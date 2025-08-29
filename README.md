@@ -81,17 +81,15 @@ config :zen_cex, :circuit_breaker,
 ### Basic Usage
 
 ```elixir
-# Import the exchange module
-alias ZenCex.Adapters.Binance.Endpoints
-
-# Or use the shorter alias
-alias ZenCex.Adapters.Binance.Endpoints, as: Binance
+# Import the API modules directly
+alias ZenCex.Adapters.Binance.Spot
+alias ZenCex.Adapters.Binance.Common
 
 # Check server connectivity
-{:ok, _} = Binance.get_server_time()
+{:ok, _} = Common.get_server_time()
 
 # Get account balances (requires API credentials)
-{:ok, balances} = Binance.spot_get_balances()
+{:ok, balances} = Spot.get_balances()
 ```
 
 ### Custom Authentication Credentials
@@ -107,7 +105,7 @@ opts = [
   }
 ]
 
-{:ok, balances} = Binance.spot_get_balances(%{}, opts)
+{:ok, balances} = Spot.get_balances(%{}, opts)
 
 # Or pass as a map
 opts = %{
@@ -117,7 +115,7 @@ opts = %{
   }
 }
 
-{:ok, order} = Binance.spot_place_order(%{
+{:ok, order} = Spot.place_order(%{
   symbol: "BTCUSDT",
   side: "BUY",
   type: "MARKET",
@@ -162,13 +160,13 @@ defmodule MyApp.CredentialManager do
     creds = get_current_credentials()
     opts = [auth_credentials: creds]
     
-    case ZenCex.Adapters.Binance.Endpoints.spot_place_order(params, opts) do
+    case ZenCex.Adapters.Binance.Spot.place_order(params, opts) do
       {:error, :unauthorized} ->
         # Trigger credential rotation
         rotate_credentials()
         # Retry with new credentials
         new_creds = get_current_credentials()
-        ZenCex.Adapters.Binance.Endpoints.spot_place_order(params, [auth_credentials: new_creds])
+        ZenCex.Adapters.Binance.Spot.place_order(params, [auth_credentials: new_creds])
       
       result -> result
     end
@@ -192,13 +190,13 @@ When using per-request authentication:
 ### Spot Trading
 
 ```elixir
-alias ZenCex.Adapters.Binance.Endpoints
+alias ZenCex.Adapters.Binance.Spot
 
 # Get current balances
-{:ok, balances} = Endpoints.spot_get_balances()
+{:ok, balances} = Spot.get_balances()
 
 # Place a market order
-{:ok, order} = Endpoints.spot_place_order(%{
+{:ok, order} = Spot.place_order(%{
   symbol: "BTCUSDT",
   side: "BUY",
   type: "MARKET",
@@ -206,7 +204,7 @@ alias ZenCex.Adapters.Binance.Endpoints
 })
 
 # Place a limit order
-{:ok, order} = Endpoints.spot_place_order(%{
+{:ok, order} = Spot.place_order(%{
   symbol: "BTCUSDT",
   side: "SELL",
   type: "LIMIT",
@@ -216,13 +214,13 @@ alias ZenCex.Adapters.Binance.Endpoints
 })
 
 # Check order status
-{:ok, status} = Endpoints.spot_get_order(%{
+{:ok, status} = Spot.get_order(%{
   symbol: "BTCUSDT",
   orderId: order["orderId"]
 })
 
 # Cancel an order
-{:ok, _} = Endpoints.spot_cancel_order(%{
+{:ok, _} = Spot.cancel_order(%{
   symbol: "BTCUSDT",
   orderId: order["orderId"]
 })
@@ -231,10 +229,13 @@ alias ZenCex.Adapters.Binance.Endpoints
 ### Futures Trading
 
 ```elixir
-# USD-M Futures (USDT-margined)
-{:ok, positions} = Endpoints.usdm_get_positions()
+alias ZenCex.Adapters.Binance.UsdmFutures
+alias ZenCex.Adapters.Binance.CoinmFutures
 
-{:ok, order} = Endpoints.usdm_place_order(%{
+# USD-M Futures (USDT-margined)
+{:ok, positions} = UsdmFutures.get_positions()
+
+{:ok, order} = UsdmFutures.place_order(%{
   symbol: "BTCUSDT",
   side: "BUY",
   type: "MARKET",
@@ -242,9 +243,9 @@ alias ZenCex.Adapters.Binance.Endpoints
 })
 
 # COIN-M Futures (coin-margined)
-{:ok, positions} = Endpoints.coinm_get_positions()
+{:ok, positions} = CoinmFutures.get_positions()
 
-{:ok, order} = Endpoints.coinm_place_order(%{
+{:ok, order} = CoinmFutures.place_order(%{
   symbol: "BTCUSD_PERP",
   side: "BUY",
   type: "LIMIT",
@@ -256,37 +257,42 @@ alias ZenCex.Adapters.Binance.Endpoints
 ### Market Data
 
 ```elixir
+alias ZenCex.Adapters.Binance.Spot
+alias ZenCex.Adapters.Binance.UsdmFutures
+
 # Get ticker information
-{:ok, ticker} = Endpoints.spot_get_ticker_24hr(%{symbol: "BTCUSDT"})
+{:ok, ticker} = Spot.get_ticker_24hr(%{symbol: "BTCUSDT"})
 
 # Get order book
-{:ok, book} = Endpoints.spot_get_order_book(%{symbol: "BTCUSDT", limit: 20})
+{:ok, book} = Spot.get_order_book(%{symbol: "BTCUSDT", limit: 20})
 
 # Get recent trades
-{:ok, trades} = Endpoints.spot_get_recent_trades(%{symbol: "BTCUSDT"})
+{:ok, trades} = Spot.get_recent_trades(%{symbol: "BTCUSDT"})
 
 # Get klines/candlestick data
-{:ok, klines} = Endpoints.spot_get_klines(%{
+{:ok, klines} = Spot.get_klines(%{
   symbol: "BTCUSDT",
   interval: "1h",
   limit: 100
 })
 
 # Futures-specific market data
-{:ok, funding} = Endpoints.usdm_get_funding_rate(%{symbol: "BTCUSDT"})
-{:ok, oi} = Endpoints.usdm_get_open_interest(%{symbol: "BTCUSDT"})
+{:ok, funding} = UsdmFutures.get_funding_rate(%{symbol: "BTCUSDT"})
+{:ok, oi} = UsdmFutures.get_open_interest(%{symbol: "BTCUSDT"})
 ```
 
 ### Bybit Exchange
 
 ```elixir
-alias ZenCex.Adapters.Bybit.Endpoints, as: Bybit
+alias ZenCex.Adapters.Bybit.Unified
+alias ZenCex.Adapters.Bybit.Common
 
-# Bybit uses category-based unified API
-{:ok, time} = Bybit.get_server_time()
+# Check server connectivity
+{:ok, time} = Common.get_server_time()
 
 # Spot trading
-{:ok, order} = Bybit.spot_place_order(%{
+{:ok, order} = Unified.place_order(%{
+  category: "spot",
   symbol: "BTCUSDT",
   side: "Buy",
   orderType: "Market",
@@ -294,9 +300,10 @@ alias ZenCex.Adapters.Bybit.Endpoints, as: Bybit
 })
 
 # Linear futures (USDT perpetual)
-{:ok, positions} = Bybit.linear_get_positions()
+{:ok, positions} = Unified.get_positions(%{category: "linear"})
 
-{:ok, order} = Bybit.linear_place_order(%{
+{:ok, order} = Unified.place_order(%{
+  category: "linear",
   symbol: "BTCUSDT",
   side: "Buy",
   orderType: "Market",
@@ -304,7 +311,8 @@ alias ZenCex.Adapters.Bybit.Endpoints, as: Bybit
 })
 
 # Inverse futures (coin-margined)
-{:ok, order} = Bybit.inverse_place_order(%{
+{:ok, order} = Unified.place_order(%{
+  category: "inverse",
   symbol: "BTCUSD",
   side: "Buy",
   orderType: "Limit",
@@ -348,7 +356,7 @@ Enable debug mode to troubleshoot API issues:
 ZenCex.Core.Debug.enable()
 
 # Make a request that fails
-{:error, reason} = Endpoints.spot_place_order(%{invalid: "params"})
+{:error, reason} = Spot.place_order(%{invalid: "params"})
 
 # Get the curl command to reproduce
 {:ok, curl_command} = ZenCex.Core.Debug.get_last_curl()
@@ -377,7 +385,7 @@ Endpoints.list_available_endpoints(:spot)
 Endpoints.list_available_endpoints(:usdm_futures)
 
 # Get detailed endpoint information
-Endpoints.get_endpoint_info(:spot_place_order)
+Endpoints.get_endpoint_info(:place_order, :spot)
 # Returns method, path, auth requirements, rate limits, etc.
 ```
 
@@ -387,19 +395,19 @@ Pass additional options to any endpoint:
 
 ```elixir
 # Custom timeout for large data requests
-{:ok, data} = Endpoints.spot_get_klines(
+{:ok, data} = Spot.get_klines(
   %{symbol: "BTCUSDT", interval: "1m", limit: 1000},
   [timeout: 30_000]
 )
 
 # Skip rate limiting for critical operations
-{:ok, order} = Endpoints.spot_cancel_order(
+{:ok, order} = Spot.cancel_order(
   %{symbol: "BTCUSDT", orderId: "12345"},
   [skip_rate_limit: true]
 )
 
 # Use specific credentials (bypassing environment variables)
-{:ok, balances} = Endpoints.spot_get_balances(
+{:ok, balances} = Spot.get_balances(
   [],
   [auth_credentials: %{api_key: "key", api_secret: "secret"}]
 )
@@ -447,7 +455,8 @@ Generate API keys and set them as environment variables with `_TESTNET_` in the 
 ### Exchange Adapters
 
 Each exchange adapter consists of:
-- **Endpoints**: Router module (entry point)
+- **API Modules**: Spot, Margin, Futures, etc. (use these directly)
+- **Endpoints**: Registry module (for discovery only)
 - **API Modules**: Spot, Margin, Futures, etc.
 - **Auth**: Authentication and request signing
 - **RateLimiter**: Exchange-specific rate limiting

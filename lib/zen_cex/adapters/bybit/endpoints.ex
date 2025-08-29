@@ -1,49 +1,51 @@
 defmodule ZenCex.Adapters.Bybit.Endpoints do
   @moduledoc """
-  Router module for Bybit exchange endpoints.
+  Registry and discovery module for Bybit exchange endpoints.
 
-  This module is registered with Core.Registry and provides access to all
-  Bybit v5 unified API endpoints. Unlike Binance which has separate APIs,
-  Bybit v5 uses a single unified API with a `category` parameter to distinguish
-  between spot, linear (USDT perpetual), inverse (coin perpetual), and options trading.
+  This module provides registry functions for Core.Registry and endpoint discovery,
+  but does NOT contain any actual endpoint implementations. Use the specific
+  API modules directly for calling endpoints.
 
   ## Architecture
 
-  This is a ROUTER that delegates to sub-modules based on function purpose:
+  This is a REGISTRY/DISCOVERY module only. All endpoints are implemented in:
   - `Bybit.Common` - Shared endpoints (server_time, announcements, etc.)
-  - `Bybit.Unified` - Trading endpoints (orders, positions, account) - TODO: implement in Ticket #8
+  - `Bybit.Unified` - Trading endpoints (orders, positions, account)
+  - `Bybit.MarketData` - Public market data endpoints
 
   ## Unified API Categories
 
   Bybit v5 uses these category values:
   - `"spot"` - Spot trading
   - `"linear"` - USDT-margined perpetual futures
-  - `"inverse"` - Coin-margined perpetual futures  
+  - `"inverse"` - Coin-margined perpetual futures
   - `"option"` - Options trading
 
   ## Usage
 
-  Common endpoints (no category needed):
-      Endpoints.get_server_time()
-      Endpoints.get_announcements()
+  Use the specific modules directly:
 
-  Unified endpoints:
-      # Direct calls with category parameter
-      Endpoints.place_order(%{category: "spot", symbol: "BTCUSDT", side: "Buy", qty: "0.01"})
-      
-      # Category-prefixed convenience functions (auto-generated)
-      Endpoints.spot_place_order(%{symbol: "BTCUSDT", side: "Buy", qty: "0.01"})
-      Endpoints.linear_place_order(%{symbol: "BTCUSDT", side: "Buy", qty: "0.01"})
+      alias ZenCex.Adapters.Bybit.Common
+      alias ZenCex.Adapters.Bybit.Unified
+      alias ZenCex.Adapters.Bybit.MarketData
 
-  ## Auto-Generated Functions
+      # Direct module usage
+      Common.get_server_time()
+      Unified.place_order(%{category: "spot", symbol: "BTCUSDT", side: "Buy", qty: "0.01"})
+      MarketData.get_tickers(%{category: "spot"})
 
-  This module auto-generates category-prefixed convenience functions for:
-  - `spot_*` - Spot trading functions
-  - `linear_*` - USDT perpetual futures functions  
-  - `inverse_*` - Coin-margined futures functions
-  - `option_*` - Options trading functions
+  ## Discovery Functions
 
-  Each function automatically adds the appropriate category parameter.
+  This module provides discovery functions to explore available endpoints:
+
+      # List all available endpoints
+      Endpoints.list_available_endpoints()
+
+      # List endpoints by category
+      Endpoints.list_available_endpoints(:unified)
+
+      # Get detailed endpoint information
+      Endpoints.get_endpoint_info(:place_order, :unified)
   """
 
   use ZenCex.Adapters.BaseEndpoints,
@@ -95,155 +97,41 @@ defmodule ZenCex.Adapters.Bybit.Endpoints do
   def base_url(:prod), do: "https://api.bybit.com"
 
   # ============================================================================
-  # Delegation to nested modules
+  # Discovery Functions
   # ============================================================================
 
-  # Common endpoints (shared across all API types)
-  defdelegate get_server_time(), to: Common
-  defdelegate get_server_time(opts), to: Common
+  @doc """
+  Returns the API module for a given type.
 
-  defdelegate get_announcements(), to: Common
-  defdelegate get_announcements(params), to: Common
-  defdelegate get_announcements(params, opts), to: Common
+  ## Examples
 
-  # Unified trading endpoints (shared across all product types)
-  defdelegate get_wallet_balance(params), to: Unified
-  defdelegate get_wallet_balance(params, opts), to: Unified
+      iex> Endpoints.get_module(:unified)
+      ZenCex.Adapters.Bybit.Unified
 
-  defdelegate place_order(params), to: Unified
-  defdelegate place_order(params, opts), to: Unified
-
-  defdelegate cancel_order(params), to: Unified
-  defdelegate cancel_order(params, opts), to: Unified
-
-  defdelegate cancel_all_orders(params), to: Unified
-  defdelegate cancel_all_orders(params, opts), to: Unified
-
-  defdelegate get_open_closed_orders(params), to: Unified
-  defdelegate get_open_closed_orders(params, opts), to: Unified
-
-  defdelegate get_order_history(params), to: Unified
-  defdelegate get_order_history(params, opts), to: Unified
-
-  defdelegate get_position_list(params), to: Unified
-  defdelegate get_position_list(params, opts), to: Unified
-
-  defdelegate set_leverage(params), to: Unified
-  defdelegate set_leverage(params, opts), to: Unified
-
-  defdelegate create_trading_stop(params), to: Unified
-  defdelegate create_trading_stop(params, opts), to: Unified
-
-  defdelegate get_trade_history(params), to: Unified
-  defdelegate get_trade_history(params, opts), to: Unified
-
-  # Market data endpoints (public, no auth required)
-  defdelegate get_tickers(params), to: MarketData
-  defdelegate get_tickers(params, opts), to: MarketData
-
-  defdelegate get_orderbook(params), to: MarketData
-  defdelegate get_orderbook(params, opts), to: MarketData
-
-  defdelegate get_recent_trades(params), to: MarketData
-  defdelegate get_recent_trades(params, opts), to: MarketData
-
-  defdelegate get_klines(params), to: MarketData
-  defdelegate get_klines(params, opts), to: MarketData
-
-  defdelegate get_mark_price_klines(params), to: MarketData
-  defdelegate get_mark_price_klines(params, opts), to: MarketData
-
-  defdelegate get_index_price_klines(params), to: MarketData
-  defdelegate get_index_price_klines(params, opts), to: MarketData
-
-  defdelegate get_premium_index_klines(params), to: MarketData
-  defdelegate get_premium_index_klines(params, opts), to: MarketData
-
-  defdelegate get_open_interest(params), to: MarketData
-  defdelegate get_open_interest(params, opts), to: MarketData
-
-  defdelegate get_funding_history(params), to: MarketData
-  defdelegate get_funding_history(params, opts), to: MarketData
-
-  defdelegate get_instruments_info(params), to: MarketData
-  defdelegate get_instruments_info(params, opts), to: MarketData
-
-  defdelegate get_risk_limit(params), to: MarketData
-  defdelegate get_risk_limit(params, opts), to: MarketData
-
-  defdelegate get_delivery_price(params), to: MarketData
-  defdelegate get_delivery_price(params, opts), to: MarketData
-
-  defdelegate get_historical_volatility(params), to: MarketData
-  defdelegate get_historical_volatility(params, opts), to: MarketData
-
-  defdelegate get_insurance_info(params), to: MarketData
-  defdelegate get_insurance_info(params, opts), to: MarketData
-
-  # ============================================================================
-  # Category-prefixed convenience functions (auto-generated)
-  # ============================================================================
-
-  # Helper functions to generate category-prefixed wrapper functions
-  # This eliminates ~98 lines of duplicated code across 4 categories
-  # See module documentation for details on generated functions
-
-  # Common functions available to all categories
-  @base_functions [
-    {:place_order, false},
-    {:cancel_order, false},
-    {:cancel_all_orders, true},
-    {:get_open_closed_orders, false},
-    {:get_order_history, true},
-    {:get_trade_history, true}
-  ]
-
-  # Position-related functions for futures and options
-  @position_functions [
-    {:get_position_list, true},
-    {:set_leverage, false},
-    {:create_trading_stop, false}
-  ]
-
-  # Compile-time validation: Verify that all base functions exist as delegated functions
-  # This ensures we're not trying to wrap functions that don't exist
-  @all_functions Enum.uniq(@base_functions ++ @position_functions)
-
-  for {func, _has_default} <- @all_functions do
-    if !(Module.defines?(__MODULE__, {func, 1}, :def) or Module.defines?(__MODULE__, {func, 1}, :defdelegate)) do
-      # Check both def and defdelegate since these are delegated to Unified module
-      # Note: This validation will occur after the defdelegate statements above
-      # Functions are defined via defdelegate above, so this check passes
-      :ok
+      iex> Endpoints.get_module(:common)
+      ZenCex.Adapters.Bybit.Common
+  """
+  @spec get_module(atom()) :: module() | nil
+  def get_module(api_type) do
+    case api_type do
+      :common -> Common
+      :unified -> Unified
+      :market_data -> MarketData
+      _ -> nil
     end
   end
 
-  # Generate category functions using compile-time metaprogramming
-  for {category, functions} <- [
-        {:spot, @base_functions},
-        {:linear, @base_functions ++ @position_functions},
-        {:inverse, @base_functions ++ @position_functions},
-        {:option, @base_functions ++ [{:get_position_list, true}]}
-      ] do
-    category_str = Atom.to_string(category)
+  @doc """
+  Returns all available API types.
 
-    for {base_func, has_default} <- functions do
-      func_name = "#{category}_#{base_func}"
-      prefixed_func = String.to_atom(func_name)
+  ## Examples
 
-      if has_default do
-        def unquote(prefixed_func)(params \\ %{}),
-          do: unquote(base_func)(Map.put(params, :category, unquote(category_str)))
-
-        def unquote(prefixed_func)(params, opts),
-          do: unquote(base_func)(Map.put(params, :category, unquote(category_str)), opts)
-      else
-        def unquote(prefixed_func)(params), do: unquote(base_func)(Map.put(params, :category, unquote(category_str)))
-
-        def unquote(prefixed_func)(params, opts),
-          do: unquote(base_func)(Map.put(params, :category, unquote(category_str)), opts)
-      end
-    end
+      iex> Endpoints.list_api_types()
+      [:common, :unified, :market_data]
+  """
+  @spec list_api_types() :: [atom()]
+  def list_api_types do
+    [:common, :unified, :market_data]
   end
 
   @doc """
@@ -256,12 +144,22 @@ defmodule ZenCex.Adapters.Bybit.Endpoints do
     (Common.all_endpoints() ++ Unified.all_endpoints() ++ MarketData.all_endpoints())
     |> Enum.map(& &1.operation)
     |> Enum.uniq()
+    |> Enum.sort()
   end
 
   @doc """
-  Lists available endpoints filtered by category.
+  Lists available endpoints for a specific API category.
 
-  For Bybit, categories are: :common, :spot, :linear, :inverse, :option, :unified, :market_data
+  ## Parameters
+  - `category` - The API category (:common, :unified, :market_data, :spot, :linear, :inverse, :option)
+
+  ## Examples
+
+      iex> Endpoints.list_available_endpoints(:unified)
+      [:place_order, :cancel_order, ...]
+
+      iex> Endpoints.list_available_endpoints(:spot)
+      [:place_order, :cancel_order, ...] # No position endpoints for spot
   """
   @spec list_available_endpoints(atom()) :: [atom()]
   def list_available_endpoints(category) when category in [:common] do
@@ -310,24 +208,25 @@ defmodule ZenCex.Adapters.Bybit.Endpoints do
   Gets detailed information about an endpoint.
 
   Returns a map with endpoint configuration including method, path, auth requirements, etc.
+
+  ## Parameters
+  - `operation` - The operation name (e.g., :place_order, :get_server_time)
+  - `api_type` - The API type (:common, :unified, :market_data)
+
+  ## Examples
+
+      iex> Endpoints.get_endpoint_info(:place_order, :unified)
+      %{method: :post, path: "/v5/order/create", ...}
   """
-  @spec get_endpoint_info(atom()) :: map() | nil
-  def get_endpoint_info(operation) do
-    # Try Common module first
-    case Common.get_endpoint(operation) do
-      nil ->
-        # Try Unified module
-        case Unified.get_endpoint(operation) do
-          nil ->
-            # Try MarketData module
-            MarketData.get_endpoint(operation)
-
-          endpoint ->
-            endpoint
-        end
-
-      endpoint ->
-        endpoint
+  @spec get_endpoint_info(atom(), atom()) :: map() | nil
+  def get_endpoint_info(operation, api_type) do
+    with module when not is_nil(module) <- get_module(api_type),
+         endpoint when not is_nil(endpoint) <- module.get_endpoint(operation) do
+      endpoint
+      |> Map.put(:api_type, api_type)
+      |> Map.put(:module, module)
+    else
+      _ -> nil
     end
   end
 end

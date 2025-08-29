@@ -1,45 +1,49 @@
 defmodule ZenCex.Adapters.Binance.Endpoints do
   @moduledoc """
-  Router module for Binance exchange endpoints.
+  Registry and discovery module for Binance exchange endpoints.
 
-  This module is registered with Core.Registry and delegates to sub-modules
-  for different API types (Spot, Futures, Margin) to maintain clarity.
+  This module provides registry functions for Core.Registry and endpoint discovery,
+  but does NOT contain any actual endpoint implementations. Use the specific
+  API modules directly for calling endpoints.
 
   ## Architecture
 
-  This is a ROUTER ONLY - it contains no endpoint definitions.
-  All endpoints are defined in nested modules:
+  This is a REGISTRY/DISCOVERY module only. All endpoints are implemented in:
   - `Binance.Spot` - Spot trading endpoints
   - `Binance.Margin` - Cross and Isolated margin trading endpoints
   - `Binance.UsdmFutures` - USD-M Futures (USDT-margined) trading endpoints
   - `Binance.CoinmFutures` - COIN-M Futures (coin-margined) trading endpoints
   - `Binance.PortfolioMargin` - Portfolio margin trading endpoints
   - `Binance.Common` - Shared endpoints (server_time, etc.)
+  - `Binance.MarketData` - Public market data endpoints
 
   ## Usage
 
-  The router automatically delegates based on function prefixes:
-  - Functions starting with `spot_` → Binance.Spot
-  - Functions starting with `margin_` → Binance.Margin
-  - Functions starting with `usdm_` → Binance.UsdmFutures
-  - Functions starting with `coinm_` → Binance.CoinmFutures
-  - Functions starting with `portfolio_` → Binance.PortfolioMargin
-  - Common functions (no prefix) → Binance.Common
+  Use the specific modules directly:
 
-  ## Examples
+      alias ZenCex.Adapters.Binance.Spot
+      alias ZenCex.Adapters.Binance.UsdmFutures
+      alias ZenCex.Adapters.Binance.Common
+      
+      # Direct module usage
+      Spot.get_balances()
+      Spot.place_order(%{symbol: "BTCUSDT", side: "BUY", quantity: "0.01"})
+      
+      UsdmFutures.get_positions()
+      Common.get_server_time()
 
-      # Prefixed functions for clarity
-      Endpoints.spot_get_balances()
-      Endpoints.spot_place_order(%{symbol: "BTCUSDT", side: "BUY", quantity: "0.01"})
+  ## Discovery Functions
+
+  This module provides discovery functions to explore available endpoints:
+
+      # List all available endpoints
+      Endpoints.list_available_endpoints()
       
-      Endpoints.usdm_get_positions()
-      Endpoints.usdm_place_order(%{symbol: "BTCUSDT", side: "LONG", quantity: "0.01"})
+      # List endpoints by API type
+      Endpoints.list_available_endpoints(:spot)
       
-      Endpoints.portfolio_get_unified_account()
-      Endpoints.portfolio_place_unified_order(%{symbol: "BTCUSDT", side: "BUY"})
-      
-      # Common endpoints without prefix
-      Endpoints.get_server_time()
+      # Get detailed endpoint information
+      Endpoints.get_endpoint_info(:get_balances, :spot)
   """
 
   use ZenCex.Adapters.BaseEndpoints,
@@ -145,215 +149,46 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   def base_url(:prod, _), do: "https://api.binance.com"
 
   # ============================================================================
-  # Delegation to nested modules with prefixed names
-  # ============================================================================
-
-  # Common endpoints (shared across all API types - no prefix needed)
-  defdelegate get_server_time(), to: Common
-  defdelegate get_server_time(opts), to: Common
-
-  # Market data endpoints (public, no auth required)
-  # Spot market data
-  defdelegate get_ticker_price(params), to: MarketData
-  defdelegate get_ticker_price(params, opts), to: MarketData
-  defdelegate get_ticker_24hr(params), to: MarketData
-  defdelegate get_ticker_24hr(params, opts), to: MarketData
-  defdelegate get_order_book(params), to: MarketData
-  defdelegate get_order_book(params, opts), to: MarketData
-  defdelegate get_recent_trades(params), to: MarketData
-  defdelegate get_recent_trades(params, opts), to: MarketData
-  defdelegate get_klines(params), to: MarketData
-  defdelegate get_klines(params, opts), to: MarketData
-  defdelegate get_avg_price(params), to: MarketData
-  defdelegate get_avg_price(params, opts), to: MarketData
-  defdelegate get_exchange_info(), to: MarketData
-  defdelegate get_exchange_info(opts), to: MarketData
-  defdelegate get_exchange_info(params, opts), to: MarketData
-  defdelegate get_book_ticker(params), to: MarketData
-  defdelegate get_book_ticker(params, opts), to: MarketData
-
-  # USDM Futures market data
-  defdelegate usdm_get_ticker_price(params), to: MarketData
-  defdelegate usdm_get_ticker_price(params, opts), to: MarketData
-  defdelegate usdm_get_ticker_24hr(params), to: MarketData
-  defdelegate usdm_get_ticker_24hr(params, opts), to: MarketData
-  defdelegate usdm_get_order_book(params), to: MarketData
-  defdelegate usdm_get_order_book(params, opts), to: MarketData
-  defdelegate usdm_get_recent_trades(params), to: MarketData
-  defdelegate usdm_get_recent_trades(params, opts), to: MarketData
-  defdelegate usdm_get_klines(params), to: MarketData
-  defdelegate usdm_get_klines(params, opts), to: MarketData
-  defdelegate usdm_get_mark_price(params), to: MarketData
-  defdelegate usdm_get_mark_price(params, opts), to: MarketData
-  defdelegate usdm_get_funding_rate(params), to: MarketData
-  defdelegate usdm_get_funding_rate(params, opts), to: MarketData
-  defdelegate usdm_get_open_interest(params), to: MarketData
-  defdelegate usdm_get_open_interest(params, opts), to: MarketData
-  defdelegate usdm_get_exchange_info(), to: MarketData
-  defdelegate usdm_get_exchange_info(opts), to: MarketData
-  defdelegate usdm_get_exchange_info(params, opts), to: MarketData
-
-  # COINM Futures market data
-  defdelegate coinm_get_ticker_price(params), to: MarketData
-  defdelegate coinm_get_ticker_price(params, opts), to: MarketData
-  defdelegate coinm_get_ticker_24hr(params), to: MarketData
-  defdelegate coinm_get_ticker_24hr(params, opts), to: MarketData
-  defdelegate coinm_get_order_book(params), to: MarketData
-  defdelegate coinm_get_order_book(params, opts), to: MarketData
-  defdelegate coinm_get_recent_trades(params), to: MarketData
-  defdelegate coinm_get_recent_trades(params, opts), to: MarketData
-  defdelegate coinm_get_klines(params), to: MarketData
-  defdelegate coinm_get_klines(params, opts), to: MarketData
-  defdelegate coinm_get_mark_price(params), to: MarketData
-  defdelegate coinm_get_mark_price(params, opts), to: MarketData
-  defdelegate coinm_get_funding_rate(params), to: MarketData
-  defdelegate coinm_get_funding_rate(params, opts), to: MarketData
-  defdelegate coinm_get_open_interest(params), to: MarketData
-  defdelegate coinm_get_open_interest(params, opts), to: MarketData
-  defdelegate coinm_get_exchange_info(), to: MarketData
-  defdelegate coinm_get_exchange_info(opts), to: MarketData
-  defdelegate coinm_get_exchange_info(params, opts), to: MarketData
-
-  # Spot trading endpoints with spot_ prefix
-  defdelegate spot_get_balances(), to: Spot, as: :get_balances
-  defdelegate spot_get_balances(opts), to: Spot, as: :get_balances
-  defdelegate spot_get_balances(params, opts), to: Spot, as: :get_balances
-
-  defdelegate spot_place_order(), to: Spot, as: :place_order
-  defdelegate spot_place_order(params), to: Spot, as: :place_order
-  defdelegate spot_place_order(params, opts), to: Spot, as: :place_order
-
-  defdelegate spot_cancel_order(), to: Spot, as: :cancel_order
-  defdelegate spot_cancel_order(params), to: Spot, as: :cancel_order
-  defdelegate spot_cancel_order(params, opts), to: Spot, as: :cancel_order
-
-  defdelegate spot_get_order(), to: Spot, as: :get_order
-  defdelegate spot_get_order(params), to: Spot, as: :get_order
-  defdelegate spot_get_order(params, opts), to: Spot, as: :get_order
-
-  defdelegate spot_place_oco_order(params), to: Spot, as: :place_oco_order
-  defdelegate spot_batch_cancel_orders(params), to: Spot, as: :batch_cancel_orders
-
-  # USD-M Futures trading endpoints with usdm_ prefix
-  defdelegate usdm_get_positions(), to: UsdmFutures, as: :get_positions
-  defdelegate usdm_get_positions(opts), to: UsdmFutures, as: :get_positions
-  defdelegate usdm_get_positions(params, opts), to: UsdmFutures, as: :get_positions
-
-  # Portfolio Margin trading endpoints with portfolio_ prefix
-  # Custom wrapper functions (not in endpoint registry)
-  defdelegate portfolio_get_unified_account(), to: PortfolioMargin, as: :get_unified_account
-  defdelegate portfolio_get_unified_account(params), to: PortfolioMargin, as: :get_unified_account
-  defdelegate portfolio_get_unified_account(params, opts), to: PortfolioMargin, as: :get_unified_account
-
-  defdelegate portfolio_place_unified_order(params), to: PortfolioMargin, as: :place_unified_order
-  defdelegate portfolio_place_unified_order(params, opts), to: PortfolioMargin, as: :place_unified_order
-
-  defdelegate portfolio_get_all_positions(), to: PortfolioMargin, as: :get_all_positions
-  defdelegate portfolio_get_all_positions(params), to: PortfolioMargin, as: :get_all_positions
-  defdelegate portfolio_get_all_positions(params, opts), to: PortfolioMargin, as: :get_all_positions
-
-  # Endpoint registry functions from PortfolioMargin
-  defdelegate portfolio_account_information(), to: PortfolioMargin, as: :account_information
-  defdelegate portfolio_account_information(params), to: PortfolioMargin, as: :account_information
-  defdelegate portfolio_account_information(params, opts), to: PortfolioMargin, as: :account_information
-
-  defdelegate portfolio_account_balance(), to: PortfolioMargin, as: :account_balance
-  defdelegate portfolio_account_balance(params), to: PortfolioMargin, as: :account_balance
-  defdelegate portfolio_account_balance(params, opts), to: PortfolioMargin, as: :account_balance
-
-  # ============================================================================
-  # Registry compatibility functions
-  # These are needed for tests and backward compatibility
+  # Discovery Functions
   # ============================================================================
 
   @doc """
-  Returns endpoint configuration for the given operation.
-  Routes to the appropriate module based on the operation name prefix.
+  Returns the API module for a given type.
+
+  ## Examples
+
+      iex> Endpoints.get_module(:spot)
+      ZenCex.Adapters.Binance.Spot
+      
+      iex> Endpoints.get_module(:usdm_futures)
+      ZenCex.Adapters.Binance.UsdmFutures
   """
-  @spec get_endpoint(atom()) :: map() | nil
-  def get_endpoint(operation) do
-    # Extract prefix and operation name
-    {prefix, base_op} = extract_prefix(operation)
-
-    # Route based on prefix
-    case prefix do
-      :spot ->
-        Spot.get_endpoint(base_op)
-
-      :usdm ->
-        UsdmFutures.get_endpoint(base_op)
-
-      :coinm ->
-        CoinmFutures.get_endpoint(base_op)
-
-      :margin ->
-        Margin.get_endpoint(base_op)
-
-      :portfolio ->
-        PortfolioMargin.get_endpoint(base_op)
-
-      nil ->
-        # No prefix - check common and market data operations
-        if operation in [:get_server_time] do
-          Common.get_endpoint(operation)
-        else
-          # Check if it's a market data endpoint
-          MarketData.get_endpoint(operation)
-        end
-    end
-  end
-
-  # Extract prefix from operation name
-  defp extract_prefix(operation) do
-    # Pattern match on the string representation for better performance
-    case Atom.to_string(operation) do
-      "spot_" <> rest ->
-        {:spot, String.to_atom(rest)}
-
-      "usdm_" <> rest ->
-        {:usdm, String.to_atom(rest)}
-
-      "coinm_" <> rest ->
-        {:coinm, String.to_atom(rest)}
-
-      "margin_" <> rest ->
-        {:margin, String.to_atom(rest)}
-
-      "portfolio_" <> rest ->
-        {:portfolio, String.to_atom(rest)}
-
-      _ ->
-        {nil, operation}
+  @spec get_module(atom()) :: module() | nil
+  def get_module(api_type) do
+    case api_type do
+      :spot -> Spot
+      :margin -> Margin
+      :usdm_futures -> UsdmFutures
+      :coinm_futures -> CoinmFutures
+      :portfolio -> PortfolioMargin
+      :common -> Common
+      :market_data -> MarketData
+      _ -> nil
     end
   end
 
   @doc """
-  Returns all endpoints from all modules.
-  """
-  @spec all_endpoints() :: [map()]
-  def all_endpoints do
-    Common.all_endpoints() ++
-      MarketData.all_endpoints() ++
-      Spot.all_endpoints() ++
-      UsdmFutures.all_endpoints() ++
-      CoinmFutures.all_endpoints() ++
-      PortfolioMargin.all_endpoints()
-  end
+  Returns all available API types.
 
-  @doc """
-  Returns the weight for a given operation.
-  """
-  @spec get_weight(atom()) :: integer() | nil
-  def get_weight(operation) do
-    case get_endpoint(operation) do
-      nil -> nil
-      config -> config[:weight]
-    end
-  end
+  ## Examples
 
-  # ============================================================================
-  # Endpoint Discovery Functions
-  # ============================================================================
+      iex> Endpoints.list_api_types()
+      [:spot, :margin, :usdm_futures, :coinm_futures, :portfolio, :common, :market_data]
+  """
+  @spec list_api_types() :: [atom()]
+  def list_api_types do
+    [:spot, :margin, :usdm_futures, :coinm_futures, :portfolio, :common, :market_data]
+  end
 
   @doc """
   Lists all available endpoint operations across all API types.
@@ -365,48 +200,58 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
 
       # Get all endpoints
       iex> Endpoints.list_available_endpoints()
-      [:spot_get_balances, :spot_place_order, :usdm_get_positions, ...]
+      [:get_balances, :place_order, :get_positions, ...]
       
       # Filter by API type
       iex> Endpoints.list_available_endpoints(:spot)
-      [:spot_get_balances, :spot_place_order, :spot_cancel_order, ...]
+      [:get_balances, :place_order, :cancel_order, ...]
       
       iex> Endpoints.list_available_endpoints(:usdm_futures)
-      [:usdm_get_positions, :usdm_place_order, :usdm_cancel_order, ...]
+      [:get_positions, :place_order, :cancel_order, ...]
   """
   @spec list_available_endpoints() :: [atom()]
   @spec list_available_endpoints(atom()) :: [atom()]
   def list_available_endpoints(api_type \\ :all) do
     case api_type do
       :all ->
-        all_endpoints()
+        # Collect all endpoints from all modules
+        all =
+          Common.all_endpoints() ++
+            MarketData.all_endpoints() ++
+            Spot.all_endpoints() ++
+            Margin.all_endpoints() ++
+            UsdmFutures.all_endpoints() ++
+            CoinmFutures.all_endpoints() ++
+            PortfolioMargin.all_endpoints()
+
+        all
         |> Enum.map(& &1.operation)
         |> Enum.sort()
         |> Enum.uniq()
 
       :spot ->
         Spot.all_endpoints()
-        |> Enum.map(fn ep -> :"spot_#{ep.operation}" end)
+        |> Enum.map(& &1.operation)
         |> Enum.sort()
 
       :usdm_futures ->
         UsdmFutures.all_endpoints()
-        |> Enum.map(fn ep -> :"usdm_#{ep.operation}" end)
+        |> Enum.map(& &1.operation)
         |> Enum.sort()
 
       :coinm_futures ->
         CoinmFutures.all_endpoints()
-        |> Enum.map(fn ep -> :"coinm_#{ep.operation}" end)
+        |> Enum.map(& &1.operation)
         |> Enum.sort()
 
       :margin ->
         Margin.all_endpoints()
-        |> Enum.map(fn ep -> :"margin_#{ep.operation}" end)
+        |> Enum.map(& &1.operation)
         |> Enum.sort()
 
       :portfolio ->
         PortfolioMargin.all_endpoints()
-        |> Enum.map(fn ep -> :"portfolio_#{ep.operation}" end)
+        |> Enum.map(& &1.operation)
         |> Enum.sort()
 
       :common ->
@@ -430,46 +275,44 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   Returns a map with endpoint configuration including method, path,
   authentication requirements, rate limits, and documentation.
 
+  ## Parameters
+  - `operation` - The operation name (e.g., :get_balances, :place_order)
+  - `api_type` - The API type (:spot, :margin, :usdm_futures, etc.)
+
   ## Examples
 
-      iex> Endpoints.get_endpoint_info(:spot_get_balances)
+      iex> Endpoints.get_endpoint_info(:get_balances, :spot)
       %{
         operation: :get_balances,
         method: :get,
         path: "/api/v3/account",
         requires_auth: true,
         weight: 10,
-        api_type: :spot,
         doc: "Get current account information",
         timeout: 5000,
         max_retries: 3
       }
       
-      iex> Endpoints.get_endpoint_info(:nonexistent)
+      iex> Endpoints.get_endpoint_info(:nonexistent, :spot)
       nil
   """
-  @spec get_endpoint_info(atom()) :: map() | nil
-  def get_endpoint_info(operation) do
-    case get_endpoint(operation) do
-      nil ->
-        nil
-
-      endpoint ->
-        # Add the full operation name with prefix
-        {prefix, _base} = extract_prefix(operation)
-
-        endpoint
-        |> Map.put(:full_operation, operation)
-        |> Map.put(:api_type_prefix, prefix)
-        |> Map.put(:available_arities, get_available_arities(operation))
+  @spec get_endpoint_info(atom(), atom()) :: map() | nil
+  def get_endpoint_info(operation, api_type) do
+    with module when not is_nil(module) <- get_module(api_type),
+         endpoint when not is_nil(endpoint) <- module.get_endpoint(operation) do
+      endpoint
+      |> Map.put(:api_type, api_type)
+      |> Map.put(:module, module)
+      |> Map.put(:available_arities, get_available_arities(module, operation))
+    else
+      _ -> nil
     end
   end
 
-  # Helper to determine available function arities for an operation
-  defp get_available_arities(operation) do
-    # Check if the function exists with different arities (0, 1, or 2 params)
+  # Helper to determine available function arities for an operation in a module
+  defp get_available_arities(module, operation) do
     0..2
-    |> Enum.filter(&function_exported?(__MODULE__, operation, &1))
+    |> Enum.filter(&function_exported?(module, operation, &1))
     |> Enum.reverse()
   end
 end

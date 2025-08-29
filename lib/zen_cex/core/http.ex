@@ -119,7 +119,7 @@ defmodule ZenCex.Core.HTTP do
   """
   @spec base_request(atom(), atom()) :: Req.Request.t()
   def base_request(exchange, operation_type \\ :standard) do
-    endpoints = ZenCex.Core.Registry.get_endpoints!(exchange)
+    registry = ZenCex.Core.Registry.get_registry!(exchange)
 
     receive_timeout = get_timeout(operation_type)
 
@@ -144,7 +144,7 @@ defmodule ZenCex.Core.HTTP do
     )
     |> Req.Request.append_error_steps(zen_cex_telemetry: &telemetry_error_step/1)
     |> Req.merge(
-      base_url: endpoints.base_url(),
+      base_url: registry.base_url(),
       finch: ZenCex.Finch,
       retry: :safe_transient,
       retry_delay: &exponential_backoff_with_jitter/1,
@@ -183,10 +183,10 @@ defmodule ZenCex.Core.HTTP do
       request
     else
       exchange = request.options[:exchange]
-      endpoints = ZenCex.Core.Registry.get_endpoints!(exchange)
+      registry = ZenCex.Core.Registry.get_registry!(exchange)
 
       # Get the rate limiter module
-      rate_limiter = endpoints.rate_limiter()
+      rate_limiter = registry.rate_limiter()
 
       # Extract endpoint from URL
       endpoint = get_endpoint(request)
@@ -243,10 +243,10 @@ defmodule ZenCex.Core.HTTP do
         end
 
       exchange = request.options[:exchange]
-      endpoints = ZenCex.Core.Registry.get_endpoints!(exchange)
+      registry = ZenCex.Core.Registry.get_registry!(exchange)
 
       # Get the auth module
-      auth = endpoints.auth()
+      auth = registry.auth()
 
       # Call the unified apply_auth function
       # The auth module will handle getting credentials from private or environment
@@ -346,10 +346,10 @@ defmodule ZenCex.Core.HTTP do
       {request, response}
     else
       exchange = request.options[:exchange]
-      endpoints = ZenCex.Core.Registry.get_endpoints!(exchange)
+      registry = ZenCex.Core.Registry.get_registry!(exchange)
 
       # Get the rate limiter module
-      rate_limiter = endpoints.rate_limiter()
+      rate_limiter = registry.rate_limiter()
 
       # Store full request URL in response private for rate limiter to detect API type
       # We need the full URL (including host) to properly detect API type (spot vs futures vs sapi)

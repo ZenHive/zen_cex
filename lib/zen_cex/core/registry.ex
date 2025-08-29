@@ -1,102 +1,146 @@
 defmodule ZenCex.Core.Registry do
   @moduledoc """
-  Compile-time endpoints registry with runtime validation for exchange endpoints.
+  Registry for exchange adapters and their API modules.
 
   This module provides a central registry for mapping exchange names to their
-  corresponding endpoint modules. It uses compile-time configuration with
-  runtime validation to avoid circular dependency issues.
+  adapter namespaces. Each exchange has multiple API modules for different
+  trading types (spot, futures, margin, etc.).
 
   ## Supported Exchanges
 
   Currently supported exchanges:
-  - `:binance` - Binance exchange endpoints
-  - `:bybit` - Bybit exchange endpoints
+  - `:binance` - Binance exchange with Spot, Margin, Futures modules
+  - `:bybit` - Bybit exchange with unified V5 API modules
 
   ## Examples
 
-      iex> ZenCex.Core.Registry.get_endpoints!(:binance)
+      # Get the registry module for an exchange
+      iex> ZenCex.Core.Registry.get_registry!(:binance)
       ZenCex.Adapters.Binance.Endpoints
 
-      iex> ZenCex.Core.Registry.list_exchanges()
-      [:binance]
+      # Get a specific API module
+      iex> ZenCex.Core.Registry.get_module!(:binance, :spot)
+      ZenCex.Adapters.Binance.Spot
+      
+      iex> ZenCex.Core.Registry.get_module!(:binance, :usdm_futures)
+      ZenCex.Adapters.Binance.UsdmFutures
 
-      iex> ZenCex.Core.Registry.get_endpoints!(:unknown)
-      ** (RuntimeError) Unknown exchange: unknown
+      iex> ZenCex.Core.Registry.list_exchanges()
+      [:binance, :bybit]
   """
 
-  @endpoints %{
+  @registries %{
     binance: ZenCex.Adapters.Binance.Endpoints,
     bybit: ZenCex.Adapters.Bybit.Endpoints
-    # kraken: ZenCex.Adapters.Kraken.Endpoints,  # TODO: Implement Kraken endpoints
-    # deribit: ZenCex.Adapters.Deribit.Endpoints  # TODO: Implement Deribit endpoints
+    # kraken: ZenCex.Adapters.Kraken.Endpoints,  # TODO: Implement Kraken
+    # deribit: ZenCex.Adapters.Deribit.Endpoints  # TODO: Implement Deribit
   }
 
   # Validate at runtime on first access instead of compile time
   # This avoids circular dependency issues during compilation
-  @spec ensure_endpoints_loaded!(module(), atom()) :: :ok
-  defp ensure_endpoints_loaded!(module, name) do
+  @spec ensure_module_loaded!(module(), atom()) :: :ok
+  defp ensure_module_loaded!(module, name) do
     case Code.ensure_loaded(module) do
       {:module, ^module} -> :ok
-      {:error, reason} -> raise "Endpoints #{module} for #{name} failed to load: #{reason}"
+      {:error, reason} -> raise "Module #{module} for #{name} failed to load: #{reason}"
     end
   end
 
   @doc """
-  Gets the endpoints module for the specified exchange.
+  Gets the registry module for the specified exchange.
 
-  Validates that the endpoints module can be loaded at runtime to avoid
-  circular dependency issues during compilation.
+  The registry module provides discovery functions for exploring
+  available API modules and endpoints.
 
   ## Parameters
-  - `exchange` - Exchange atom (e.g., `:binance`, `:kraken`, `:deribit`)
+  - `exchange` - Exchange atom (e.g., `:binance`, `:bybit`)
 
   ## Returns
-  The endpoints module for the exchange.
+  The registry module for the exchange.
 
   ## Raises
-  - `RuntimeError` if the exchange is unknown or endpoints fail to load
+  - `RuntimeError` if the exchange is unknown or module fails to load
 
   ## Examples
 
-      iex> ZenCex.Core.Registry.get_endpoints!(:binance)
+      iex> ZenCex.Core.Registry.get_registry!(:binance)
       ZenCex.Adapters.Binance.Endpoints
-
-      iex> ZenCex.Core.Registry.get_endpoints!(:invalid)
-      ** (RuntimeError) Unknown exchange: invalid
   """
-  @spec get_endpoints!(atom()) :: module()
-  def get_endpoints!(exchange) do
-    case @endpoints[exchange] do
+  @spec get_registry!(atom()) :: module()
+  def get_registry!(exchange) do
+    case @registries[exchange] do
       nil ->
         raise "Unknown exchange: #{exchange}"
 
       module ->
-        ensure_endpoints_loaded!(module, exchange)
+        ensure_module_loaded!(module, exchange)
         module
     end
   end
 
   @doc """
-  DEPRECATED: Use get_endpoints!/1 instead.
+  Gets a specific API module for an exchange.
 
-  This function is kept for backward compatibility during the transition.
+  ## Parameters
+  - `exchange` - Exchange atom (e.g., `:binance`, `:bybit`)
+  - `api_type` - API type atom (e.g., `:spot`, `:margin`, `:usdm_futures`)
+
+  ## Returns
+  The API module or raises if not found.
+
+  ## Examples
+
+      iex> ZenCex.Core.Registry.get_module!(:binance, :spot)
+      ZenCex.Adapters.Binance.Spot
+      
+      iex> ZenCex.Core.Registry.get_module!(:binance, :usdm_futures)
+      ZenCex.Adapters.Binance.UsdmFutures
   """
-  @spec get_adapter!(atom()) :: module()
-  def get_adapter!(exchange) do
-    get_endpoints!(exchange)
+  @spec get_module!(atom(), atom()) :: module()
+  def get_module!(exchange, api_type) do
+    registry = get_registry!(exchange)
+
+    case registry.get_module(api_type) do
+      nil ->
+        raise "Unknown API type #{api_type} for exchange #{exchange}"
+
+      module ->
+        ensure_module_loaded!(module, exchange)
+        module
+    end
+  end
+
+  @doc """
+  Lists available API types for an exchange.
+
+  ## Parameters
+  - `exchange` - Exchange atom (e.g., `:binance`, `:bybit`)
+
+  ## Returns
+  List of API type atoms available for the exchange.
+
+  ## Examples
+
+      iex> ZenCex.Core.Registry.list_api_types(:binance)
+      [:spot, :margin, :usdm_futures, :coinm_futures, :portfolio, :common, :market_data]
+  """
+  @spec list_api_types(atom()) :: [atom()]
+  def list_api_types(exchange) do
+    registry = get_registry!(exchange)
+    registry.list_api_types()
   end
 
   @doc """
   Lists all supported exchange atoms.
 
   ## Returns
-  List of exchange atoms that have registered endpoints.
+  List of exchange atoms that have registered adapters.
 
   ## Examples
 
       iex> ZenCex.Core.Registry.list_exchanges()
-      [:binance]
+      [:binance, :bybit]
   """
   @spec list_exchanges() :: [atom()]
-  def list_exchanges, do: Map.keys(@endpoints)
+  def list_exchanges, do: Map.keys(@registries)
 end

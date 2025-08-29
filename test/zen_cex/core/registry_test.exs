@@ -3,24 +3,24 @@ defmodule ZenCex.Core.RegistryTest do
 
   alias ZenCex.Core.Registry
 
-  describe "get_endpoints!/1" do
-    test "returns endpoints module for known exchanges" do
-      assert Registry.get_endpoints!(:binance) == ZenCex.Adapters.Binance.Endpoints
+  describe "get_registry!/1" do
+    test "returns registry module for known exchanges" do
+      assert Registry.get_registry!(:binance) == ZenCex.Adapters.Binance.Endpoints
     end
 
     test "raises for unknown exchange" do
       assert_raise RuntimeError, "Unknown exchange: unknown", fn ->
-        Registry.get_endpoints!(:unknown)
+        Registry.get_registry!(:unknown)
       end
     end
 
     test "raises for not yet implemented exchanges" do
       assert_raise RuntimeError, "Unknown exchange: kraken", fn ->
-        Registry.get_endpoints!(:kraken)
+        Registry.get_registry!(:kraken)
       end
 
       assert_raise RuntimeError, "Unknown exchange: deribit", fn ->
-        Registry.get_endpoints!(:deribit)
+        Registry.get_registry!(:deribit)
       end
     end
   end

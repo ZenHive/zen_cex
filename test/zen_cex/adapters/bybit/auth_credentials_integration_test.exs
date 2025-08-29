@@ -5,7 +5,7 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
   """
   use ZenCex.IntegrationCase, exchange: :bybit
 
-  alias ZenCex.Adapters.Bybit.Endpoints
+  alias ZenCex.Adapters.Bybit.Unified
 
   describe "Spot trading with auth_credentials" do
     @tag :integration
@@ -23,7 +23,7 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
       ]
 
       # Test getting wallet balance
-      assert {:ok, _balance} = Endpoints.get_wallet_balance(%{accountType: "UNIFIED"}, opts)
+      assert {:ok, _balance} = Unified.get_wallet_balance(%{accountType: "UNIFIED"}, opts)
     end
 
     @tag :integration
@@ -41,7 +41,7 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
       }
 
       # Test getting wallet balance
-      assert {:ok, _balance} = Endpoints.get_wallet_balance(%{accountType: "UNIFIED"}, opts)
+      assert {:ok, _balance} = Unified.get_wallet_balance(%{accountType: "UNIFIED"}, opts)
     end
 
     @tag :integration
@@ -55,7 +55,7 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
       ]
 
       # Should get authentication error
-      assert {:error, _reason} = Endpoints.get_wallet_balance(%{accountType: "UNIFIED"}, opts)
+      assert {:error, _reason} = Unified.get_wallet_balance(%{accountType: "UNIFIED"}, opts)
     end
   end
 
@@ -75,7 +75,7 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
       ]
 
       # Test getting positions - linear_get_position_list requires either symbol or settleCoin
-      assert {:ok, _positions} = Endpoints.linear_get_position_list(%{settleCoin: "USDT"}, opts)
+      assert {:ok, _positions} = Unified.get_position_list(%{category: "linear", settleCoin: "USDT"}, opts)
     end
 
     @tag :integration
@@ -93,7 +93,7 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
       }
 
       # Test getting positions - linear_get_position_list requires either symbol or settleCoin
-      assert {:ok, _positions} = Endpoints.linear_get_position_list(%{settleCoin: "USDT"}, opts)
+      assert {:ok, _positions} = Unified.get_position_list(%{category: "linear", settleCoin: "USDT"}, opts)
     end
   end
 
@@ -113,7 +113,7 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
       ]
 
       # Test getting positions
-      assert {:ok, _positions} = Endpoints.inverse_get_position_list(%{}, opts)
+      assert {:ok, _positions} = Unified.get_position_list(%{category: "inverse"}, opts)
     end
 
     @tag :integration
@@ -131,7 +131,7 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
       }
 
       # Test getting positions
-      assert {:ok, _positions} = Endpoints.inverse_get_position_list(%{}, opts)
+      assert {:ok, _positions} = Unified.get_position_list(%{category: "inverse"}, opts)
     end
   end
 
@@ -164,8 +164,8 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
       }
 
       # Both should work
-      assert {:ok, _} = Endpoints.get_wallet_balance(%{accountType: "UNIFIED"}, account1_opts)
-      assert {:ok, _} = Endpoints.get_wallet_balance(%{accountType: "UNIFIED"}, account2_opts)
+      assert {:ok, _} = Unified.get_wallet_balance(%{accountType: "UNIFIED"}, account1_opts)
+      assert {:ok, _} = Unified.get_wallet_balance(%{accountType: "UNIFIED"}, account2_opts)
     end
   end
 
@@ -185,7 +185,7 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
         }
       ]
 
-      assert {:ok, _orders} = Endpoints.spot_get_open_closed_orders(%{category: "spot"}, opts_keyword)
+      assert {:ok, _orders} = Unified.get_open_closed_orders(%{category: "spot"}, opts_keyword)
 
       # Test with map
       opts_map = %{
@@ -195,7 +195,7 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
         }
       }
 
-      assert {:ok, _orders} = Endpoints.spot_get_open_closed_orders(%{category: "spot"}, opts_map)
+      assert {:ok, _orders} = Unified.get_open_closed_orders(%{category: "spot"}, opts_map)
     end
 
     @tag :integration
@@ -213,7 +213,7 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
       ]
 
       # Linear requires settleCoin parameter
-      assert {:ok, _orders} = Endpoints.linear_get_open_closed_orders(%{category: "linear", settleCoin: "USDT"}, opts)
+      assert {:ok, _orders} = Unified.get_open_closed_orders(%{category: "linear", settleCoin: "USDT"}, opts)
     end
   end
 
