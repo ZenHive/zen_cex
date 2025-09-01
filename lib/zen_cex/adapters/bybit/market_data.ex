@@ -37,10 +37,10 @@ defmodule ZenCex.Adapters.Bybit.MarketData do
 
       # Get spot ticker
       MarketData.get_tickers(%{category: "spot", symbol: "BTCUSDT"})
-      
+
       # Get futures order book
       MarketData.get_orderbook(%{category: "linear", symbol: "BTCUSDT", limit: 25})
-      
+
       # Get klines/candlesticks
       MarketData.get_klines(%{
         category: "spot",

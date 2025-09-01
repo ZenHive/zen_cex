@@ -11,7 +11,7 @@ defmodule ZenCex.Adapters.Binance.RateLimiter do
 
   ## Binance Rate Limits (per minute)
   - Spot API: 1200 weight units (1080 regular, 120 emergency reserve)
-  - SAPI: 12000 weight units (10800 regular, 1200 emergency reserve)  
+  - SAPI: 12000 weight units (10800 regular, 1200 emergency reserve)
   - USD-M Futures: 2400 weight units (2160 regular, 240 emergency reserve)
   - COIN-M Futures: 2400 weight units (2160 regular, 240 emergency reserve)
   - Portfolio Margin: 3000 weight units (2700 regular, 300 emergency reserve)

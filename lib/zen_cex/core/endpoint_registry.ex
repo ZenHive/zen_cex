@@ -11,7 +11,7 @@ defmodule ZenCex.EndpointRegistry do
   ```elixir
   defmodule MyExchange.Endpoints do
     use ZenCex.EndpointRegistry
-    
+
     @endpoints [
       %{
         operation: :get_balances,

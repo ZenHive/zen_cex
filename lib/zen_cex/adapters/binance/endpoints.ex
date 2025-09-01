@@ -24,11 +24,11 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
       alias ZenCex.Adapters.Binance.Spot
       alias ZenCex.Adapters.Binance.UsdmFutures
       alias ZenCex.Adapters.Binance.Common
-      
+
       # Direct module usage
       Spot.get_balances()
       Spot.place_order(%{symbol: "BTCUSDT", side: "BUY", quantity: "0.01"})
-      
+
       UsdmFutures.get_positions()
       Common.get_server_time()
 
@@ -38,10 +38,10 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
 
       # List all available endpoints
       Endpoints.list_available_endpoints()
-      
+
       # List endpoints by API type
       Endpoints.list_available_endpoints(:spot)
-      
+
       # Get detailed endpoint information
       Endpoints.get_endpoint_info(:get_balances, :spot)
   """
@@ -159,7 +159,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
 
       iex> Endpoints.get_module(:spot)
       ZenCex.Adapters.Binance.Spot
-      
+
       iex> Endpoints.get_module(:usdm_futures)
       ZenCex.Adapters.Binance.UsdmFutures
   """
@@ -201,11 +201,11 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
       # Get all endpoints
       iex> Endpoints.list_available_endpoints()
       [:get_balances, :place_order, :get_positions, ...]
-      
+
       # Filter by API type
       iex> Endpoints.list_available_endpoints(:spot)
       [:get_balances, :place_order, :cancel_order, ...]
-      
+
       iex> Endpoints.list_available_endpoints(:usdm_futures)
       [:get_positions, :place_order, :cancel_order, ...]
   """
@@ -292,7 +292,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
         timeout: 5000,
         max_retries: 3
       }
-      
+
       iex> Endpoints.get_endpoint_info(:nonexistent, :spot)
       nil
   """

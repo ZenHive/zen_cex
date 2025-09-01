@@ -31,7 +31,7 @@ defmodule ZenCex.Core.HTTP do
 
   The module integrates with exchange modules through the Registry:
   - Rate limiting: Calls exchange's `rate_limiter().check_and_increment/1`
-  - Authentication: Calls exchange's `auth().sign_request/1` 
+  - Authentication: Calls exchange's `auth().sign_request/1`
   - Updates: Calls exchange's `rate_limiter().update_from_response/1`
 
   ## Telemetry Events
@@ -45,14 +45,14 @@ defmodule ZenCex.Core.HTTP do
 
       # Basic trading request (uses environment variables for auth)
       request = ZenCex.Core.HTTP.base_request(:binance, :trading)
-      
+
       # Health check (no auth/rate limiting)
       health_request = ZenCex.Core.HTTP.health_check_request(:kraken)
-      
+
       # Testing with manual credentials (no environment setup needed)
       request = ZenCex.Core.HTTP.base_request(:binance, :trading)
       |> Req.merge(auth_credentials: %{api_key: "test_key", api_secret: "test_secret"})
-      
+
       # Custom configuration
       request = ZenCex.Core.HTTP.base_request(:deribit, :market)
       |> Req.merge(skip_rate_limit: true)

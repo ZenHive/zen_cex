@@ -822,7 +822,7 @@ defmodule ZenCex.Adapters.Binance.Parser do
 
       iex> parse_market_data_response(%{"symbol" => "BTCUSDT", "price" => "50000.00"})
       {:ok, %{"symbol" => "BTCUSDT", "price" => "50000.00"}}
-      
+
       iex> parse_market_data_response([%{"symbol" => "BTCUSDT", "price" => "50000.00"}])
       {:ok, [%{"symbol" => "BTCUSDT", "price" => "50000.00"}]}
   """

@@ -175,7 +175,7 @@ defmodule ZenCex.Adapters.Bybit.SignerTest do
 
     test "matches expected HMAC-SHA256 output" do
       # Test with a known HMAC-SHA256 result
-      # Using: echo -n "message" | openssl dgst -sha256 -hmac "secret" 
+      # Using: echo -n "message" | openssl dgst -sha256 -hmac "secret"
       # Result: 8b5f48702995c1598c573db1e21866a9b825d4a794d169d7060a03605796360b
 
       payload = "message"

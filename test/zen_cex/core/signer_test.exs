@@ -357,7 +357,7 @@ defmodule ZenCex.Core.SignerTest do
     end
 
     test "protects against timing attacks" do
-      # Even with wrong signatures of different lengths, 
+      # Even with wrong signatures of different lengths,
       # the function should still perform constant-time comparison
       payload = "test"
       secret = "secret"

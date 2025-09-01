@@ -47,37 +47,37 @@ read_only_endpoints = [
   # Account information - READ ONLY
   {:account_information, fn -> PortfolioMargin.account_information() end},
   {:account_balance, fn -> PortfolioMargin.account_balance() end},
-  
-  # Account details - READ ONLY  
+
+  # Account details - READ ONLY
   {:get_um_account_detail, fn -> PortfolioMargin.get_um_account_detail() end},
   {:get_cm_account_detail, fn -> PortfolioMargin.get_cm_account_detail() end},
-  
+
   # Position information - READ ONLY
   {:query_um_position_information, fn -> PortfolioMargin.query_um_position_information() end},
   {:query_cm_position_information, fn -> PortfolioMargin.query_cm_position_information() end},
-  
+
   # Current modes - READ ONLY
   {:get_um_current_position_mode, fn -> PortfolioMargin.get_um_current_position_mode() end},
   {:get_cm_current_position_mode, fn -> PortfolioMargin.get_cm_current_position_mode() end},
-  
+
   # Commission rates - READ ONLY
-  {:get_user_commission_rate_for_um, fn -> 
-    PortfolioMargin.get_user_commission_rate_for_um(%{symbol: "BTCUSDT"}) 
+  {:get_user_commission_rate_for_um, fn ->
+    PortfolioMargin.get_user_commission_rate_for_um(%{symbol: "BTCUSDT"})
   end},
-  {:get_user_commission_rate_for_cm, fn -> 
-    PortfolioMargin.get_user_commission_rate_for_cm(%{symbol: "BTCUSD_PERP"}) 
+  {:get_user_commission_rate_for_cm, fn ->
+    PortfolioMargin.get_user_commission_rate_for_cm(%{symbol: "BTCUSD_PERP"})
   end},
-  
+
   # Income history - READ ONLY
   {:get_um_income_history, fn -> PortfolioMargin.get_um_income_history() end},
   {:get_cm_income_history, fn -> PortfolioMargin.get_cm_income_history() end},
-  
+
   # Account configuration - READ ONLY
   {:um_futures_account_configuration, fn -> PortfolioMargin.um_futures_account_configuration() end},
-  
+
   # Max withdrawable - READ ONLY
-  {:query_margin_max_withdraw, fn -> 
-    PortfolioMargin.query_margin_max_withdraw(%{asset: "USDT"}) 
+  {:query_margin_max_withdraw, fn ->
+    PortfolioMargin.query_margin_max_withdraw(%{asset: "USDT"})
   end}
 ]
 
@@ -85,16 +85,16 @@ IO.puts("\n📊 Testing #{length(read_only_endpoints)} READ-ONLY Portfolio Margi
 
 results = Enum.map(read_only_endpoints, fn {name, endpoint_fn} ->
   IO.write("Testing #{name}... ")
-  
+
   try do
     case endpoint_fn.() do
       {:ok, response} ->
         IO.puts("✅ SUCCESS")
-        response_type = if is_map(response) and Map.has_key?(response, :__struct__), 
-                          do: response.__struct__, 
+        response_type = if is_map(response) and Map.has_key?(response, :__struct__),
+                          do: response.__struct__,
                           else: "map"
         IO.puts("  Response type: #{inspect(response_type)}")
-        
+
         # Show first few fields of response (safely)
         case response do
           %{} = map when map_size(map) > 0 ->
@@ -105,9 +105,9 @@ results = Enum.map(read_only_endpoints, fn {name, endpoint_fn} ->
           _ ->
             IO.puts("  Response: #{inspect(response) |> String.slice(0, 100)}")
         end
-        
+
         {name, :success}
-        
+
       {:error, reason} ->
         IO.puts("❌ ERROR: #{inspect(reason)}")
         {name, {:error, reason}}
@@ -139,7 +139,7 @@ end
 
 if length(errors) > 0 do
   IO.puts("\n❌ Error endpoints:")
-  Enum.each(errors, fn {name, {:error, reason}} -> 
+  Enum.each(errors, fn {name, {:error, reason}} ->
     IO.puts("   • #{name}: #{inspect(reason) |> String.slice(0, 80)}")
   end)
 end

@@ -9,18 +9,18 @@ defmodule ZenCex.Config do
 
   Each exchange uses its own environment variable for testnet detection:
   - `BINANCE_TESTNET=true` - Use Binance testnet
-  - `KRAKEN_TESTNET=true` - Use Kraken testnet  
+  - `KRAKEN_TESTNET=true` - Use Kraken testnet
   - `DERIBIT_TESTNET=true` - Use Deribit testnet
 
   ## Examples
 
       iex> ZenCex.Config.testnet?(:binance)
       false
-      
+
       iex> System.put_env("BINANCE_TESTNET", "true")
       iex> ZenCex.Config.testnet?(:binance)
       true
-      
+
       iex> ZenCex.Config.environment(:binance)
       :test
   """
@@ -37,7 +37,7 @@ defmodule ZenCex.Config do
 
       iex> ZenCex.Config.testnet?(:binance)
       false
-      
+
       iex> System.put_env("BINANCE_TESTNET", "true")
       iex> ZenCex.Config.testnet?(:binance)
       true
@@ -64,7 +64,7 @@ defmodule ZenCex.Config do
 
       iex> ZenCex.Config.environment(:binance)
       :prod
-      
+
       iex> System.put_env("BINANCE_TESTNET", "true")
       iex> ZenCex.Config.environment(:binance)
       :test
@@ -81,7 +81,7 @@ defmodule ZenCex.Config do
 
       iex> ZenCex.Config.base_url(:binance)
       "https://api.binance.com"
-      
+
       iex> System.put_env("BINANCE_TESTNET", "true")
       iex> ZenCex.Config.base_url(:binance)
       "https://testnet.binance.vision"
@@ -117,7 +117,7 @@ defmodule ZenCex.Config do
 
       iex> ZenCex.Config.credentials(:binance)
       %{api_key: nil, api_secret: nil}
-      
+
       iex> System.put_env("BINANCE_API_KEY", "key123")
       iex> System.put_env("BINANCE_API_SECRET", "secret456")
       iex> ZenCex.Config.credentials(:binance)
@@ -169,14 +169,14 @@ defmodule ZenCex.Config do
   @doc """
   Validates that required credentials are present for an exchange.
 
-  Returns `:ok` if both api_key and api_secret are present, 
+  Returns `:ok` if both api_key and api_secret are present,
   otherwise returns an error tuple.
 
   ## Examples
 
       iex> ZenCex.Config.validate_credentials(:binance)
       {:error, :missing_api_key}
-      
+
       iex> System.put_env("BINANCE_API_KEY", "key123")
       iex> System.put_env("BINANCE_API_SECRET", "secret456")
       iex> ZenCex.Config.validate_credentials(:binance)

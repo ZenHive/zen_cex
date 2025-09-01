@@ -25,7 +25,7 @@ RateLimiter.reset(nil)
 IO.puts "\n1. Making public API requests (no auth required)..."
 
 # First request - Server time (weight = 1)
-request1 = 
+request1 =
   HTTP.base_request(:binance, :market)
   |> Req.merge(
     url: "/api/v3/time",
@@ -42,7 +42,7 @@ IO.puts "   Rate limit status: #{status.used}/#{status.limit} (#{status.usage_pe
 # Second request - Exchange info for one symbol (weight ~10)
 IO.puts "\n2. Fetching exchange info (higher weight)..."
 
-request2 = 
+request2 =
   HTTP.base_request(:binance, :market)
   |> Req.merge(
     url: "/api/v3/exchangeInfo",
@@ -82,7 +82,7 @@ IO.puts "   ✓ Emergency operations are never blocked"
 IO.puts "\n4. Rate limit monitoring in action..."
 
 # Make a small request that should trigger warning logs
-request3 = 
+request3 =
   HTTP.base_request(:binance, :health)
   |> Req.merge(
     url: "/api/v3/ping",
@@ -102,7 +102,7 @@ IO.puts "   Cleaned up #{deleted} old entries"
 limits = RateLimiter.get_limits()
 IO.puts "\n6. Configured rate limits:"
 IO.puts "   Spot API:    #{limits.spot.limit} requests/min"
-IO.puts "   SAPI:        #{limits.sapi.limit} requests/min"  
+IO.puts "   SAPI:        #{limits.sapi.limit} requests/min"
 IO.puts "   Futures API: #{limits.futures.limit} requests/min"
 
 IO.puts """

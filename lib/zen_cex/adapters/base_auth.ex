@@ -9,7 +9,7 @@ defmodule ZenCex.Adapters.BaseAuth do
 
       defmodule ZenCex.Adapters.MyExchange.Auth do
         use ZenCex.Adapters.BaseAuth, exchange: :my_exchange
-        
+
         @impl true
         def sign_request(request, api_key, api_secret, opts) do
           # Exchange-specific signing logic

@@ -25,14 +25,14 @@ defmodule ZenCex.Safety.ClockSync do
 
       # Get current timestamp with exchange offset applied
       timestamp_ms = ClockSync.now_with_offset(:binance)
-      
+
       # For specific Binance API types
       timestamp_ms = ClockSync.now_with_offset(:binance, :usdm_futures)
       timestamp_ms = ClockSync.now_with_offset(:binance, :coinm_futures)
 
       # Force manual sync with specific exchange
       ClockSync.sync_exchange(:kraken)
-      
+
       # Sync specific Binance API type
       ClockSync.sync_exchange(:binance, :usdm_futures)
 

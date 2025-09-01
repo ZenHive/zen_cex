@@ -21,7 +21,7 @@ defmodule ZenCex.Core.Registry do
       # Get a specific API module
       iex> ZenCex.Core.Registry.get_module!(:binance, :spot)
       ZenCex.Adapters.Binance.Spot
-      
+
       iex> ZenCex.Core.Registry.get_module!(:binance, :usdm_futures)
       ZenCex.Adapters.Binance.UsdmFutures
 
@@ -92,7 +92,7 @@ defmodule ZenCex.Core.Registry do
 
       iex> ZenCex.Core.Registry.get_module!(:binance, :spot)
       ZenCex.Adapters.Binance.Spot
-      
+
       iex> ZenCex.Core.Registry.get_module!(:binance, :usdm_futures)
       ZenCex.Adapters.Binance.UsdmFutures
   """

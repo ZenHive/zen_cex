@@ -12,7 +12,7 @@ defmodule ZenCex.Adapters.BaseRequestHelper do
 
       defmodule MyExchange.RequestHelper do
         use ZenCex.Adapters.BaseRequestHelper
-        
+
         # Optionally override specific behaviors
         def build_request_options(config, params, opts) do
           # Custom logic here

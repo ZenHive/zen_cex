@@ -59,32 +59,32 @@ defmodule IExHelpers do
   def env do
     env = Config.environment(:binance)
     url = Config.base_url(:binance)
-    
+
     IO.puts """
-    
+
     Current Environment:
     --------------------
     Mode:     #{env}
     Base URL: #{url}
     Testnet:  #{Config.testnet?(:binance)}
     """
-    
+
     env
   end
 
   def credentials do
     creds = Config.credentials(:binance)
-    
+
     IO.puts """
-    
+
     API Credentials Status:
     -----------------------
     API Key:    #{if creds.api_key, do: "✓ Configured (#{String.slice(creds.api_key, 0..7)}...)", else: "✗ Missing"}
     API Secret: #{if creds.api_secret, do: "✓ Configured", else: "✗ Missing"}
     """
-    
+
     case Config.validate_credentials(:binance) do
-      :ok -> 
+      :ok ->
         IO.puts "Status:     Ready for authenticated operations ✓"
         :ok
       {:error, reason} ->
@@ -95,7 +95,7 @@ defmodule IExHelpers do
 
   def spot_demo do
     IO.puts """
-    
+
     Running Spot Trading Demo
     =========================
     """
@@ -127,10 +127,10 @@ defmodule IExHelpers do
       IO.puts "\n3. Getting account balances (requires auth)..."
       case Spot.get_balances() do
         {:ok, balances} ->
-          non_zero = Enum.filter(balances, fn b -> 
+          non_zero = Enum.filter(balances, fn b ->
             String.to_float(b["free"]) > 0 || String.to_float(b["locked"]) > 0
           end)
-          
+
           if Enum.empty?(non_zero) do
             IO.puts "   No balances found (testnet account may be empty)"
           else
@@ -164,7 +164,7 @@ defmodule IExHelpers do
 
   def futures_demo do
     IO.puts """
-    
+
     Running USD-M Futures Demo
     ==========================
     """
@@ -205,7 +205,7 @@ defmodule IExHelpers do
           open_positions = Enum.filter(positions, fn p ->
             String.to_float(p["positionAmt"]) != 0
           end)
-          
+
           if Enum.empty?(open_positions) do
             IO.puts "   No open positions"
           else
@@ -239,53 +239,53 @@ defmodule IExHelpers do
 
   def rate_status do
     IO.puts """
-    
+
     Rate Limiter Status
     ===================
     """
-    
+
     limits = RateLimiter.get_limits()
-    
+
     IO.puts "\nConfigured Limits:"
     IO.puts "  Spot:           #{limits.spot.limit} req/min"
     IO.puts "  USD-M Futures:  #{limits.usdm_futures.limit} req/min"
     IO.puts "  COIN-M Futures: #{limits.coinm_futures.limit} req/min"
     IO.puts "  Portfolio:      #{limits.portfolio.limit} req/min"
     IO.puts "  SAPI:           #{limits.sapi.limit} req/min"
-    
+
     # Get current usage for common endpoints
     spot_status = RateLimiter.get_status(:spot_request)
     futures_status = RateLimiter.get_status(:usdm_futures_request)
-    
+
     IO.puts "\nCurrent Usage:"
     IO.puts "  Spot:     #{spot_status.used}/#{spot_status.limit} (#{spot_status.usage_percent}%)"
     IO.puts "  Futures:  #{futures_status.used}/#{futures_status.limit} (#{futures_status.usage_percent}%)"
-    
+
     :ok
   end
 
   def help do
     IO.puts """
-    
+
     ZenCex IEx Helper Functions
     ===========================
-    
+
     Environment & Config:
       H.env()         - Show current environment (testnet/production)
       H.credentials() - Check API credentials status
-      
+
     Demo Functions:
       H.spot_demo()    - Run spot trading demo
       H.futures_demo() - Run futures trading demo
       H.rate_status()  - Show rate limiter status
-      
+
     Direct Module Usage:
       # Get spot balances
       Spot.get_balances()
-      
+
       # Get ticker price
       Spot.get_ticker_price(%{symbol: "BTCUSDT"})
-      
+
       # Place spot order
       Spot.place_order(%{
         symbol: "BTCUSDT",
@@ -295,10 +295,10 @@ defmodule IExHelpers do
         price: "30000",
         timeInForce: "GTC"
       })
-      
+
       # Get futures positions
       UsdmFutures.get_positions()
-      
+
       # Place futures order
       UsdmFutures.place_order(%{
         symbol: "BTCUSDT",
@@ -306,12 +306,12 @@ defmodule IExHelpers do
         type: "MARKET",
         quantity: "0.001"
       })
-    
+
     Rate Limiting:
       RateLimiter.get_status(:spot_request)
       RateLimiter.get_limits()
       RateLimiter.reset(:spot)
-    
+
     Configuration:
       Config.testnet?(:binance)
       Config.base_url(:binance)

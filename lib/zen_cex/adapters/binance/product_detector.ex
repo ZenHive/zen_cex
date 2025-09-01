@@ -4,7 +4,7 @@ defmodule ZenCex.Adapters.Binance.ProductDetector do
 
   Portfolio Margin supports multiple product types:
   - **UM (USD-M Futures)**: USDT-margined perpetual and quarterly futures
-  - **CM (COIN-M Futures)**: Coin-margined perpetual and quarterly futures  
+  - **CM (COIN-M Futures)**: Coin-margined perpetual and quarterly futures
   - **Margin**: Cross and isolated margin trading
 
   ## Symbol Patterns

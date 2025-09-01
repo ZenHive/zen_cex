@@ -13,7 +13,7 @@ defmodule ZenCex do
   ## Usage
 
       # Make authenticated requests
-      ZenCex.HTTP.request(:binance, :get, "/api/v3/account", 
+      ZenCex.HTTP.request(:binance, :get, "/api/v3/account",
         auth: true,
         api_key: "your_key",
         api_secret: "your_secret"

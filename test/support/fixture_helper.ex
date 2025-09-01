@@ -15,7 +15,7 @@ defmodule ZenCex.Test.FixtureHelper do
       {
         "data": { ... actual API response ... },
         "captured_at": 1234567890000,
-        "zen_cex_version": "0.1.0", 
+        "zen_cex_version": "0.1.0",
         "test_environment": "binance_testnet",
         "api_endpoint": "/api/v3/account",
         "request_params": { ... sanitized params ... }
@@ -126,7 +126,7 @@ defmodule ZenCex.Test.FixtureHelper do
 
       {:ok, fixture} = load_fixture("binance", "get_balances_success.json")
       mock = create_mock_from_fixture(fixture, status: 200)
-      
+
       Req.Test.stub(MyRequest, mock)
   """
   @spec create_mock_from_fixture(map(), keyword()) :: function()
@@ -168,7 +168,7 @@ defmodule ZenCex.Test.FixtureHelper do
 
       {:ok, fixture} = load_fixture("binance", "get_balances_success.json")
       mock = create_rate_limited_mock(60, fixture)
-      
+
       Req.Test.stub(MyRequest, mock)
   """
   @spec create_rate_limited_mock(pos_integer(), map()) :: function()
@@ -228,7 +228,7 @@ defmodule ZenCex.Test.FixtureHelper do
 
       {:ok, error_fixture} = load_fixture("binance", "error_invalid_symbol.json")
       mock = create_error_mock(error_fixture, 400)
-      
+
       Req.Test.stub(MyRequest, mock)
   """
   @spec create_error_mock(map(), pos_integer()) :: function()
@@ -257,7 +257,7 @@ defmodule ZenCex.Test.FixtureHelper do
         "free" => :decimal_string,
         "locked" => :decimal_string
       }
-      
+
       :ok = validate_fixture_schema(fixture, schema)
   """
   @spec validate_fixture_schema(map(), map()) :: :ok | {:error, [String.t()]}
@@ -342,8 +342,8 @@ defmodule ZenCex.Test.FixtureHelper do
   ## Examples
 
       {:ok, old} = load_fixture("binance", "get_balances_v1.json")
-      {:ok, new} = load_fixture("binance", "get_balances_v2.json") 
-      
+      {:ok, new} = load_fixture("binance", "get_balances_v2.json")
+
       case compare_fixtures(old, new) do
         :unchanged -> :ok
         {:changed, differences} -> Logger.warning("API changed: \#{inspect(differences)}")

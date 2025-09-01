@@ -11,7 +11,7 @@ defmodule ZenCex.Adapters.CommonSigner do
   to it from their own Signer modules for backwards compatibility:
 
       defmodule ZenCex.Adapters.MyExchange.Signer do
-        defdelegate sign_payload(payload, api_secret), 
+        defdelegate sign_payload(payload, api_secret),
           to: ZenCex.Adapters.CommonSigner
       end
   """

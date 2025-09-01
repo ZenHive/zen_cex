@@ -31,16 +31,16 @@ defmodule ZenCex.Adapters.Bybit.EndpointLoader do
   defmodule MyModule do
     require ZenCex.Adapters.Bybit.EndpointLoader
     alias ZenCex.Adapters.Bybit.EndpointLoader
-    
+
     # Simple loading without customization
     EndpointLoader.load_endpoints("generated_endpoints.ex")
-    
+
     # With customization function for category injection
     EndpointLoader.load_endpoints("generated_endpoints.ex", fn endpoint ->
       case endpoint.operation do
-        :place_order -> 
+        :place_order ->
           %{endpoint | max_retries: 0, retry_on: []}
-        _ -> 
+        _ ->
           endpoint
       end
     end)
@@ -104,7 +104,7 @@ defmodule ZenCex.Adapters.Bybit.EndpointLoader do
   ```elixir
   # Create spot-specific endpoints with category pre-filled
   EndpointLoader.load_endpoints(
-    "generated_endpoints.ex", 
+    "generated_endpoints.ex",
     EndpointLoader.inject_category("spot")
   )
   ```

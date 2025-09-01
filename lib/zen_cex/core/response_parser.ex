@@ -226,7 +226,7 @@ defmodule ZenCex.Core.ResponseParser do
 
       iex> parse_html_error("<html>CloudFlare protection</html>", 503)
       {:error, {:cdn_error, "CloudFlare protection triggered"}}
-      
+
       iex> parse_html_error("<html>403 Forbidden</html>", nil)
       {:error, {:html_error, "403 Forbidden - Access denied by server"}}
   """

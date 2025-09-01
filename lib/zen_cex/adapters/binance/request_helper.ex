@@ -115,8 +115,8 @@ defmodule ZenCex.Adapters.Binance.RequestHelper do
 
       # POST request with JSON body and auth params in query
       execute_request(
-        config, 
-        %{params: auth_params, json: body_params}, 
+        config,
+        %{params: auth_params, json: body_params},
         [auth_credentials: creds],
         base_url,
         :binance,

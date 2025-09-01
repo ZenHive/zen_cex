@@ -11,7 +11,7 @@ defmodule ZenCex.RateLimiterTestHelpers do
 
   This function:
   1. Directly cleans up ETS table objects to avoid table creation conflicts
-  2. Uses the core rate limiter reset on existing tables only  
+  2. Uses the core rate limiter reset on existing tables only
   3. Handles all API types: spot, sapi, usdm_futures, coinm_futures, portfolio
   """
   @spec reset_all_binance_rate_limiter_tables() :: :ok

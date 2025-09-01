@@ -51,10 +51,10 @@ defmodule ZenCex.Adapters.Binance.MarketData do
 
       # Get spot ticker
       MarketData.get_ticker_price(%{symbol: "BTCUSDT"})
-      
+
       # Get USDM futures order book
       MarketData.usdm_get_order_book(%{symbol: "BTCUSDT", limit: 100})
-      
+
       # Get COINM futures klines
       MarketData.coinm_get_klines(%{
         symbol: "BTCUSD_PERP",

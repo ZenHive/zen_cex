@@ -151,7 +151,7 @@ defmodule BinanceIntegrationRunner do
     1. Public Endpoints (no auth required)
        • get_server_time/0 - Clock synchronization test
 
-    2. Authenticated Endpoints (testnet credentials)  
+    2. Authenticated Endpoints (testnet credentials)
        • get_balances/0 - Account balance retrieval
        • place_order/1 -> get_order/1 -> cancel_order/1 - Full order lifecycle
        • get_open_orders/1 - Open orders listing

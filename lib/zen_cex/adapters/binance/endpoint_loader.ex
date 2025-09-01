@@ -29,18 +29,18 @@ defmodule ZenCex.Adapters.Binance.EndpointLoader do
   defmodule MyModule do
     require ZenCex.Adapters.Binance.EndpointLoader
     alias ZenCex.Adapters.Binance.EndpointLoader
-    
+
     # Simple loading without customization
     EndpointLoader.load_endpoints("generated_endpoints.ex")
-    
+
     # With customization function
     EndpointLoader.load_endpoints("generated_endpoints.ex", fn endpoint ->
       case endpoint.operation do
-        :get_account -> 
+        :get_account ->
           %{endpoint | operation: :get_balances}
         op when op in [:place_order, :modify_order] ->
           %{endpoint | max_retries: 0, retry_on: []}
-        _ -> 
+        _ ->
           endpoint
       end
     end)

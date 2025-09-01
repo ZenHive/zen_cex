@@ -125,7 +125,7 @@ defmodule ZenCex.Core.EndpointRegistryMacroTest do
         Code.compile_string("""
         defmodule DangerousPattern do
           use ZenCex.EndpointRegistry
-          
+
           @endpoints [
             %{
               operation: :place_order,
@@ -147,7 +147,7 @@ defmodule ZenCex.Core.EndpointRegistryMacroTest do
         Code.compile_string("""
         defmodule MissingField do
           use ZenCex.EndpointRegistry
-          
+
           @endpoints [
             %{
               operation: :test_op,
@@ -166,7 +166,7 @@ defmodule ZenCex.Core.EndpointRegistryMacroTest do
         Code.compile_string("""
         defmodule InvalidMethod do
           use ZenCex.EndpointRegistry
-          
+
           @endpoints [
             %{
               operation: :test_op,
@@ -293,11 +293,11 @@ defmodule ZenCex.Core.EndpointRegistryMacroTest do
           Code.compile_string("""
           defmodule DebugModeTest do
             use ZenCex.EndpointRegistry, debug: true, adapter: __MODULE__
-            
+
             # Required adapter functions
             def __exchange__, do: :debug_test
             def base_url(:prod), do: "https://debug.test.com"
-            
+
             @endpoints [
               %{
                 operation: :debug_op,

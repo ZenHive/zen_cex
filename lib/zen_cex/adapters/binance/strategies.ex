@@ -112,7 +112,7 @@ defmodule ZenCex.Adapters.Binance.Strategies do
   - `opts` - Options:
     - `:dry_run` - Calculate but don't execute (default: false)
     - `:leverage` - Leverage for PAXG position (default: 1)
-    
+
   ## Returns
   - `{:ok, %{paxg_position: map, portfolio_value: Decimal, order_result: map}}`
   - `{:error, reason}` if validation fails or order cannot be placed
@@ -122,7 +122,7 @@ defmodule ZenCex.Adapters.Binance.Strategies do
       {:ok, %{
         portfolio_value: "100000.00",
         paxg_position: %{
-          symbol: "PAXGUSDT", 
+          symbol: "PAXGUSDT",
           side: "BUY",
           quantity: "50.0",
           notional: "100000.00"
@@ -161,7 +161,7 @@ defmodule ZenCex.Adapters.Binance.Strategies do
     - `:rebalance_ratio` - Portion of profit to convert (default: 0.5 or 50%)
     - `:min_rebalance_usdt` - Minimum USDT value to rebalance (default: 100)
     - `:dry_run` - Calculate but don't execute (default: false)
-    
+
   ## Returns
   - `{:ok, %{pnl: Decimal, amount_to_rebalance: Decimal, orders: list}}`
   - `{:error, reason}` if no position or not profitable

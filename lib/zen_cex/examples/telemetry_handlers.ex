@@ -11,7 +11,7 @@ defmodule ZenCex.Examples.TelemetryHandlers do
       def start(_type, _args) do
         # Attach handlers
         ZenCex.Examples.TelemetryHandlers.attach_all()
-        
+
         # ... rest of your supervision tree
       end
 
@@ -425,7 +425,7 @@ defmodule ZenCex.Examples.TelemetryDashboard do
   2. In your `MyAppWeb.Telemetry` module:
      ```elixir
      import Telemetry.Metrics
-     
+
      def metrics do
        ZenCex.Examples.TelemetryDashboard.metric_definitions() ++
        [

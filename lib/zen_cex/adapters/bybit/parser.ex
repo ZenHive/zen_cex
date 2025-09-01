@@ -431,7 +431,7 @@ defmodule ZenCex.Adapters.Bybit.Parser do
 
       iex> parse_market_data_response(%{"retCode" => 0, "retMsg" => "OK", "result" => %{"list" => [...]}})
       {:ok, %{"list" => [...]}}
-      
+
       iex> parse_market_data_response(%{"retCode" => 0, "retMsg" => "OK", "result" => %{"symbol" => "BTCUSDT"}})
       {:ok, %{"symbol" => "BTCUSDT"}}
   """
