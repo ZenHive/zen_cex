@@ -178,21 +178,13 @@ defmodule ZenCex.Adapters.Binance.RequestHelper do
   @doc """
   Builds request parameters for Spot API endpoints.
 
-  For Binance Spot, auth parameters (timestamp, recvWindow, signature) MUST be in query string,
-  while body parameters go in JSON for POST/PUT/DELETE requests.
+  IMPORTANT: Binance Spot API expects ALL parameters in the query string,
+  not in JSON body. This applies to all HTTP methods (GET, POST, PUT, DELETE).
   """
   @spec build_spot_request_params(map(), map()) :: map()
-  def build_spot_request_params(config, params) do
-    case config.method do
-      :get ->
-        %{params: params}
-
-      _ ->
-        # For POST/PUT/DELETE, auth params go in query, body params in json
-        auth_params = Map.take(params, @auth_params)
-        body_params = Map.drop(params, @auth_params)
-        %{params: auth_params, json: body_params}
-    end
+  def build_spot_request_params(_config, params) do
+    # All parameters go in query string for Spot API
+    %{params: params}
   end
 
   @doc """

@@ -114,6 +114,287 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
       assert is_atom(reason) or is_map(reason) or is_binary(reason) or is_tuple(reason)
     end
 
+    test "place_order validates required parameters" do
+      # Test missing symbol
+      result = Spot.place_order(%{side: "BUY", type: "LIMIT", quantity: "1", price: "100"})
+      assert {:error, _reason} = result
+
+      # Test missing side
+      result = Spot.place_order(%{symbol: "BTCUSDT", type: "LIMIT", quantity: "1", price: "100"})
+      assert {:error, _reason} = result
+
+      # Test missing type for limit order
+      result = Spot.place_order(%{symbol: "BTCUSDT", side: "BUY", quantity: "1", price: "100"})
+      assert {:error, _reason} = result
+    end
+
+    test "place_order with various order types returns proper errors" do
+      # Test MARKET order with invalid symbol
+      market_result =
+        Spot.place_order(%{
+          symbol: "INVALIDPAIR",
+          side: "BUY",
+          type: "MARKET",
+          quantity: "0.001"
+        })
+
+      assert {:error, _reason} = market_result
+      Logger.debug("TESTNET MARKET order error: #{inspect(market_result)}")
+
+      # Test LIMIT order with missing price
+      limit_result =
+        Spot.place_order(%{
+          symbol: "BTCUSDT",
+          side: "BUY",
+          type: "LIMIT",
+          quantity: "0.001",
+          timeInForce: "GTC"
+          # Missing price parameter
+        })
+
+      assert {:error, _reason} = limit_result
+      Logger.debug("TESTNET LIMIT order missing price error: #{inspect(limit_result)}")
+
+      # Test STOP_LOSS order with invalid stopPrice
+      stop_result =
+        Spot.place_order(%{
+          symbol: "BTCUSDT",
+          side: "SELL",
+          type: "STOP_LOSS",
+          quantity: "0.001",
+          # Invalid stop price
+          stopPrice: "0"
+        })
+
+      assert {:error, _reason} = stop_result
+      Logger.debug("TESTNET STOP_LOSS order error: #{inspect(stop_result)}")
+
+      # Test LIMIT_MAKER order
+      limit_maker_result =
+        Spot.place_order(%{
+          symbol: "BTCUSDT",
+          side: "BUY",
+          type: "LIMIT_MAKER",
+          quantity: "0.001",
+          # Very low price to avoid matching
+          price: "1"
+        })
+
+      # This might succeed or fail depending on testnet state
+      Logger.debug("TESTNET LIMIT_MAKER order result: #{inspect(limit_maker_result)}")
+    end
+
+    test "place_order with different timeInForce options" do
+      # Test GTC (Good Till Cancel)
+      gtc_result =
+        Spot.place_order(%{
+          symbol: "BTCUSDT",
+          side: "BUY",
+          type: "LIMIT",
+          quantity: "0.001",
+          # Very low price to avoid execution
+          price: "1",
+          timeInForce: "GTC"
+        })
+
+      Logger.debug("TESTNET GTC order result: #{inspect(gtc_result)}")
+
+      # Test IOC (Immediate or Cancel)
+      ioc_result =
+        Spot.place_order(%{
+          symbol: "BTCUSDT",
+          side: "BUY",
+          type: "LIMIT",
+          quantity: "0.001",
+          # Very low price, should cancel immediately
+          price: "1",
+          timeInForce: "IOC"
+        })
+
+      Logger.debug("TESTNET IOC order result: #{inspect(ioc_result)}")
+
+      # Test FOK (Fill or Kill)
+      fok_result =
+        Spot.place_order(%{
+          symbol: "BTCUSDT",
+          side: "BUY",
+          type: "LIMIT",
+          quantity: "0.001",
+          # Very low price, should kill immediately
+          price: "1",
+          timeInForce: "FOK"
+        })
+
+      Logger.debug("TESTNET FOK order result: #{inspect(fok_result)}")
+    end
+
+    test "place_order with newClientOrderId works" do
+      # Generate unique client order ID
+      client_order_id = "test_order_#{:os.system_time(:microsecond)}"
+
+      result =
+        Spot.place_order(%{
+          symbol: "BTCUSDT",
+          side: "BUY",
+          type: "LIMIT",
+          quantity: "0.001",
+          # Very low price to avoid execution
+          price: "1",
+          timeInForce: "GTC",
+          newClientOrderId: client_order_id
+        })
+
+      case result do
+        {:ok, response} ->
+          # If successful, verify the clientOrderId is in response
+          assert response["clientOrderId"] == client_order_id or
+                   Map.get(response, :clientOrderId) == client_order_id
+
+          Logger.debug("TESTNET order with clientOrderId successful: #{inspect(response)}")
+
+          # Try to cancel it to clean up
+          cancel_result =
+            Spot.cancel_order(%{
+              symbol: "BTCUSDT",
+              origClientOrderId: client_order_id
+            })
+
+          Logger.debug("TESTNET cleanup cancel result: #{inspect(cancel_result)}")
+
+        {:error, reason} ->
+          # Document the error
+          Logger.debug("TESTNET order with clientOrderId failed: #{inspect(reason)}")
+      end
+    end
+
+    test "place_order with quoteOrderQty for MARKET orders" do
+      # Test MARKET order with quoteOrderQty (spend exactly X USDT)
+      # Note: Binance API expects camelCase parameters
+      result =
+        Spot.place_order(%{
+          symbol: "BTCUSDT",
+          side: "BUY",
+          type: "MARKET",
+          # Buy exactly 10 USDT worth of BTC (camelCase required)
+          quoteOrderQty: "10"
+        })
+
+      case result do
+        {:ok, response} ->
+          Logger.debug("TESTNET MARKET quoteOrderQty order successful: #{inspect(response)}")
+          # Parser normalizes executedQty to filled_quantity
+          assert Map.has_key?(response, :filled_quantity)
+          assert response.filled_quantity
+
+        {:error, reason} ->
+          # Might fail due to insufficient balance on testnet
+          Logger.debug("TESTNET MARKET quoteOrderQty order failed: #{inspect(reason)}")
+      end
+    end
+
+    test "place_order with iceberg order parameters" do
+      # Test iceberg order (must have timeInForce = GTC)
+      result =
+        Spot.place_order(%{
+          symbol: "BTCUSDT",
+          side: "BUY",
+          type: "LIMIT",
+          quantity: "0.01",
+          price: "1",
+          timeInForce: "GTC",
+          # Show only 0.001 BTC at a time
+          icebergQty: "0.001"
+        })
+
+      Logger.debug("TESTNET iceberg order result: #{inspect(result)}")
+
+      # Test iceberg with wrong timeInForce (should fail)
+      bad_iceberg =
+        Spot.place_order(%{
+          symbol: "BTCUSDT",
+          side: "BUY",
+          type: "LIMIT",
+          quantity: "0.01",
+          price: "1",
+          # Wrong! Must be GTC for iceberg
+          timeInForce: "IOC",
+          icebergQty: "0.001"
+        })
+
+      assert {:error, _reason} = bad_iceberg
+      Logger.debug("TESTNET iceberg with wrong TIF error: #{inspect(bad_iceberg)}")
+    end
+
+    test "place_order response structure validation" do
+      # Place a limit order that won't execute (low price but within percent price filter)
+      # BTC is typically $90k-100k, so $50k should be safe from execution but pass filters
+      result =
+        Spot.place_order(%{
+          symbol: "BTCUSDT",
+          side: "BUY",
+          type: "LIMIT",
+          quantity: "0.001",
+          # ~50% of market price, should pass PERCENT_PRICE_BY_SIDE filter
+          price: "50000",
+          timeInForce: "GTC"
+        })
+
+      case result do
+        {:ok, response} ->
+          # Validate response structure based on Binance docs
+          assert is_map(response)
+
+          # Log the actual response to see what we got
+          Logger.debug("TESTNET order response: #{inspect(response)}")
+          Logger.debug("TESTNET order response keys: #{inspect(Map.keys(response))}")
+
+          # Check for expected fields in successful order response
+          # The parser converts to atoms and snake_case
+          expected_fields = [
+            :symbol,
+            :order_id,
+            :client_order_id,
+            :timestamp,
+            :price,
+            :quantity,
+            :filled_quantity,
+            :status,
+            :type,
+            :side
+          ]
+
+          # Check that all expected fields are present
+          Enum.each(expected_fields, fn field ->
+            assert Map.has_key?(response, field),
+                   "Missing expected field: #{field}. Available keys: #{inspect(Map.keys(response))}"
+          end)
+
+          # Validate field types
+          assert is_binary(response.symbol)
+          assert is_binary(response.order_id)
+          assert is_binary(response.client_order_id)
+          assert is_integer(response.timestamp)
+          assert %Decimal{} = response.price
+          assert %Decimal{} = response.quantity
+          assert %Decimal{} = response.filled_quantity
+          assert is_atom(response.status)
+          assert is_atom(response.type)
+          assert is_atom(response.side)
+
+          # Cancel the order to clean up
+          cancel_result =
+            Spot.cancel_order(%{
+              symbol: "BTCUSDT",
+              orderId: response.order_id
+            })
+
+          Logger.debug("TESTNET cleanup cancel: #{inspect(cancel_result)}")
+
+        {:error, reason} ->
+          Logger.debug("TESTNET order failed (might be insufficient balance): #{inspect(reason)}")
+      end
+    end
+
     test "cancel_order with invalid order returns error" do
       # Try to cancel non-existent order
       result = Spot.cancel_order(%{symbol: "BTCUSDT", orderId: 99_999_999})
