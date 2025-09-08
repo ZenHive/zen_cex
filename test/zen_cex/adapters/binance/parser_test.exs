@@ -230,14 +230,59 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
     end
 
     test "handles invalid format" do
-      assert {:error, :invalid_format} = Parser.parse_balances(%{"invalid" => "format"})
-      assert {:error, :invalid_format} = Parser.parse_balances("invalid")
+      response = %{"invalid" => "format"}
+      assert {:error, {:invalid_format, message}} = Parser.parse_balances(response)
+      assert message =~ "Expected map with 'balances' key"
+      assert message =~ ~s(%{"invalid" => "format"})
     end
 
     test "handles parse errors" do
       # This should cause an error during Enum.map processing
       response = %{"balances" => ["invalid_balance_format"]}
       assert {:error, {:parse_error, _}} = Parser.parse_balances(response)
+    end
+
+    test "parses futures V3 balances (direct array)" do
+      # Futures V3 returns array directly, not wrapped in object
+      response = [
+        %{
+          "accountAlias" => "SgsR",
+          "asset" => "USDT",
+          "balance" => "122607.35137903",
+          "crossWalletBalance" => "23.72469206",
+          "crossUnPnl" => "0.00000000",
+          "availableBalance" => "23.72469206",
+          "maxWithdrawAmount" => "23.72469206",
+          "marginAvailable" => true,
+          "updateTime" => 1_617_939_110_373
+        },
+        %{
+          "accountAlias" => "SgsR",
+          "asset" => "BTC",
+          "balance" => "1.50000000",
+          "crossWalletBalance" => "1.00000000",
+          "crossUnPnl" => "0.00000000",
+          "availableBalance" => "1.00000000",
+          "maxWithdrawAmount" => "1.00000000",
+          "marginAvailable" => true,
+          "updateTime" => 1_617_939_110_373
+        }
+      ]
+
+      assert {:ok, balances} = Parser.parse_balances(response)
+      assert length(balances) == 2
+
+      usdt = Enum.find(balances, &(&1.asset == "USDT"))
+      assert usdt.free == Decimal.new("23.72469206")
+      assert usdt.total == Decimal.new("122607.35137903")
+      # locked = total - available
+      expected_locked = Decimal.sub(Decimal.new("122607.35137903"), Decimal.new("23.72469206"))
+      assert Decimal.equal?(usdt.locked, expected_locked)
+
+      btc = Enum.find(balances, &(&1.asset == "BTC"))
+      assert btc.free == Decimal.new("1.00000000")
+      assert btc.total == Decimal.new("1.50000000")
+      assert Decimal.equal?(btc.locked, Decimal.new("0.50000000"))
     end
   end
 
@@ -359,13 +404,19 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
 
   describe "parse_error/1" do
     test "parses standard Binance error codes" do
+      # Now we pass through raw errors with code and message, except for rate limiting
       error_cases = [
-        {%{"code" => -1121, "msg" => "Invalid symbol"}, {:error, :invalid_symbol}},
-        {%{"code" => -2010, "msg" => "Account has insufficient balance"}, {:error, :insufficient_balance}},
-        {%{"code" => -1013, "msg" => "Invalid quantity"}, {:error, :invalid_quantity}},
+        {%{"code" => -1121, "msg" => "Invalid symbol"}, {:error, {:binance_error, -1121, "Invalid symbol"}}},
+        {%{"code" => -2010, "msg" => "Account has insufficient balance"},
+         {:error, {:binance_error, -2010, "Account has insufficient balance"}}},
+        {%{"code" => -1013, "msg" => "Filter failure: LOT_SIZE"},
+         {:error, {:binance_error, -1013, "Filter failure: LOT_SIZE"}}},
+        # Rate limiting still gets special treatment
         {%{"code" => 429, "msg" => "Too many requests"}, {:error, :rate_limited}},
-        {%{"code" => -1022, "msg" => "Signature not valid"}, {:error, :signature_not_valid}},
-        {%{"code" => -2011, "msg" => "Unknown order sent"}, {:error, :unknown_order}}
+        # Also rate limiting
+        {%{"code" => -1003, "msg" => "Too many requests"}, {:error, :rate_limited}},
+        {%{"code" => -1022, "msg" => "Signature not valid"}, {:error, {:binance_error, -1022, "Signature not valid"}}},
+        {%{"code" => -2011, "msg" => "Unknown order sent"}, {:error, {:binance_error, -2011, "Unknown order sent"}}}
       ]
 
       for {error_response, expected_result} <- error_cases do
@@ -376,7 +427,7 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
     test "handles unknown error codes with details" do
       unknown_error = %{"code" => -9999, "msg" => "Something went wrong"}
 
-      assert {:error, {:exchange_error, "Something went wrong"}} =
+      assert {:error, {:binance_error, -9999, "Something went wrong"}} =
                Parser.parse_error(unknown_error)
     end
 

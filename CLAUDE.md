@@ -1,837 +1,177 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working with the ZenCex library.
 
-## CRITICAL: READ AGENTS.md FIRST
-**AGENTS.md contains essential Elixir library guidelines that MUST be followed. It includes:**
-- Elixir language patterns and common pitfalls
-- Library-specific architecture patterns
-- Testing requirements (real testnet APIs only)
-- Module cooperation patterns
-- Documentation standards
-
-**ALWAYS refer to AGENTS.md for library-specific implementation details before writing any code.**
-
-## IMPORTANT: Date Awareness
-
-**Always check today's date** from the environment context (`<env>` section) when:
-- Working with dates, timestamps, or time-based operations
-- Calculating date ranges or intervals
-- Referencing "recent" or "current" documentation
-- Searching for the latest version of documentation or APIs
-- Creating or updating date-sensitive code
-
-**For Web Searches**:
-- **NEVER use "2024" when searching for current/latest documentation**
-- **ALWAYS use the current year from the `<env>` section (e.g., if today is 2025-08-17, use "2025")**
-- Examples:
-  - ❌ BAD: "Binance API rate limits 2024 documentation"
-  - ✅ GOOD: "Binance API rate limits 2025 documentation" (when in 2025)
-  - ✅ GOOD: "Binance API rate limits latest documentation"
-
-The current date is provided in the `<env>` section as "Today's date: YYYY-MM-DD". Use this for all date-related operations and searches.
+## Prerequisites
+- **Read AGENTS.md first** - Contains Elixir patterns, testing requirements, and module cooperation patterns
+- **Date Awareness**: Always use current year from `<env>` section for searches (e.g., "Binance API 2025" not "2024")
 
 ## Project Overview
 
-**IMPORTANT: This library is not in your training data. Please do not assume you know how it works - make yourself familiar with it by reading the codebase.**
+ZenCex - Elixir library for crypto exchange REST APIs (Binance & Bybit).
 
-ZenCex is an Elixir library for centralized cryptocurrency exchange (CEX) REST API integrations. It provides comprehensive market data and trading endpoints for Binance and Bybit exchanges.
+**Scope**: REST-only, 30s-5min intervals, not for HFT
+**Design**: Req-centric HTTP, ETS state, minimal supervision
 
-**IMPORTANT SCOPE**:
-- **REST APIs ONLY** - Perfect for position monitoring, hedging, and portfolio management
-- **Binance & Bybit Focus** - Two exchanges covering 80%+ of global volume
-- **Market Data + Trading** - Prices, order books, positions, and order management
-- **NOT for HFT** - Designed for 30s-5min intervals, not microsecond latency
+**Use Cases**:
+- Position monitoring & exposure calculation
+- Portfolio hedging & rebalancing
+- Subaccount risk isolation
+- Market data collection
+- Trade execution on signals
 
-**Perfect Use Cases**:
-- Position monitoring and exposure calculation
-- Portfolio hedging and rebalancing
-- Subaccount management for risk isolation
-- Market data collection for analysis
-- Trade execution based on signals
-
-**Design Philosophy**: Leverages Req's capabilities for HTTP, uses ETS for stateless operations, and provides comprehensive error handling and safety features.
-
-## Development Commands
-
-### Core Commands
-```bash
-# Install dependencies
-mix deps.get
-
-# Run tests
-mix test
-
-# Run tests with coverage
-mix test --cover
-mix coveralls.html  # Generate HTML coverage report
-
-# Run a specific test file
-mix test test/zen_cex/exchange/http_test.exs
-
-# Run a specific test at a line number
-mix test test/zen_cex/exchange/http_test.exs:42
-
-# Run previously failed tests
-mix test --failed
-
-# Run pre-commit checks (format, credo, dialyzer, tests)
-mix precommit
-
-# Format code
-mix format
-
-# Check formatting without changes
-mix format --check-formatted
-
-# Run static analysis
-mix credo --strict
-
-# Run dialyzer type checking
-mix dialyzer
-
-# Check documentation coverage and specs
-mix doctor              # Analyze docs, typespecs, and module health
-mix doctor --full       # Detailed report for each module
-mix doctor --summary    # Summary statistics only
-mix doctor --failed     # Show only failed modules
-
-# Generate documentation
-mix docs
-
-# Start interactive shell
-iex -S mix
-
-# Clean dependencies (rarely needed)
-mix deps.clean --all  # Avoid unless necessary
-```
-
-### Shell Shortcuts (from .zprofile)
-```bash
-# Mix shortcuts for faster development
-mf   # mix format
-mt   # mix format && time mix test
-mtw  # mix test.watch
-mc   # time mix compile --warnings-as-errors
-```
-
-### Test Categories
-The test suite is organized into three categories:
-- **Unit tests**: `*_test.exs` - Test individual functions and modules
-- **Integration tests**: `*_integration_test.exs` - Test against real exchange APIs
-- **Performance tests**: `*_performance_test.exs` - Benchmark high-load scenarios
-
-## Tidewave MCP (Model Context Protocol)
-
-Tidewave provides an MCP server for enhanced Elixir development capabilities. It allows Claude Code to directly interact with your Elixir project through specialized tools.
-
-### Starting Tidewave
+## Commands
 
 ```bash
-# Start Tidewave server on port 4000
-# BUT CHECK FIRST IF IT IS RUNNING ALWAYS
-mix tidewave
-
-# The server runs continuously - keep it running during development
+mix deps.get              # Install dependencies
+mix test                  # Run all tests
+mix test --exclude integration  # Unit tests only
+mix precommit             # Format, credo, dialyzer, tests
+mix doctor                # Check docs and specs
+iex -S mix                # Interactive shell
 ```
 
-### Available MCP Tools
+## Tidewave MCP
 
-When Tidewave is running, Claude Code has access to these `mcp__tidewave__` prefixed tools:
+Start with `mix tidewave` (port 4001). Use MCP tools for testing:
+- `mcp__tidewave__project_eval` - Execute code in project context
+- `mcp__tidewave__get_docs` - Get module/function docs
+- `mcp__tidewave__get_source_location` - Find source locations
+- `mcp__tidewave__search_package_docs` - Search Hex docs
+- `mcp__tidewave__get_logs` - View application logs
 
-1. **`mcp__tidewave__project_eval`** - Execute Elixir code in project context
-   - Runs code with full project dependencies loaded
-   - Returns both the result and any IO output
-   - Includes IEx helpers (e.g., `exports(Module)`)
-   - Supports timeout configuration
-   - **PREFER THIS over shell commands for Elixir evaluation**
+## Debug Module
 
-2. **`mcp__tidewave__get_docs`** - Get documentation for modules/functions
-   - Works for project modules and dependencies
-   - Accepts Module, Module.function, or Module.function/arity
-   - Returns formatted documentation with examples
-
-3. **`mcp__tidewave__get_source_location`** - Find source code locations
-   - Returns file path and line number for any reference
-   - Works for project code and dependencies
-   - Useful for navigating to implementation details
-
-4. **`mcp__tidewave__search_package_docs`** - Search Hex documentation
-   - Searches documentation for project dependencies
-   - Useful for finding usage examples and API details
-   - Can filter by specific packages
-
-5. **`mcp__tidewave__get_package_location`** - Get dependency locations
-   - Returns file paths for installed dependencies
-   - Helps locate dependency source code
-
-6. **`mcp__tidewave__get_logs`** - View application logs
-   - Filter by log level (debug, info, warning, error, etc.)
-   - Tail recent log entries
-   - Excludes logs from other tool calls
-
-7. **`mcp__tidewave__list_liveview_pages`** - List active LiveViews
-   - Shows currently connected LiveView sessions
-   - Useful for Phoenix LiveView development
-
-### Development Workflow with Tidewave
-
-**IMPORTANT**: When Tidewave is available, prefer using MCP tools over starting the Phoenix server:
-
-```elixir
-# Instead of: iex -S mix or mix phx.server
-# Use: mcp__tidewave__project_eval to test code
-
-# Example: Test a module function
-mcp__tidewave__project_eval(code: """
-  ZenCex.Core.Registry.list_exchanges()
-""")
-
-# Example: Inspect module exports
-mcp__tidewave__project_eval(code: """
-  exports(ZenCex.Core.HTTP)
-""")
-
-# Example: Test with specific timeout
-mcp__tidewave__project_eval(
-  code: "Process.sleep(1000); :ok",
-  timeout: 2000
-)
-```
-
-### Benefits of Using Tidewave
-
-1. **No Manual Server Management** - No need to start/stop IEx sessions
-2. **Direct Code Execution** - Test functions without creating temporary files
-3. **Full Project Context** - All dependencies and modules available
-4. **Integrated Documentation** - Access docs without leaving the development flow
-5. **Real-time Logs** - Monitor application behavior during testing
-6. **Faster Iteration** - Immediate feedback without server restarts
-
-### Common Tidewave Patterns
-
-```elixir
-# Check module compilation
-mcp__tidewave__project_eval(code: "Code.ensure_loaded?(ZenCex.Core.HTTP)")
-
-# Inspect ETS tables
-mcp__tidewave__project_eval(code: ":ets.all() |> Enum.map(&:ets.info(&1, :name))")
-
-# Test rate limiter
-mcp__tidewave__project_eval(code: """
-  alias ZenCex.Adapters.Binance.RateLimiter
-  RateLimiter.check_and_increment(:spot_request)
-""")
-
-# Check application environment
-mcp__tidewave__project_eval(code: "Application.get_all_env(:zen_cex)")
-```
-
-## Debug Module Usage
-
-ZenCex includes a powerful debug module for troubleshooting HTTP requests, particularly useful when dealing with exchange API errors.
-
-### Enabling Debug Mode
-
-```bash
-# Configure in config/dev.exs or config/test.exs
-config :zen_cex, :debug,
-  enabled: true,
-  export_curl: true,
-  log_level: :debug
-
-# Or enable at runtime in IEx
-ZenCex.Core.Debug.enable()
-
-# Disable when done
-ZenCex.Core.Debug.disable()
-```
-
-### Debug Features
-
-When debug mode is enabled and a request fails:
-- The curl command is logged to console
-- Request details are stored in ETS for retrieval
-- Telemetry events are emitted for monitoring
-
-### Using Debug Module in Development
-
-```elixir
-# Enable debug mode
-ZenCex.Core.Debug.enable()
-
-# Make a request that might fail
-alias ZenCex.Adapters.Binance.Spot
-{:error, reason} = Spot.get_balances()  # Assuming this fails
-
-# Get the last failed request as curl command
-{:ok, curl_command} = ZenCex.Core.Debug.get_last_curl()
-IO.puts(curl_command)  # Copy and run in terminal to reproduce
-
-# Get multiple recent failures
-commands = ZenCex.Core.Debug.get_recent_curls(5)
-
-# Check debug statistics
-ZenCex.Core.Debug.stats()
-# Returns map with total_captured, recent_errors, etc.
-
-# Clear debug data
-ZenCex.Core.Debug.clear()
-```
-
-### Debug with Tidewave
-
-```elixir
-# Enable debug and test with Tidewave
-mcp__tidewave__project_eval(code: """
-  ZenCex.Core.Debug.enable()
-  
-  # Make a failing request
-  alias ZenCex.Adapters.Binance.Spot
-  result = Spot.get_balances(%{invalid: "param"})
-  
-  # Get the curl command
-  {:ok, curl} = ZenCex.Core.Debug.get_last_curl()
-  
-  # Return both the error and curl for analysis
-  {result, curl}
-""")
-
-# Check debug statistics
-mcp__tidewave__project_eval(code: "ZenCex.Core.Debug.stats()")
-```
-
-### Benefits
-
-- **Reproduce API errors**: Export failed requests as curl commands
-- **Debug authentication**: See exact headers and signatures being sent
-- **Test rate limiting**: Identify when rate limits are hit
-- **Troubleshoot integration**: Share curl commands with exchange support
-- **Development efficiency**: Quickly iterate on API integration issues
-
-### Important Notes
-
-- Debug mode is only available in `:dev` and `:test` environments
-- The `curl_req` package is optional but recommended for accurate curl export
-- Debug data is stored in ETS and cleaned up automatically
-- Sensitive data (API keys) will be visible in curl commands - use testnet credentials
-
-### Troubleshooting Tidewave
-
-If Tidewave connection issues occur:
-1. Ensure Tidewave is running: `mix tidewave`
-2. Check for port conflicts on 4000
-3. Verify dependencies with `mix deps.get`
-4. Check logs with `mcp__tidewave__get_logs(tail: 20, level: "error")`
+Enable with `ZenCex.Core.Debug.enable()` to export failed requests as curl commands:
+- `get_last_curl()` - Get last failed request as curl
+- `get_recent_curls(n)` - Get n recent failures
+- `stats()` - Debug statistics
+- `clear()` - Clear debug data
 
 ## Architecture
 
-### Req-Centric REST Architecture Overview
+### Core Modules
+- **Application**: ETS tables, Finch pooling
+- **Core.Registry**: Exchange → module mapping
+- **Core.HTTP**: Req configuration with auth/rate-limit steps
+- **Safety.ClockSync**: Time sync with exchanges
 
-**CRITICAL DESIGN**: This library is built entirely around Req's capabilities - we don't reimplement what Req already provides.
+### Adapters
 
-- **No custom HTTP client logic** - Req handles pooling (Finch), retry, telemetry
-- **Middleware as Req steps** - Auth and rate limiting are just request/response steps
-- **ETS over GenServers** - Atomic counters work better with Req's stateless pipeline
-- **Minimal supervision** - Only OAuth tokens need state (when implemented)
-- **Let Req handle complexity** - We just configure and compose
+**Binance** (complete):
+- Direct module usage: `Spot`, `Margin`, `UsdmFutures`, `CoinmFutures`, `PortfolioMargin`
+- Supporting: `Auth`, `RateLimiter`, `Parser`, `Strategies`
 
-### Core Module Structure
+**Bybit** (trading complete):
+- Direct module usage: `Unified`, `Common`, `MarketData`
+- Market data pending
 
-1. **Application** (`lib/zen_cex/application.ex`)
-   - Initializes ETS tables for rate limiting
-   - Starts Finch for Req's connection pooling
-   - Only supervises OAuth GenServers when needed (future Deribit implementation)
+### Design Patterns
+- Req middleware for everything (auth, rate-limiting)
+- ETS for state (rate limits, clock sync)
+- Minimal supervision (only OAuth needs GenServer)
 
-2. **Core.Registry** (`lib/zen_cex/core/registry.ex`)
-   - Maps exchange names to endpoint modules
-   - Runtime validation and loading
-   - Exchange listing and capability queries
-   - Currently only Binance is fully registered
+## Exchange Details
 
-3. **Core.HTTP** (`lib/zen_cex/core/http.ex`)
-   - Configures Req's built-in features: pooling, retry, telemetry
-   - Adds auth and rate limiting as Req request/response steps
-   - Leverages Req's middleware pipeline instead of custom coordination
-
-4. **Safety.ClockSync** (`lib/zen_cex/safety/clock_sync.ex`)
-   - Synchronizes local time with exchange servers
-   - Supports per-API-type synchronization (e.g., Binance spot vs futures)
-   - Critical for exchanges requiring precise timestamps
-   - ETS-based offset storage for performance
-
-### Adapter Structure
-
-Each exchange adapter in `ZenCex.Adapters.{Exchange}.*` consists of these cooperating modules:
-
-#### Binance Adapter (Fully Implemented)
-The Binance adapter is the most complete implementation supporting multiple API types:
-
-1. **Registry Module** (`endpoints.ex`) - Provides discovery functions and registry for Core.Registry
-2. **API Type Modules** - Each handles specific trading types (use these directly):
-   - `spot.ex` - Spot trading
-   - `margin.ex` - Cross and isolated margin
-   - `usdm_futures.ex` - USD-M futures/USDT-margined
-   - `coinm_futures.ex` - COIN-M futures/coin-margined
-   - `portfolio_margin.ex` - Portfolio margin
-   - `common.ex` - Shared endpoints like server_time
-3. **Generated Endpoint Modules** - Auto-generated from endpoint definitions:
-   - `generated_endpoints.ex` - Spot trading endpoints
-   - `generated_margin_endpoints.ex` - Margin trading endpoints
-   - `generated_usdm_endpoints.ex` - USD-M futures endpoints
-   - `generated_coinm_endpoints.ex` - COIN-M futures endpoints
-   - `generated_portfolio_endpoints.ex` - Portfolio margin endpoints
-4. **Supporting Modules**:
-   - `auth.ex` - HMAC-SHA256 authentication
-   - `rate_limiter.ex` - Multi-API rate limiting with ETS
-   - `parser.ex` - Response normalization
-   - `signer.ex` - Request signing logic
-   - `parameter_builder.ex` - Parameter construction
-   - `request_helper.ex` - Request utilities
-   - `endpoint_loader.ex` - Dynamic endpoint loading
-   - `product_detector.ex` - API type detection
-   - `strategies.ex` - Trading strategy helpers
-
-#### Bybit Adapter (Trading Complete, Market Data Pending)
-The Bybit adapter follows the same patterns as Binance:
-- **Unified V5 API** - Single endpoint for all product types
-- **Trading endpoints** - Order placement, cancellation, position management ✅
-- **Direct module usage** - Use `Bybit.Unified`, `Bybit.Common`, `Bybit.MarketData` directly
-- **Market data** - Tickers, order books, klines (to be added) 🚧
-- **Options** - Options trading endpoints (to be added) 🚧
-
-See `docs/refactoring_sessions.md` for remaining implementation details.
-
-### Why "Adapters" Namespace?
-
-The `Adapters` namespace accurately describes the role of these modules:
-- They **adapt** external exchange APIs to ZenCex's unified interface
-- Each adapter is a **collection of modules** working together (not just endpoints)
-- The pattern follows the Adapter design pattern from software architecture
-- Future protocol support (if added) would still fit logically under this namespace
-
-### Supervision Tree (Minimal - Leveraging Req)
-
-```
-ZenCex.Application
-├── Finch (named: ZenCex.Finch)  # Req's connection pooling
-└── (Future: OAuth GenServers when needed)
-
-# No supervision needed for:
-# - Rate limiters (ETS tables with atomic ops)
-# - Auth modules (stateless Req steps)
-# - HTTP operations (Req handles retry, telemetry)
-```
-
-### Key Design Patterns (Req-Powered REST)
-
-1. **Req does the heavy lifting**: We configure, not reimplement - pooling, retry, telemetry all from Req
-2. **Steps over GenServers**: Auth/rate-limiting as Req steps, not separate processes
-3. **ETS for stateless ops**: Rate limit counters via ETS atomic ops fit Req's model
-4. **Supervision only when needed**: OAuth tokens will need GenServer (future implementations)
-5. **REST-Only by design**: No WebSocket complexity - Req excels at REST
-6. **Leverage, don't build**: If Req has it, we use it; if not, we question if we need it
-
-## Exchange-Specific Implementation Details
-
-### Binance (Fully Implemented)
-
-#### Architecture
-- **Direct Module Pattern**: Use API-specific modules directly (e.g., `Spot`, `UsdmFutures`)
-- **Registry Module**: `Endpoints` module provides discovery and registry functions only
-- **Generated + Manual**: Combines macro-generated standard endpoints with hand-written complex operations
-
-#### Endpoint Discovery and Direct Usage
+### Binance
 ```elixir
-# Use modules directly (recommended)
-alias ZenCex.Adapters.Binance.Spot
-alias ZenCex.Adapters.Binance.UsdmFutures
-alias ZenCex.Adapters.Binance.Common
-
+alias ZenCex.Adapters.Binance.{Spot, UsdmFutures}
 Spot.get_balances()
-UsdmFutures.get_positions()
-Common.get_server_time()
-
-# Discovery functions (for exploration)
-alias ZenCex.Adapters.Binance.Endpoints
-
-# List all available endpoints
-Endpoints.list_available_endpoints()
-
-# List endpoints by API type  
-Endpoints.list_available_endpoints(:spot)
-
-# Get detailed endpoint information
-Endpoints.get_endpoint_info(:get_balances, :spot)
+Spot.place_oco_order(%{symbol: "BTCUSDT", ...})
 ```
+- HMAC-SHA256 auth, `X-MBX-APIKEY` header
+- Per-API-type rate limits
+- ClockSync for timestamps
 
-#### Technical Details
-- Requires `timestamp` and `recvWindow` parameters for authenticated requests
-- Signature goes in query string as last parameter
-- Uses `X-MBX-APIKEY` header for API key
-- Rate limit weights reported in `x-mbx-used-weight-1m` header
-- Separate rate limits maintained per API type
-- ClockSync handles time synchronization per API type
-
-### Bybit (Trading Complete)
-
-#### Architecture
-- **Unified V5 API**: Single endpoint for all product types (spot, linear, inverse, option)
-- **Direct Module Usage**: Use `Unified`, `Common`, `MarketData` modules directly
-- **Trading Operations**: Order placement, cancellation, position queries ✅
-- **Market Data**: Public endpoints (to be added) 🚧
-- **Options Trading**: Options-specific endpoints (to be added) 🚧
-
-#### Technical Details
-- Uses HMAC-SHA256 like Binance
-- Unified margin account across products
-- Single rate limit pool for all endpoints
-- Testnet available at `api-testnet.bybit.com`
+### Bybit
+```elixir
+alias ZenCex.Adapters.Bybit.Unified
+Unified.get_positions()
+```
+- Unified V5 API
+- Single rate limit pool
 
 ## Environment Variables
 
-Required for authenticated operations:
 ```bash
-# Binance
-BINANCE_API_KEY=your_key
-BINANCE_API_SECRET=your_secret
+# Binance (spot/futures have separate testnets!)
+BINANCE_TESTNET_API_KEY=xxx       # testnet.binance.vision
+BINANCE_FUTURES_TEST_API_KEY=xxx  # testnet.binancefuture.com
 
 # Bybit
-BYBIT_API_KEY=your_key
-BYBIT_API_SECRET=your_secret
-
-# For testnet (integration tests)
-BINANCE_TESTNET_API_KEY=your_testnet_key
-BINANCE_TESTNET_API_SECRET=your_testnet_secret
-BYBIT_TESTNET_API_KEY=your_testnet_key
-BYBIT_TESTNET_API_SECRET=your_testnet_secret
+BYBIT_TESTNET_API_KEY=xxx         # api-testnet.bybit.com
 ```
 
 
-## Development Workflow
-
-This project uses focused, iterative development:
-- **Current Focus**: See `docs/refactoring_sessions.md` for the implementation plan
-- **Archived Docs**: See `docs/archive/` for historical context
-
-### Documentation Writing Guidelines
-
-When writing or updating docs/* files:
-- **Be concise**: Use bullet points and short sentences
-- **Avoid repetition**: Reference other docs instead of duplicating
-- **Task updates only**: Update task status with single line (e.g., "✅ Task #10 COMPLETED")
-- **No verbose explanations**: State facts, skip lengthy justifications
-- **Use tables**: For comparisons and quick reference data
-- **Minimal examples**: 3-5 lines max, only when essential
-- **Skip preambles**: Get straight to the point
-- **No redundant sections**: If it's in CLAUDE.md, don't repeat in docs/
-- **Trust the AI Expert Developer**: It knows how to write software - skip HOW-to explanations, focus on WHAT is needed
-
-## Important Implementation Notes
+## Key Implementation Notes
 
 ### Endpoint Registry Pattern
+- `@endpoints` definitions → macro-generated functions
+- Direct module usage (no delegation)
+- Compile-time validation
+- Runtime discovery via registry modules
 
-The library uses a sophisticated declarative endpoint registry pattern:
-
-#### How It Works
-1. **Endpoint Definition**: Each API module defines `@endpoints` with endpoint specifications
-2. **Code Generation**: `EndpointRegistry` macro generates functions at compile time
-3. **Direct Usage**: Call API modules directly without delegation layers
-4. **Runtime Discovery**: Registry module provides endpoint exploration functions
-
-#### Key Features
-- **Automatic Function Generation**: Standard operations generated from declarations
-- **Manual Override**: Complex operations can be hand-written in the same module
-- **Compile-time Validation**: Prevents dangerous patterns (e.g., retries on order placement)
-- **Multi-Arity Support**: Generated functions support 0, 1, and 2 argument versions
-- **Endpoint Discovery**: Runtime introspection of available endpoints and their details
-
-#### Generated Files Pattern
-Binance uses a dual-file approach:
-- **API Module** (e.g., `spot.ex`): Contains endpoint definitions and complex operations
-- **Generated Module** (e.g., `generated_endpoints.ex`): Auto-generated standard operations
-
-This separation keeps the main modules focused while avoiding code duplication.
-
-#### Debug Mode
+### IEx Helpers
 ```elixir
-use ZenCex.EndpointRegistry, :debug  # Prints generated AST during compilation
+H.env()           # Show environment
+H.credentials()   # Check API credentials
+H.rate_status()   # Rate limiter status
 ```
 
-### Trading Strategies Module
+### Req Features We Leverage (Don't Reinvent!)
 
-The Binance adapter includes a `Strategies` module with pre-built trading strategies:
-- **`auto_hedge_spot_positions/2`** - Automatically hedge spot positions
-- **`hedge_with_paxg_long/1`** - Hedge using PAXG (gold-backed token) long positions
-- **`rebalance_paxg_perp_to_spot/1`** - Rebalance between PAXG perpetual and spot
-- **`rebalance_portfolio/2`** - General portfolio rebalancing
+**Built-in Features**:
+- **Authentication**: `auth: {:bearer, token}` or dynamic `auth: fn -> {:bearer, get_token()} end`
+- **Retry**: `:safe_transient` (GET/HEAD) or custom retry functions
+- **Pooling**: Automatic via Finch with `:finch` option
+- **Telemetry**: Auto events on `[:req, :request, :*]`
+- **Compression**: Automatic gzip/deflate
+- **JSON**: Auto encode/decode with `:json` option
 
-These are high-level trading operations that coordinate multiple endpoints.
+**Step Patterns**:
+- Request steps: `request → request | {request, response/exception}`
+- Response steps: `{request, response} → {request, response/exception}`
+- Use `Req.Request.halt/2` to stop pipeline
+- Use `request.private` for inter-step data
+- Order: auth → rate limit → retry → telemetry
 
-### Current Features
-- **Binance**: Spot, margin, futures trading complete (market data pending)
-- **Bybit**: Unified V5 trading complete (market data & options pending)
-- **Endpoint Types**: Trading operations ready, market data to be added
-- **Core Architecture**: Req-centric HTTP, ETS-based rate limiting, compile-time configuration
-- **Safety Features**: Order validation, rate limiting with emergency bypass, clock synchronization
-- **Testing**: Real testnet APIs only, no mocks
+**What We Add (Not Reinvent)**:
+- Exchange-specific auth (HMAC-SHA256) as Req step
+- Rate limiting as Req step (ETS counters)
+- Clock sync for timestamps
+- Debug curl export on failures
 
-### Key Architectural Decisions
-- **Req-centric EVERYTHING**: If Req can do it, we don't build it
-- **Stateless by default**: OAuth tokens only exception (future implementations)
-- **ETS + Req steps**: Rate limiting via atomic ops, not processes
-- **No custom supervision**: Finch (via Req) manages connections
-- **REST-only focus**: Req is built for REST, so are we
-- **Reliability over speed**: Not for HFT, built for correctness
-- **Code generation**: Macros eliminate boilerplate without runtime overhead
+## Testing
 
-### Req HTTP Client Best Practices (from latest docs)
+**RULE: Test against REAL testnet APIs only. No mocks without real API testing first.**
+** You can TEST with Tidewave first to understand behavior. **
 
-#### Step Implementation Patterns
-Req uses a composable step-based middleware system. Steps must follow these signatures:
-
-1. **Request Steps**: Take a request, return modified request OR `{request, response}` or `{request, exception}` to short-circuit
-   ```elixir
-   def my_request_step(request) do
-     # Normal flow: modify and return request
-     request
-     |> Req.Request.put_header("x-custom", "value")
-
-     # OR halt with error
-     # Req.Request.halt(request, {:error, :my_error})
-
-     # OR short-circuit with response
-     # {request, %Req.Response{status: 200, body: "cached"}}
-   end
-   ```
-
-2. **Response Steps**: Take `{request, response}`, return `{request, response}` or `{request, exception}`
-   ```elixir
-   def my_response_step({request, response}) do
-     # Parse and return modified response
-     {request, %{response | body: Jason.decode!(response.body)}}
-   end
-   ```
-
-3. **Error Steps**: Take `{request, exception}`, return `{request, exception}` or `{request, response}`
-   ```elixir
-   def my_error_step({request, exception}) do
-     # Convert error to response or propagate
-     {request, %Req.Response{status: 503, body: "Service unavailable"}}
-   end
-   ```
-
-#### Built-in Features to Leverage
-- **Authentication**: Use `auth: {:bearer, token}` or `auth: fn -> {:bearer, get_token()} end` for dynamic tokens
-- **Retry**: Built-in `:safe_transient` retry (GET/HEAD only) or custom retry functions
-- **Finch Pooling**: Automatic connection pooling via `:finch` option
-- **Telemetry**: Automatic telemetry events, hook into `[:req, :request, :*]` events
-- **Compression**: Automatic gzip/deflate handling
-- **JSON**: Automatic encoding/decoding with `:json` option
-
-#### Private Field Usage
-Use `request.private` for passing data between steps (reserved for libraries/frameworks):
-```elixir
-request
-|> Req.Request.put_private(:exchange, :binance)
-|> Req.Request.put_private(:zen_cex_operation, :place_order)
+```bash
+mix test --exclude integration     # Unit tests only
+mix test                          # All tests (needs testnet credentials)
+mix test --only integration       # Integration tests only
+mix test --failed --trace         # Retry failed tests and trace errors
 ```
 
-#### Step Ordering
-- Use `append_request_steps/2` to add steps at the end (common case)
-- Use `prepend_request_steps/2` to add steps before built-in steps
-- Order matters: auth → rate limit → retry → telemetry
+- Unit tests: Pure functions only
+- Integration tests: Real testnet APIs, fail if credentials missing
+- First run may fail (connection setup), run `mix test --failed` to retry
 
-#### Error Handling with Req.Request.halt/2
-Use `halt/2` to stop pipeline execution:
+### Integration Test Pattern
 ```elixir
-def circuit_breaker_step(request) do
-  if CircuitBreaker.open?(request.private[:exchange]) do
-    Req.Request.halt(request, {:error, :circuit_breaker_open})
-  else
-    request
-  end
+use ZenCex.IntegrationCase, exchange: :binance, api_type: :spot
+
+test "real testnet API call" do
+  assert {:ok, balances} = Spot.get_balances()
+  # Document actual testnet response format
 end
 ```
 
-#### Performance Considerations
-- Steps should be lightweight and non-blocking
-- Use ETS for shared state (rate limits, circuit breakers)
-- Leverage Req's built-in features instead of reimplementing
-- Configure Finch pools appropriately for your load:
-  ```elixir
-  finch_options: [
-    conn_opts: [transport_opts: [timeout: 5_000]],
-    pool_timeout: 5_000,
-    receive_timeout: 15_000
-  ]
-  ```
-
-## Testing Strategy: Real APIs Only (TESTNET ONLY)
-
-### Simple Rule: ALL Tests Must Use Real TESTNET APIs
-
-We test against real exchange testnet/sandbox APIs. Period.
-No mocks. No fixtures. No simulation. Just real testnet APIs.
-**NEVER use production APIs in tests.**
-
-### Test Categories
-
-1. **Unit Tests** (`*_test.exs`)
-   - Test pure functions only (parsers, calculations)
-   - No API calls needed
-
-2. **Integration Tests** (`*_integration_test.exs`)
-   - Test against REAL testnet/sandbox APIs only
-   - Tag with `@tag :integration`
-   - **FAIL if credentials missing** - Don't skip/hide missing tests
-   - **FAIL if not using testnet** - Prevent production API calls
-   - Must document actual API responses
-
-### Testnet URLs (ENFORCED IN TESTS)
-
-```elixir
-# These are the ONLY allowed URLs in test environment
-# Currently only Binance is implemented:
-@test_hosts %{
-  binance: "testnet.binance.vision"
-  # Future implementations will add:
-  # bybit: "api-testnet.bybit.com"
-  # kraken: "api.kraken.com"
-  # deribit: "test.deribit.com"
-}
-
-# Tests MUST verify testnet usage - use the adapter's current_env() method
-alias ZenCex.Adapters.Binance.Endpoints
-assert Endpoints.current_env() == :test
-assert Endpoints.base_url() == "https://testnet.binance.vision"
-```
-
-### Running Tests
-
-```bash
-# Run unit tests only (fast, no API)
-mix test --exclude integration
-
-# Run ALL tests including real API tests (requires TESTNET credentials)
-BINANCE_TESTNET=true BINANCE_TESTNET_API_KEY=xxx BINANCE_TESTNET_API_SECRET=yyy mix test
-
-# Run specific exchange integration tests
-mix test --only integration:binance
-
-# Check what integration tests exist (should FAIL without credentials)
-mix test --only integration
-```
-
-**Note: First Test Run Behavior**
-When running tests that connect to real testnet APIs, some tests may fail on the first run due to initial connection setup and synchronization. This is expected behavior. To ensure all tests pass:
-1. Run `mix test` (some tests may fail initially)
-2. Run `mix test --failed --trace` to re-run only the failed tests with detailed output
-3. Failed tests should pass on the second run once connections are established
-
-### Writing Integration Tests
-
-**Integration tests follow a consistent pattern** for testing against real testnet APIs:
-
-```elixir
-defmodule ZenCex.Adapters.BinanceIntegrationTest do
-  # The IntegrationCase handles all testnet enforcement automatically
-  use ZenCex.IntegrationCase, exchange: :binance, api_type: :spot
-  
-  alias ZenCex.Adapters.Binance.Spot
-
-  test "get_balances returns real testnet balances" do
-    # This calls the REAL Binance testnet API
-    assert {:ok, balances} = Spot.get_balances()
-    assert is_list(balances)
-    
-    # Document actual response structure from TESTNET
-    # Binance testnet returns: [%{"asset" => "BTC", "free" => "0.0", "locked" => "0.0"}, ...]
-  end
-
-  test "place_order with invalid symbol returns real error" do
-    # This gets REAL error from Binance TESTNET
-    assert {:error, reason} = Spot.place_order(%{
-      symbol: "INVALID",
-      side: "BUY",
-      quantity: "1"
-    })
-
-    # Document what Binance TESTNET actually returns
-    # Binance testnet error: {"code": -1121, "msg": "Invalid symbol."}
-    assert reason =~ "Invalid symbol" or reason == {:invalid_symbol, _}
-  end
-  
-  # Use the with_env macro for testing env variable changes
-  test "authentication errors are properly formatted" do
-    with_env [{"BINANCE_TESTNET_API_KEY", "invalid_key"}] do
-      assert {:error, _} = Spot.get_balances()
-    end
-  end
-end
-```
-
-Integration tests must:
-- Verify testnet URL in setup/setup_all
-- Document actual API responses from testnet
-- Fail loudly if credentials are missing
-- Never skip tests - fail fast to ensure visibility
-- Use `@tag :integration` for test filtering
-
-### Benefits
-
-- **Dead simple rule**: Real testnet APIs or no test
-- **No bad mocks**: Can't mock what you haven't seen
-- **Self-documenting**: Tests show real behavior
-- **Forces integration testing**: Tests fail loudly without credentials
-- **Production safety**: Tests fail if not using testnet
-- **Fast local dev**: `--exclude integration` for unit tests only
-
-### Environment Variable Naming
-
-**CRITICAL**: Use `_TESTNET_` in environment variable names to prevent confusion:
-
-```bash
-# GOOD - Clear these are testnet credentials
-BINANCE_TESTNET_API_KEY=xxx
-BINANCE_TESTNET_API_SECRET=yyy
-KRAKEN_TESTNET_API_KEY=xxx
-DERIBIT_TESTNET_CLIENT_ID=xxx
-
-# BAD - Ambiguous, could be production
-BINANCE_API_KEY=xxx  # NEVER use in tests
-BINANCE_SECRET=yyy   # NEVER use in tests
-```
-
-### CI Configuration
-
-```yaml
-# For CI: Either provide TESTNET credentials or explicitly exclude integration tests
-- name: Run tests
-  env:
-    MIX_ENV: test
-    BINANCE_TESTNET_API_KEY: ${{ secrets.BINANCE_TESTNET_KEY }}
-    BINANCE_TESTNET_API_SECRET: ${{ secrets.BINANCE_TESTNET_SECRET }}
-  run: |
-    # Option 1: With testnet credentials (recommended)
-    mix test
-    
-    # Option 2: Unit tests only (explicit choice)
-    mix test --exclude integration
-```
-
-### Production Safety Checklist
-
-- [ ] All integration tests verify testnet URL in setup
-- [ ] Environment variables include `_TESTNET_` in name
-- [ ] Config files set testnet URLs for test environment
-- [ ] Tests fail loudly if production URL detected
-- [ ] No production credentials in test fixtures or examples
-
-### Coverage Targets
-- Overall: 80% minimum
-- Critical paths: 95% minimum
-- GenServer modules: 100% with proper error handling tests
+### Test Error Handling
+- **FAIL LOUDLY** - Never hide errors with `:ok`
+- Test specific error conditions explicitly
+- Separate success/error test cases
+- Use `_TESTNET_` in env variable names
 
 ## Module Dependencies
 
@@ -886,7 +226,7 @@ Core Elixir best practices for library development:
   def process_user(%User{} = user) do
     # user is guaranteed to be a User struct
   end
-  
+
   # BETTER: Also extract fields if needed
   def process_user(%User{id: id, name: name} = user) do
     # user is guaranteed to be a User struct with id and name available
@@ -929,6 +269,7 @@ Core Elixir best practices for library development:
 [!] TESTING POLICY [!]
 --------------------------------------------------
 ALWAYS test against REAL APIs first to understand behavior.
+You can TEST with Tidewave first to understand behavior.
 NEVER create mocks without first testing real APIs.
 Document actual API responses and edge cases from real testing.
 Mocks must exactly match observed real API behavior.
@@ -941,6 +282,7 @@ This ensures reliable, production-ready code.
 The library follows Elixir conventions:
 - Returns `{:ok, result}` or `{:error, reason}` tuples
 - Pass raw errors without wrapping in custom structs
+- **Provide meaningful error context**: Instead of generic atoms like `:invalid_format`, return tuples with descriptive messages like `{:invalid_format, "Expected map with 'balances' key, got: #{inspect(response)}"}`
 - Apply "let it crash" philosophy for unexpected errors
 - Uses telemetry for error reporting
 - Implements exponential backoff for transient failures
@@ -1013,3 +355,21 @@ def fetch_data do
   end
 end
 ```
+
+## Common Issues and Solutions
+
+### Test Failures
+- **First run failures**: Some tests may fail on first run due to connection setup. Run `mix test --failed` to retry.
+- **Missing credentials**: Tests will fail loudly if testnet API keys are not configured. This is intentional.
+- **Rate limiting**: If you see rate limit errors, wait a minute or use `RateLimiter.reset(:spot)` in IEx.
+
+### Authentication Issues
+- **Invalid API key**: Ensure you're using testnet keys for tests, not production keys.
+- **Timestamp errors**: The library handles clock sync automatically via `Safety.ClockSync`.
+- **Signature errors**: Check that both API key and secret are correctly set in environment variables.
+
+### Development Tips
+- **Use IEx helpers**: The `.iex.exs` file provides convenient aliases and demos.
+- **Check rate limits**: Use `H.rate_status()` in IEx to monitor rate limit usage.
+- **Debug requests**: Enable debug mode with `ZenCex.Core.Debug.enable()` to export curl commands.
+- **Tidewave for testing**: Use MCP tools for quick code testing without restarting the shell.

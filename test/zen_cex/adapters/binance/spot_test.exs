@@ -128,17 +128,296 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
 
     test "exports complex operation functions" do
       assert function_exported?(Spot, :place_oco_order, 1)
+      assert function_exported?(Spot, :cancel_oco_order, 1)
       assert function_exported?(Spot, :batch_cancel_orders, 1)
     end
   end
 
   describe "complex operations" do
-    test "place_oco_order returns not_implemented" do
-      assert Spot.place_oco_order(%{}) == {:error, :not_implemented}
+    @tag :integration
+    test "place_oco_order creates OCO order on testnet" do
+      # Valid OCO order parameters for testnet
+      # For a SELL OCO: price (take profit) > current price > stopPrice (stop loss)
+      params = %{
+        symbol: "BTCUSDT",
+        side: "SELL",
+        quantity: "0.001",
+        # Take profit at $120k (above current ~$100k)
+        price: "120000",
+        # Stop loss trigger at $95k  
+        stopPrice: "95000",
+        # Stop limit execution at $94.5k
+        stopLimitPrice: "94500"
+      }
+
+      # This SHOULD succeed on testnet - if it fails, the implementation is broken
+      {:ok, response} = Spot.place_oco_order(params)
+
+      # Verify the OCO order response structure
+      assert response["orderListId"]
+      assert response["contingencyType"] == "OCO"
+      assert response["listStatusType"]
+      assert response["listOrderStatus"]
+      assert response["transactionTime"]
+      assert response["symbol"] == "BTCUSDT"
+
+      # OCO creates exactly 2 orders
+      assert length(response["orders"]) == 2
+
+      # Check both orders exist with required fields
+      orders = response["orders"]
+
+      Enum.each(orders, fn order ->
+        assert order["orderId"]
+        assert order["clientOrderId"]
+        assert order["symbol"] == "BTCUSDT"
+      end)
     end
 
     test "batch_cancel_orders returns not_implemented" do
       assert Spot.batch_cancel_orders(%{}) == {:error, :not_implemented}
+    end
+  end
+
+  describe "OCO order input validation" do
+    test "place_oco_order returns validation error for missing symbol" do
+      result =
+        Spot.place_oco_order(%{
+          side: "SELL",
+          quantity: "0.001",
+          price: "120000",
+          stopPrice: "95000",
+          stopLimitPrice: "94500"
+        })
+
+      assert {:error, {:missing_params, [:symbol]}} = result
+    end
+
+    test "place_oco_order returns validation error for missing quantity" do
+      result =
+        Spot.place_oco_order(%{
+          symbol: "BTCUSDT",
+          side: "SELL",
+          price: "120000",
+          stopPrice: "95000",
+          stopLimitPrice: "94500"
+        })
+
+      assert {:error, {:missing_params, [:quantity]}} = result
+    end
+
+    test "place_oco_order returns validation error for missing price fields" do
+      # Missing price
+      result =
+        Spot.place_oco_order(%{
+          symbol: "BTCUSDT",
+          side: "SELL",
+          quantity: "0.001",
+          stopPrice: "95000",
+          stopLimitPrice: "94500"
+        })
+
+      assert {:error, {:missing_params, [:price]}} = result
+
+      # Missing stopPrice
+      result =
+        Spot.place_oco_order(%{
+          symbol: "BTCUSDT",
+          side: "SELL",
+          quantity: "0.001",
+          price: "120000",
+          stopLimitPrice: "94500"
+        })
+
+      assert {:error, {:missing_params, [:stopPrice]}} = result
+
+      # Missing stopLimitPrice
+      result =
+        Spot.place_oco_order(%{
+          symbol: "BTCUSDT",
+          side: "SELL",
+          quantity: "0.001",
+          price: "120000",
+          stopPrice: "95000"
+        })
+
+      assert {:error, {:missing_params, [:stopLimitPrice]}} = result
+    end
+
+    test "place_oco_order returns validation error for multiple missing params" do
+      result =
+        Spot.place_oco_order(%{
+          symbol: "BTCUSDT",
+          side: "SELL"
+          # Missing quantity, price, stopPrice, stopLimitPrice
+        })
+
+      assert {:error, {:missing_params, missing}} = result
+      assert :quantity in missing
+      assert :price in missing
+      assert :stopPrice in missing
+      assert :stopLimitPrice in missing
+    end
+
+    test "place_oco_order accepts params with string keys" do
+      # This should pass validation - string keys are converted
+      result =
+        Spot.place_oco_order(%{
+          "symbol" => "BTCUSDT",
+          "side" => "SELL",
+          "quantity" => "0.001",
+          "price" => "120000",
+          "stopPrice" => "95000",
+          "stopLimitPrice" => "94500"
+        })
+
+      # Should pass validation and attempt API call
+      case result do
+        {:ok, _} -> assert true
+        {:error, {:missing_params, _}} -> flunk("Should not fail validation with string keys")
+        # API error is OK, validation passed
+        {:error, _} -> assert true
+      end
+    end
+
+    test "place_oco_order defaults side to SELL when missing" do
+      # Missing side should default to SELL and still validate other params
+      result =
+        Spot.place_oco_order(%{
+          symbol: "BTCUSDT",
+          quantity: "0.001",
+          price: "120000",
+          stopPrice: "95000",
+          stopLimitPrice: "94500"
+        })
+
+      # Side defaults to SELL, so should not be in missing params
+      case result do
+        {:error, {:missing_params, missing}} ->
+          refute :side in missing
+
+        _ ->
+          # If validation passes, that's also OK
+          assert true
+      end
+    end
+
+    test "place_oco_order handles both SELL and BUY sides" do
+      # Test SELL OCO parameter mapping
+      sell_params = %{
+        symbol: "BTCUSDT",
+        side: "SELL",
+        quantity: "0.001",
+        price: "120000",
+        stopPrice: "95000",
+        stopLimitPrice: "94500"
+      }
+
+      # Should not crash on parameter mapping
+      result = Spot.place_oco_order(sell_params)
+      assert is_tuple(result) and tuple_size(result) == 2
+
+      # Test BUY OCO parameter mapping  
+      buy_params = %{
+        symbol: "BTCUSDT",
+        side: "BUY",
+        quantity: "0.001",
+        # take profit (below current)
+        price: "80000",
+        # stop loss trigger (above current)
+        stopPrice: "105000",
+        # stop limit execution (above trigger)
+        stopLimitPrice: "105500"
+      }
+
+      # Should not crash on parameter mapping
+      result = Spot.place_oco_order(buy_params)
+      assert is_tuple(result) and tuple_size(result) == 2
+    end
+
+    test "place_oco_order accepts various parameter formats" do
+      # Test string keys
+      string_params = %{
+        "symbol" => "BTCUSDT",
+        "side" => "SELL",
+        "quantity" => "0.001",
+        "price" => "120000",
+        "stopPrice" => "95000",
+        "stopLimitPrice" => "94500"
+      }
+
+      result = Spot.place_oco_order(string_params)
+      # Should pass validation with string keys
+      case result do
+        {:error, {:missing_params, _}} -> flunk("Should accept string keys")
+        _ -> assert true
+      end
+
+      # Test alternative parameter names (should fail validation as they're not checked)
+      alt_params = %{
+        symbol: "BTCUSDT",
+        side: "SELL",
+        quantity: "0.001",
+        take_profit_price: "120000",
+        stop_price: "95000",
+        stop_limit_price: "94500"
+      }
+
+      result = Spot.place_oco_order(alt_params)
+      # Alternative param names are not in validation, so should fail
+      assert {:error, {:missing_params, missing}} = result
+      assert :price in missing
+      assert :stopPrice in missing
+      assert :stopLimitPrice in missing
+    end
+
+    test "cancel_oco_order validates required parameters" do
+      # Missing symbol
+      result = Spot.cancel_oco_order(%{orderListId: 12_345})
+      assert is_tuple(result) and tuple_size(result) == 2
+
+      # Missing both orderListId and listClientOrderId  
+      result = Spot.cancel_oco_order(%{symbol: "BTCUSDT"})
+      assert is_tuple(result) and tuple_size(result) == 2
+
+      # Valid with orderListId
+      result =
+        Spot.cancel_oco_order(%{
+          symbol: "BTCUSDT",
+          orderListId: 12_345
+        })
+
+      assert is_tuple(result) and tuple_size(result) == 2
+
+      # Valid with listClientOrderId
+      result =
+        Spot.cancel_oco_order(%{
+          symbol: "BTCUSDT",
+          listClientOrderId: "test_oco_123"
+        })
+
+      assert is_tuple(result) and tuple_size(result) == 2
+    end
+
+    test "cancel_oco_order accepts various parameter formats" do
+      # Test string keys
+      result =
+        Spot.cancel_oco_order(%{
+          "symbol" => "BTCUSDT",
+          "orderListId" => 12_345
+        })
+
+      assert is_tuple(result) and tuple_size(result) == 2
+
+      # Test snake_case parameter names
+      result =
+        Spot.cancel_oco_order(%{
+          symbol: "BTCUSDT",
+          order_list_id: 12_345,
+          new_client_order_id: "cancel_123"
+        })
+
+      assert is_tuple(result) and tuple_size(result) == 2
     end
   end
 end

@@ -27,6 +27,7 @@ Your core review process:
    - Verify code follows the simplicity-first philosophy
    - Check that abstractions are justified (need 3+ concrete use cases)
    - Ensure no custom error wrapping is used
+   - **Verify meaningful error contexts**: Ensure errors return descriptive tuples like `{:error, {:invalid_format, "Expected X, got: #{inspect(value)}"}}` instead of bare atoms like `{:error, :invalid_format}`
    - Confirm financial calculations use the Decimal library
    - Validate that integration tests use real APIs, not mocks
    - Check for proper TODO formatting ("TODO: " prefix for credo detection)

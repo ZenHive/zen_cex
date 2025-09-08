@@ -39,22 +39,6 @@ defmodule ZenCex.Adapters.Binance.Parser do
 
   require Logger
 
-  # Constants for error mapping - Binance-specific error codes
-  @error_codes %{
-    -1121 => :invalid_symbol,
-    -1013 => :invalid_quantity,
-    -2010 => :insufficient_balance,
-    -1125 => :invalid_listen_key,
-    -1100 => :illegal_chars,
-    -1104 => :not_found,
-    -1003 => :too_many_requests,
-    -1022 => :signature_not_valid,
-    -2011 => :unknown_order,
-    -2013 => :order_does_not_exist,
-    -1006 => :unexpected_resp,
-    429 => :rate_limited
-  }
-
   @doc """
   Parses Binance position responses into normalized format.
 
@@ -123,6 +107,7 @@ defmodule ZenCex.Adapters.Binance.Parser do
 
   ## Examples
 
+      # Spot/Margin format with "balances" key
       response = %{
         "balances" => [
           %{
@@ -138,9 +123,26 @@ defmodule ZenCex.Adapters.Binance.Parser do
         ]
       }
       {:ok, balances} = parse_balances(response)
+
+      # Futures V3 format - direct array
+      response = [
+        %{
+          "accountAlias" => "SgsR",
+          "asset" => "USDT",
+          "balance" => "122607.35137903",
+          "crossWalletBalance" => "23.72469206",
+          "crossUnPnl" => "0.00000000",
+          "availableBalance" => "23.72469206",
+          "maxWithdrawAmount" => "23.72469206",
+          "marginAvailable" => true,
+          "updateTime" => 1617939110373
+        }
+      ]
+      {:ok, balances} = parse_balances(response)
   """
   @impl true
   def parse_balances(%{"balances" => balances}) when is_list(balances) do
+    # Spot/Margin format with "balances" key
     parsed =
       Enum.map(balances, fn balance ->
         free = extract_field(balance, ["free"], :decimal)
@@ -159,7 +161,49 @@ defmodule ZenCex.Adapters.Binance.Parser do
     e -> {:error, {:parse_error, Exception.message(e)}}
   end
 
-  def parse_balances(_), do: {:error, :invalid_format}
+  def parse_balances(balances) when is_list(balances) do
+    # Futures V3 format - validate first element has futures-specific fields
+    case balances do
+      [%{"availableBalance" => _, "balance" => _} | _] ->
+        parse_futures_balances(balances)
+
+      _ ->
+        {:error,
+         {:invalid_futures_format, "Expected futures balance format with 'availableBalance' and 'balance' fields"}}
+    end
+  end
+
+  def parse_balances(response) do
+    {:error, {:invalid_format, "Expected map with 'balances' key or futures balance array, got: #{inspect(response)}"}}
+  end
+
+  defp parse_futures_balances(balances) do
+    parsed =
+      Enum.map(balances, fn balance ->
+        # Validate required fields
+        if !(Map.has_key?(balance, "asset") and Map.has_key?(balance, "balance") and
+               Map.has_key?(balance, "availableBalance")) do
+          raise "Missing required futures balance fields: #{inspect(Map.keys(balance))}"
+        end
+
+        # For futures balances, use availableBalance as free and calculate locked
+        available = extract_field(balance, ["availableBalance"], :decimal)
+        total_balance = extract_field(balance, ["balance"], :decimal)
+        # locked = total_balance - available_balance (futures margin calculation)
+        locked = Decimal.sub(total_balance, available)
+
+        %{
+          asset: extract_field(balance, ["asset"], :string),
+          free: available,
+          locked: locked,
+          total: total_balance
+        }
+      end)
+
+    {:ok, parsed}
+  rescue
+    e -> {:error, {:parse_error, "futures: #{Exception.message(e)}"}}
+  end
 
   @doc """
   Parses Binance order responses into normalized format.
@@ -218,29 +262,37 @@ defmodule ZenCex.Adapters.Binance.Parser do
 
       # Standard error format
       response = %{"code" => -2010, "msg" => "Account has insufficient balance"}
-      {:error, :insufficient_balance} = parse_error(response)
+      {:error, {:binance_error, -2010, "Account has insufficient balance"}} = parse_error(response)
 
-      # Rate limit error
+      # Rate limit error (special case - still mapped for rate limiting logic)
       response = %{"code" => 429, "msg" => "Too many requests"}
       {:error, :rate_limited} = parse_error(response)
 
-      # Unknown error with details
-      response = %{"code" => -9999, "msg" => "Unknown error"}
-      {:error, {:exchange_error, "Unknown error"}} = parse_error(response)
+      # Filter failure
+      response = %{"code" => -1013, "msg" => "Filter failure: PERCENT_PRICE_BY_SIDE"}
+      {:error, {:binance_error, -1013, "Filter failure: PERCENT_PRICE_BY_SIDE"}} = parse_error(response)
   """
   @impl true
   def parse_error(%{"code" => code} = response) when is_integer(code) do
     # Log the actual error response for debugging
     ResponseParser.log_error_response(response, "Binance")
 
-    case Map.get(@error_codes, code) do
-      nil ->
-        message = extract_field(response, ["msg"], :string)
-        message = if message == "", do: "Unknown error", else: message
-        {:error, {:exchange_error, message}}
+    message = extract_field(response, ["msg"], :string)
 
-      error_atom ->
-        {:error, error_atom}
+    # Only handle special cases that need specific treatment in the library
+    case code do
+      429 ->
+        # Rate limiting needs special handling for backoff
+        {:error, :rate_limited}
+
+      -1003 ->
+        # Too many requests also needs rate limit handling
+        {:error, :rate_limited}
+
+      _ ->
+        # Pass through the raw error with code and message
+        # This preserves all context for the application to handle
+        {:error, {:binance_error, code, message}}
     end
   end
 

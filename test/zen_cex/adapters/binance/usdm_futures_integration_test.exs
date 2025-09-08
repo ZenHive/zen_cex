@@ -22,6 +22,38 @@ defmodule ZenCex.Adapters.Binance.UsdmFuturesIntegrationTest do
   end
 
   describe "futures endpoints use correct testnet URL" do
+    test "get_balances returns futures balances" do
+      # Use futures-specific testnet credentials for this test
+      futures_key = System.get_env("BINANCE_FUTURES_TEST_API_KEY")
+      futures_secret = System.get_env("BINANCE_FUTURES_TEST_API_SECRET")
+
+      opts =
+        if futures_key && futures_secret do
+          %{auth_credentials: %{api_key: futures_key, api_secret: futures_secret}}
+        else
+          %{}
+        end
+
+      # Test the futures balance endpoint that returns array directly
+      result = UsdmFutures.get_balances(%{}, opts)
+
+      assert {:ok, balances} = result
+      assert is_list(balances)
+
+      # Each balance should have our normalized structure
+      Enum.each(balances, fn balance ->
+        assert Map.has_key?(balance, :asset)
+        assert Map.has_key?(balance, :free)
+        assert Map.has_key?(balance, :locked)
+        assert Map.has_key?(balance, :total)
+
+        assert is_binary(balance.asset)
+        assert %Decimal{} = balance.free
+        assert %Decimal{} = balance.locked
+        assert %Decimal{} = balance.total
+      end)
+    end
+
     test "get_positions uses futures testnet URL" do
       # Capture logs to verify rate limiter detects futures API
       logs =

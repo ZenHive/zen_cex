@@ -440,6 +440,206 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
       assert {:error, reason} = result
       Logger.debug("TESTNET place OCO error response: #{inspect(reason)}")
     end
+
+    test "cancel_oco_order with invalid order list returns error" do
+      result = Spot.cancel_oco_order(%{symbol: "BTCUSDT", orderListId: 99_999_999})
+
+      assert {:error, reason} = result
+      Logger.debug("TESTNET cancel_oco_order error response: #{inspect(reason)}")
+    end
+
+    test "cancel_oco_order with invalid symbol returns error" do
+      result = Spot.cancel_oco_order(%{symbol: "INVALID", orderListId: 123})
+
+      assert {:error, reason} = result
+      Logger.debug("TESTNET cancel_oco_order invalid symbol error: #{inspect(reason)}")
+    end
+
+    test "cancel_oco_order missing required parameters returns error" do
+      # Missing both orderListId and listClientOrderId
+      result = Spot.cancel_oco_order(%{symbol: "BTCUSDT"})
+
+      assert {:error, reason} = result
+      Logger.debug("TESTNET cancel_oco_order missing params error: #{inspect(reason)}")
+    end
+
+    test "cancel_oco_order with invalid listClientOrderId returns error" do
+      result =
+        Spot.cancel_oco_order(%{
+          symbol: "BTCUSDT",
+          listClientOrderId: "nonexistent_oco_123"
+        })
+
+      assert {:error, reason} = result
+      Logger.debug("TESTNET cancel_oco_order invalid client ID error: #{inspect(reason)}")
+    end
+  end
+
+  describe "OCO order error handling" do
+    test "place_oco_order with invalid symbol returns error" do
+      invalid_params = %{
+        symbol: "INVALID",
+        side: "SELL",
+        quantity: "0.001",
+        price: "120000",
+        stopPrice: "95000",
+        stopLimitPrice: "94500"
+      }
+
+      result = Spot.place_oco_order(invalid_params)
+      assert {:error, reason} = result
+      Logger.debug("TESTNET place_oco_order invalid symbol error: #{inspect(reason)}")
+    end
+
+    test "place_oco_order with invalid quantity returns error" do
+      invalid_params = %{
+        symbol: "BTCUSDT",
+        side: "SELL",
+        # Invalid quantity
+        quantity: "0",
+        price: "120000",
+        stopPrice: "95000",
+        stopLimitPrice: "94500"
+      }
+
+      result = Spot.place_oco_order(invalid_params)
+      assert {:error, reason} = result
+      Logger.debug("TESTNET place_oco_order invalid quantity error: #{inspect(reason)}")
+    end
+
+    test "place_oco_order with invalid price relationships returns error" do
+      # SELL OCO with incorrect price relationships
+      # Should be: price > current > stopPrice, but we reverse it
+      invalid_params = %{
+        symbol: "BTCUSDT",
+        side: "SELL",
+        quantity: "0.001",
+        # Should be higher than stop for SELL
+        price: "80000",
+        # Should be lower than price for SELL
+        stopPrice: "120000",
+        stopLimitPrice: "119000"
+      }
+
+      result = Spot.place_oco_order(invalid_params)
+      assert {:error, reason} = result
+      Logger.debug("TESTNET place_oco_order invalid price relationship error: #{inspect(reason)}")
+    end
+
+    test "place_oco_order BUY side with invalid price relationships returns error" do
+      # BUY OCO with incorrect price relationships  
+      # Should be: stopPrice > current > price, but we reverse it
+      invalid_params = %{
+        symbol: "BTCUSDT",
+        side: "BUY",
+        quantity: "0.001",
+        # Should be lower than current for BUY
+        price: "120000",
+        # Should be higher than current for BUY
+        stopPrice: "80000",
+        stopLimitPrice: "81000"
+      }
+
+      result = Spot.place_oco_order(invalid_params)
+      assert {:error, reason} = result
+      Logger.debug("TESTNET place_oco_order BUY invalid price relationship error: #{inspect(reason)}")
+    end
+
+    test "place_oco_order with missing required price fields returns error" do
+      # Missing stopPrice
+      incomplete_params = %{
+        symbol: "BTCUSDT",
+        side: "SELL",
+        quantity: "0.001",
+        price: "120000",
+        stopLimitPrice: "94500"
+        # Missing stopPrice
+      }
+
+      result = Spot.place_oco_order(incomplete_params)
+      assert {:error, reason} = result
+      Logger.debug("TESTNET place_oco_order missing stopPrice error: #{inspect(reason)}")
+
+      # Missing price (take profit)
+      incomplete_params2 = %{
+        symbol: "BTCUSDT",
+        side: "SELL",
+        quantity: "0.001",
+        stopPrice: "95000",
+        stopLimitPrice: "94500"
+        # Missing price
+      }
+
+      result2 = Spot.place_oco_order(incomplete_params2)
+      assert {:error, reason2} = result2
+      Logger.debug("TESTNET place_oco_order missing price error: #{inspect(reason2)}")
+
+      # Missing stopLimitPrice
+      incomplete_params3 = %{
+        symbol: "BTCUSDT",
+        side: "SELL",
+        quantity: "0.001",
+        price: "120000",
+        stopPrice: "95000"
+        # Missing stopLimitPrice
+      }
+
+      result3 = Spot.place_oco_order(incomplete_params3)
+      assert {:error, reason3} = result3
+      Logger.debug("TESTNET place_oco_order missing stopLimitPrice error: #{inspect(reason3)}")
+    end
+
+    test "place_oco_order with extreme price values returns error" do
+      # Prices way outside reasonable ranges to trigger filters
+      extreme_params = %{
+        symbol: "BTCUSDT",
+        side: "SELL",
+        quantity: "0.001",
+        # Extremely high
+        price: "1000000",
+        # Extremely low
+        stopPrice: "1",
+        stopLimitPrice: "0.5"
+      }
+
+      result = Spot.place_oco_order(extreme_params)
+      assert {:error, reason} = result
+      Logger.debug("TESTNET place_oco_order extreme prices error: #{inspect(reason)}")
+    end
+
+    test "place_oco_order with duplicate client order IDs returns error" do
+      # Generate a client order ID
+      client_id = "oco_test_#{:os.system_time(:microsecond)}"
+
+      params = %{
+        symbol: "BTCUSDT",
+        side: "SELL",
+        quantity: "0.001",
+        price: "120000",
+        stopPrice: "95000",
+        stopLimitPrice: "94500",
+        listClientOrderId: client_id
+      }
+
+      # First attempt might succeed (if testnet allows it)
+      result1 = Spot.place_oco_order(params)
+      Logger.debug("TESTNET first OCO attempt: #{inspect(result1)}")
+
+      # Second attempt with same client ID should fail
+      result2 = Spot.place_oco_order(params)
+
+      case result1 do
+        {:ok, _} ->
+          # If first succeeded, second should fail with duplicate ID
+          assert {:error, reason} = result2
+          Logger.debug("TESTNET duplicate client ID error: #{inspect(reason)}")
+
+        {:error, _} ->
+          # If first failed for other reasons, second might also fail
+          assert {:error, _} = result2
+          Logger.debug("TESTNET both OCO attempts failed (expected)")
+      end
+    end
   end
 
   describe "batch operations" do

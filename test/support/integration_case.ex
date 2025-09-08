@@ -99,22 +99,47 @@ defmodule ZenCex.IntegrationCase do
       end
     end
 
-    # Check credentials
-    api_key =
-      fetch_testnet_credential!("BINANCE_TESTNET_API_KEY", """
-      BINANCE_TESTNET_API_KEY required for integration tests.
+    # Check credentials - use futures testnet for futures operations
+    {api_key, api_secret} =
+      if api_type in [:usdm_futures, :coinm_futures] do
+        # Futures testnet uses different credentials
+        api_key =
+          fetch_testnet_credential!("BINANCE_FUTURES_TEST_API_KEY", """
+          BINANCE_FUTURES_TEST_API_KEY required for futures integration tests.
 
-      Get testnet credentials at: https://testnet.binance.vision/
-      Then run: export BINANCE_TESTNET_API_KEY=your_key
-      """)
+          Get futures testnet credentials at: https://testnet.binancefuture.com/
+          Then run: export BINANCE_FUTURES_TEST_API_KEY=your_futures_key
+          """)
 
-    api_secret =
-      fetch_testnet_credential!("BINANCE_TESTNET_API_SECRET", """
-      BINANCE_TESTNET_API_SECRET required for integration tests.
+        api_secret =
+          fetch_testnet_credential!("BINANCE_FUTURES_TEST_API_SECRET", """
+          BINANCE_FUTURES_TEST_API_SECRET required for futures integration tests.
 
-      Get testnet credentials at: https://testnet.binance.vision/
-      Then run: export BINANCE_TESTNET_API_SECRET=your_secret
-      """)
+          Get futures testnet credentials at: https://testnet.binancefuture.com/
+          Then run: export BINANCE_FUTURES_TEST_API_SECRET=your_futures_secret
+          """)
+
+        {api_key, api_secret}
+      else
+        # Spot/margin testnet uses standard testnet credentials
+        api_key =
+          fetch_testnet_credential!("BINANCE_TESTNET_API_KEY", """
+          BINANCE_TESTNET_API_KEY required for integration tests.
+
+          Get testnet credentials at: https://testnet.binance.vision/
+          Then run: export BINANCE_TESTNET_API_KEY=your_key
+          """)
+
+        api_secret =
+          fetch_testnet_credential!("BINANCE_TESTNET_API_SECRET", """
+          BINANCE_TESTNET_API_SECRET required for integration tests.
+
+          Get testnet credentials at: https://testnet.binance.vision/
+          Then run: export BINANCE_TESTNET_API_SECRET=your_secret
+          """)
+
+        {api_key, api_secret}
+      end
 
     # Test connectivity (skip for portfolio - no testnet)
     if api_type != :portfolio do
@@ -281,9 +306,21 @@ defmodule ZenCex.IntegrationCase do
 
   defp verify_futures_connectivity do
     # USD-M Futures connectivity check - try to get positions
+    # Use futures-specific credentials if available, fall back to spot testnet
+    futures_key = System.get_env("BINANCE_FUTURES_TEST_API_KEY")
+    futures_secret = System.get_env("BINANCE_FUTURES_TEST_API_SECRET")
+
+    opts =
+      if futures_key && futures_secret do
+        %{auth_credentials: %{api_key: futures_key, api_secret: futures_secret}}
+      else
+        %{}
+      end
+
     # This may fail if futures isn't activated, which is OK for connectivity test
-    case ZenCex.Adapters.Binance.UsdmFutures.get_positions() do
+    case ZenCex.Adapters.Binance.UsdmFutures.get_positions(%{}, opts) do
       {:ok, _} -> {:ok, :connected}
+      {:error, {:binance_error, _code, _msg}} -> {:ok, :connected}
       {:error, {:exchange_error, msg}} when is_binary(msg) -> {:ok, :connected}
       {:error, reason} -> {:error, reason}
     end

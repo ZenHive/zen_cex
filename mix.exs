@@ -39,7 +39,7 @@ defmodule ZenCex.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:tidewave, "~> 0.3.1", only: :dev},
+      {:tidewave, "~> 0.4.1", only: :dev},
       {:bandit, "~> 1.0", only: :dev},
       # HTTP client
       {:req, "~> 0.5.0"},
