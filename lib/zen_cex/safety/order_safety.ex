@@ -545,18 +545,17 @@ defmodule ZenCex.Safety.OrderSafety do
   """
   @spec validate_balance(atom(), String.t(), Decimal.t()) :: :ok | {:error, term()}
   def validate_balance(exchange, asset, required_amount) do
-    case get_account_balance(exchange, asset) do
-      {:ok, available_balance} ->
-        if Decimal.compare(available_balance, required_amount) == :lt do
-          {:error, {:insufficient_balance, %{asset: asset, required: required_amount, available: available_balance}}}
-        else
-          :ok
-        end
+    {:ok, available_balance} = get_account_balance(exchange, asset)
 
-        # TODO: When get_account_balance is replaced with real API calls,
-        # add error handling for network errors, rate limiting, unauthorized, etc.
-        # For now, stub only returns {:ok, balance}
+    if Decimal.compare(available_balance, required_amount) == :lt do
+      {:error, {:insufficient_balance, %{asset: asset, required: required_amount, available: available_balance}}}
+    else
+      :ok
     end
+
+    # TODO: When get_account_balance is replaced with real API calls,
+    # add error handling for network errors, rate limiting, unauthorized, etc.
+    # For now, stub only returns {:ok, balance}
   end
 
   # === Notional Validation Functions ===

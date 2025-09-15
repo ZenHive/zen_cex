@@ -2,6 +2,18 @@
 
 Guidance for Claude Code when working with the ZenCex library.
 
+## 🛑 STOP: MINIMALIST APPROACH FIRST
+
+**DO EXACTLY WHAT IS ASKED - NOTHING MORE, NOTHING LESS**
+- **NO** proactive features or improvements unless explicitly requested
+- **NO** additional error handling beyond what's needed
+- **NO** extra validation or checks unless asked
+- **NO** refactoring unless specifically requested
+- **NO** documentation updates unless asked
+- **ONLY** implement the exact feature/fix requested
+- **ALWAYS** ask before adding anything not explicitly mentioned
+- **IF UNCLEAR**: Ask "Should I also do X?" before proceeding
+
 ## Prerequisites
 - **Read AGENTS.md first** - Contains Elixir patterns, testing requirements, and module cooperation patterns
 - **Date Awareness**: Always use current year from `<env>` section for searches (e.g., "Binance API 2025" not "2024")
