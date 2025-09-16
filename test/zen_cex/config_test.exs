@@ -1,7 +1,7 @@
 defmodule ZenCex.ConfigTest do
   use ExUnit.Case, async: false
 
-  import ZenCex.IntegrationCase, only: [with_env: 2]
+  import ZenCex.TestUtilities.EnvHelpers
 
   alias ZenCex.Adapters.Binance.Endpoints
   alias ZenCex.Config

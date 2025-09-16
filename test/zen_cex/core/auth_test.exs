@@ -1,11 +1,10 @@
 defmodule ZenCex.Core.AuthTest do
   use ExUnit.Case
 
-  import ZenCex.IntegrationCase, only: [with_env: 2]
+  import ZenCex.TestUtilities.EnvHelpers
 
   alias ZenCex.Core.Auth
 
-  # Import the with_env macro from IntegrationCase
   describe "get_api_key/2" do
     test "returns api key from request private data first" do
       request =

@@ -1,7 +1,7 @@
 defmodule ZenCex.Adapters.Bybit.AuthTest do
   use ExUnit.Case
 
-  import ZenCex.IntegrationCase, only: [with_env: 2]
+  import ZenCex.TestUtilities.EnvHelpers
 
   alias ZenCex.Adapters.Bybit.Auth
 

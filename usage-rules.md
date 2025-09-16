@@ -259,6 +259,158 @@ ZenCex.Core.Debug.enable()
 IO.puts(curl)  # Run in terminal to debug
 ```
 
+## Test Utilities for External Applications
+
+ZenCex provides comprehensive test utilities that external applications can use for integration testing.
+
+### Setup
+
+Add ZenCex to your test dependencies in `mix.exs`:
+
+```elixir
+def deps do
+  [
+    {:zen_cex, "~> 0.1.0", only: [:dev, :test]}
+  ]
+end
+```
+
+### Using the Integration Test Case
+
+The `IntegrationCase` ensures you're using testnet and validates credentials:
+
+```elixir
+defmodule MyApp.BinanceIntegrationTest do
+  use ZenCex.TestUtilities.IntegrationCase, exchange: :binance, api_type: :spot
+
+  test "fetch balances from Binance testnet" do
+    {:ok, balances} = ZenCex.Adapters.Binance.Spot.get_balances()
+
+    assert is_list(balances)
+    ZenCex.TestUtilities.assert_valid_balance_structure(balances, :binance)
+  end
+end
+```
+
+### Environment Variable Manipulation
+
+Use the `with_env` macro to safely test different credential scenarios:
+
+```elixir
+defmodule MyApp.AuthTest do
+  use ExUnit.Case
+  import ZenCex.TestUtilities.EnvHelpers
+
+  test "handles missing API key" do
+    with_env [{"BINANCE_TESTNET_API_KEY", nil}] do
+      assert {:error, :missing_credentials} = MyModule.authenticate()
+    end
+    # Environment automatically restored after the block
+  end
+
+  test "handles invalid credentials" do
+    with_env [{"BINANCE_TESTNET_API_KEY", "invalid"}] do
+      result = MyModule.call_exchange()
+      assert {:error, _} = result
+    end
+  end
+end
+```
+
+### Test Configuration Helpers
+
+```elixir
+# Get valid test configuration (fails if credentials missing)
+config = ZenCex.TestUtilities.get_test_config!(:binance)
+
+# Create invalid config for error testing
+invalid_config = ZenCex.TestUtilities.get_invalid_config(:binance, :spot)
+
+# Add account type to configuration
+config = ZenCex.TestUtilities.with_account_type(config, :futures_usdm)
+
+# Check if API tests should run
+if ZenCex.TestUtilities.should_run_api_tests?(:binance) do
+  # Run tests that require real API access
+end
+```
+
+### Response Validators
+
+Validate that API responses match expected structure:
+
+```elixir
+# Validate balance structure
+balances = get_balances_somehow()
+ZenCex.TestUtilities.assert_valid_balance_structure(balances, :binance)
+
+# Validate order structure
+order = place_order_somehow()
+ZenCex.TestUtilities.assert_valid_order_structure(order, :binance)
+
+# Other validators
+assert_valid_position_structure(data, exchange)
+assert_valid_ticker_structure(data, exchange)
+assert_valid_kline_structure(data, exchange)
+```
+
+### Test Data Generators
+
+Generate test data matching exchange formats:
+
+```elixir
+# Generate test balance
+balance = ZenCex.TestUtilities.generate_test_balance(:binance, "BTC", "10.5", "0.5")
+
+# Generate test order
+order = ZenCex.TestUtilities.generate_test_order(
+  :binance,
+  "BTCUSDT",
+  :buy,
+  :limit,
+  "0.001",
+  "50000"
+)
+
+# Generate test position
+position = ZenCex.TestUtilities.generate_test_position(
+  :binance,
+  "BTCUSDT",
+  :long,
+  "0.1",
+  "45000",
+  "46000"
+)
+```
+
+### Available Modules
+
+- `ZenCex.TestUtilities` - Main module with configuration helpers
+- `ZenCex.TestUtilities.IntegrationCase` - Test case template for integration tests
+- `ZenCex.TestUtilities.EnvHelpers` - Environment variable manipulation macros
+- `ZenCex.TestUtilities.Generators` - Test data generators
+- `ZenCex.TestUtilities.Validators` - Response structure validators
+
+### Required Environment Variables
+
+For integration tests to work, you need testnet credentials:
+
+```bash
+# Binance Spot/Margin testnet
+export BINANCE_TESTNET_API_KEY=your_key
+export BINANCE_TESTNET_API_SECRET=your_secret
+export BINANCE_TESTNET=true
+
+# Binance Futures testnet (separate credentials)
+export BINANCE_FUTURES_TEST_API_KEY=your_futures_key
+export BINANCE_FUTURES_TEST_API_SECRET=your_futures_secret
+
+# Bybit testnet
+export BYBIT_TESTNET_API_KEY=your_key
+export BYBIT_TESTNET_API_SECRET=your_secret
+export BYBIT_TESTNET=true
+```
+
 ## Testing with Tidewave
 
 When Tidewave is running (`mix tidewave`):

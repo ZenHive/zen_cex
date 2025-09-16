@@ -1,27 +1,60 @@
-defmodule ZenCex.IntegrationCase do
+defmodule ZenCex.TestUtilities.IntegrationCase do
   @moduledoc """
   Test case template for integration tests that require testnet/sandbox API connections.
 
-  This module provides common setup and helpers for integration tests:
+  This is the public version of the integration test case for use by external applications
+  that depend on ZenCex. It provides the same functionality as the internal test case
+  but is exposed as part of the library's public API.
+
+  ## Usage in External Applications
+
+  Add ZenCex test utilities to your test dependencies in `mix.exs`:
+
+      def deps do
+        [
+          {:zen_cex, "~> 0.1.0", only: [:dev, :test]}
+        ]
+      end
+
+  Then use the integration case in your tests:
+
+      defmodule MyApp.BinanceIntegrationTest do
+        use ZenCex.TestUtilities.IntegrationCase, exchange: :binance, api_type: :spot
+
+        test "fetches balances from Binance testnet" do
+          {:ok, balances} = ZenCex.Adapters.Binance.Spot.get_balances()
+          assert is_list(balances)
+        end
+      end
+
+  ## Features
+
   - Enforces testnet/sandbox usage (prevents production API calls)
   - Validates credentials are configured
   - Provides consistent error messages
   - Ensures tests fail loudly without proper setup
-
-  ## Usage
-
-      defmodule MyExchangeIntegrationTest do
-        use ZenCex.IntegrationCase, exchange: :binance
-
-        test "real API call" do
-          # Test will only run if testnet is properly configured
-        end
-      end
+  - Provides `with_env` macro for environment variable manipulation
 
   ## Options
 
-  - `:exchange` - The exchange to test (`:binance`, `:kraken`, `:deribit`)
-  - `:api_type` - For exchanges with multiple APIs (e.g., `:spot`, `:futures`)
+  - `:exchange` - The exchange to test (`:binance`, `:bybit`, `:kraken`, `:deribit`)
+  - `:api_type` - For exchanges with multiple APIs (e.g., `:spot`, `:futures`, `:usdm_futures`)
+
+  ## Environment Variables
+
+  Each exchange requires specific testnet credentials:
+
+  ### Binance
+  - `BINANCE_TESTNET_API_KEY` - Spot/Margin testnet API key
+  - `BINANCE_TESTNET_API_SECRET` - Spot/Margin testnet API secret
+  - `BINANCE_FUTURES_TEST_API_KEY` - Futures testnet API key
+  - `BINANCE_FUTURES_TEST_API_SECRET` - Futures testnet API secret
+  - `BINANCE_TESTNET=true` - Enable testnet mode
+
+  ### Bybit
+  - `BYBIT_TESTNET_API_KEY` - Testnet API key
+  - `BYBIT_TESTNET_API_SECRET` - Testnet API secret
+  - `BYBIT_TESTNET=true` - Enable testnet mode
   """
 
   use ExUnit.CaseTemplate
@@ -35,11 +68,12 @@ defmodule ZenCex.IntegrationCase do
     quote do
       use ExUnit.Case
 
-      import ZenCex.IntegrationCase
-
-      # Import the shared env helpers
       import ZenCex.TestUtilities.EnvHelpers
 
+      # Import the public version of the integration case
+      import ZenCex.TestUtilities.IntegrationCase
+
+      # Import the env helpers for with_env macro
       @moduletag :integration
       @moduletag unquote(exchange)
       if unquote(api_type), do: @moduletag(unquote(api_type))
@@ -61,6 +95,16 @@ defmodule ZenCex.IntegrationCase do
 
   Raises an error if any validation fails, ensuring tests don't accidentally
   run against production APIs or hide missing configuration.
+
+  ## Examples
+
+      # In your test setup
+      setup_all do
+        ZenCex.TestUtilities.IntegrationCase.enforce_testnet!(:binance, :spot)
+      end
+
+      # Or use the macro
+      use ZenCex.TestUtilities.IntegrationCase, exchange: :binance, api_type: :spot
   """
   @spec enforce_testnet!(atom(), atom() | nil) :: {:ok, keyword()}
   def enforce_testnet!(exchange, api_type \\ nil) do
