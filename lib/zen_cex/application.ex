@@ -14,6 +14,9 @@ defmodule ZenCex.Application do
       # HTTP client for API requests - Req's connection pooling backend
       {Finch, name: ZenCex.Finch},
 
+      # Market data cache GenServer (manages ETS lifecycle)
+      ZenCex.Core.Cache,
+
       # Order safety for idempotency checks (manages ETS table lifecycle)
       ZenCex.Safety.OrderSafety,
 

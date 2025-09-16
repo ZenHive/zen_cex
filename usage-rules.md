@@ -245,6 +245,114 @@ Strategies.rebalance_portfolio(
 )
 ```
 
+## Caching Market Data
+
+ZenCex provides built-in caching for market data to reduce API calls and improve performance.
+
+### Using the Market Cache
+
+```elixir
+alias ZenCex.Cache.Market
+
+# Cache ticker data (30 second TTL by default)
+ticker_data = %{price: "45000.00", volume: "1200.50"}
+Market.put_ticker(:binance, "BTCUSDT", ticker_data)
+
+# Retrieve cached ticker
+case Market.get_ticker(:binance, "BTCUSDT") do
+  {:ok, ticker} ->
+    IO.puts("Cached price: #{ticker.price}")
+  {:error, :not_found} ->
+    # Fetch from API
+  {:error, :expired} ->
+    # Data expired, fetch fresh
+end
+
+# Cache funding rates (5 minute TTL by default)
+funding = %{rate: 0.0001, interval_hours: 8}
+Market.put_funding_rate(:bybit, "ETHUSDT", funding)
+
+# Cache 24hr stats (60 second TTL by default)
+stats = %{volume: "5420.12", change_percent: "2.45"}
+Market.put_24hr_stats(:binance, "BTCUSDT", stats)
+
+# Cache order book (15 second TTL by default)
+orderbook = %{bids: [...], asks: [...]}
+Market.put_orderbook(:binance, "BTCUSDT", orderbook)
+```
+
+### Custom TTLs
+
+```elixir
+# Cache ticker for 60 seconds instead of default 30
+Market.put_ticker(:binance, "BTCUSDT", ticker_data, 60)
+
+# Cache funding rate for 15 minutes (900 seconds)
+Market.put_funding_rate(:bybit, "ETHUSDT", funding_data, 900)
+
+# Cache custom data type
+Market.put_market_data(:binance, "BTCUSDT", "klines_1h", kline_data, 300)
+```
+
+### Cache Management
+
+```elixir
+# Clear all cached data for an exchange
+{:ok, count} = Market.clear_exchange(:binance)
+
+# Clear all cached data for a symbol
+{:ok, count} = Market.clear_symbol("BTCUSDT")
+
+# Clear specific data type across all exchanges
+{:ok, count} = Market.clear_data_type("ticker")
+
+# Clear entire market cache
+{:ok, count} = Market.clear_all()
+```
+
+### Low-Level Cache Access
+
+For advanced use cases, you can access the underlying cache directly:
+
+```elixir
+alias ZenCex.Core.Cache
+
+# Store any data with custom key
+Cache.put("my_key", %{data: "value"}, 60)  # 60 second TTL
+
+# Retrieve data
+{:ok, data} = Cache.get("my_key")
+
+# Get cache statistics
+%{cache_size: size, evictions: count} = Cache.stats()
+
+# Clear by pattern (supports wildcards)
+{:ok, deleted} = Cache.clear_pattern("market:*:binance:*")
+```
+
+### Telemetry Events
+
+The cache emits telemetry events for monitoring:
+
+```elixir
+:telemetry.attach(
+  "cache-monitor",
+  [:zen_cex, :cache, :hit],
+  fn _event, %{duration: duration}, %{key: key}, _ ->
+    Logger.info("Cache hit for #{key} in #{duration}μs")
+  end,
+  nil
+)
+```
+
+Available events:
+- `[:zen_cex, :cache, :hit]` - Cache hit
+- `[:zen_cex, :cache, :miss]` - Cache miss
+- `[:zen_cex, :cache, :expired]` - Expired entry accessed
+- `[:zen_cex, :cache, :put]` - Entry stored
+- `[:zen_cex, :cache, :eviction]` - LRU eviction occurred
+- `[:zen_cex, :cache, :cleanup]` - Periodic cleanup ran
+
 ## Debugging Failed Requests
 
 ```elixir
