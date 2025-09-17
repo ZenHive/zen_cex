@@ -69,6 +69,7 @@ defmodule ZenCex.IntegrationCase do
       :bybit -> enforce_bybit_testnet!(api_type)
       :kraken -> enforce_kraken_testnet!(api_type)
       :deribit -> enforce_deribit_testnet!(api_type)
+      :multi -> enforce_multi_exchange_testnet!()
       _ -> raise "Unknown exchange: #{exchange}"
     end
   end
@@ -169,6 +170,77 @@ defmodule ZenCex.IntegrationCase do
     Deribit testnet enforcement not yet implemented.
     The Deribit adapter needs to be completed first.
     """
+  end
+
+  # Multi-exchange testnet enforcement for tests that need multiple exchanges
+  defp enforce_multi_exchange_testnet! do
+    # Check that at least Binance and Bybit testnets are available
+    # We don't enforce all exchanges, just validate the common ones used in multi-exchange tests
+
+    binance_futures_key = System.get_env("BINANCE_FUTURES_TEST_API_KEY")
+    binance_futures_secret = System.get_env("BINANCE_FUTURES_TEST_API_SECRET")
+    bybit_key = System.get_env("BYBIT_TESTNET_API_KEY")
+    bybit_secret = System.get_env("BYBIT_TESTNET_API_SECRET")
+
+    missing = []
+
+    missing =
+      if is_nil(binance_futures_key) or binance_futures_key == "",
+        do: ["BINANCE_FUTURES_TEST_API_KEY" | missing],
+        else: missing
+
+    missing =
+      if is_nil(binance_futures_secret) or binance_futures_secret == "",
+        do: ["BINANCE_FUTURES_TEST_API_SECRET" | missing],
+        else: missing
+
+    missing = if is_nil(bybit_key) or bybit_key == "", do: ["BYBIT_TESTNET_API_KEY" | missing], else: missing
+    missing = if is_nil(bybit_secret) or bybit_secret == "", do: ["BYBIT_TESTNET_API_SECRET" | missing], else: missing
+
+    if length(missing) > 0 do
+      raise """
+      MULTI-EXCHANGE TESTNET CREDENTIALS REQUIRED
+
+      The following environment variables are missing:
+      #{Enum.join(missing, "\n")}
+
+      Multi-exchange tests require both Binance and Bybit testnet credentials.
+
+      Get Binance futures testnet credentials at: https://testnet.binancefuture.com/
+      Get Bybit testnet credentials at: https://testnet.bybit.com/
+
+      Then export the credentials:
+      export BINANCE_FUTURES_TEST_API_KEY=your_binance_key
+      export BINANCE_FUTURES_TEST_API_SECRET=your_binance_secret
+      export BYBIT_TESTNET_API_KEY=your_bybit_key
+      export BYBIT_TESTNET_API_SECRET=your_bybit_secret
+      """
+    end
+
+    # Verify testnet mode is enabled for both
+    binance_testnet = System.get_env("BINANCE_TESTNET")
+    bybit_testnet = System.get_env("BYBIT_TESTNET")
+
+    if binance_testnet != "true" do
+      raise """
+      BINANCE TESTNET MODE REQUIRED
+      Set BINANCE_TESTNET=true to enable Binance testnet mode.
+      """
+    end
+
+    if bybit_testnet != "true" do
+      raise """
+      BYBIT TESTNET MODE REQUIRED
+      Set BYBIT_TESTNET=true to enable Bybit testnet mode.
+      """
+    end
+
+    {:ok,
+     binance_futures_key: binance_futures_key,
+     binance_futures_secret: binance_futures_secret,
+     bybit_key: bybit_key,
+     bybit_secret: bybit_secret,
+     exchange: :multi}
   end
 
   # Helper to get expected Binance testnet URL based on API type

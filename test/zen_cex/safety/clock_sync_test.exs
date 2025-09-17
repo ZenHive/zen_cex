@@ -148,11 +148,8 @@ defmodule ZenCex.Safety.ClockSyncTest do
       assert {:error, {:unsupported_exchange, :unsupported_exchange}} = result
     end
 
-    @tag :skip
-    test "sync_exchange with mock server response" do
-      # This test would require mocking HTTP responses or using a test server
-      # Skip for now as per project guidelines - test against real APIs only
-    end
+    # This test is omitted as per project guidelines - test against real APIs only
+    # No mocking HTTP responses or test servers
   end
 
   describe "sync_all_exchanges/0" do

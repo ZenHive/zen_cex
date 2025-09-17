@@ -347,39 +347,33 @@ defmodule ZenCex.Safety.OrderSafetyIntegrationTest do
 
   describe "integration with exchange info" do
     @tag :integration
-    # Skip by default as it requires API calls
-    @tag :skip
     test "fetches real symbol information from Binance testnet" do
-      # This test would require implementing real API calls
-      # Skip for now since we're using stubs
-
+      # Test real symbol validation against testnet API
       case OrderSafety.validate_symbol(:binance, "BTCUSDT") do
         :ok ->
           # Symbol validation passed
           :ok
 
         {:error, reason} ->
-          IO.puts("Real symbol validation failed: #{inspect(reason)}")
-          :ok
+          # Document the actual error for debugging
+          flunk("Symbol validation failed: #{inspect(reason)}")
       end
     end
 
     @tag :integration
-    # Skip by default as it requires API calls
-    @tag :skip
     test "fetches real account balances from Binance testnet" do
-      # This test would require implementing real API calls
-      # Skip for now since we're using stubs
-
+      # Test real balance validation against testnet API
       case OrderSafety.validate_balance(:binance, "USDT", Decimal.new("10.0")) do
         :ok ->
           IO.puts("Balance validation passed - testnet has sufficient USDT")
 
         {:error, {:insufficient_balance, _}} ->
+          # Expected on testnet with no funds
           IO.puts("Insufficient balance on testnet - expected")
 
         {:error, reason} ->
-          IO.puts("Balance check failed: #{inspect(reason)}")
+          # Document the actual error for debugging
+          flunk("Balance check failed: #{inspect(reason)}")
       end
     end
   end

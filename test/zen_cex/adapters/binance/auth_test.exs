@@ -92,27 +92,12 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
       end
     end
 
-    @tag :skip
-    test "authenticates with Margin endpoints on Spot API", %{
-      api_key: _api_key,
-      api_secret: _api_secret
-    } do
-      # IMPORTANT: SAPI endpoints (/sapi/*) are NOT available on Binance testnet.
-      # Margin trading on testnet uses regular spot API endpoints (/api/*).
-      # This test is skipped because /sapi/v1/margin/account doesn't exist on testnet.
-      # TODO: In production, margin endpoints would use https://api.binance.com/sapi/v1/margin/*
-
-      # For testnet margin trading, use regular spot endpoints like:
-      # - /api/v3/account - to check account balances
-      # - /api/v3/order - to place margin orders with isIsolated/sideEffectType params
-
-      # Original test kept for reference when testing against production:
-      # request = Req.new(
-      #   base_url: "https://testnet.binance.vision",  # Testnet only
-      #   url: "/sapi/v1/margin/account",
-      #   params: %{"timestamp" => server_time, "recvWindow" => "5000"}
-      # )
-    end
+    # Test omitted - SAPI endpoints (/sapi/*) are NOT available on Binance testnet
+    # Margin trading on testnet uses regular spot API endpoints (/api/*)
+    # TODO: In production, margin endpoints would use https://api.binance.com/sapi/v1/margin/*
+    # For testnet margin trading, use regular spot endpoints like:
+    # - /api/v3/account - to check account balances
+    # - /api/v3/order - to place margin orders with isIsolated/sideEffectType params
 
     test "authenticates with Portfolio Margin API", %{api_key: api_key, api_secret: api_secret} do
       # Portfolio Margin (PAPI) uses the Futures testnet, not the Spot testnet

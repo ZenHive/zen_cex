@@ -477,15 +477,12 @@ defmodule ZenCex.Core.Cache do
     # Optimized pattern-based deletion using ETS match specifications
     # For patterns like "market:ticker:*", we can use efficient ETS operations
 
-    deleted_count =
-      if String.contains?(pattern, "*") do
-        delete_by_wildcard_pattern(pattern)
-      else
-        # Simple prefix pattern - use optimized match_delete for efficiency
-        delete_by_prefix_pattern_optimized(pattern)
-      end
-
-    deleted_count
+    if String.contains?(pattern, "*") do
+      delete_by_wildcard_pattern(pattern)
+    else
+      # Simple prefix pattern - use optimized match_delete for efficiency
+      delete_by_prefix_pattern_optimized(pattern)
+    end
   end
 
   defp delete_by_prefix_pattern_optimized(prefix) do
@@ -520,51 +517,40 @@ defmodule ZenCex.Core.Cache do
     :ets.select_delete(@table_name, delete_match_spec)
   end
 
-  defp delete_by_prefix_pattern(prefix) do
-    # Use ETS match_object with continuation for memory efficiency
-    # This avoids loading all entries at once
-    match_spec = [{{:"$1", :_, :_, :_}, [{:is_binary, :"$1"}], [:"$_"]}]
-
-    delete_matching_entries(match_spec, fn {key, _, _, _} ->
-      String.starts_with?(key, prefix)
-    end)
-  end
-
   defp delete_by_wildcard_pattern(pattern) do
     parts = String.split(pattern, "*")
+    filter_fun = build_wildcard_filter(parts, pattern)
+    match_spec = [{{:"$1", :_, :_, :_}, [{:is_binary, :"$1"}], [:"$_"]}]
+    delete_matching_entries(match_spec, filter_fun)
+  end
 
-    case parts do
-      [prefix, ""] ->
-        # Pattern ends with *, simple prefix match
-        delete_by_prefix_pattern(prefix)
+  defp build_wildcard_filter([prefix, ""], _pattern) do
+    # Pattern ends with *, simple prefix match
+    fn {key, _, _, _} -> String.starts_with?(key, prefix) end
+  end
 
-      ["", suffix] ->
-        # Pattern starts with *, suffix match
-        match_spec = [{{:"$1", :_, :_, :_}, [{:is_binary, :"$1"}], [:"$_"]}]
+  defp build_wildcard_filter(["", suffix], _pattern) do
+    # Pattern starts with *, suffix match
+    fn {key, _, _, _} -> String.ends_with?(key, suffix) end
+  end
 
-        delete_matching_entries(match_spec, fn {key, _, _, _} ->
-          String.ends_with?(key, suffix)
-        end)
-
-      [prefix, suffix] ->
-        # Pattern has * in middle, e.g., "market:*:binance:*"
-        match_spec = [{{:"$1", :_, :_, :_}, [{:is_binary, :"$1"}], [:"$_"]}]
-
-        delete_matching_entries(match_spec, fn {key, _, _, _} ->
-          String.starts_with?(key, prefix) && String.ends_with?(key, suffix)
-        end)
-
-      _ ->
-        # Complex pattern with multiple *, convert to regex
-        regex_pattern = "^" <> String.replace(pattern, "*", ".*") <> "$"
-        {:ok, regex} = Regex.compile(regex_pattern)
-
-        match_spec = [{{:"$1", :_, :_, :_}, [{:is_binary, :"$1"}], [:"$_"]}]
-
-        delete_matching_entries(match_spec, fn {key, _, _, _} ->
-          Regex.match?(regex, key)
-        end)
+  defp build_wildcard_filter([prefix, suffix], _pattern) do
+    # Pattern has * in middle, e.g., "market:*:binance:*"
+    fn {key, _, _, _} ->
+      String.starts_with?(key, prefix) && String.ends_with?(key, suffix)
     end
+  end
+
+  defp build_wildcard_filter(_parts, pattern) do
+    # Complex pattern with multiple *, convert to regex
+    regex = compile_wildcard_regex(pattern)
+    fn {key, _, _, _} -> Regex.match?(regex, key) end
+  end
+
+  defp compile_wildcard_regex(pattern) do
+    regex_pattern = "^" <> String.replace(pattern, "*", ".*") <> "$"
+    {:ok, regex} = Regex.compile(regex_pattern)
+    regex
   end
 
   defp delete_matching_entries(match_spec, filter_fun) do
