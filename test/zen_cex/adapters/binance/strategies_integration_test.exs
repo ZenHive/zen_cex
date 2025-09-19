@@ -313,16 +313,29 @@ defmodule ZenCex.Adapters.Binance.StrategiesIntegrationTest do
 
     @tag :integration
     @tag :binance
-    test "ticker price endpoint not yet implemented" do
-      # TODO: get_ticker_price not yet implemented in Spot module
-      # This test documents that the ticker price functionality is missing
-      # and needs to be implemented for the hedging strategy to work fully
+    test "get_ticker_price returns current market price" do
+      # Test the newly implemented ticker price endpoint
+      case Spot.get_ticker_price(%{symbol: "BTCUSDT"}) do
+        {:ok, ticker} ->
+          assert is_map(ticker)
+          assert Map.has_key?(ticker, "symbol")
+          assert Map.has_key?(ticker, "price")
+          assert ticker["symbol"] == "BTCUSDT"
 
-      IO.puts("TODO: Implement ticker price endpoint in Spot module")
-      IO.puts("Required for hedging strategy to calculate position values")
+          # Verify price is a valid number string
+          {price, _} = Float.parse(ticker["price"])
+          assert price > 0
 
-      # For now, we just document this limitation
-      assert true
+          IO.puts("Successfully fetched ticker price for BTCUSDT: $#{ticker["price"]}")
+
+        {:error, reason} ->
+          # Only allow specific network errors to pass - fail loudly on unexpected errors
+          acceptable_errors = [:timeout, :closed, :econnrefused, :nxdomain]
+
+          assert reason in acceptable_errors,
+                 "Unexpected error from get_ticker_price: #{inspect(reason)}. " <>
+                   "Only network errors #{inspect(acceptable_errors)} are acceptable."
+      end
     end
 
     @tag :integration

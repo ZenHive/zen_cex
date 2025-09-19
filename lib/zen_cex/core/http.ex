@@ -222,11 +222,6 @@ defmodule ZenCex.Core.HTTP do
 
   @spec auth_step(Req.Request.t()) :: Req.Request.t()
   defp auth_step(request) do
-    # TODO: Remove debug logging
-    require Logger
-
-    Logger.debug("Core.HTTP auth_step called, skip_auth: #{request.options[:skip_auth]}")
-
     if request.options[:skip_auth] do
       request
     else

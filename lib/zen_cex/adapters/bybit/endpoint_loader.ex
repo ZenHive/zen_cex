@@ -112,10 +112,25 @@ defmodule ZenCex.Adapters.Bybit.EndpointLoader do
   @spec inject_category(String.t()) :: (map() -> map())
   def inject_category(category) when is_binary(category) do
     fn endpoint ->
-      # TODO: Complete category injection implementation
-      # This would add the category parameter to the endpoint's required params
-      # For now, return endpoint unchanged until implementation is needed
-      endpoint
+      # Add the category to the endpoint's default parameters
+      update_in(endpoint, [:params], fn
+        nil ->
+          %{"category" => category}
+
+        params when is_map(params) ->
+          Map.put(params, "category", category)
+
+        params ->
+          # Log a warning for unexpected param types to help with debugging
+          require Logger
+
+          Logger.warning(
+            "Bybit endpoint has non-map params that cannot be injected with category. " <>
+              "Endpoint: #{inspect(endpoint[:path])}, Params type: #{inspect(params.__struct__ || :unknown)}"
+          )
+
+          params
+      end)
     end
   end
 end

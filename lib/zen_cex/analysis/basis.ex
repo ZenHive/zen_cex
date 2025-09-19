@@ -446,7 +446,7 @@ defmodule ZenCex.Analysis.Basis do
       String.match?(expiry_string, ~r/(^|-)\d{2}[A-Z]{3}\d{2}$/) ->
         parse_bybit_compact_format(expiry_string)
 
-      # TODO: ISO format: "YYYY-MM-DD" (for future compatibility, not yet implemented by exchanges)
+      # ISO format: "YYYY-MM-DD" (standard date format for future compatibility)
       String.match?(expiry_string, ~r/^\d{4}-\d{2}-\d{2}$/) ->
         parse_iso_format(expiry_string)
 
@@ -489,8 +489,14 @@ defmodule ZenCex.Analysis.Basis do
 
   # Parse ISO YYYY-MM-DD format
   defp parse_iso_format(expiry_string) do
-    [year, month, day] = String.split(expiry_string, "-")
-    parse_date_components(year, month, day)
+    case Date.from_iso8601(expiry_string) do
+      {:ok, date} ->
+        # Convert to DateTime at UTC midnight
+        {:ok, DateTime.new!(date, ~T[00:00:00], "Etc/UTC")}
+
+      {:error, _} ->
+        {:error, {:invalid_iso_format, "Expected YYYY-MM-DD format, got: #{expiry_string}"}}
+    end
   end
 
   defp parse_date_components(year, month, day) when is_binary(year) and is_binary(month) and is_binary(day) do

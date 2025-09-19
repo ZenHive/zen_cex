@@ -141,8 +141,8 @@ defmodule ZenCex.Adapters.Binance.UsdmFuturesIntegrationTest do
           end
         end)
 
-      # TODO: In production, this would log warnings if approaching limits
-      # For test, just verify the rate limiter is tracking usage
+      # Verify the rate limiter is tracking usage
+      # Production warnings are logged automatically by check_and_log_usage/3
       status = RateLimiter.get_status("/fapi/v3/positionRisk")
       assert status.limit == 2400
       assert status.used > 0

@@ -249,14 +249,23 @@ defmodule ZenCex.Adapters.Binance.Spot do
   end
 
   @doc """
-  Complex operation: Batch cancel multiple orders.
-  Hand-written because it requires special batch handling.
+  Get current price for a symbol from the market data API.
+
+  This delegates to the MarketData module since ticker prices are public data
+  and don't require authentication.
+
+  ## Parameters
+    - params: Map with :symbol key (e.g., %{symbol: "BTCUSDT"})
+
+  ## Examples
+      iex> Spot.get_ticker_price(%{symbol: "BTCUSDT"})
+      {:ok, %{"symbol" => "BTCUSDT", "price" => "50000.00"}}
   """
-  @spec batch_cancel_orders(map()) :: {:ok, list(map())} | {:error, term()}
-  def batch_cancel_orders(_params) do
-    # TODO: Implement batch cancellation
-    # This cancels multiple orders in a single API call
-    {:error, :not_implemented}
+  @spec get_ticker_price(map()) :: {:ok, map()} | {:error, term()}
+  def get_ticker_price(params) do
+    alias ZenCex.Adapters.Binance.MarketData
+
+    MarketData.get_ticker_price(params)
   end
 
   # The EndpointRegistry macro automatically generates:

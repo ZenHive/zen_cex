@@ -129,7 +129,7 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
     test "exports complex operation functions" do
       assert function_exported?(Spot, :place_oco_order, 1)
       assert function_exported?(Spot, :cancel_oco_order, 1)
-      assert function_exported?(Spot, :batch_cancel_orders, 1)
+      assert function_exported?(Spot, :cancel_all_orders, 1)
     end
   end
 
@@ -172,10 +172,6 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
         assert order["clientOrderId"]
         assert order["symbol"] == "BTCUSDT"
       end)
-    end
-
-    test "batch_cancel_orders returns not_implemented" do
-      assert Spot.batch_cancel_orders(%{}) == {:error, :not_implemented}
     end
   end
 

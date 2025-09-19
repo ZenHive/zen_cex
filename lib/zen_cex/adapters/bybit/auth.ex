@@ -27,9 +27,6 @@ defmodule ZenCex.Adapters.Bybit.Auth do
     has_json_option = opts[:has_json_option] || false
     body_params = opts[:body_params] || %{}
 
-    # TODO: Remove debug logging once authentication is stable
-    Logger.debug("Bybit Auth: Starting to sign request", exchange: :bybit)
-
     # Add timing parameters using clock-synchronized time
     params_with_timing = ensure_timing_params(all_params)
 

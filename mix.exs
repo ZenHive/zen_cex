@@ -94,13 +94,25 @@ defmodule ZenCex.MixProject do
         # "run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4000, allowed_origins: [\"//localhost\"]) end)'"
         # ~s{run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4000, allowed_origins: ["//localhost", "//127.0.0.1", "//0.0.0.0", "//::1"]) end)'}
       ],
+      # Quick precommit for fast iteration during development
       precommit: [
+        "compile --warning-as-errors",
+        "format",
+        "credo --strict --all"
+      ],
+      # Full precommit with all checks including tests
+      "precommit.full": [
         "compile --warning-as-errors",
         "deps.unlock --unused",
         "format",
-        "test --cover",
+        "test",
         "doctor",
         "credo --strict --all"
+      ],
+      # Precommit with test coverage analysis
+      "precommit.cover": [
+        "precommit.full",
+        "test --cover"
       ]
     ]
   end

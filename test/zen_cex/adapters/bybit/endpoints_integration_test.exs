@@ -309,12 +309,15 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
 
   describe "error handling validation" do
     test "authentication errors are properly formatted" do
-      # TODO: Temporarily break auth to test error formatting
+      # Temporarily break auth to test error formatting
+      # The with_env macro automatically restores the original auth after the test
       with_env [{"BYBIT_TESTNET_API_KEY", "invalid_key"}] do
         result = Unified.get_wallet_balance(%{accountType: "UNIFIED"})
         assert {:error, reason} = result
         Logger.debug("TESTNET auth error format: #{inspect(reason)}")
       end
+
+      # Auth is automatically restored by with_env macro's after block
     end
 
     test "rate limit errors are properly handled" do

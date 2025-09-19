@@ -52,9 +52,6 @@ defmodule ZenCex.Adapters.Binance.Auth do
     # Validate API type
     _base_url = base_url(api_type)
 
-    # TODO: Remove debug logging once authentication is stable
-    Logger.debug("Binance Auth: Starting to sign request for #{request.url}")
-
     # Add timing parameters
     params_with_timing = ParameterBuilder.ensure_timing_params(all_params, api_type)
 
