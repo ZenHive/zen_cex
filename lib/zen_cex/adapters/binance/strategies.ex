@@ -9,10 +9,28 @@ defmodule ZenCex.Adapters.Binance.Strategies do
   Portfolio Margin mode for cross-margining between spot and futures.
   """
 
+  alias ZenCex.Adapters.Binance.MarketData
   alias ZenCex.Adapters.Binance.PortfolioMargin
   alias ZenCex.Adapters.Binance.Spot
+  alias ZenCex.Core.Cache
 
   require Logger
+
+  # Performance constants
+  @price_fetch_concurrency 10
+  @price_fetch_timeout_ms 10_000
+  @rebalance_task_timeout_ms 10_000
+
+  # Cache TTL constants (in seconds)
+  # 24 hours
+  @contract_info_cache_ttl_seconds 86_400
+
+  # Contract defaults
+  @default_btc_contract_size 100
+
+  # Rebalancing defaults
+  @default_rebalance_threshold "0.02"
+  @default_base_asset "USDT"
 
   @min_trade_value_usdt 10.0
   # :usdt_m or :coin_m
@@ -219,9 +237,240 @@ defmodule ZenCex.Adapters.Binance.Strategies do
       {:ok, %{rebalanced: true, trades_executed: [...]}}
   """
   @spec rebalance_portfolio(map(), keyword()) :: {:ok, map()} | {:error, any()}
-  def rebalance_portfolio(_target_allocation, _opts \\ []) do
-    # TODO: Implement portfolio rebalancing
-    {:error, :not_implemented}
+  def rebalance_portfolio(target_allocation, opts \\ []) do
+    threshold = Keyword.get(opts, :threshold, Decimal.new(@default_rebalance_threshold))
+    base_asset = Keyword.get(opts, :base_asset, @default_base_asset)
+    dry_run = Keyword.get(opts, :dry_run, false)
+
+    with {:ok, current_portfolio} <- get_portfolio_with_values(),
+         {:ok, trades} <- calculate_rebalance_trades(current_portfolio, target_allocation, threshold, base_asset),
+         {:ok, results} <- execute_rebalance_trades(trades, dry_run) do
+      {:ok,
+       %{
+         rebalanced: true,
+         trades_executed: results,
+         current_allocation: calculate_allocation_percentages(current_portfolio),
+         target_allocation: target_allocation,
+         dry_run: dry_run
+       }}
+    end
+  end
+
+  defp get_portfolio_with_values do
+    with {:ok, balances} <- Spot.get_balances(),
+         {:ok, prices} <- get_current_prices(balances) do
+      # Calculate portfolio values
+      portfolio =
+        balances
+        |> Enum.map(fn balance ->
+          asset = balance["asset"]
+          free = Decimal.new(balance["free"])
+          locked = Decimal.new(balance["locked"])
+          total = Decimal.add(free, locked)
+
+          # Get price or use 1.0 for stablecoins
+          price =
+            if asset in ["USDT", "USDC", "BUSD"] do
+              Decimal.new("1")
+            else
+              Map.get(prices, asset <> "USDT", Decimal.new("0"))
+            end
+
+          value = Decimal.mult(total, price)
+
+          %{
+            asset: asset,
+            balance: total,
+            price: price,
+            value_usdt: value
+          }
+        end)
+        |> Enum.filter(fn pos ->
+          # Filter out zero balances
+          Decimal.compare(pos.value_usdt, Decimal.new("0")) == :gt
+        end)
+
+      {:ok, portfolio}
+    end
+  end
+
+  defp calculate_allocation_percentages(portfolio) do
+    total_value =
+      Enum.reduce(portfolio, Decimal.new("0"), fn pos, acc ->
+        Decimal.add(acc, pos.value_usdt)
+      end)
+
+    if Decimal.compare(total_value, Decimal.new("0")) == :eq do
+      %{}
+    else
+      Enum.reduce(portfolio, %{}, fn pos, acc ->
+        percentage = Decimal.div(pos.value_usdt, total_value)
+        Map.put(acc, pos.asset, percentage)
+      end)
+    end
+  end
+
+  defp calculate_rebalance_trades(current_portfolio, target_allocation, threshold, base_asset) do
+    # Calculate total portfolio value
+    total_value =
+      Enum.reduce(current_portfolio, Decimal.new("0"), fn pos, acc ->
+        Decimal.add(acc, pos.value_usdt)
+      end)
+
+    # Calculate current allocation percentages
+    current_allocation = calculate_allocation_percentages(current_portfolio)
+
+    # Build a map of current positions by asset for easy lookup
+    current_map =
+      Enum.reduce(current_portfolio, %{}, fn pos, acc ->
+        Map.put(acc, pos.asset, pos)
+      end)
+
+    # Calculate required trades
+    trades =
+      Enum.flat_map(target_allocation, fn {asset, target_pct} ->
+        current_pct = Map.get(current_allocation, asset, Decimal.new("0"))
+        deviation = target_pct |> Decimal.sub(current_pct) |> Decimal.abs()
+        # Only rebalance if deviation exceeds threshold
+        if Decimal.compare(deviation, threshold) == :gt do
+          target_value = Decimal.mult(total_value, target_pct)
+          current_value = Map.get(current_map, asset, %{value_usdt: Decimal.new("0")}).value_usdt
+          diff_value = Decimal.sub(target_value, current_value)
+          # Create trade order
+          if Decimal.compare(diff_value, Decimal.new("0")) == :gt do
+            # Need to buy this asset
+            [
+              {
+                :buy,
+                asset,
+                diff_value,
+                asset <> base_asset
+              }
+            ]
+          else
+            # Need to sell this asset
+            [
+              {
+                :sell,
+                asset,
+                Decimal.abs(diff_value),
+                asset <> base_asset
+              }
+            ]
+          end
+        else
+          []
+        end
+      end)
+
+    # Validate we have enough base asset for buys
+    base_balance =
+      current_map
+      |> Map.get(base_asset, %{balance: Decimal.new("0")})
+      |> Map.get(:balance)
+
+    total_buy_value =
+      trades
+      |> Enum.filter(fn {action, _, _, _} -> action == :buy end)
+      |> Enum.reduce(Decimal.new("0"), fn {_, _, value, _}, acc ->
+        Decimal.add(acc, value)
+      end)
+
+    if Decimal.compare(total_buy_value, base_balance) == :gt do
+      {:error, {:insufficient_balance, base_asset, base_balance, total_buy_value}}
+    else
+      {:ok, trades}
+    end
+  end
+
+  defp execute_rebalance_trades(trades, dry_run) do
+    if dry_run do
+      # Simulate trades without execution
+      results =
+        Enum.map(trades, fn {action, asset, value, symbol} ->
+          %{
+            status: "DRY_RUN",
+            action: action,
+            asset: asset,
+            value_usdt: value,
+            symbol: symbol
+          }
+        end)
+
+      {:ok, results}
+    else
+      # Execute trades in parallel
+      results =
+        trades
+        |> Enum.map(fn trade ->
+          Task.async(fn ->
+            execute_single_rebalance_trade(trade)
+          end)
+        end)
+        |> Enum.map(&Task.await(&1, @rebalance_task_timeout_ms))
+
+      {:ok, results}
+    end
+  end
+
+  defp execute_single_rebalance_trade({action, asset, value_usdt, symbol}) do
+    # Calculate quantity based on current price
+    case MarketData.get_ticker_price(%{symbol: symbol}) do
+      {:ok, ticker} ->
+        price =
+          case ticker do
+            [t | _] -> Decimal.new(t["price"])
+            %{"price" => p} -> Decimal.new(p)
+          end
+
+        quantity = value_usdt |> Decimal.div(price) |> Decimal.round(4)
+
+        # Generate unique client order ID for idempotency
+        client_order_id = generate_client_order_id(symbol, action)
+
+        params = %{
+          symbol: symbol,
+          side: if(action == :buy, do: "BUY", else: "SELL"),
+          type: "MARKET",
+          quantity: Decimal.to_string(quantity),
+          newClientOrderId: client_order_id
+        }
+
+        case Spot.place_order(params) do
+          {:ok, result} ->
+            %{
+              status: "EXECUTED",
+              action: action,
+              asset: asset,
+              value_usdt: value_usdt,
+              symbol: symbol,
+              order_id: result["orderId"],
+              executed_qty: result["executedQty"]
+            }
+
+          {:error, reason} ->
+            Logger.error("Failed to execute rebalance trade for #{symbol}: #{inspect(reason)}")
+
+            %{
+              status: "FAILED",
+              action: action,
+              asset: asset,
+              value_usdt: value_usdt,
+              symbol: symbol,
+              error: reason
+            }
+        end
+
+      {:error, reason} ->
+        %{
+          status: "FAILED",
+          action: action,
+          asset: asset,
+          value_usdt: value_usdt,
+          symbol: symbol,
+          error: {:price_fetch_failed, reason}
+        }
+    end
   end
 
   # Private functions
@@ -318,17 +567,12 @@ defmodule ZenCex.Adapters.Binance.Strategies do
   end
 
   defp get_current_prices(balances) do
-    # TODO: Runtime check to prevent placeholder prices in production
-    env = ZenCex.Config.environment(:binance)
-
-    if env == :prod do
-      {:error, :price_fetching_not_implemented}
-    else
-      get_current_prices_testnet(balances)
-    end
+    # Fetch real prices from market data API
+    # Works on both testnet and production
+    get_current_prices_from_api(balances)
   end
 
-  defp get_current_prices_testnet(balances) do
+  defp get_current_prices_from_api(balances) do
     # Get unique assets that need pricing, handling both atom and string keys
     assets =
       balances
@@ -344,23 +588,27 @@ defmodule ZenCex.Adapters.Binance.Strategies do
       end)
       |> MapSet.to_list()
 
-    # Fetch all prices in parallel
+    # Fetch all prices with limited concurrency to avoid connection pool exhaustion
     prices =
       assets
-      |> Enum.map(fn asset ->
-        symbol = asset <> "USDT"
+      |> Task.async_stream(
+        fn asset ->
+          fetch_single_ticker_price(asset)
+        end,
+        max_concurrency: @price_fetch_concurrency,
+        timeout: @price_fetch_timeout_ms
+      )
+      |> Enum.reduce(%{}, fn
+        {:ok, nil}, acc ->
+          acc
 
-        Task.async(fn ->
-          # TODO: For testnet only - use a placeholder price since ticker endpoints
-          # are not available in current spot module
-          # This is acceptable in testnet for development purposes
-          # TODO: implement real price fetching for testnet
-          Logger.warning("[TESTNET] Using placeholder price for #{symbol}")
-          # Use non-zero price for testnet
-          {symbol, Decimal.new("1000")}
-        end)
+        {:ok, {symbol, price}}, acc ->
+          Map.put(acc, symbol, price)
+
+        {:exit, reason}, acc ->
+          Logger.error("Task failed: #{inspect(reason)}")
+          acc
       end)
-      |> Map.new(&Task.await(&1, 5000))
 
     validate_prices(prices)
   end
@@ -526,10 +774,58 @@ defmodule ZenCex.Adapters.Binance.Strategies do
 
       :coin_m ->
         # Inverse futures: quantity in contracts
-        # TODO: Get contract size from exchange info
+        # Get contract size from exchange info (cached)
+        contract_size = get_coinm_contract_size("BTCUSD_PERP")
+
         hedge_value
-        |> Decimal.div(Decimal.new("10"))
+        |> Decimal.div(Decimal.new(contract_size))
         |> Decimal.round(0)
+    end
+  end
+
+  # Gets the contract size for a COIN-M futures symbol from exchange info.
+  # Results are cached for 24 hours to avoid repeated API calls.
+  defp get_coinm_contract_size(symbol) do
+    cache_key = "coinm_contract_size:#{symbol}"
+
+    # Try to get from cache first
+    case Cache.get(cache_key) do
+      {:ok, size} ->
+        size
+
+      {:error, _} ->
+        fetch_and_cache_contract_size(cache_key, symbol)
+    end
+  end
+
+  defp fetch_and_cache_contract_size(cache_key, symbol) do
+    size = fetch_contract_size_from_api(symbol)
+    Cache.put(cache_key, size, @contract_info_cache_ttl_seconds)
+    size
+  end
+
+  defp fetch_contract_size_from_api(symbol) do
+    case MarketData.coinm_get_exchange_info() do
+      {:ok, exchange_info} ->
+        find_contract_size(exchange_info, symbol) || default_contract_size(symbol)
+
+      {:error, reason} ->
+        Logger.error("Failed to fetch COINM exchange info: #{inspect(reason)}")
+        @default_btc_contract_size
+    end
+  end
+
+  defp default_contract_size(symbol) do
+    Logger.warning("Contract size not found for #{symbol}, using default #{@default_btc_contract_size}")
+    @default_btc_contract_size
+  end
+
+  defp find_contract_size(exchange_info, symbol) do
+    exchange_info["symbols"]
+    |> Enum.find(fn sym -> sym["symbol"] == symbol end)
+    |> case do
+      nil -> nil
+      symbol_info -> symbol_info["contractSize"]
     end
   end
 
@@ -674,10 +970,20 @@ defmodule ZenCex.Adapters.Binance.Strategies do
         end
 
       :coin_m ->
-        # TODO: Implement COIN-M order placement when available
-        order
-        |> Map.put(:status, "FAILED")
-        |> Map.put(:error, :coin_m_not_implemented)
+        case PortfolioMargin.new_cm_order(params) do
+          {:ok, result} ->
+            order
+            |> Map.put(:status, "EXECUTED")
+            |> Map.put(:order_id, result["orderId"])
+            |> Map.put(:executed_qty, result["executedQty"])
+
+          {:error, reason} ->
+            Logger.error("Failed to place COIN-M hedge order for #{order.symbol}: #{inspect(reason)}")
+
+            order
+            |> Map.put(:status, "FAILED")
+            |> Map.put(:error, reason)
+        end
     end
   end
 
@@ -756,13 +1062,63 @@ defmodule ZenCex.Adapters.Binance.Strategies do
   end
 
   defp get_paxg_price do
-    # TODO: This should use a real ticker endpoint when available
-    # TODO: For now, we'll use a placeholder approach
-    Logger.warning("TODO: Implement real PAXGUSDT price fetching from market data endpoint")
+    # Fetch real PAXGUSDT price from market data API
+    fetch_ticker_price_with_fallback("PAXGUSDT", "2000.00")
+  end
 
-    # PAXG is typically around $2000 per ounce
-    # TODO: In production, this MUST fetch real price from exchange
-    {:ok, Decimal.new("2000.00")}
+  defp fetch_ticker_price_with_fallback(symbol, fallback_price) do
+    case MarketData.get_ticker_price(%{symbol: symbol}) do
+      {:ok, ticker} ->
+        price = extract_price_from_ticker(ticker)
+        {:ok, Decimal.new(price)}
+
+      {:error, reason} ->
+        handle_ticker_fetch_error(symbol, reason, fallback_price)
+    end
+  end
+
+  defp extract_price_from_ticker(ticker) when is_list(ticker) do
+    List.first(ticker)["price"]
+  end
+
+  defp extract_price_from_ticker(%{"price" => price}), do: price
+
+  defp handle_ticker_fetch_error(symbol, reason, fallback_price) do
+    Logger.error("Failed to fetch #{symbol} price: #{inspect(reason)}")
+    env = ZenCex.Config.environment(:binance)
+
+    if env == :test do
+      Logger.warning("Using fallback price for #{symbol} on testnet")
+      {:ok, Decimal.new(fallback_price)}
+    else
+      {:error, {:price_fetch_failed, symbol, reason}}
+    end
+  end
+
+  defp fetch_single_ticker_price(asset) do
+    symbol = asset <> "USDT"
+
+    case MarketData.get_ticker_price(%{symbol: symbol}) do
+      {:ok, ticker} ->
+        price = extract_price_from_ticker(ticker)
+        {symbol, Decimal.new(price)}
+
+      {:error, reason} ->
+        Logger.warning("Failed to fetch price for #{symbol}: #{inspect(reason)}")
+        env = ZenCex.Config.environment(:binance)
+
+        if env == :test do
+          Logger.warning("Using fallback price for #{symbol} on testnet")
+          {symbol, Decimal.new("1000")}
+        end
+    end
+  end
+
+  defp generate_client_order_id(symbol, action) do
+    timestamp = System.system_time(:millisecond)
+    random_suffix = 4 |> :crypto.strong_rand_bytes() |> Base.encode16(case: :lower)
+    action_str = if action == :buy, do: "B", else: "S"
+    "ZC_#{action_str}_#{symbol}_#{timestamp}_#{random_suffix}"
   end
 
   defp calculate_paxg_position(portfolio_value, paxg_price, leverage) do

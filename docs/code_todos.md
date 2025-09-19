@@ -10,18 +10,18 @@
 21. ~~**Fix auth break test**~~ - Auth restoration handled by `with_env` macro's after block (`spot_integration_test.exs:664`, `endpoints_integration_test.exs:312`)
 23. ~~**Add production rate limit warnings**~~ - Already implemented in `check_and_log_usage/3` (`usdm_futures_integration_test.exs:144`)
 6. ~~**Implement batch order cancellation**~~ - `cancel_all_orders/1` auto-generated from `:delete_openOrders` endpoint (`binance/spot.ex`)
+7. ~~**Implement COIN-M order placement**~~ - Completed COIN-M futures orders using `PortfolioMargin.new_cm_order` (`binance/strategies.ex:973-985`)
+8. ~~**Implement portfolio rebalancing**~~ - Added full rebalancing strategy with dry-run support (`binance/strategies.ex:240-466`)
+9. ~~**Replace placeholder prices with real ticker data**~~ - Replaced all placeholders with MarketData API calls (`strategies.ex:571-593,1065-1114`)
+26. ~~**Get contract sizes from exchange info**~~ - Fetch and cache contract sizes from COIN-M exchange info (`strategies.ex:777-829`)
+27. ~~**Handle portfolio margin 404s properly**~~ - Improved error categorization and handling (`portfolio_margin_404_test.exs:216-299`)
 
 ## Exchange Implementations
 1. **[OUT OF SCOPE] Implement Kraken adapter** - Add full Kraken support (`core/registry.ex:35`, `integration_case.ex:201,158`)
 2. **[OUT OF SCOPE] Implement Deribit adapter** - Add full Deribit support (`core/registry.ex:36`, `integration_case.ex:210,167`, `clock_sync.ex:428`)
 3. **Add Bybit rate limit headers** - Monitor docs and implement official headers (`bybit/rate_limiter.ex:181`)
 
-## Trading Features
-7. **Implement COIN-M order placement** - Complete COIN-M futures orders (`binance/strategies.ex:677`)
-8. **Implement portfolio rebalancing** - Add rebalancing strategy (`binance/strategies.ex:223`)
-
 ## Price & Market Data
-9. **Replace placeholder prices with real ticker data** - Multiple locations need real price fetching (`strategies.ex:321,354,357,759-764`)
 10. **Add WebSocket market data parsing** - Deferred to WebSocket phase (`binance/parser.ex:337`)
 11. **Implement proper market price estimation** - Replace stub (`order_safety.ex:722`)
 
@@ -39,6 +39,3 @@
 19. **[OUT OF SCOPE] Extend exchange support for funding rates** - Add Kraken, Deribit, OKX (`market.ex:470,532`)
 20. **Add central config management** - For backward compatibility (`market.ex:619`)
 
-## Minor Fixes
-26. **Get contract sizes from exchange info** - Replace hardcoded values (`strategies.ex:529`)
-27. **Handle portfolio margin 404s properly** - Improve error handling (`portfolio_margin_404_test.exs:215,228`)

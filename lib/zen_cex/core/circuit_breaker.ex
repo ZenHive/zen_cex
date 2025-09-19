@@ -245,13 +245,14 @@ defmodule ZenCex.Core.CircuitBreaker do
     )
 
     # Return 503 Service Unavailable
-    response = %Req.Response{
-      status: 503,
-      body: "Service temporarily unavailable - circuit breaker open for #{exchange}",
-      headers: [
-        {"retry-after", Integer.to_string(retry_after_seconds)}
-      ]
-    }
+    response =
+      Req.Response.new(
+        status: 503,
+        body: "Service temporarily unavailable - circuit breaker open for #{exchange}",
+        headers: [
+          {"retry-after", Integer.to_string(retry_after_seconds)}
+        ]
+      )
 
     {request, response}
   end

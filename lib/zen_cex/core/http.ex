@@ -205,17 +205,27 @@ defmodule ZenCex.Core.HTTP do
         {:error, :rate_limited} ->
           emit_rate_limit_telemetry(exchange, endpoint)
           # Return a response to halt the pipeline
-          {request, %Req.Response{status: 429, body: "Rate limited"}}
+          # Use JSON body that Binance parser expects for 429 errors
+          {request,
+           Req.Response.new(
+             status: 429,
+             body: Jason.encode!(%{"code" => 429, "msg" => "Rate limited"}),
+             headers: [{"content-type", "application/json"}]
+           )}
 
         {:error, {:rate_limited, retry_after_ms}} ->
           emit_rate_limit_telemetry(exchange, endpoint, retry_after_ms)
           # Return a response with retry-after header
+          # Use Req.Response.new to properly convert headers to map format
           {request,
-           %Req.Response{
+           Req.Response.new(
              status: 429,
-             body: "Rate limited",
-             headers: [{"retry-after", Integer.to_string(div(retry_after_ms, @seconds_per_millisecond_divisor))}]
-           }}
+             body: Jason.encode!(%{"code" => 429, "msg" => "Rate limited"}),
+             headers: [
+               {"retry-after", Integer.to_string(div(retry_after_ms, @seconds_per_millisecond_divisor))},
+               {"content-type", "application/json"}
+             ]
+           )}
       end
     end
   end

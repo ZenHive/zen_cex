@@ -212,8 +212,8 @@ defmodule ZenCex.Adapters.Binance.PortfolioMargin404Test do
         # 2. Network/auth issue
         # 3. Different error format
 
-        # TODO: For now, we'll pass the test but log for investigation
-        assert true
+        # Categorize and handle different error types appropriately
+        handle_api_error(endpoint_name, other_error)
 
       {:ok, response} ->
         # Unexpected success on testnet!
@@ -225,7 +225,7 @@ defmodule ZenCex.Adapters.Binance.PortfolioMargin404Test do
           # Don't fail the test, but flag for attention
           assert true
         else
-          # TODO: In production, this is expected
+          # In production, this is expected - validate response structure
           Logger.info("#{endpoint_name} succeeded in production environment")
           assert_production_response(endpoint_name, response)
         end
@@ -239,9 +239,64 @@ defmodule ZenCex.Adapters.Binance.PortfolioMargin404Test do
   end
 
   defp assert_production_response(endpoint_name, response) do
-    # TODO: In production, validate the actual response structure
-    # TODO: For now, just assert we got something
-    assert response
-    Logger.info("Production response for #{endpoint_name}: #{inspect(response)}")
+    # In production, validate the actual response structure based on endpoint
+    case endpoint_name do
+      "get_balance" ->
+        assert is_map(response)
+        assert Map.has_key?(response, "balance") or Map.has_key?(response, "uniMMR")
+
+      "get_account_info" ->
+        assert is_map(response)
+        assert Map.has_key?(response, "uniMMR") or Map.has_key?(response, "accountType")
+
+      "repay_futures_switch" ->
+        assert is_map(response)
+        assert Map.has_key?(response, "autoRepayAtCancel")
+
+      _ ->
+        # For unknown endpoints, just verify we got a map response
+        assert is_map(response) or is_list(response),
+               "Expected map or list response for #{endpoint_name}, got: #{inspect(response)}"
+    end
+
+    Logger.debug("Production response for #{endpoint_name} validated successfully")
   end
+
+  defp handle_api_error(endpoint_name, error) do
+    case categorize_error(error) do
+      :auth_error ->
+        flunk("Authentication error on #{endpoint_name}: #{inspect(error)}")
+
+      :rate_limit ->
+        Logger.warning("Rate limit hit on #{endpoint_name}, skipping test")
+        assert true
+
+      :network_error ->
+        Logger.warning("Network error on #{endpoint_name}: #{inspect(error)}, skipping test")
+        assert true
+
+      :unknown ->
+        # Unknown error - log for investigation but don't fail
+        Logger.warning("Investigate #{endpoint_name} error: #{inspect(error)}")
+        assert true
+    end
+  end
+
+  defp categorize_error({:error, %{"code" => code}}) when code in [-2015, -2014, -1022] do
+    :auth_error
+  end
+
+  defp categorize_error({:error, %{"code" => code}}) when code in [-1003, 429] do
+    :rate_limit
+  end
+
+  defp categorize_error({:error, {:closed, _}}), do: :network_error
+  defp categorize_error({:error, {:timeout, _}}), do: :network_error
+  defp categorize_error({:error, :timeout}), do: :network_error
+  defp categorize_error({:error, :econnrefused}), do: :network_error
+
+  defp categorize_error({:auth_error, _}), do: :auth_error
+  defp categorize_error({:rate_limit, _}), do: :rate_limit
+
+  defp categorize_error(_), do: :unknown
 end
