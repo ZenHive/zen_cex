@@ -29,12 +29,12 @@ defmodule ZenCex.Adapters.BaseRateLimiter do
       @doc """
       Checks if an operation qualifies as emergency (bypass rate limits).
       """
-      @spec is_emergency_operation?(atom() | String.t()) :: boolean()
-      def is_emergency_operation?(operation) when is_atom(operation) do
+      @spec emergency_operation?(atom() | String.t()) :: boolean()
+      def emergency_operation?(operation) when is_atom(operation) do
         operation in unquote(emergency_operations)
       end
 
-      def is_emergency_operation?(path) when is_binary(path) do
+      def emergency_operation?(path) when is_binary(path) do
         Enum.any?(unquote(emergency_path_patterns), &String.contains?(path, &1))
       end
 
@@ -80,7 +80,7 @@ defmodule ZenCex.Adapters.BaseRateLimiter do
       end
 
       # Allow adapters to override these if needed
-      defoverridable is_emergency_operation?: 1,
+      defoverridable emergency_operation?: 1,
                      calculate_capacity_usage: 2,
                      log_capacity_warning: 1,
                      log_capacity_warning: 2

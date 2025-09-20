@@ -168,13 +168,29 @@ defmodule ZenCex.Core.Cache do
       # Cache funding rate for 5 minutes
       ZenCex.Core.Cache.put("funding:bybit:ETHUSDT", funding_data, 300)
 
+      # Cache WebSocket data without expiry
+      ZenCex.Core.Cache.put("orderbook:binance:BTCUSDT", orderbook, :infinity)
+
   """
-  @spec put(binary(), term(), pos_integer()) :: :ok
-  def put(key, value, ttl_seconds) when is_binary(key) and is_integer(ttl_seconds) and ttl_seconds > 0 do
-    if Process.whereis(__MODULE__) do
-      GenServer.call(__MODULE__, {:put, key, value, ttl_seconds})
-    else
-      :ok
+  @spec put(binary(), term(), pos_integer() | :infinity) :: :ok
+  def put(key, value, ttl) when is_binary(key) do
+    case ttl do
+      :infinity ->
+        if Process.whereis(__MODULE__) do
+          GenServer.call(__MODULE__, {:put, key, value, :infinity})
+        else
+          :ok
+        end
+
+      ttl_seconds when is_integer(ttl_seconds) and ttl_seconds > 0 ->
+        if Process.whereis(__MODULE__) do
+          GenServer.call(__MODULE__, {:put, key, value, ttl_seconds})
+        else
+          :ok
+        end
+
+      _ ->
+        raise ArgumentError, "TTL must be a positive integer or :infinity"
     end
   end
 
@@ -358,13 +374,18 @@ defmodule ZenCex.Core.Cache do
   end
 
   @impl true
-  def handle_call({:put, key, value, ttl_seconds}, _from, state) do
+  def handle_call({:put, key, value, ttl}, _from, state) do
     start_time = System.monotonic_time()
 
     # Check cache size and evict if necessary
     new_state = ensure_cache_capacity(state)
 
-    expiry = DateTime.add(DateTime.utc_now(), ttl_seconds, :second)
+    expiry =
+      case ttl do
+        :infinity -> :infinity
+        ttl_seconds -> DateTime.add(DateTime.utc_now(), ttl_seconds, :second)
+      end
+
     access_time = System.monotonic_time(:nanosecond)
 
     # Check if key already exists to clean up old LRU entry
@@ -382,7 +403,7 @@ defmodule ZenCex.Core.Cache do
     # Insert new LRU entry
     :ets.insert(@lru_table_name, {{access_time, key}, true})
 
-    emit_telemetry(:put, start_time, %{key: key, ttl: ttl_seconds})
+    emit_telemetry(:put, start_time, %{key: key, ttl: ttl})
 
     updated_state =
       if is_new do
@@ -461,11 +482,17 @@ defmodule ZenCex.Core.Cache do
   defp lookup_and_validate(key) do
     case :ets.lookup(@table_name, key) do
       [{^key, value, expiry, _access_time}] ->
-        if DateTime.before?(DateTime.utc_now(), expiry) do
-          {:ok, value}
-        else
-          cleanup_expired_key(key)
-          {:expired, value}
+        case expiry do
+          :infinity ->
+            {:ok, value}
+
+          expiry_dt ->
+            if DateTime.before?(DateTime.utc_now(), expiry_dt) do
+              {:ok, value}
+            else
+              cleanup_expired_key(key)
+              {:expired, value}
+            end
         end
 
       [] ->
@@ -660,7 +687,13 @@ defmodule ZenCex.Core.Cache do
     # since we need to count deletions and track state
     :ets.foldl(
       fn {key, _value, expiry, access_time}, acc ->
-        if DateTime.before?(expiry, now) do
+        should_delete =
+          case expiry do
+            :infinity -> false
+            expiry_dt -> DateTime.before?(expiry_dt, now)
+          end
+
+        if should_delete do
           :ets.delete(@table_name, key)
           :ets.delete(@lru_table_name, {access_time, key})
           acc + 1

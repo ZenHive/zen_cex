@@ -30,9 +30,9 @@ defmodule ZenCex.Application do
       # - TODO: Add Deribit.Auth GenServer when OAuth is implemented
     ]
 
-    # Add debug table only in dev/test environments
+    # Add debug table based on configuration
     children =
-      if Mix.env() in [:dev, :test] do
+      if Application.get_env(:zen_cex, :enable_debug_table, false) do
         base_children ++ [ZenCex.Core.DebugTable]
       else
         base_children

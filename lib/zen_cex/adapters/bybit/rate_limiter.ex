@@ -171,30 +171,135 @@ defmodule ZenCex.Adapters.Bybit.RateLimiter do
 
   @impl true
   def update_from_response(%Req.Response{headers: headers} = _response) do
-    # Bybit v5 doesn't provide rate limit usage in headers
-    # It uses status code 10006 for rate limit errors
-    # We could track request counts locally if needed
-
-    # Check for rate limit info in headers (if Bybit adds them)
     headers_map = Map.new(headers)
 
-    # TODO: Monitor Bybit documentation for official rate limit headers
-    # Currently checking common headers: x-ratelimit-limit, x-ratelimit-remaining, x-ratelimit-reset
-    if remaining_header = headers_map["x-ratelimit-remaining"] do
-      remaining = parse_header_value(remaining_header)
-      used = @bybit_limit - remaining
-      table = get_or_create_table()
-      key = {:bybit, get_current_window()}
+    # Try different header formats in priority order
+    cond do
+      headers_map["x-bapi-limit-status"] ->
+        handle_bapi_headers(headers_map)
 
-      # Update ETS with calculated usage
-      :ets.insert(table, {key, used})
+      headers_map["x-ratelimit-remaining"] ->
+        handle_fallback_headers(headers_map)
 
-      # Log usage warnings
-      check_and_log_usage(used, @bybit_limit)
+      true ->
+        :ok
     end
-
-    :ok
   end
+
+  # Handle Bybit's official X-Bapi-Limit headers
+  defp handle_bapi_headers(headers_map) do
+    case safe_parse_header_value(headers_map["x-bapi-limit-status"]) do
+      {:ok, remaining} ->
+        limit = extract_bapi_limit(headers_map)
+        process_rate_limit_update(remaining, limit, :bapi_headers)
+        handle_reset_timestamp(headers_map)
+
+      {:error, _reason} ->
+        Logger.warning("Failed to parse Bybit rate limit headers")
+    end
+  end
+
+  # Extract limit from X-Bapi-Limit header or use default
+  defp extract_bapi_limit(headers_map) do
+    with val when is_binary(val) <- headers_map["x-bapi-limit"],
+         {:ok, parsed_limit} <- safe_parse_header_value(val) do
+      parsed_limit
+    else
+      _ -> @bybit_limit
+    end
+  end
+
+  # Handle fallback headers
+  defp handle_fallback_headers(headers_map) do
+    case safe_parse_header_value(headers_map["x-ratelimit-remaining"]) do
+      {:ok, remaining} ->
+        process_rate_limit_update(remaining, @bybit_limit, :fallback_headers)
+
+      {:error, _reason} ->
+        Logger.warning("Failed to parse fallback rate limit headers")
+    end
+  end
+
+  # Process rate limit update (common logic)
+  defp process_rate_limit_update(remaining, limit, source) do
+    used = max(0, limit - remaining)
+    table = get_or_create_table()
+    key = {:bybit, get_current_window()}
+
+    # Update ETS atomically with calculated usage
+    update_rate_limit_usage(table, key, used)
+
+    # Log usage warnings
+    check_and_log_usage(used, limit)
+
+    # Emit telemetry event for rate limit update
+    :telemetry.execute(
+      [:zen_cex, :bybit, :rate_limit, :updated],
+      %{used: used, limit: limit, remaining: remaining},
+      %{source: source}
+    )
+  end
+
+  # Handle reset timestamp if present
+  defp handle_reset_timestamp(headers_map) do
+    with reset_str when is_binary(reset_str) <- headers_map["x-bapi-limit-reset-timestamp"],
+         {:ok, reset_time_ms} <- parse_reset_timestamp(reset_str) do
+      process_reset_timestamp(reset_str, reset_time_ms)
+    else
+      nil ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("Failed to parse Bybit reset timestamp: #{reason}")
+    end
+  end
+
+  # Process the parsed reset timestamp
+  defp process_reset_timestamp(reset_str, reset_time_ms) do
+    now_ms = System.system_time(:millisecond)
+    backoff_ms = max(0, reset_time_ms - now_ms)
+
+    # Store backoff information if applicable
+    store_reset_if_needed(reset_time_ms, backoff_ms)
+
+    # Emit telemetry event
+    :telemetry.execute(
+      [:zen_cex, :bybit, :rate_limit, :reset_info],
+      %{
+        reset_timestamp: reset_str,
+        reset_time_ms: reset_time_ms,
+        backoff_ms: backoff_ms
+      },
+      %{}
+    )
+  end
+
+  # Store reset timestamp if we need to back off
+  defp store_reset_if_needed(reset_time_ms, backoff_ms) when backoff_ms > 0 do
+    table = get_or_create_table()
+    :ets.insert(table, {{:bybit, :next_reset}, reset_time_ms})
+    Logger.debug("Bybit rate limit resets in #{backoff_ms}ms (at timestamp: #{reset_time_ms})")
+  end
+
+  defp store_reset_if_needed(_reset_time_ms, _backoff_ms), do: :ok
+
+  # Parse reset timestamp from various formats
+  defp parse_reset_timestamp(timestamp_str) when is_binary(timestamp_str) do
+    case Integer.parse(timestamp_str) do
+      {timestamp_ms, ""} when timestamp_ms >= 10_000_000_000 ->
+        # Already in milliseconds
+        {:ok, timestamp_ms}
+
+      {timestamp_s, ""} when timestamp_s > 0 ->
+        # In seconds, convert to milliseconds
+        {:ok, timestamp_s * 1000}
+
+      _ ->
+        {:error, :invalid_format}
+    end
+  end
+
+  defp parse_reset_timestamp(_), do: {:error, :invalid_type}
 
   @impl true
   def get_status(_endpoint) do
@@ -219,6 +324,18 @@ defmodule ZenCex.Adapters.Bybit.RateLimiter do
   end
 
   # Private functions
+
+  # Helper to update rate limit usage in ETS atomically
+  defp update_rate_limit_usage(table, key, used) do
+    # Use update_counter for truly atomic operation
+    # If key doesn't exist, creates it with default {key, 0} then adds used
+    :ets.update_counter(table, key, {2, used}, {key, 0})
+  rescue
+    ArgumentError ->
+      # Fallback for older ETS versions or if table doesn't exist
+      :ets.insert_new(table, {key, 0})
+      :ets.update_element(table, key, {2, used})
+  end
 
   defp emergency_operation?(endpoint, operation)
 
@@ -269,25 +386,57 @@ defmodule ZenCex.Adapters.Bybit.RateLimiter do
   end
 
   defp calculate_retry_after do
-    # Calculate milliseconds until next 5-second window
-    current_second = System.system_time(:second)
-    next_window_start = (div(current_second, @window_seconds) + 1) * @window_seconds
-    retry_after_seconds = next_window_start - current_second
-    # Add buffer to ensure we're in the next window
-    retry_after_seconds * 1000 + @retry_buffer_ms
+    # First check if we have a stored reset timestamp from headers
+    table = get_or_create_table()
+    now_ms = System.system_time(:millisecond)
+
+    case :ets.lookup(table, {:bybit, :next_reset}) do
+      [{{:bybit, :next_reset}, reset_time_ms}] when reset_time_ms > now_ms ->
+        # Use the actual reset time from the API with a small buffer
+        backoff_ms = reset_time_ms - now_ms + @retry_buffer_ms
+        Logger.debug("Using API-provided reset time, backing off for #{backoff_ms}ms")
+        backoff_ms
+
+      _ ->
+        # Fall back to calculating based on window
+        current_second = System.system_time(:second)
+        next_window_start = (div(current_second, @window_seconds) + 1) * @window_seconds
+        retry_after_seconds = next_window_start - current_second
+        # Add buffer to ensure we're in the next window
+        retry_after_seconds * 1000 + @retry_buffer_ms
+    end
   end
 
-  defp parse_header_value(value) when is_binary(value) do
-    String.to_integer(value)
+  defp safe_parse_header_value(value) when is_binary(value) do
+    # Validate header length to prevent malicious injection
+    if byte_size(value) > 20 do
+      {:error, :header_too_long}
+    else
+      case Integer.parse(value) do
+        {int_value, ""} when int_value >= 0 and int_value <= 1_000_000 ->
+          # Reasonable bounds for rate limit values
+          {:ok, int_value}
+
+        {_int_value, ""} ->
+          {:error, :value_out_of_bounds}
+
+        _ ->
+          {:error, :invalid_integer}
+      end
+    end
   end
 
-  defp parse_header_value([value | _]) when is_binary(value) do
+  defp safe_parse_header_value([value | _]) when is_binary(value) do
     # Sometimes headers come as lists from Req/Finch
-    String.to_integer(value)
+    safe_parse_header_value(value)
   end
 
-  defp parse_header_value(value) when is_integer(value) do
-    value
+  defp safe_parse_header_value(value) when is_integer(value) do
+    {:ok, value}
+  end
+
+  defp safe_parse_header_value(_value) do
+    {:error, :invalid_format}
   end
 
   defp check_and_log_usage(used, limit) do

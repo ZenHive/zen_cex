@@ -425,11 +425,26 @@ defmodule ZenCex.Safety.ClockSync do
   defp get_time_endpoint_url(:kraken, _), do: {:ok, "https://api.kraken.com/0/public/Time"}
 
   defp get_time_endpoint_url(:deribit, _) do
-    # TODO: Use test/prod host from config - should use Deribit adapter's base_url method
-    {:ok, "https://test.deribit.com/api/v2/public/get_time"}
+    # Use dynamic host configuration based on environment
+    base_url = get_deribit_base_url()
+    {:ok, "#{base_url}/api/v2/public/get_time"}
   end
 
   defp get_time_endpoint_url(unknown, _), do: {:error, {:unsupported_exchange, unknown}}
+
+  defp get_deribit_base_url do
+    # Check if we should use testnet based on environment config or env variables
+    cond do
+      Application.get_env(:zen_cex, :use_testnet, false) ->
+        "https://test.deribit.com"
+
+      System.get_env("DERIBIT_TESTNET_API_KEY") != nil ->
+        "https://test.deribit.com"
+
+      true ->
+        "https://www.deribit.com"
+    end
+  end
 
   defp get_bybit_time_url do
     if Application.get_env(:zen_cex, :use_testnet, false) do

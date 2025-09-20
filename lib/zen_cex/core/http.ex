@@ -299,7 +299,7 @@ defmodule ZenCex.Core.HTTP do
     exchange = request.options[:exchange]
 
     # Capture client errors for debug if enabled
-    if Mix.env() in [:dev, :test] && response.status >= 400 do
+    if Application.get_env(:zen_cex, :enable_debug_capture, false) && response.status >= 400 do
       Debug.capture_request(request, {:http_error, response.status, response.body})
     end
 
@@ -397,7 +397,7 @@ defmodule ZenCex.Core.HTTP do
     )
 
     # Capture request for debug if enabled
-    if Mix.env() in [:dev, :test] do
+    if Application.get_env(:zen_cex, :enable_debug_capture, false) do
       Debug.capture_request(request, exception)
     end
 

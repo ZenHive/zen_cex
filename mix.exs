@@ -45,6 +45,9 @@ defmodule ZenCex.MixProject do
       {:req, "~> 0.5.0"},
       {:finch, "~> 0.20.0"},
 
+      # WebSocket client
+      {:zen_websocket, "0.1.3"},
+
       # Circuit breaker
       {:req_fuse, "~> 0.3"},
       {:fuse, "~> 2.5"},

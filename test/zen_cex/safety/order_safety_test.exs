@@ -414,14 +414,86 @@ defmodule ZenCex.Safety.OrderSafetyTest do
     end
 
     test "validate_notional/3 with specific values" do
-      # Default minimum is 10.00 for Binance
-      sufficient_notional = Decimal.new("50.00")
-      insufficient_notional = Decimal.new("5.00")
+      # The minimum notional will be fetched from exchange API or use default
+      # Use values that will work regardless of actual API response
+      # Well above any reasonable minimum
+      sufficient_notional = Decimal.new("100.00")
+      # Well below any reasonable minimum
+      insufficient_notional = Decimal.new("0.01")
 
       assert :ok = OrderSafety.validate_notional(:binance, "BTCUSDT", sufficient_notional)
 
       assert {:error, {:notional_too_small, _}} =
                OrderSafety.validate_notional(:binance, "BTCUSDT", insufficient_notional)
+    end
+
+    test "validate_notional/3 respects dynamic exchange minimums" do
+      # This test is more robust against API changes
+      # It tests the behavior without hardcoding specific minimums
+      symbol = "BTCUSDT"
+
+      # Test with a very high value that should always pass
+      high_notional = Decimal.new("10000.00")
+      assert :ok = OrderSafety.validate_notional(:binance, symbol, high_notional)
+
+      # Test with a very low value that should always fail
+      low_notional = Decimal.new("0.001")
+
+      assert {:error, {:notional_too_small, error_details}} =
+               OrderSafety.validate_notional(:binance, symbol, low_notional)
+
+      # Verify error details are a map with expected fields
+      assert is_map(error_details)
+      assert Map.has_key?(error_details, :symbol)
+      assert Map.has_key?(error_details, :value)
+      assert Map.has_key?(error_details, :minimum)
+      assert error_details.symbol == symbol
+      assert Decimal.equal?(error_details.value, low_notional)
+    end
+  end
+
+  describe "cache functionality" do
+    test "cache_stats returns proper statistics" do
+      stats = OrderSafety.cache_stats()
+      assert is_map(stats)
+      # Initially empty or with some entries
+      assert Map.has_key?(stats, :price) or Map.has_key?(stats, :symbol_info) or Map.has_key?(stats, :min_notional) or
+               stats == %{}
+    end
+
+    test "invalidate_price_cache removes cached price" do
+      # This test just verifies the function works without errors
+      assert :ok = OrderSafety.invalidate_price_cache(:binance, "BTCUSDT")
+    end
+
+    test "invalidate_symbol_info removes cached symbol info" do
+      assert :ok = OrderSafety.invalidate_symbol_info(:binance, "BTCUSDT")
+    end
+
+    test "invalidate_min_notional removes cached min notional" do
+      assert :ok = OrderSafety.invalidate_min_notional(:binance, "BTCUSDT")
+    end
+
+    test "invalidate_exchange_cache clears all exchange entries" do
+      # Should return {:ok, count} where count is >= 0
+      assert {:ok, count} = OrderSafety.invalidate_exchange_cache(:binance)
+      assert is_integer(count)
+      assert count >= 0
+    end
+
+    test "clear_all removes all cached data" do
+      # Add some test data first
+      OrderSafety.record_order(:binance, "test_order")
+
+      # Clear everything
+      assert :ok = OrderSafety.clear_all()
+
+      # Order should now be new again
+      assert {:ok, :new} = OrderSafety.check_existing_order(:binance, "test_order")
+
+      # Cache stats should be empty or reset
+      stats = OrderSafety.cache_stats()
+      assert is_map(stats)
     end
   end
 

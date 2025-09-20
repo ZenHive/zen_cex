@@ -302,14 +302,142 @@ defmodule ZenCex.Adapters.Binance.PortfolioMargin do
   def get_all_positions(params, opts) do
     with {:ok, um_positions} <- query_um_position_information(params, opts),
          {:ok, cm_positions} <- query_cm_position_information(params, opts) do
-      # TODO: For now, combine UM and CM positions
-      # In the future, add margin positions when endpoint is available
+      # Properly combine USDM and COINM futures positions with aggregation logic
       combined_positions = %{
         um_futures: um_positions,
-        cm_futures: cm_positions
+        cm_futures: cm_positions,
+        # Calculate total exposure across all position types
+        total_exposure: calculate_total_exposure(um_positions, cm_positions),
+        # Aggregate by underlying asset (e.g., all BTC positions together)
+        by_underlying: aggregate_by_underlying(um_positions, cm_positions)
       }
 
       {:ok, combined_positions}
     end
+  end
+
+  # Calculate total USD exposure across all positions
+  defp calculate_total_exposure(um_positions, cm_positions) do
+    um_exposure = calculate_um_exposure(um_positions)
+    cm_exposure = calculate_cm_exposure(cm_positions)
+
+    %{
+      usdm_total: um_exposure,
+      coinm_total: cm_exposure,
+      combined_total: Decimal.add(um_exposure, cm_exposure),
+      timestamp: System.system_time(:millisecond)
+    }
+  end
+
+  defp calculate_um_exposure(positions) when is_list(positions) do
+    Enum.reduce(positions, Decimal.new(0), fn pos, acc ->
+      # USDM positions: notional = positionAmt * markPrice
+      amt = Decimal.new(Map.get(pos, "positionAmt", "0"))
+      mark = Decimal.new(Map.get(pos, "markPrice", "0"))
+      notional = Decimal.mult(amt, mark)
+      Decimal.add(acc, Decimal.abs(notional))
+    end)
+  end
+
+  defp calculate_um_exposure(_), do: Decimal.new(0)
+
+  defp calculate_cm_exposure(positions) when is_list(positions) do
+    Enum.reduce(positions, Decimal.new(0), fn pos, acc ->
+      # COINM positions: notional in USD = positionAmt * contractSize * markPrice
+      amt = Decimal.new(Map.get(pos, "positionAmt", "0"))
+      contract_size = Decimal.new(Map.get(pos, "contractSize", "1"))
+      mark = Decimal.new(Map.get(pos, "markPrice", "0"))
+
+      notional =
+        amt
+        |> Decimal.mult(contract_size)
+        |> Decimal.mult(mark)
+
+      Decimal.add(acc, Decimal.abs(notional))
+    end)
+  end
+
+  defp calculate_cm_exposure(_), do: Decimal.new(0)
+
+  # Aggregate positions by underlying asset (BTC, ETH, etc.)
+  defp aggregate_by_underlying(um_positions, cm_positions) do
+    all_positions =
+      normalize_positions(um_positions, :usdm) ++
+        normalize_positions(cm_positions, :coinm)
+
+    all_positions
+    |> Enum.group_by(&extract_underlying/1)
+    |> Map.new(fn {underlying, positions} ->
+      {underlying, aggregate_positions(positions)}
+    end)
+  end
+
+  defp normalize_positions(positions, type) when is_list(positions) do
+    Enum.map(positions, fn pos ->
+      Map.put(pos, "position_type", type)
+    end)
+  end
+
+  defp normalize_positions(_, _), do: []
+
+  defp extract_underlying(%{"symbol" => symbol}) do
+    # Extract base asset from symbol (e.g., "BTCUSDT" -> "BTC", "BTCUSD_PERP" -> "BTC")
+    cond do
+      String.contains?(symbol, "USDT") ->
+        String.replace(symbol, ~r/USDT.*/, "")
+
+      String.contains?(symbol, "USD") ->
+        String.replace(symbol, ~r/USD.*/, "")
+
+      String.contains?(symbol, "BUSD") ->
+        String.replace(symbol, ~r/BUSD.*/, "")
+
+      true ->
+        # Default to first 3-4 chars as asset
+        String.slice(symbol, 0..2)
+    end
+  end
+
+  defp aggregate_positions(positions) do
+    %{
+      positions: positions,
+      count: length(positions),
+      total_notional: calculate_position_group_notional(positions),
+      net_position: calculate_net_position(positions)
+    }
+  end
+
+  defp calculate_position_group_notional(positions) do
+    Enum.reduce(positions, Decimal.new(0), fn pos, acc ->
+      amt = Decimal.new(Map.get(pos, "positionAmt", "0"))
+      mark = Decimal.new(Map.get(pos, "markPrice", "0"))
+
+      notional =
+        if Map.get(pos, "position_type") == :coinm do
+          contract_size = Decimal.new(Map.get(pos, "contractSize", "1"))
+          amt |> Decimal.mult(contract_size) |> Decimal.mult(mark)
+        else
+          Decimal.mult(amt, mark)
+        end
+
+      Decimal.add(acc, Decimal.abs(notional))
+    end)
+  end
+
+  defp calculate_net_position(positions) do
+    Enum.reduce(positions, Decimal.new(0), fn pos, acc ->
+      amt = Decimal.new(Map.get(pos, "positionAmt", "0"))
+      mark = Decimal.new(Map.get(pos, "markPrice", "0"))
+
+      notional =
+        if Map.get(pos, "position_type") == :coinm do
+          contract_size = Decimal.new(Map.get(pos, "contractSize", "1"))
+          amt |> Decimal.mult(contract_size) |> Decimal.mult(mark)
+        else
+          Decimal.mult(amt, mark)
+        end
+
+      Decimal.add(acc, notional)
+    end)
   end
 end

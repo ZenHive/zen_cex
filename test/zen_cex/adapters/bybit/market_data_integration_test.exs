@@ -11,7 +11,6 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
 
   use ZenCex.IntegrationCase, exchange: :bybit, api_type: :market_data
 
-  alias ZenCex.Adapters.Bybit.Endpoints
   alias ZenCex.Adapters.Bybit.MarketData
 
   @test_symbol_spot "BTCUSDT"

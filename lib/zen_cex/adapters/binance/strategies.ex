@@ -9,9 +9,11 @@ defmodule ZenCex.Adapters.Binance.Strategies do
   Portfolio Margin mode for cross-margining between spot and futures.
   """
 
+  alias ZenCex.Adapters.Binance.CoinmFutures
   alias ZenCex.Adapters.Binance.MarketData
   alias ZenCex.Adapters.Binance.PortfolioMargin
   alias ZenCex.Adapters.Binance.Spot
+  alias ZenCex.Adapters.Binance.UsdmFutures
   alias ZenCex.Core.Cache
 
   require Logger
@@ -39,9 +41,8 @@ defmodule ZenCex.Adapters.Binance.Strategies do
   # Safety: Maximum position limits to prevent accidental large trades
   @max_single_position_usdt 100_000.0
   @max_total_hedge_usdt 500_000.0
-  # TODO: Implement balance percentage check when account balance is available
   # Max 25% of account balance per position
-  # @max_position_pct_of_balance 0.25
+  @max_position_pct_of_balance 0.25
 
   # Per-asset maximum position sizes (in base asset units)
   @max_position_sizes %{
@@ -104,7 +105,8 @@ defmodule ZenCex.Adapters.Binance.Strategies do
              futures_positions,
              hedge_percentage,
              hedge_type,
-             symbols_filter
+             symbols_filter,
+             margin_info
            ),
          {:ok, results} <- execute_hedge_orders(hedge_orders, dry_run) do
       total_hedged = calculate_total_hedged_value(results)
@@ -546,23 +548,45 @@ defmodule ZenCex.Adapters.Binance.Strategies do
   defp to_decimal_safe(_), do: Decimal.new("0")
 
   defp get_current_futures_positions(hedge_type) do
+    # Use unified account data aggregation across spot/margin/futures
+    # This properly aggregates all positions regardless of account type
     case hedge_type do
       :usdt_m ->
-        # TODO: For now, use Portfolio Margin endpoint for unified view
-        case PortfolioMargin.query_um_position_information() do
-          {:ok, positions} -> {:ok, positions}
-          {:error, reason} -> {:error, reason}
-        end
+        # Get USDM positions with proper unified view
+        get_unified_usdm_positions()
 
       :coin_m ->
-        # TODO: For now, use Portfolio Margin endpoint for unified view
-        case PortfolioMargin.query_cm_position_information() do
-          {:ok, positions} -> {:ok, positions}
-          {:error, reason} -> {:error, reason}
-        end
+        # Get COINM positions with proper unified view
+        get_unified_coinm_positions()
 
       _ ->
         {:error, {:invalid_hedge_type, hedge_type}}
+    end
+  end
+
+  # Get unified USDM positions across all account types
+  defp get_unified_usdm_positions do
+    # Check account mode first
+    case check_account_mode() do
+      {:ok, :portfolio_margin} ->
+        PortfolioMargin.query_um_position_information()
+
+      _ ->
+        # For regular accounts, use standard futures endpoint
+        UsdmFutures.get_positions()
+    end
+  end
+
+  # Get unified COINM positions across all account types
+  defp get_unified_coinm_positions do
+    # Check account mode first
+    case check_account_mode() do
+      {:ok, :portfolio_margin} ->
+        PortfolioMargin.query_cm_position_information()
+
+      _ ->
+        # For regular accounts, use standard coin futures endpoint
+        CoinmFutures.get_positions()
     end
   end
 
@@ -657,7 +681,14 @@ defmodule ZenCex.Adapters.Binance.Strategies do
     end
   end
 
-  defp calculate_hedge_orders(spot_positions, futures_positions, hedge_percentage, hedge_type, symbols_filter) do
+  defp calculate_hedge_orders(
+         spot_positions,
+         futures_positions,
+         hedge_percentage,
+         hedge_type,
+         symbols_filter,
+         margin_info
+       ) do
     # Map existing futures positions by asset
     existing_hedges = build_existing_hedges_map(futures_positions)
 
@@ -669,7 +700,7 @@ defmodule ZenCex.Adapters.Binance.Strategies do
         if symbols_filter == :all or spot_pos.asset in symbols_filter do
           existing_hedge = Map.get(existing_hedges, spot_pos.asset, Decimal.new("0"))
 
-          case calculate_single_hedge(spot_pos, existing_hedge, hedge_percentage, hedge_type) do
+          case calculate_single_hedge(spot_pos, existing_hedge, hedge_percentage, hedge_type, margin_info) do
             nil -> acc
             hedge_order -> [hedge_order | acc]
           end
@@ -681,7 +712,10 @@ defmodule ZenCex.Adapters.Binance.Strategies do
       |> Enum.reverse()
 
     # Validate total hedge value doesn't exceed limits
-    case validate_total_hedge_value(hedge_orders) do
+    # Pass account balance for comprehensive validation
+    account_balance = extract_account_balance(margin_info)
+
+    case validate_total_hedge_value(hedge_orders, account_balance) do
       :ok ->
         hedge_orders
 
@@ -721,7 +755,7 @@ defmodule ZenCex.Adapters.Binance.Strategies do
     end)
   end
 
-  defp calculate_single_hedge(spot_pos, existing_hedge, hedge_percentage, hedge_type) do
+  defp calculate_single_hedge(spot_pos, existing_hedge, hedge_percentage, hedge_type, margin_info) do
     # Runtime validation: ensure price is valid before calculations
     if !valid_price?(spot_pos.price_usdt) do
       Logger.error("Invalid price for #{spot_pos.asset}: #{spot_pos.price_usdt}")
@@ -746,7 +780,10 @@ defmodule ZenCex.Adapters.Binance.Strategies do
       futures_qty = calculate_futures_quantity(additional_hedge_value, spot_pos.price_usdt, hedge_type)
 
       # Validate position limits before creating order
-      case validate_position_limits(spot_pos.asset, futures_qty, additional_hedge_value) do
+      # Extract account balance from margin_info if available
+      account_balance = extract_account_balance(margin_info)
+
+      case validate_position_limits(spot_pos.asset, futures_qty, additional_hedge_value, account_balance) do
         :ok ->
           build_hedge_order(spot_pos, futures_qty, additional_hedge_value, hedge_type)
 
@@ -833,7 +870,7 @@ defmodule ZenCex.Adapters.Binance.Strategies do
     Decimal.compare(price, Decimal.new("0")) == :gt
   end
 
-  defp validate_position_limits(asset, quantity, value_usdt) do
+  defp validate_position_limits(asset, quantity, value_usdt, account_balance) do
     # Check against maximum single position USD value
     max_value = Decimal.new("#{@max_single_position_usdt}")
 
@@ -858,7 +895,23 @@ defmodule ZenCex.Adapters.Binance.Strategies do
           end
       end
 
-    errors = value_error ++ quantity_error
+    # Check balance percentage if account balance is available
+    balance_error =
+      if account_balance && valid_decimal?(account_balance) do
+        balance_dec = ensure_decimal(account_balance)
+        max_position_value = Decimal.mult(balance_dec, Decimal.new("#{@max_position_pct_of_balance}"))
+
+        if Decimal.compare(value_usdt, max_position_value) == :gt do
+          pct = Decimal.mult(Decimal.new("#{@max_position_pct_of_balance}"), Decimal.new("100"))
+          [{:exceeds_balance_pct, "Position value #{value_usdt} exceeds #{pct}% of account balance #{balance_dec}"}]
+        else
+          []
+        end
+      else
+        []
+      end
+
+    errors = value_error ++ quantity_error ++ balance_error
 
     case errors do
       [] -> :ok
@@ -866,7 +919,54 @@ defmodule ZenCex.Adapters.Binance.Strategies do
     end
   end
 
-  defp validate_total_hedge_value(hedge_orders) do
+  defp valid_decimal?(value) do
+    case value do
+      %Decimal{} ->
+        true
+
+      val when is_binary(val) or is_number(val) ->
+        try do
+          Decimal.new(val)
+          true
+        rescue
+          _ -> false
+        end
+
+      _ ->
+        false
+    end
+  end
+
+  defp ensure_decimal(value) do
+    case value do
+      %Decimal{} -> value
+      val -> Decimal.new(val)
+    end
+  end
+
+  # Extract account balance from margin_info response
+  defp extract_account_balance(nil), do: nil
+
+  defp extract_account_balance(margin_info) when is_map(margin_info) do
+    # Try to get totalNetAssetOfBtc * BTC price or totalWalletBalance
+    cond do
+      Map.has_key?(margin_info, "totalWalletBalance") ->
+        margin_info["totalWalletBalance"]
+
+      Map.has_key?(margin_info, "totalNetAssetOfBtc") and Map.has_key?(margin_info, "indexPrice") ->
+        btc_value = Decimal.new(margin_info["totalNetAssetOfBtc"])
+        btc_price = Decimal.new(margin_info["indexPrice"])
+        Decimal.mult(btc_value, btc_price)
+
+      Map.has_key?(margin_info, "totalMarginBalance") ->
+        margin_info["totalMarginBalance"]
+
+      true ->
+        nil
+    end
+  end
+
+  defp validate_total_hedge_value(hedge_orders, account_balance) do
     total_value =
       Enum.reduce(hedge_orders, Decimal.new("0"), fn order, acc ->
         Decimal.add(acc, Decimal.new(order.hedge_value))
@@ -874,27 +974,42 @@ defmodule ZenCex.Adapters.Binance.Strategies do
 
     max_total = Decimal.new("#{@max_total_hedge_usdt}")
 
-    if Decimal.compare(total_value, max_total) == :gt do
-      {:error, {:total_hedge_exceeds_limit, "Total hedge value #{total_value} exceeds max #{max_total}"}}
-    else
-      :ok
+    # Check absolute limit
+    absolute_error =
+      if Decimal.compare(total_value, max_total) == :gt do
+        [{:total_hedge_exceeds_limit, "Total hedge value #{total_value} exceeds max #{max_total}"}]
+      else
+        []
+      end
+
+    # Check balance percentage if account balance is available
+    balance_error =
+      if account_balance && valid_decimal?(account_balance) do
+        balance_dec = ensure_decimal(account_balance)
+        # Total hedge shouldn't exceed 50% of account balance (conservative)
+        max_hedge_pct = Decimal.new("0.50")
+        max_hedge_value = Decimal.mult(balance_dec, max_hedge_pct)
+
+        if Decimal.compare(total_value, max_hedge_value) == :gt do
+          pct = Decimal.mult(max_hedge_pct, Decimal.new("100"))
+          [{:exceeds_balance_pct, "Total hedge #{total_value} exceeds #{pct}% of account balance #{balance_dec}"}]
+        else
+          []
+        end
+      else
+        []
+      end
+
+    errors = absolute_error ++ balance_error
+
+    case errors do
+      [] -> :ok
+      _ -> {:error, errors}
     end
   end
 
-  # TODO: Integrate when account balance is available from margin_info
-  # This validates that a position doesn't exceed a percentage of total account balance
-  # defp check_position_percentage(value_usdt, account_balance) do
-  #   position_pct = Decimal.div(value_usdt, account_balance)
-  #   max_pct = Decimal.new("#{@max_position_pct_of_balance}")
-  #
-  #   if Decimal.compare(position_pct, max_pct) == :gt do
-  #     {:error,
-  #      {:exceeds_balance_percentage,
-  #       "Position would be #{Decimal.mult(position_pct, Decimal.new("100"))}% of balance, max allowed is #{Decimal.mult(max_pct, Decimal.new("100"))}%"}}
-  #   else
-  #     :ok
-  #   end
-  # end
+  # Account balance percentage validation is integrated in validate_position_limits/4
+  # which checks that positions don't exceed @max_position_pct_of_balance of total balance
 
   defp build_hedge_order(spot_pos, futures_qty, hedge_value, hedge_type) do
     %{

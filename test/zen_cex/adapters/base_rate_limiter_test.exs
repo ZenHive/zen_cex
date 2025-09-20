@@ -10,19 +10,19 @@ defmodule ZenCex.Adapters.BaseRateLimiterTest do
       emergency_path_patterns: ["/emergency/", "/critical/"]
   end
 
-  describe "is_emergency_operation?/1" do
+  describe "emergency_operation?/1" do
     test "identifies emergency operations by atom" do
-      assert TestRateLimiter.is_emergency_operation?(:cancel_order)
-      assert TestRateLimiter.is_emergency_operation?(:close_position)
-      refute TestRateLimiter.is_emergency_operation?(:place_order)
-      refute TestRateLimiter.is_emergency_operation?(:get_balance)
+      assert TestRateLimiter.emergency_operation?(:cancel_order)
+      assert TestRateLimiter.emergency_operation?(:close_position)
+      refute TestRateLimiter.emergency_operation?(:place_order)
+      refute TestRateLimiter.emergency_operation?(:get_balance)
     end
 
     test "identifies emergency operations by path pattern" do
-      assert TestRateLimiter.is_emergency_operation?("/api/v1/emergency/stop")
-      assert TestRateLimiter.is_emergency_operation?("/critical/shutdown")
-      refute TestRateLimiter.is_emergency_operation?("/api/v1/orders")
-      refute TestRateLimiter.is_emergency_operation?("/normal/operation")
+      assert TestRateLimiter.emergency_operation?("/api/v1/emergency/stop")
+      assert TestRateLimiter.emergency_operation?("/critical/shutdown")
+      refute TestRateLimiter.emergency_operation?("/api/v1/orders")
+      refute TestRateLimiter.emergency_operation?("/normal/operation")
     end
   end
 

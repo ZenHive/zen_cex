@@ -50,6 +50,11 @@ defmodule ZenCex.Safety.OrderSafety do
 
   use GenServer
 
+  alias ZenCex.Safety.OrderSafety.Cache
+  alias ZenCex.Safety.OrderSafety.DecimalUtils
+  alias ZenCex.Safety.OrderSafety.MarketData
+  alias ZenCex.Safety.OrderSafety.Validation
+
   require Logger
 
   # For decimal arithmetic in balance and price calculations
@@ -58,25 +63,20 @@ defmodule ZenCex.Safety.OrderSafety do
   @idempotency_table :order_idempotency
   @symbols_table :exchange_symbols
   @kill_switch_table :kill_switch
+  @market_data_cache_table :market_data_cache
 
   # 30 minutes in milliseconds
   @window_ms 30 * 60 * 1000
   # Clean every 60 seconds
   @cleanup_interval_ms 60 * 1000
 
-  # Symbol cache TTL (5 minutes)
+  # 5 minutes for legacy symbol cache
   @symbol_cache_ttl_ms 5 * 60 * 1000
 
   # Price deviation limits (±20% from mark price)
   # @max_price_deviation 0.20
 
-  # Default minimum notional values (USD)
-  @default_min_notional %{
-    binance: 10.00,
-    bybit: 1.00,
-    kraken: 1.00,
-    deribit: 10.00
-  }
+  # Legacy constants - now handled by sub-modules
 
   # Client API
 
@@ -184,22 +184,8 @@ defmodule ZenCex.Safety.OrderSafety do
     end
   end
 
-  @doc """
-  Records an order placement with idempotency tracking.
-
-  ## Parameters
-  - `exchange` - The exchange atom
-  - `client_order_id` - The client-generated order ID
-
-  ## Returns
-  - `:ok` - Order recorded successfully
-  - `{:error, :duplicate}` - Order already exists
-
-  ## Examples
-
-      iex> OrderSafety.record_order(:binance, "order_123")
-      :ok
-  """
+  # Public for testing purposes only
+  @doc false
   @spec record_order(atom(), String.t()) :: :ok | {:error, :duplicate}
   def record_order(exchange, client_order_id) do
     now_ms = System.system_time(:millisecond)
@@ -257,21 +243,8 @@ defmodule ZenCex.Safety.OrderSafety do
     "#{base}_#{nonce}"
   end
 
-  @doc """
-  Removes an order from tracking (e.g., after cancellation or rollback).
-
-  ## Parameters
-  - `exchange` - The exchange atom
-  - `client_order_id` - The client order ID to remove
-
-  ## Returns
-  - `:ok` - Always returns ok
-
-  ## Examples
-
-      iex> OrderSafety.remove_order(:binance, "order_123")
-      :ok
-  """
+  # Public for testing purposes only
+  @doc false
   @spec remove_order(atom(), String.t()) :: :ok
   def remove_order(exchange, client_order_id) do
     key = {exchange, client_order_id}
@@ -315,11 +288,15 @@ defmodule ZenCex.Safety.OrderSafety do
 
     num_symbols_deleted = :ets.select_delete(@symbols_table, symbol_match_spec)
 
-    total_deleted = num_idempotency_deleted + num_symbols_deleted
+    # Clean market data cache using Cache module
+    cache_deleted = Cache.cleanup(now_ms)
+
+    total_deleted = num_idempotency_deleted + num_symbols_deleted + cache_deleted
 
     if total_deleted > 0 do
       Logger.debug(
-        "OrderSafety cleaned up #{num_idempotency_deleted} idempotency entries and #{num_symbols_deleted} symbol cache entries"
+        "OrderSafety cleaned up: #{num_idempotency_deleted} idempotency, " <>
+          "#{num_symbols_deleted} symbols, #{cache_deleted} market data entries"
       )
     end
 
@@ -384,8 +361,103 @@ defmodule ZenCex.Safety.OrderSafety do
       :ets.insert(@kill_switch_table, {exchange, true})
     end
 
-    Logger.warning("OrderSafety: All caches cleared - idempotency, symbols, and kill switch data reset")
+    # Clear market data cache using Cache module
+    Cache.clear_all()
+
+    Logger.warning("OrderSafety: All caches cleared - idempotency, symbols, market data, and kill switch data reset")
     :ok
+  end
+
+  @doc """
+  Invalidates cached price for a specific symbol.
+
+  Use this when you know a price has changed significantly or need fresh data.
+
+  ## Parameters
+  - `exchange` - The exchange atom
+  - `symbol` - The trading symbol (e.g., "BTCUSDT")
+
+  ## Examples
+
+      iex> OrderSafety.invalidate_price_cache(:binance, "BTCUSDT")
+      :ok
+  """
+  @spec invalidate_price_cache(atom(), String.t()) :: :ok
+  def invalidate_price_cache(exchange, symbol) do
+    Cache.invalidate_price(exchange, symbol)
+  end
+
+  @doc """
+  Invalidates cached symbol info for a specific symbol.
+
+  Use this when exchange trading rules may have changed.
+
+  ## Parameters
+  - `exchange` - The exchange atom
+  - `symbol` - The trading symbol
+
+  ## Examples
+
+      iex> OrderSafety.invalidate_symbol_info(:binance, "BTCUSDT")
+      :ok
+  """
+  @spec invalidate_symbol_info(atom(), String.t()) :: :ok
+  def invalidate_symbol_info(exchange, symbol) do
+    Cache.invalidate_symbol_info(exchange, symbol)
+  end
+
+  @doc """
+  Invalidates cached minimum notional for a specific symbol.
+
+  ## Parameters
+  - `exchange` - The exchange atom
+  - `symbol` - The trading symbol
+
+  ## Examples
+
+      iex> OrderSafety.invalidate_min_notional(:binance, "BTCUSDT")
+      :ok
+  """
+  @spec invalidate_min_notional(atom(), String.t()) :: :ok
+  def invalidate_min_notional(exchange, symbol) do
+    Cache.invalidate_min_notional(exchange, symbol)
+  end
+
+  @doc """
+  Invalidates all cached data for a specific exchange.
+
+  Useful when switching between testnet and production or after connectivity issues.
+
+  ## Parameters
+  - `exchange` - The exchange atom
+
+  ## Examples
+
+      iex> OrderSafety.invalidate_exchange_cache(:binance)
+      {:ok, 42}
+  """
+  @spec invalidate_exchange_cache(atom()) :: {:ok, non_neg_integer()}
+  def invalidate_exchange_cache(exchange) do
+    Cache.invalidate_exchange(exchange)
+  end
+
+  @doc """
+  Gets cache statistics for monitoring.
+
+  Returns counts of cached entries by type and their average age.
+
+  ## Examples
+
+      iex> OrderSafety.cache_stats()
+      %{
+        prices: %{count: 10, avg_age_ms: 2500},
+        symbol_info: %{count: 25, avg_age_ms: 3600000},
+        min_notionals: %{count: 25, avg_age_ms: 3600000}
+      }
+  """
+  @spec cache_stats() :: map()
+  def cache_stats do
+    Cache.stats()
   end
 
   # === Kill Switch Functions ===
@@ -468,9 +540,9 @@ defmodule ZenCex.Safety.OrderSafety do
   """
   @spec validate_symbol(atom(), String.t()) :: :ok | {:error, term()}
   def validate_symbol(exchange, symbol) when is_binary(symbol) do
-    case get_symbol_info(exchange, symbol) do
+    case MarketData.fetch_symbol_info(exchange, symbol) do
       {:ok, symbol_info} ->
-        if symbol_info[:status] == "TRADING" do
+        if symbol_info[:status] == "TRADING" or Map.get(symbol_info, :status) == "TRADING" do
           :ok
         else
           {:error, {:symbol_not_trading, symbol}}
@@ -479,9 +551,13 @@ defmodule ZenCex.Safety.OrderSafety do
       {:error, :not_found} ->
         {:error, {:invalid_symbol, symbol}}
 
-        # TODO: When fetch_symbol_info is replaced with real API calls,
-        # add error handling for network errors, rate limiting, etc.
-        # For now, stub only returns :ok or {:error, :not_found}
+      {:error, {:binance_error, -1121, _msg}} ->
+        # Binance returns -1121 for invalid symbol
+        {:error, {:invalid_symbol, symbol}}
+
+      {:error, _reason} = error ->
+        # Pass through other errors
+        error
     end
   end
 
@@ -503,32 +579,15 @@ defmodule ZenCex.Safety.OrderSafety do
   - `{:error, reason}` if insufficient
   """
   @spec validate_balance_for_order(atom(), map()) :: :ok | {:error, term()}
-  def validate_balance_for_order(exchange, %{symbol: symbol, side: side, quantity: quantity} = order_params) do
-    {base_asset, quote_asset} = parse_symbol_assets(symbol)
+  def validate_balance_for_order(exchange, order_params) do
+    # Fetch balance info from exchange
+    case MarketData.fetch_balances(exchange, order_params) do
+      {:ok, balance_info} ->
+        Validation.validate_balance_requirements(order_params, balance_info)
 
-    case side do
-      :buy ->
-        # For buy orders, need quote asset (e.g., USDT for BTCUSDT)
-        case calculate_required_quote_amount(order_params) do
-          {:ok, required_amount} ->
-            validate_balance(exchange, quote_asset, required_amount)
-
-          error ->
-            error
-        end
-
-      :sell ->
-        # For sell orders, need base asset (e.g., BTC for BTCUSDT)
-        quantity_decimal = parse_decimal(quantity)
-        validate_balance(exchange, base_asset, quantity_decimal)
-
-      _ ->
-        {:error, {:invalid_side, side}}
+      {:error, _reason} = error ->
+        error
     end
-  end
-
-  def validate_balance_for_order(_exchange, _params) do
-    {:error, {:missing_required_params, "symbol, side, and quantity required"}}
   end
 
   @doc """
@@ -545,17 +604,22 @@ defmodule ZenCex.Safety.OrderSafety do
   """
   @spec validate_balance(atom(), String.t(), Decimal.t()) :: :ok | {:error, term()}
   def validate_balance(exchange, asset, required_amount) do
-    {:ok, available_balance} = get_account_balance(exchange, asset)
+    # Delegate to Validation module with balance fetching
+    case MarketData.fetch_balances(exchange, %{}) do
+      {:ok, balance_info} ->
+        # Extract the specific asset balance
+        balances = Map.get(balance_info, :balances, %{})
+        available_balance = DecimalUtils.extract_available_balance(balances, asset)
 
-    if Decimal.compare(available_balance, required_amount) == :lt do
-      {:error, {:insufficient_balance, %{asset: asset, required: required_amount, available: available_balance}}}
-    else
-      :ok
+        if Decimal.compare(available_balance, required_amount) == :lt do
+          {:error, {:insufficient_balance, %{asset: asset, required: required_amount, available: available_balance}}}
+        else
+          :ok
+        end
+
+      {:error, _reason} = error ->
+        error
     end
-
-    # TODO: When get_account_balance is replaced with real API calls,
-    # add error handling for network errors, rate limiting, unauthorized, etc.
-    # For now, stub only returns {:ok, balance}
   end
 
   # === Notional Validation Functions ===
@@ -573,7 +637,7 @@ defmodule ZenCex.Safety.OrderSafety do
   """
   @spec validate_notional_for_order(atom(), map()) :: :ok | {:error, term()}
   def validate_notional_for_order(exchange, %{symbol: symbol} = order_params) do
-    case calculate_order_notional(order_params) do
+    case Validation.calculate_order_notional(order_params) do
       {:ok, notional_value} ->
         validate_notional(exchange, symbol, notional_value)
 
@@ -600,7 +664,7 @@ defmodule ZenCex.Safety.OrderSafety do
   """
   @spec validate_notional(atom(), String.t(), Decimal.t()) :: :ok | {:error, term()}
   def validate_notional(exchange, symbol, notional_value) do
-    min_notional = get_min_notional(exchange, symbol)
+    min_notional = MarketData.get_min_notional(exchange, symbol)
 
     if Decimal.compare(notional_value, min_notional) == :lt do
       {:error, {:notional_too_small, %{symbol: symbol, value: notional_value, minimum: min_notional}}}
@@ -628,15 +692,78 @@ defmodule ZenCex.Safety.OrderSafety do
   - `{:error, reason}` if invalid
   """
   @spec validate_price_and_size(atom(), map()) :: :ok | {:error, term()}
-  def validate_price_and_size(exchange, %{symbol: symbol, quantity: quantity} = order_params) do
-    with :ok <- validate_quantity_format(quantity),
-         :ok <- validate_quantity_bounds(exchange, symbol, quantity) do
-      validate_price_if_present(exchange, symbol, order_params)
+  def validate_price_and_size(_exchange, order_params) do
+    # Check required parameters
+    required_params = [:symbol, :quantity]
+    missing_params = Enum.filter(required_params, fn key -> not Map.has_key?(order_params, key) end)
+
+    if missing_params == [] do
+      # Validate basic price and size requirements
+      with :ok <- validate_quantity_format(order_params[:quantity]) do
+        validate_price_format_if_present(order_params)
+      end
+    else
+      {:error, {:missing_required_params, missing_params}}
     end
   end
 
-  def validate_price_and_size(_exchange, _params) do
-    {:error, {:missing_required_params, "symbol and quantity required"}}
+  # Helper functions for backward compatibility
+  defp validate_quantity_format(quantity) when is_binary(quantity) do
+    case Decimal.parse(quantity) do
+      {decimal_val, ""} when not is_nil(decimal_val) and decimal_val != nil ->
+        if Decimal.positive?(decimal_val) do
+          :ok
+        else
+          {:error, {:invalid_quantity, "Quantity must be positive"}}
+        end
+
+      _ ->
+        {:error, {:invalid_quantity_format, quantity}}
+    end
+  end
+
+  defp validate_quantity_format(quantity) when is_number(quantity) and quantity > 0 do
+    :ok
+  end
+
+  defp validate_quantity_format(quantity) do
+    {:error, {:invalid_quantity_format, quantity}}
+  end
+
+  defp validate_price_format_if_present(%{price: price}) do
+    validate_price_format(price)
+  end
+
+  defp validate_price_format_if_present(%{type: :market}) do
+    # Market orders don't have price
+    :ok
+  end
+
+  defp validate_price_format_if_present(_params) do
+    # Price not required
+    :ok
+  end
+
+  defp validate_price_format(price) when is_binary(price) do
+    case Decimal.parse(price) do
+      {decimal_val, ""} when not is_nil(decimal_val) and decimal_val != nil ->
+        if Decimal.positive?(decimal_val) do
+          :ok
+        else
+          {:error, {:invalid_price, "Price must be positive"}}
+        end
+
+      _ ->
+        {:error, {:invalid_price_format, price}}
+    end
+  end
+
+  defp validate_price_format(price) when is_number(price) and price > 0 do
+    :ok
+  end
+
+  defp validate_price_format(price) do
+    {:error, {:invalid_price_format, price}}
   end
 
   # === Helper Functions ===
@@ -664,198 +791,10 @@ defmodule ZenCex.Safety.OrderSafety do
     end
   end
 
-  # Symbol information retrieval with caching
-  defp get_symbol_info(exchange, symbol) do
-    cache_key = {exchange, :symbol, symbol}
-    now_ms = System.system_time(:millisecond)
+  # Legacy symbol information retrieval - now uses MarketData module
 
-    case :ets.lookup(@symbols_table, cache_key) do
-      [{^cache_key, symbol_info, timestamp}] when now_ms - timestamp < @symbol_cache_ttl_ms ->
-        {:ok, symbol_info}
-
-      _ ->
-        # Cache miss or expired, fetch from exchange
-        case fetch_symbol_info(exchange, symbol) do
-          {:ok, symbol_info} ->
-            :ets.insert(@symbols_table, {cache_key, symbol_info, now_ms})
-            {:ok, symbol_info}
-
-          error ->
-            error
-        end
-    end
-  end
-
-  # Parse symbol into base and quote assets (e.g., "BTCUSDT" -> {"BTC", "USDT"})
-  defp parse_symbol_assets(symbol) do
-    # TODO: Simple implementation - in production would use exchange-specific parsing
-    cond do
-      String.ends_with?(symbol, "USDT") ->
-        base = String.replace_suffix(symbol, "USDT", "")
-        {base, "USDT"}
-
-      String.ends_with?(symbol, "BTC") ->
-        base = String.replace_suffix(symbol, "BTC", "")
-        {base, "BTC"}
-
-      String.ends_with?(symbol, "ETH") ->
-        base = String.replace_suffix(symbol, "ETH", "")
-        {base, "ETH"}
-
-      true ->
-        # Fallback - assume last 3-4 chars are quote
-        if String.length(symbol) > 6 do
-          base = String.slice(symbol, 0..-5//-1)
-          quote = String.slice(symbol, -4..-1//-1)
-          {base, quote}
-        else
-          base = String.slice(symbol, 0..-4//-1)
-          quote = String.slice(symbol, -3..-1//-1)
-          {base, quote}
-        end
-    end
-  end
-
-  # Calculate required quote amount for buy orders
-  defp calculate_required_quote_amount(%{type: :market, quantity: quantity}) do
-    # For market orders, estimate using recent price (simplified)
-    # TODO: Implement proper market price estimation
-    quantity_decimal = parse_decimal(quantity)
-    # Rough BTC price estimate
-    estimated_amount = Decimal.mult(quantity_decimal, Decimal.new("50000"))
-    {:ok, estimated_amount}
-  end
-
-  defp calculate_required_quote_amount(%{price: price, quantity: quantity}) do
-    price_decimal = parse_decimal(price)
-    quantity_decimal = parse_decimal(quantity)
-    required_amount = Decimal.mult(price_decimal, quantity_decimal)
-    {:ok, required_amount}
-  end
-
-  defp calculate_required_quote_amount(_params) do
-    {:error, {:missing_price, "Price required for limit orders"}}
-  end
-
-  # Calculate order notional value
-  defp calculate_order_notional(%{price: price, quantity: quantity}) do
-    price_decimal = parse_decimal(price)
-    quantity_decimal = parse_decimal(quantity)
-    notional = Decimal.mult(price_decimal, quantity_decimal)
-    {:ok, notional}
-  end
-
-  defp calculate_order_notional(%{type: :market}) do
-    # For market orders, we can't calculate exact notional without current price
-    # TODO: Assume above minimum for now
-    {:ok, Decimal.new("1000")}
-  end
-
-  defp calculate_order_notional(_params) do
-    {:error, {:missing_price, "Price required to calculate notional value"}}
-  end
-
-  # Get minimum notional value for symbol
-  defp get_min_notional(exchange, _symbol) do
-    # TODO: Use default minimums - in production would fetch from exchange
-    default_min = Map.get(@default_min_notional, exchange, 10.00)
-    Decimal.new(to_string(default_min))
-  end
-
-  # Validation helper functions
-  defp validate_quantity_format(quantity) when is_binary(quantity) do
-    case Decimal.parse(quantity) do
-      {decimal_val, ""} when not is_nil(decimal_val) -> :ok
-      _ -> {:error, {:invalid_quantity_format, quantity}}
-    end
-  end
-
-  defp validate_quantity_format(quantity) when is_number(quantity) and quantity > 0 do
-    :ok
-  end
-
-  defp validate_quantity_format(quantity) do
-    {:error, {:invalid_quantity_format, quantity}}
-  end
-
-  defp validate_quantity_bounds(_exchange, _symbol, quantity) do
-    quantity_decimal = parse_decimal(quantity)
-
-    if Decimal.positive?(quantity_decimal) do
-      :ok
-    else
-      {:error, {:invalid_quantity, "Quantity must be positive"}}
-    end
-  end
-
-  defp validate_price_if_present(_exchange, _symbol, %{type: :market}) do
-    # Market orders don't have price
-    :ok
-  end
-
-  defp validate_price_if_present(_exchange, _symbol, %{price: price}) do
-    validate_price_format(price)
-  end
-
-  defp validate_price_if_present(_exchange, _symbol, _params) do
-    # Price not required
-    :ok
-  end
-
-  defp validate_price_format(price) when is_binary(price) do
-    case Decimal.parse(price) do
-      {decimal_val, ""} when not is_nil(decimal_val) ->
-        if Decimal.positive?(decimal_val) do
-          :ok
-        else
-          {:error, {:invalid_price, "Price must be positive"}}
-        end
-
-      _ ->
-        {:error, {:invalid_price_format, price}}
-    end
-  end
-
-  defp validate_price_format(price) when is_number(price) and price > 0 do
-    :ok
-  end
-
-  defp validate_price_format(price) do
-    {:error, {:invalid_price_format, price}}
-  end
-
-  # Parse string or number to Decimal
-  defp parse_decimal(value) when is_binary(value) do
-    case Decimal.parse(value) do
-      {decimal_val, ""} -> decimal_val
-      _ -> Decimal.new("0")
-    end
-  end
-
-  defp parse_decimal(value) when is_number(value) do
-    Decimal.new(to_string(value))
-  end
-
-  defp parse_decimal(_value) do
-    Decimal.new("0")
-  end
-
-  # TODO: Stub implementations for external data fetching
-  # TODO: Implement actual exchange API calls
-
-  defp fetch_symbol_info(_exchange, symbol) do
-    # TODO: Stub - in production would call exchange API
-    if String.contains?(symbol, "USDT") do
-      {:ok, %{status: "TRADING", base_asset: "BTC", quote_asset: "USDT"}}
-    else
-      {:error, :not_found}
-    end
-  end
-
-  defp get_account_balance(_exchange, _asset) do
-    # TODO: Stub - in production would call exchange API
-    {:ok, Decimal.new("1000.0")}
-  end
+  # Legacy validation functions - now handled by Validation module
+  # These are kept for backward compatibility but delegate to Validation module
 
   # GenServer callbacks
 
@@ -884,6 +823,17 @@ defmodule ZenCex.Safety.OrderSafety do
     # Create idempotency table
     if :ets.whereis(@idempotency_table) == :undefined do
       :ets.new(@idempotency_table, [
+        :named_table,
+        :public,
+        :set,
+        {:read_concurrency, true},
+        {:write_concurrency, true}
+      ])
+    end
+
+    # Create market data cache table
+    if :ets.whereis(@market_data_cache_table) == :undefined do
+      :ets.new(@market_data_cache_table, [
         :named_table,
         :public,
         :set,

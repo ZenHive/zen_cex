@@ -20,16 +20,20 @@ Guidance for Claude Code when working with the ZenCex library.
 
 ## Project Overview
 
-ZenCex - Elixir library for crypto exchange REST APIs (Binance & Bybit).
+ZenCex - Elixir library for crypto exchange APIs (REST + WebSocket via zen_websocket).
 
-**Scope**: REST-only, 30s-5min intervals, not for HFT
-**Design**: Req-centric HTTP, ETS state, minimal supervision
+**Scope**:
+- REST for trading operations (30s-5min intervals)
+- WebSocket for real-time market data via [zen_websocket](https://github.com/ZenHive/zen_websocket)
+**Design**: Req-centric HTTP, ETS state, minimal supervision, Gun-based WebSocket
+
+**zen_websocket Access**: The zen_websocket library code is available via symlink at `./zen_websocket/` for reference and understanding of WebSocket implementation details.
 
 **Use Cases**:
+- Real-time market data streaming (order books, trades, tickers)
 - Position monitoring & exposure calculation
 - Portfolio hedging & rebalancing
 - Subaccount risk isolation
-- Market data collection
 - Trade execution on signals
 
 ## Commands
@@ -63,7 +67,7 @@ Enable with `ZenCex.Core.Debug.enable()` to export failed requests as curl comma
 ## Architecture
 
 ### Core Modules
-- **Application**: ETS tables, Finch pooling
+- **Application**: ETS tables, Finch pooling, WebSocket supervision
 - **Core.Registry**: Exchange → module mapping
 - **Core.HTTP**: Req configuration with auth/rate-limit steps
 - **Safety.ClockSync**: Time sync with exchanges
@@ -73,15 +77,17 @@ Enable with `ZenCex.Core.Debug.enable()` to export failed requests as curl comma
 **Binance** (complete):
 - Direct module usage: `Spot`, `Margin`, `UsdmFutures`, `CoinmFutures`, `PortfolioMargin`
 - Supporting: `Auth`, `RateLimiter`, `Parser`, `Strategies`
+- WebSocket: `Binance.WebSocket` for market streams
 
 **Bybit** (trading complete):
 - Direct module usage: `Unified`, `Common`, `MarketData`
-- Market data pending
+- WebSocket: `Bybit.WebSocket` for real-time data
 
 ### Design Patterns
-- Req middleware for everything (auth, rate-limiting)
-- ETS for state (rate limits, clock sync)
-- Minimal supervision (only OAuth needs GenServer)
+- Req middleware for REST (auth, rate-limiting)
+- Gun-based WebSocket via zen_websocket
+- ETS for state (rate limits, clock sync, market data cache)
+- Minimal supervision (OAuth and critical WebSocket connections)
 
 ## Exchange Details
 
@@ -152,6 +158,54 @@ H.rate_status()   # Rate limiter status
 - Rate limiting as Req step (ETS counters)
 - Clock sync for timestamps
 - Debug curl export on failures
+
+### WebSocket Integration (zen_websocket)
+
+**Source Access**: Full zen_websocket source code available at `./zen_websocket/` (symlink to `/Users/efries/_DATA/code/zen_websocket`).
+- Main modules: `./zen_websocket/lib/zen_websocket/*.ex`
+- Tests for reference: `./zen_websocket/test/*.exs`
+- **Examples**: `./zen_websocket/test/zen_websocket/examples/` - Comprehensive usage examples including:
+  - `basic_usage_test.exs` - Simple connection and messaging
+  - `supervised_client_test.exs` - Production supervision patterns
+  - `subscription_management_test.exs` - Channel subscription patterns
+  - `error_handling_test.exs` - Error recovery strategies
+  - `rate_limiting_test.exs` - Rate limit handling
+  - `platform_adapter_template_test.exs` - Exchange adapter patterns
+- Documentation: `./zen_websocket/README.md` and `./zen_websocket/CLAUDE.md`
+
+**Core API** (5 functions only):
+- `connect/2` - Establish WebSocket connection
+- `send/2` - Send messages to server
+- `subscribe/2` - Subscribe to data channels
+- `state/1` - Check connection state
+- `close/1` - Close connection
+
+**Usage Patterns**:
+```elixir
+# Development - Direct connection
+{:ok, ws} = ZenWebsocket.connect("wss://stream.binance.com:9443/ws", [])
+:ok = ZenWebsocket.subscribe(ws, "btcusdt@trade")
+
+# Production - Supervised connection
+children = [
+  {ZenWebsocket.ClientSupervisor, name: :market_data_supervisor},
+  {Binance.WebSocket.MarketData, symbol: "BTCUSDT"}
+]
+```
+
+**Design Rules** (from zen_websocket):
+- Start simple: Direct connections for development
+- Add supervision only for production
+- Always test against real WebSocket endpoints
+- Use built-in retry and heartbeat mechanisms
+- Maximum 5 public functions per WebSocket module
+- Leverage telemetry for monitoring
+
+**Market Data Caching**:
+- Store latest tickers/orderbooks in ETS
+- Update via WebSocket callbacks
+- REST fallback for initial state
+- TTL-based cache invalidation
 
 ## Testing
 
@@ -250,9 +304,10 @@ Core Elixir best practices for library development:
 - **Predicate functions** should end with `?`, not start with `is_`
 - **Use `Task.async_stream/3`** for concurrent enumeration with back-pressure
 
-### HTTP Client
-- **Always use Req** for HTTP requests - It's the preferred client
-- **Avoid** HTTPoison, Tesla, and :httpc
+### HTTP/WebSocket Clients
+- **REST**: Always use Req for HTTP requests - It's the preferred client
+- **WebSocket**: Use zen_websocket (Gun-based) for all WebSocket connections
+- **Avoid** HTTPoison, Tesla, :httpc, and raw Gun/WebSockex implementations
 
 ### Ecto Patterns (if used)
 - Schema fields always use `:string` type, even for `:text` columns

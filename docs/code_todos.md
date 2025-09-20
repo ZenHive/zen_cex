@@ -1,41 +1,58 @@
-# Code TODOs - ZenCex
+# Code TODOs
 
-## ✅ Completed (2025-09-19)
-1. ~~**Remove debug logging from auth modules**~~ - Removed debug logs from `binance/auth.ex:55`, `bybit/auth.ex:30`, and `core/http.ex:225`
-4. ~~**Complete Bybit category injection**~~ - Implemented in `bybit/endpoint_loader.ex:115`
-18. ~~**Add ISO date format support**~~ - Already implemented in `basis.ex:449`, just removed TODO comment
-22. ~~**Implement get_ticker_price in Spot**~~ - Added delegation to MarketData in `binance/spot.ex`
-24. ~~**Remove HTTP debug logging**~~ - Cleaned up `core/http.ex:225`
-25. ~~**Adjust clock sync tolerance**~~ - Reviewed 5ms tolerance in `clock_sync_test.exs:444` (keeping as-is, tests passing)
-21. ~~**Fix auth break test**~~ - Auth restoration handled by `with_env` macro's after block (`spot_integration_test.exs:664`, `endpoints_integration_test.exs:312`)
-23. ~~**Add production rate limit warnings**~~ - Already implemented in `check_and_log_usage/3` (`usdm_futures_integration_test.exs:144`)
-6. ~~**Implement batch order cancellation**~~ - `cancel_all_orders/1` auto-generated from `:delete_openOrders` endpoint (`binance/spot.ex`)
-7. ~~**Implement COIN-M order placement**~~ - Completed COIN-M futures orders using `PortfolioMargin.new_cm_order` (`binance/strategies.ex:973-985`)
-8. ~~**Implement portfolio rebalancing**~~ - Added full rebalancing strategy with dry-run support (`binance/strategies.ex:240-466`)
-9. ~~**Replace placeholder prices with real ticker data**~~ - Replaced all placeholders with MarketData API calls (`strategies.ex:571-593,1065-1114`)
-26. ~~**Get contract sizes from exchange info**~~ - Fetch and cache contract sizes from COIN-M exchange info (`strategies.ex:777-829`)
-27. ~~**Handle portfolio margin 404s properly**~~ - Improved error categorization and handling (`portfolio_margin_404_test.exs:216-299`)
+Actionable tasks extracted from codebase TODOs, organized for AI-assisted implementation.
 
-## Exchange Implementations
-1. **[OUT OF SCOPE] Implement Kraken adapter** - Add full Kraken support (`core/registry.ex:35`, `integration_case.ex:201,158`)
-2. **[OUT OF SCOPE] Implement Deribit adapter** - Add full Deribit support (`core/registry.ex:36`, `integration_case.ex:210,167`, `clock_sync.ex:428`)
-3. **Add Bybit rate limit headers** - Monitor docs and implement official headers (`bybit/rate_limiter.ex:181`)
+## ~~1. Bybit Rate Limiter Headers~~ ✅ COMPLETED
+**File:** `lib/zen_cex/adapters/bybit/rate_limiter.ex:181`
+**Status:** Implemented support for `X-Bapi-Limit`, `X-Bapi-Limit-Status`, and `X-Bapi-Limit-Reset-Timestamp` headers.
 
-## Price & Market Data
-10. **Add WebSocket market data parsing** - Deferred to WebSocket phase (`binance/parser.ex:337`)
-11. **Implement proper market price estimation** - Replace stub (`order_safety.ex:722`)
+## ~~2. Order Safety - Replace Stub Implementations~~ ✅ COMPLETED
+**Files:** `lib/zen_cex/safety/order_safety.ex:843-856`
+**Status:** Replaced stubs with real API calls using Binance.MarketData and Bybit.MarketData for symbol info, Binance.Spot and Bybit.Unified for balances.
 
-## Order Safety & Validation
-12. **Connect order safety to real exchange APIs** - Replace stubs with actual calls (`order_safety.ex:482,556,843-856`)
-13. **Fetch real symbol info and minimums** - Use exchange APIs instead of defaults (`order_safety.ex:691,750,760`)
-14. **Add balance percentage checks** - Implement when account balance available (`strategies.ex:24,588`)
+## ~~3. Order Safety - Market Price Estimation~~ ✅ COMPLETED
+**File:** `lib/zen_cex/safety/order_safety.ex:722`
+**Status:** Implemented `fetch_current_price/2` using ticker APIs from both exchanges.
 
-## Portfolio Margin
-15. **Properly combine UM and CM positions** - Improve position aggregation (`portfolio_margin.ex:305`)
-16. **Use unified portfolio view endpoints** - Replace workarounds (`strategies.ex:302,309`)
-17. **Validate portfolio margin responses** - Add proper validation for production (`portfolio_margin_404_test.exs:242-243`)
+## ~~4. Order Safety - Dynamic Min Order Values~~ ✅ COMPLETED
+**File:** `lib/zen_cex/safety/order_safety.ex:760`
+**Status:** Modified `get_min_notional/2` to extract minimum values from exchange symbol filters.
 
-## Market Analysis
-19. **[OUT OF SCOPE] Extend exchange support for funding rates** - Add Kraken, Deribit, OKX (`market.ex:470,532`)
-20. **Add central config management** - For backward compatibility (`market.ex:619`)
+## 5. Portfolio Margin Position Consolidation
+**File:** `lib/zen_cex/adapters/binance/portfolio_margin.ex:305`
+**Task:** Properly combine USDM and COINM futures positions with correct aggregation logic for total exposure calculation.
 
+## 6. Binance Strategies - Balance Percentage Validation
+**Files:** `lib/zen_cex/adapters/binance/strategies.ex:42,884`
+**Task:** Add balance percentage checks for order validation once account balance is available from margin_info response.
+
+## 7. Binance Strategies - Unified Account View
+**Files:** `lib/zen_cex/adapters/binance/strategies.ex:551,558`
+**Task:** Replace temporary Portfolio Margin endpoint usage with proper unified account data aggregation across spot/margin/futures.
+
+## 8. Clock Sync - Dynamic Host Configuration
+**File:** `lib/zen_cex/safety/clock_sync.ex:428`
+**Task:** Use adapter's `base_url/1` method to get correct host for test/prod environments instead of hardcoded URL.
+
+## 9. Market Analysis - Additional Exchange Support
+**Files:** `lib/zen_cex/analysis/market.ex:470,532`
+**Task:** Add funding rate fetching for Kraken, Deribit, and OKX perpetuals. Create new adapter modules following existing Binance/Bybit patterns.
+
+## 10. Core Registry - New Exchange Adapters
+**Files:** `lib/zen_cex/core/registry.ex:35-36`
+**Task:** Implement Kraken and Deribit adapters with basic spot/futures functionality. Start with market data endpoints.
+
+## 11. Integration Case - Testnet Enforcement
+**Files:** `test/support/integration_case.ex:158,167`, `lib/zen_cex/test_utilities/integration_case.ex:201,210`
+**Task:** Add testnet URL enforcement for Kraken and Deribit once adapters are implemented.
+
+## 12. WebSocket Implementation
+**File:** `lib/zen_cex/adapters/binance/parser.ex:337`
+**Task:** Design and implement WebSocket support for real-time market data. Consider using `WebSockex` or `gun` library.
+
+## Priority Order
+1. Tasks 2-4: Critical for order safety in production
+2. Tasks 5-7: Important for accurate portfolio tracking
+3. Task 1,8: Improve existing functionality
+4. Tasks 9-11: New exchange support
+5. Task 12: Future enhancement for real-time data

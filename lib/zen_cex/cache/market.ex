@@ -183,20 +183,80 @@ defmodule ZenCex.Cache.Market do
   @doc """
   Caches order book snapshot with default or custom TTL.
 
+  When called from WebSocket handlers, use a longer TTL since data is continuously updated.
+
   ## Examples
 
-      # Use default TTL (15 seconds)
+      # Use default TTL (15 seconds) for REST data
       ZenCex.Cache.Market.put_orderbook(:binance, "BTCUSDT", orderbook_data)
 
-      # Custom TTL (30 seconds)
-      ZenCex.Cache.Market.put_orderbook(:binance, "BTCUSDT", orderbook_data, 30)
+      # WebSocket data - use longer TTL since it's continuously updated
+      ZenCex.Cache.Market.put_orderbook(:binance, "BTCUSDT", orderbook_data, 300)
 
   """
-  @spec put_orderbook(exchange(), symbol(), market_data(), pos_integer()) :: :ok
-  def put_orderbook(exchange, symbol, data, ttl_seconds \\ @default_orderbook_ttl)
+  @spec put_orderbook(exchange(), symbol(), market_data(), pos_integer() | :infinity) :: :ok
+  def put_orderbook(exchange, symbol, data, ttl \\ @default_orderbook_ttl)
+
+  def put_orderbook(exchange, symbol, data, :infinity) when is_atom(exchange) and is_binary(symbol) do
+    # For WebSocket data, store without expiry since it's continuously updated
+    key = orderbook_key(exchange, symbol)
+    Cache.put(key, data, :infinity)
+  end
+
+  def put_orderbook(exchange, symbol, data, ttl_seconds)
       when is_atom(exchange) and is_binary(symbol) and is_integer(ttl_seconds) and ttl_seconds > 0 do
     key = orderbook_key(exchange, symbol)
     Cache.put(key, data, ttl_seconds)
+  end
+
+  # WebSocket-specific cache functions
+
+  @doc """
+  Stores the last trade from WebSocket stream.
+
+  ## Examples
+
+      trade = %{price: "45000.00", quantity: "0.5", time: 1234567890}
+      ZenCex.Cache.Market.put_last_trade(:binance, "BTCUSDT", trade)
+  """
+  @spec put_last_trade(exchange(), symbol(), market_data()) :: :ok
+  def put_last_trade(exchange, symbol, trade) when is_atom(exchange) and is_binary(symbol) do
+    key = market_data_key(exchange, symbol, "last_trade")
+    # Last trade doesn't expire - it's always the most recent
+    Cache.put(key, trade, :infinity)
+  end
+
+  @doc """
+  Gets the last trade for a symbol.
+  """
+  @spec get_last_trade(exchange(), symbol()) :: {:ok, market_data()} | {:error, :not_found | :expired}
+  def get_last_trade(exchange, symbol) when is_atom(exchange) and is_binary(symbol) do
+    key = market_data_key(exchange, symbol, "last_trade")
+    Cache.get(key)
+  end
+
+  @doc """
+  Stores book ticker (best bid/ask) from WebSocket.
+
+  ## Examples
+
+      book_ticker = %{bid_price: "44999", bid_qty: "1.5", ask_price: "45001", ask_qty: "2.0"}
+      ZenCex.Cache.Market.put_book_ticker(:bybit, "BTCUSDT", book_ticker)
+  """
+  @spec put_book_ticker(exchange(), symbol(), market_data()) :: :ok
+  def put_book_ticker(exchange, symbol, book_ticker) when is_atom(exchange) and is_binary(symbol) do
+    key = market_data_key(exchange, symbol, "book_ticker")
+    # Book ticker doesn't expire - continuously updated via WebSocket
+    Cache.put(key, book_ticker, :infinity)
+  end
+
+  @doc """
+  Gets the book ticker (best bid/ask) for a symbol.
+  """
+  @spec get_book_ticker(exchange(), symbol()) :: {:ok, market_data()} | {:error, :not_found | :expired}
+  def get_book_ticker(exchange, symbol) when is_atom(exchange) and is_binary(symbol) do
+    key = market_data_key(exchange, symbol, "book_ticker")
+    Cache.get(key)
   end
 
   # Generic market data operations

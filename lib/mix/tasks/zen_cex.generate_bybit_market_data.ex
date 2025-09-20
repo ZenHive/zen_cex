@@ -128,7 +128,7 @@ defmodule Mix.Tasks.ZenCex.GenerateBybitMarketData do
   defp filter_market_data_endpoints(items) do
     Enum.filter(items, fn %{request: request} ->
       path = extract_path(request)
-      is_market_data_endpoint?(path)
+      market_data_endpoint?(path)
     end)
   end
 
@@ -141,7 +141,7 @@ defmodule Mix.Tasks.ZenCex.GenerateBybitMarketData do
 
   defp extract_path(_), do: ""
 
-  defp is_market_data_endpoint?(path) do
+  defp market_data_endpoint?(path) do
     Enum.any?(market_data_patterns(), &Regex.match?(&1, path))
   end
 

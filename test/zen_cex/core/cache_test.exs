@@ -63,18 +63,21 @@ defmodule ZenCex.Core.CacheTest do
       assert {:ok, ^new_value} = Cache.get(key)
     end
 
-    test "validates key is binary and TTL is positive integer" do
+    test "validates key is binary and TTL is positive integer or :infinity" do
       assert_raise FunctionClauseError, fn ->
         Cache.put(:not_a_binary, "value", 60)
       end
 
-      assert_raise FunctionClauseError, fn ->
+      assert_raise ArgumentError, fn ->
         Cache.put("key", "value", 0)
       end
 
-      assert_raise FunctionClauseError, fn ->
+      assert_raise ArgumentError, fn ->
         Cache.put("key", "value", -5)
       end
+
+      # Test that :infinity is accepted
+      assert :ok = Cache.put("key", "value", :infinity)
     end
 
     test "handles process not started gracefully" do

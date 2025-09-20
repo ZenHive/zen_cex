@@ -33,6 +33,6 @@ zen_cex-*.tar
 
 # External files and directories
 external/*
-
+zen_websocket
 # Dialyzer PLT files
 /priv/plts/
