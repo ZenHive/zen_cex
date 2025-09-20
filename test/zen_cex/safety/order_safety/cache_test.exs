@@ -68,6 +68,10 @@ defmodule ZenCex.Safety.OrderSafety.CacheTest do
     end
 
     test "emits telemetry events on cache miss" do
+      # Clear all caches to ensure a clean test
+      Cache.clear_all()
+      ZenCex.Cache.Market.clear_all()
+
       key = {:binance, "BTCUSDT"}
 
       :telemetry.attach(

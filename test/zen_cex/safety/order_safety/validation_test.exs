@@ -3,10 +3,17 @@ defmodule ZenCex.Safety.OrderSafety.ValidationTest do
   Tests for OrderSafety.Validation module.
   """
 
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias ZenCex.Safety.OrderSafety.Cache
   alias ZenCex.Safety.OrderSafety.Validation
+
+  setup do
+    # Clear all caches before each test to ensure clean state
+    Cache.clear_all()
+    ZenCex.Cache.Market.clear_all()
+    :ok
+  end
 
   describe "validate_order/2" do
     test "validates all required fields are present" do
@@ -190,7 +197,7 @@ defmodule ZenCex.Safety.OrderSafety.ValidationTest do
         exchange: :binance
       }
 
-      # Prime the price cache
+      # Prime the OrderSafety price cache
       Cache.put_price({:binance, "BTCUSDT"}, Decimal.new("50000"))
 
       {:ok, notional} = Validation.calculate_order_notional(order)

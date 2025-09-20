@@ -299,8 +299,6 @@ defmodule ZenCex.Adapters.Bybit.RateLimiter do
     end
   end
 
-  defp parse_reset_timestamp(_), do: {:error, :invalid_type}
-
   @impl true
   def get_status(_endpoint) do
     # Bybit has a single unified rate limit, endpoint param is ignored

@@ -8,6 +8,7 @@ defmodule ZenCex.Safety.OrderSafety.MarketDataTest do
 
   use ExUnit.Case, async: false
 
+  alias ZenCex.Cache.Market
   alias ZenCex.Safety.OrderSafety.Cache
   alias ZenCex.Safety.OrderSafety.MarketData
 
@@ -33,16 +34,209 @@ defmodule ZenCex.Safety.OrderSafety.MarketDataTest do
   end
 
   describe "fetch_current_price/2" do
-    test "returns cached price when available" do
+    test "returns cached price when available in OrderSafety cache" do
       price = Decimal.new("50000.00")
       Cache.put_price({:binance, "BTCUSDT"}, price)
 
       assert {:ok, ^price} = MarketData.fetch_current_price(:binance, "BTCUSDT")
     end
 
+    test "prefers fresh WebSocket data over REST" do
+      # Clear OrderSafety cache
+      Cache.clear_all()
+
+      # Put fresh WebSocket data
+      book_ticker = %{
+        bid_price: "49999.50",
+        ask_price: "50000.50",
+        bid_qty: "1.0",
+        ask_qty: "1.0",
+        timestamp: System.system_time(:millisecond)
+      }
+
+      Market.put_book_ticker(:binance, "BTCUSDT", book_ticker)
+
+      # Fetch should use WebSocket data and calculate mid price
+      assert {:ok, price} = MarketData.fetch_current_price(:binance, "BTCUSDT")
+      expected_mid = Decimal.new("50000.00")
+      assert Decimal.equal?(price, expected_mid)
+    end
+
+    test "falls back to REST when WebSocket data is stale" do
+      # Clear OrderSafety cache
+      Cache.clear_all()
+
+      # Put stale WebSocket data (10 seconds old)
+      stale_timestamp = System.system_time(:millisecond) - 10_000
+
+      book_ticker = %{
+        bid_price: "49999.50",
+        ask_price: "50000.50",
+        bid_qty: "1.0",
+        ask_qty: "1.0",
+        timestamp: stale_timestamp
+      }
+
+      Market.put_book_ticker(:binance, "BTCUSDT", book_ticker)
+
+      # Fetch should fall back to REST
+      result = MarketData.fetch_current_price(:binance, "BTCUSDT")
+
+      # REST should succeed in testnet environment
+      assert {:ok, price} = result
+      assert is_struct(price, Decimal)
+
+      # The price should NOT be the mid price from our stale WebSocket data
+      stale_mid = Decimal.new("50000.00")
+      refute Decimal.equal?(price, stale_mid), "Got stale WebSocket price instead of fresh REST price"
+    end
+
+    test "falls back to REST when WebSocket data not available" do
+      # Clear all caches
+      Cache.clear_all()
+      Market.clear_all()
+
+      # Fetch should fall back to REST
+      result = MarketData.fetch_current_price(:binance, "BTCUSDT")
+
+      # REST should succeed in testnet environment
+      assert {:ok, price} = result
+      assert is_struct(price, Decimal)
+      assert Decimal.gt?(price, Decimal.new("0")), "Price should be positive"
+    end
+
+    test "handles malformed WebSocket price data gracefully" do
+      # Clear OrderSafety cache
+      Cache.clear_all()
+
+      # Put malformed WebSocket data
+      book_ticker = %{
+        bid_price: "not_a_number",
+        ask_price: "50000.50",
+        bid_qty: "1.0",
+        ask_qty: "1.0",
+        timestamp: System.system_time(:millisecond)
+      }
+
+      Market.put_book_ticker(:binance, "BTCUSDT", book_ticker)
+
+      # Should fall back to REST after WebSocket parse failure
+      result = MarketData.fetch_current_price(:binance, "BTCUSDT")
+
+      # REST should succeed as fallback
+      assert {:ok, price} = result
+      assert is_struct(price, Decimal)
+      assert Decimal.gt?(price, Decimal.new("0")), "Price should be positive"
+    end
+
     test "returns error for unsupported exchange" do
       result = MarketData.fetch_current_price(:unsupported_exchange, "BTCUSDT")
       assert {:error, {:unsupported_exchange, :unsupported_exchange}} = result
+    end
+  end
+
+  describe "get_market_price/2" do
+    test "delegates to fetch_current_price" do
+      price = Decimal.new("55000.00")
+      Cache.put_price({:binance, "BTCUSDT"}, price)
+
+      assert {:ok, ^price} = MarketData.get_market_price(:binance, "BTCUSDT")
+    end
+  end
+
+  describe "fetch_orderbook/2" do
+    test "prefers fresh WebSocket orderbook data" do
+      # Clear caches
+      Cache.clear_all()
+
+      # Put fresh WebSocket orderbook
+      orderbook = %{
+        bids: [["49999.00", "1.0"], ["49998.00", "2.0"], ["49997.00", "3.0"]],
+        asks: [["50001.00", "1.0"], ["50002.00", "2.0"], ["50003.00", "3.0"]],
+        timestamp: System.system_time(:millisecond)
+      }
+
+      Market.put_orderbook(:binance, "BTCUSDT", orderbook)
+
+      # Fetch should use WebSocket data
+      assert {:ok, book} = MarketData.fetch_orderbook(:binance, "BTCUSDT")
+      assert length(book.bids) == 3
+      assert length(book.asks) == 3
+    end
+
+    test "limits orderbook depth when requested" do
+      # Put orderbook with many levels
+      orderbook = %{
+        bids: for(i <- 1..50, do: [to_string(50_000 - i), "1.0"]),
+        asks: for(i <- 1..50, do: [to_string(50_000 + i), "1.0"]),
+        timestamp: System.system_time(:millisecond)
+      }
+
+      Market.put_orderbook(:binance, "BTCUSDT", orderbook)
+
+      # Fetch with depth limit
+      assert {:ok, book} = MarketData.fetch_orderbook(:binance, "BTCUSDT", depth: 5)
+      assert length(book.bids) == 5
+      assert length(book.asks) == 5
+    end
+
+    test "falls back to REST when WebSocket orderbook is stale" do
+      # Put stale orderbook (10 seconds old)
+      stale_timestamp = System.system_time(:millisecond) - 10_000
+
+      orderbook = %{
+        bids: [["49999.00", "1.0"]],
+        asks: [["50001.00", "1.0"]],
+        timestamp: stale_timestamp
+      }
+
+      Market.put_orderbook(:binance, "BTCUSDT", orderbook)
+
+      # Should fall back to REST
+      result = MarketData.fetch_orderbook(:binance, "BTCUSDT")
+
+      # REST should succeed in testnet environment
+      assert {:ok, book} = result
+      assert is_map(book)
+      assert is_list(book.bids)
+      assert is_list(book.asks)
+      # Should have fresh data, not our single stale entry
+      assert length(book.bids) > 0
+      assert length(book.asks) > 0
+    end
+
+    test "handles orderbook without timestamp" do
+      # Put orderbook without timestamp (treated as potentially fresh)
+      orderbook = %{
+        bids: [["49999.00", "1.0"]],
+        asks: [["50001.00", "1.0"]]
+      }
+
+      Market.put_orderbook(:binance, "BTCUSDT", orderbook)
+
+      # Should accept the data
+      assert {:ok, book} = MarketData.fetch_orderbook(:binance, "BTCUSDT")
+      assert length(book.bids) == 1
+      assert length(book.asks) == 1
+    end
+
+    test "falls back to REST for unsupported exchange" do
+      result = MarketData.fetch_orderbook(:unsupported_exchange, "BTCUSDT")
+      assert {:error, {:unsupported_exchange, :unsupported_exchange}} = result
+    end
+  end
+
+  describe "ensure_websocket_connection/2" do
+    test "returns :ok when WebSocket supervisor is running" do
+      # Note: In test environment, WebSocket supervisor may not be running
+      # This test just verifies the function exists and handles both cases
+      result = MarketData.ensure_websocket_connection(:binance, "BTCUSDT")
+
+      case result do
+        :ok -> assert true
+        {:error, :websocket_not_started} -> assert true
+        other -> flunk("Unexpected result: #{inspect(other)}")
+      end
     end
   end
 

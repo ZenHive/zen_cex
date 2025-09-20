@@ -149,6 +149,27 @@ defmodule ZenCex.Config.TimeConstants do
   end
 
   @doc """
+  Get WebSocket-related timeout configurations.
+
+  Returns a map with timeout values in milliseconds.
+  """
+  @spec websocket_timeouts() :: %{atom() => pos_integer()}
+  def websocket_timeouts do
+    %{
+      # WebSocket supervisor restart delay
+      restart_delay: seconds(5),
+      # WebSocket reconnection delay
+      reconnect_delay: seconds(5),
+      # Maximum reconnection delay
+      max_reconnect_delay: minutes(1),
+      # WebSocket data freshness threshold
+      data_freshness: seconds(5),
+      # Bybit ping interval
+      bybit_ping_interval: seconds(20)
+    }
+  end
+
+  @doc """
   Get cleanup intervals for various caches.
 
   Returns a map with cleanup intervals in milliseconds.

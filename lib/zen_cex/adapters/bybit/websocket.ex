@@ -27,6 +27,7 @@ defmodule ZenCex.Adapters.Bybit.WebSocket do
   @behaviour ZenCex.WebSocket.Base
 
   alias ZenCex.Cache.Market
+  alias ZenCex.Config.TimeConstants
 
   require Logger
 
@@ -37,7 +38,7 @@ defmodule ZenCex.Adapters.Bybit.WebSocket do
   @futures_ws_testnet_url "wss://stream-testnet.bybit.com/v5/public/linear"
 
   # Ping interval for Bybit (20 seconds)
-  @ping_interval_ms 20_000
+  @ping_interval_ms TimeConstants.websocket_timeouts().bybit_ping_interval
 
   @impl true
   def connect(opts \\ []) do
@@ -117,7 +118,7 @@ defmodule ZenCex.Adapters.Bybit.WebSocket do
 
   @impl true
   def state(connection) do
-    ZenWebsocket.Client.get_state(connection)
+    {:ok, %{status: ZenWebsocket.Client.get_state(connection)}}
   end
 
   @impl true

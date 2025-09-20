@@ -118,11 +118,12 @@ defmodule ZenCex.Adapters.Binance.WebSocketTest do
     @tag :integration
     test "closes connection cleanly" do
       {:ok, ws} = WebSocket.connect(testnet: true)
+      server_pid = ws.server_pid
       assert :ok = WebSocket.close(ws)
 
       # Verify connection is closed
       Process.sleep(100)
-      refute Process.alive?(ws)
+      refute Process.alive?(server_pid)
     end
   end
 
@@ -328,16 +329,4 @@ defmodule ZenCex.Adapters.Binance.WebSocketTest do
   end
 
   # Helper functions
-
-  defp spawn_mock_connection do
-    parent = self()
-    {:ok, spawn(fn -> mock_connection_loop(parent) end)}
-  end
-
-  defp mock_connection_loop(parent) do
-    receive do
-      {:close} -> :ok
-      _ -> mock_connection_loop(parent)
-    end
-  end
 end

@@ -117,7 +117,7 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
 
   @impl true
   def state(connection) do
-    ZenWebsocket.Client.get_state(connection)
+    {:ok, %{status: ZenWebsocket.Client.get_state(connection)}}
   end
 
   @impl true
@@ -167,6 +167,12 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
   defp process_stream_data(%{"result" => nil, "id" => _id}) do
     # Subscription confirmation
     Logger.debug("Binance subscription confirmed")
+  end
+
+  # Handle book ticker data without "e" field (raw format from stream)
+  defp process_stream_data(%{"s" => _symbol, "b" => _bid, "a" => _ask} = data) do
+    # This is book ticker data in raw format
+    process_book_ticker(data)
   end
 
   defp process_stream_data(data) do

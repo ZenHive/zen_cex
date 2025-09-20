@@ -21,7 +21,13 @@ defmodule ZenCex.Application do
       ZenCex.Safety.OrderSafety,
 
       # Clock synchronization for accurate exchange timestamps
-      ZenCex.Safety.ClockSync
+      ZenCex.Safety.ClockSync,
+
+      # WebSocket connection registry
+      {Registry, keys: :unique, name: ZenCex.WebSocket.Registry},
+
+      # WebSocket supervisor for managing connections
+      ZenCex.WebSocket.Supervisor
 
       # NOTE: Following Req-centric architecture:
       # - No Core.Supervisor needed (Req handles connection lifecycle)

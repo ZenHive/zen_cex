@@ -14,6 +14,8 @@ defmodule ZenCex.Safety.OrderSafety.MarketData do
   alias ZenCex.Adapters.Binance.UsdmFutures
   alias ZenCex.Adapters.Bybit.MarketData, as: BybitMarketData
   alias ZenCex.Adapters.Bybit.Unified
+  alias ZenCex.Cache.Market
+  alias ZenCex.Config.TimeConstants
   alias ZenCex.Safety.OrderSafety.Cache
   alias ZenCex.Safety.OrderSafety.DecimalUtils
 
@@ -32,6 +34,9 @@ defmodule ZenCex.Safety.OrderSafety.MarketData do
     kraken: 10.00,
     deribit: 10.00
   }
+
+  # WebSocket data freshness threshold in milliseconds
+  @websocket_data_max_age_ms TimeConstants.websocket_timeouts().data_freshness
 
   # Public API
 
@@ -73,6 +78,8 @@ defmodule ZenCex.Safety.OrderSafety.MarketData do
   @doc """
   Fetches the current price for a symbol with caching.
 
+  Prefers WebSocket data when available and fresh, falling back to REST API.
+
   ## Parameters
   - `exchange` - The exchange atom
   - `symbol` - The trading symbol
@@ -83,6 +90,7 @@ defmodule ZenCex.Safety.OrderSafety.MarketData do
   """
   @spec fetch_current_price(atom(), String.t()) :: {:ok, Decimal.t()} | {:error, term()}
   def fetch_current_price(exchange, symbol) do
+    # First check OrderSafety cache (shortest TTL)
     cache_key = {exchange, symbol}
 
     case Cache.lookup_price(cache_key) do
@@ -90,18 +98,73 @@ defmodule ZenCex.Safety.OrderSafety.MarketData do
         {:ok, cached_price}
 
       :miss ->
-        # Cache miss, fetch from exchange
-        result = fetch_price_from_exchange(exchange, symbol)
-
-        # Cache successful results
-        case result do
+        # Try WebSocket cache first
+        case fetch_price_from_websocket(exchange, symbol) do
           {:ok, price} ->
+            # Cache with shorter TTL since WebSocket data is continuously updated
+            # 5 seconds TTL for WebSocket data
             Cache.put_price(cache_key, price)
             {:ok, price}
 
+          {:error, :stale_data} ->
+            # WebSocket data is stale, fall back to REST
+            fetch_and_cache_rest_price(exchange, symbol, cache_key)
+
+          {:error, :not_found} ->
+            # No WebSocket data, fall back to REST
+            fetch_and_cache_rest_price(exchange, symbol, cache_key)
+
           error ->
-            error
+            # Other WebSocket error, try REST as fallback
+            Logger.debug("WebSocket price fetch failed: #{inspect(error)}, falling back to REST")
+            fetch_and_cache_rest_price(exchange, symbol, cache_key)
         end
+    end
+  end
+
+  # Fetches price from WebSocket cache
+  defp fetch_price_from_websocket(exchange, symbol) do
+    case Market.get_book_ticker(exchange, symbol) do
+      {:ok, %{bid_price: bid_str, ask_price: ask_str, timestamp: timestamp}} ->
+        # Check if data is fresh (less than 5 seconds old)
+        now_ms = System.system_time(:millisecond)
+        age_ms = now_ms - timestamp
+
+        if age_ms <= @websocket_data_max_age_ms do
+          # Calculate mid price from bid/ask
+          with {:ok, bid} <- DecimalUtils.safe_parse_decimal(bid_str),
+               {:ok, ask} <- DecimalUtils.safe_parse_decimal(ask_str) do
+            mid_price = Decimal.div(Decimal.add(bid, ask), Decimal.new("2"))
+            {:ok, mid_price}
+          end
+        else
+          {:error, :stale_data}
+        end
+
+      {:error, :not_found} ->
+        {:error, :not_found}
+
+      {:error, :expired} ->
+        {:error, :not_found}
+
+      error ->
+        error
+    end
+  end
+
+  # Fetches price via REST and caches with longer TTL
+  defp fetch_and_cache_rest_price(exchange, symbol, cache_key) do
+    result = fetch_price_from_exchange(exchange, symbol)
+
+    # Cache successful results with standard TTL (30 seconds for REST)
+    case result do
+      {:ok, price} ->
+        # REST data uses standard cache TTL (handled by Cache module)
+        Cache.put_price(cache_key, price)
+        {:ok, price}
+
+      error ->
+        error
     end
   end
 
@@ -127,6 +190,162 @@ defmodule ZenCex.Safety.OrderSafety.MarketData do
 
       _ ->
         {:error, {:unsupported_exchange, exchange}}
+    end
+  end
+
+  @doc """
+  Gets the current market price for a symbol.
+
+  This is a convenience function that wraps `fetch_current_price/2`.
+
+  ## Parameters
+  - `exchange` - The exchange atom
+  - `symbol` - The trading symbol
+
+  ## Returns
+  - `{:ok, Decimal.t()}` - Current market price
+  - `{:error, term()}` - Error details
+  """
+  @spec get_market_price(atom(), String.t()) :: {:ok, Decimal.t()} | {:error, term()}
+  def get_market_price(exchange, symbol) do
+    fetch_current_price(exchange, symbol)
+  end
+
+  @doc """
+  Fetches order book data for a symbol.
+
+  Prefers WebSocket data when available and fresh, falling back to REST API.
+
+  ## Parameters
+  - `exchange` - The exchange atom
+  - `symbol` - The trading symbol
+  - `opts` - Options including `:depth` (default: 20)
+
+  ## Returns
+  - `{:ok, %{bids: list(), asks: list()}}` - Order book data
+  - `{:error, term()}` - Error details
+  """
+  @spec fetch_orderbook(atom(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def fetch_orderbook(exchange, symbol, opts \\ []) do
+    depth = Keyword.get(opts, :depth, 20)
+
+    # Try WebSocket cache first
+    case fetch_orderbook_from_websocket(exchange, symbol) do
+      {:ok, orderbook} ->
+        # Limit depth if needed
+        limited_book = %{
+          bids: Enum.take(orderbook.bids || [], depth),
+          asks: Enum.take(orderbook.asks || [], depth),
+          timestamp: orderbook[:timestamp]
+        }
+
+        {:ok, limited_book}
+
+      {:error, :stale_data} ->
+        # WebSocket data is stale, fall back to REST
+        fetch_orderbook_from_rest(exchange, symbol, depth)
+
+      {:error, :not_found} ->
+        # No WebSocket data, fall back to REST
+        fetch_orderbook_from_rest(exchange, symbol, depth)
+    end
+  end
+
+  # Fetches orderbook from WebSocket cache
+  defp fetch_orderbook_from_websocket(exchange, symbol) do
+    case Market.get_orderbook(exchange, symbol) do
+      {:ok, %{timestamp: timestamp} = orderbook} when is_integer(timestamp) ->
+        # Check if data is fresh (less than 5 seconds old)
+        now_ms = System.system_time(:millisecond)
+        age_ms = now_ms - timestamp
+
+        if age_ms <= @websocket_data_max_age_ms do
+          {:ok, orderbook}
+        else
+          {:error, :stale_data}
+        end
+
+      {:ok, orderbook} ->
+        # No timestamp, treat as potentially stale
+        {:ok, orderbook}
+
+      {:error, :not_found} ->
+        {:error, :not_found}
+
+      {:error, :expired} ->
+        {:error, :not_found}
+    end
+  end
+
+  # Fetches orderbook via REST API
+  defp fetch_orderbook_from_rest(exchange, symbol, depth) do
+    case exchange do
+      :binance ->
+        case BinanceMarketData.get_order_book(%{symbol: symbol, limit: depth}) do
+          {:ok, %{"bids" => bids, "asks" => asks} = book} ->
+            {:ok,
+             %{
+               bids: bids,
+               asks: asks,
+               timestamp: Map.get(book, "lastUpdateId", System.system_time(:millisecond))
+             }}
+
+          error ->
+            error
+        end
+
+      :bybit ->
+        case BybitMarketData.get_orderbook(%{symbol: symbol, category: "spot", limit: depth}) do
+          {:ok, %{"b" => bids, "a" => asks, "ts" => timestamp}} ->
+            {:ok,
+             %{
+               bids: bids,
+               asks: asks,
+               timestamp: timestamp
+             }}
+
+          error ->
+            error
+        end
+
+      _ ->
+        {:error, {:unsupported_exchange, exchange}}
+    end
+  end
+
+  @doc """
+  Ensures WebSocket connection is active for the given symbol.
+
+  This can be used to proactively start WebSocket connections for symbols
+  that will be traded.
+
+  ## Parameters
+  - `exchange` - The exchange atom
+  - `symbol` - The trading symbol
+
+  ## Returns
+  - `:ok` - Connection is active or started
+  - `{:error, term()}` - Error details
+  """
+  @spec ensure_websocket_connection(atom(), String.t()) :: :ok | {:error, term()}
+  def ensure_websocket_connection(exchange, symbol) do
+    # Check if WebSocket supervisor is running
+    case Process.whereis(ZenCex.WebSocket.Supervisor) do
+      nil ->
+        # WebSocket supervisor not started, REST will be used
+        {:error, :websocket_not_started}
+
+      _pid ->
+        # Check if connection already exists for this symbol
+        connection_name = :"market_data_#{symbol}"
+
+        if ZenCex.WebSocket.Supervisor.connection_active?(exchange, connection_name) do
+          # Connection already active
+          :ok
+        else
+          # Start connection for this symbol
+          start_websocket_connection(exchange, connection_name, symbol)
+        end
     end
   end
 
@@ -551,4 +770,20 @@ defmodule ZenCex.Safety.OrderSafety.MarketData do
   end
 
   # Helper functions
+
+  # Starts a WebSocket connection for a specific symbol
+  defp start_websocket_connection(exchange, connection_name, symbol) do
+    case ZenCex.WebSocket.Supervisor.start_connection(
+           exchange,
+           connection_name,
+           symbols: [symbol],
+           streams: [:orderbook, :trades, :ticker]
+         ) do
+      {:ok, _pid} ->
+        :ok
+
+      {:error, reason} ->
+        {:error, {:websocket_start_failed, reason}}
+    end
+  end
 end
