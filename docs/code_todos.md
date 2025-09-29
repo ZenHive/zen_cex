@@ -3,6 +3,7 @@
 Actionable tasks extracted from codebase TODOs, organized for AI-assisted implementation.
 
 **Last Verified:** 2025-09-29 - All TODOs confirmed present in codebase
+**Last Updated:** 2025-09-29 - Removed backward compatibility TODO from market.ex:619
 
 ## Recently Completed ✅
 
@@ -71,12 +72,37 @@ Actionable tasks extracted from codebase TODOs, organized for AI-assisted implem
 **Current TODO in code:**
 - `# TODO: Extract streams from client metadata if available`
 
+## 5. Additional TODOs Found in Codebase
+
+### OAuth Implementation
+**File:** `lib/zen_cex/application.ex:38`
+**Task:** Add Deribit.Auth GenServer when OAuth is implemented
+**Current TODO:** `# TODO: Add Deribit.Auth GenServer when OAuth is implemented`
+
+
+### WebSocket Parsing
+**File:** `lib/zen_cex/adapters/binance/parser.ex:337`
+**Task:** Complete WebSocket market data parsing (deferred from initial implementation)
+**Current TODO:** `# TODO: WebSocket market data parsing deferred to WebSocket implementation phase`
+
+### WebSocket Connection Optimization
+**Files:**
+- `lib/zen_cex/adapters/binance/websocket.ex:143`
+- `lib/zen_cex/adapters/bybit/websocket.ex:117`
+**Task:** Check registry for existing connections with matching streams/topics to enable connection reuse
+**Current TODOs:**
+- Binance: `# TODO: In future, could check registry for existing connections with matching streams`
+- Bybit: `# TODO: In future, could check registry for existing connections with matching topics`
+
 ## Priority Order
 1. **Tasks 1-2**: New exchange support (Kraken, Deribit, OKX) - Expand platform coverage
 2. **Task 3**: Testnet enforcement - Complete testing infrastructure for new exchanges
-3. **Task 4**: WebSocket registry enhancement - Nice-to-have improvement
+3. **Task 5a**: OAuth implementation for Deribit - Required for Deribit adapter
+4. **Task 4**: WebSocket registry enhancement - Nice-to-have improvement
+5. **Tasks 5b-5d**: Configuration management and optimizations - Lower priority improvements
 
 ## Notes
 - All critical order safety and portfolio management tasks have been completed
 - WebSocket implementation is fully operational with zen_websocket library
 - Focus has shifted to expanding exchange support and completing test infrastructure
+- Integration test files appear to have some duplication between `test/support/` and `lib/zen_cex/test_utilities/`

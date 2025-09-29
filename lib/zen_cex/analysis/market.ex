@@ -162,7 +162,7 @@ defmodule ZenCex.Analysis.Market do
       #       }
       #     }}
   """
-  @spec compare_funding_rates([{exchange, config}] | [exchange], [String.t()]) ::
+  @spec compare_funding_rates([{exchange, config}], [String.t()]) ::
           {:ok, comparison_result} | {:error, term()}
   def compare_funding_rates(exchanges_with_configs, symbols) when is_list(symbols) do
     cache_key = build_comparison_cache_key(exchanges_with_configs, symbols)
@@ -611,13 +611,8 @@ defmodule ZenCex.Analysis.Market do
   defp fetch_rates_for_symbol(exchanges_with_configs, symbol) do
     exchanges_with_configs
     |> Task.async_stream(
-      fn
-        {exchange, config} ->
-          {exchange, fetch_funding_rate(exchange, symbol, config)}
-
-        exchange when is_atom(exchange) ->
-          # TODO: For backward compatibility - would need config from central configuration management
-          {exchange, {:error, :config_required}}
+      fn {exchange, config} ->
+        {exchange, fetch_funding_rate(exchange, symbol, config)}
       end,
       max_concurrency: @max_api_concurrency,
       timeout: @api_timeout_ms,
@@ -674,10 +669,7 @@ defmodule ZenCex.Analysis.Market do
   defp build_comparison_cache_key(exchanges_with_configs, symbols) do
     exchanges =
       exchanges_with_configs
-      |> Enum.map(fn
-        {exchange, _config} -> exchange
-        exchange -> exchange
-      end)
+      |> Enum.map(fn {exchange, _config} -> exchange end)
       |> Enum.sort()
       |> Enum.join(",")
 
