@@ -6,13 +6,11 @@ defmodule ZenCex.Safety.OrderSafety.Validation do
   balance verification, and notional requirements.
   """
 
+  alias ZenCex.Safety.OrderSafety.Config
   alias ZenCex.Safety.OrderSafety.DecimalUtils
   alias ZenCex.Safety.OrderSafety.MarketData
 
   require Logger
-
-  # Price deviation limits (±20% from mark price)
-  @max_price_deviation_percent 20
 
   # Zero balance constant
   @zero_balance "0"
@@ -291,7 +289,7 @@ defmodule ZenCex.Safety.OrderSafety.Validation do
   defp validate_price_levels(exchange, %{type: :limit, price: price, symbol: symbol}) do
     case MarketData.fetch_current_price(exchange, symbol) do
       {:ok, current_price} ->
-        validate_price_deviation(price, current_price, symbol)
+        validate_price_deviation(price, current_price, symbol, exchange)
 
       {:error, _reason} ->
         # If we can't get current price, skip price deviation check
@@ -305,7 +303,7 @@ defmodule ZenCex.Safety.OrderSafety.Validation do
     :ok
   end
 
-  defp validate_price_deviation(order_price, current_price, symbol) do
+  defp validate_price_deviation(order_price, current_price, symbol, exchange) do
     order_price_decimal = DecimalUtils.parse_decimal(order_price)
 
     # Calculate percentage deviation
@@ -316,12 +314,13 @@ defmodule ZenCex.Safety.OrderSafety.Validation do
       |> Decimal.mult(Decimal.new("100"))
       |> Decimal.abs()
 
-    max_deviation = Decimal.new(to_string(@max_price_deviation_percent))
+    max_deviation_percent = Config.max_price_deviation_percent(exchange)
+    max_deviation = Decimal.new(to_string(max_deviation_percent))
 
     if Decimal.compare(deviation, max_deviation) == :gt do
       {:error,
        {:price_deviation_too_large,
-        "Price deviation #{Decimal.to_string(deviation)}% exceeds maximum #{@max_price_deviation_percent}% for #{symbol}"}}
+        "Price deviation #{Decimal.to_string(deviation)}% exceeds maximum #{max_deviation_percent}% for #{symbol}"}}
     else
       :ok
     end

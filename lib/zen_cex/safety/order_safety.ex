@@ -51,6 +51,7 @@ defmodule ZenCex.Safety.OrderSafety do
   use GenServer
 
   alias ZenCex.Safety.OrderSafety.Cache
+  alias ZenCex.Safety.OrderSafety.Config
   alias ZenCex.Safety.OrderSafety.DecimalUtils
   alias ZenCex.Safety.OrderSafety.MarketData
   alias ZenCex.Safety.OrderSafety.Validation
@@ -65,13 +66,13 @@ defmodule ZenCex.Safety.OrderSafety do
   @kill_switch_table :kill_switch
   @market_data_cache_table :market_data_cache
 
-  # 30 minutes in milliseconds
-  @window_ms 30 * 60 * 1000
-  # Clean every 60 seconds
-  @cleanup_interval_ms 60 * 1000
+  # These values are now configurable via Config module
+  # Using module attributes for performance (compile-time resolution where possible)
+  @window_ms Config.idempotency_window_ms()
+  @cleanup_interval_ms Config.cleanup_interval_ms()
 
-  # 5 minutes for legacy symbol cache
-  @symbol_cache_ttl_ms 5 * 60 * 1000
+  # Legacy symbol cache TTL - now uses Config
+  @symbol_cache_ttl_ms Config.cache_ttls().symbol_info
 
   # Price deviation limits (±20% from mark price)
   # @max_price_deviation 0.20

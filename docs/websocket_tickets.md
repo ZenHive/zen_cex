@@ -1,10 +1,35 @@
 # WebSocket Implementation Tickets
 
+## zen_websocket Architecture
+
+The WebSocket implementation uses [zen_websocket](https://github.com/ZenHive/zen_websocket) library which provides:
+
+### Core Features
+- **Gun Transport**: Battle-tested HTTP/2 & WebSocket client for reliability
+- **Client GenServer**: Maintains Gun connection ownership through reconnections
+- **ClientSupervisor**: DynamicSupervisor for production crash recovery
+- **Automatic Reconnection**: Exponential backoff with state preservation
+- **Rate Limiting**: Token bucket algorithm with configurable costs
+- **Error Handling**: Categorized errors with recovery strategies
+- **5-Function Pattern**: Adapters limited to 5 public functions for simplicity
+
+### Key Modules Used
+- `ZenWebsocket.Client` - Main client with Gun ownership
+- `ZenWebsocket.ClientSupervisor` - Supervised connections
+- `ZenWebsocket.RateLimiter` - Token bucket rate limiting
+- `ZenWebsocket.Reconnection` - Exponential backoff logic
+- `ZenWebsocket.ErrorHandler` - Error categorization
+
+### Important Notes
+- **No Telemetry**: zen_websocket does NOT emit telemetry events
+- **Gun Ownership**: Client GenServer owns Gun connection for message routing
+- **Supervision Optional**: Use `supervised: true` for production
+
 ## Phase 1: Foundation (COMPLETED ✅)
 - [x] Add zen_websocket dependency to mix.exs
-- [x] Create WebSocket base behavior module
-- [x] Implement Binance WebSocket adapter with order book support
-- [x] Implement Bybit WebSocket adapter with order book support
+- [x] Create thin adapter modules (not base behavior)
+- [x] Implement Binance WebSocket adapter (5 functions)
+- [x] Implement Bybit WebSocket adapter (5 functions)
 - [x] Extend Cache.Market module for WebSocket data storage
 
 ## Phase 2: Core.Cache Enhancement ✅
@@ -21,24 +46,24 @@ def put(key, value, :infinity) # Store without expiry
 ## Phase 3: WebSocket Supervision Tree ✅
 ### Ticket: Create WebSocket Supervisor
 **Priority**: High
-**Status**: COMPLETED
+**Status**: COMPLETED (via zen_websocket)
 **Description**: Implement supervision tree for production WebSocket connections
 **Implementation**:
-- Created `ZenCex.WebSocket.Supervisor` with DynamicSupervisor pattern
-- Implemented ConnectionWorker GenServer for managing individual connections
-- Added Registry for named connection lookup
-- Automatic reconnection with exponential backoff (max 60s)
+- Using `ZenWebsocket.ClientSupervisor` DynamicSupervisor from zen_websocket
+- Each adapter uses `supervised: true` option for production connections
+- zen_websocket Client GenServer maintains Gun connection ownership
+- Automatic reconnection with exponential backoff built into zen_websocket
 - Proper cleanup using `ZenWebsocket.Client.close/1`
-- Full test coverage in `supervisor_test.exs`
+- Full test coverage in integration tests
 
 ### Ticket: Add WebSocket to Application Tree
 **Priority**: High
 **Status**: COMPLETED
 **Description**: Integrate WebSocket supervisor into main application
 **Implementation**:
-- Added Registry with unique keys to Application children
-- Added WebSocket.Supervisor to Application supervision tree
-- WebSocket connections now start automatically with application
+- Added `ZenWebsocket.ClientSupervisor` to Application supervision tree
+- Added `ZenCex.Websocket.ConnectionRegistry` for connection tracking
+- WebSocket connections can be supervised or direct (development mode)
 - Connections are properly supervised and restarted on failure
 
 ## Phase 4: OrderSafety Integration ✅
@@ -54,19 +79,19 @@ def put(key, value, :infinity) # Store without expiry
 - Created `ensure_websocket_connection/2` for proactive connection management
 - Integrated TimeConstants for WebSocket data freshness thresholds
 
-## Phase 5: WebSocket Manager 🎮
-### Ticket: Create Connection Manager
+## Phase 5: Connection Registry ✅
+### Ticket: Create Connection Registry
 **Priority**: Medium
-**Status**: TODO
-**Description**: Centralized WebSocket connection management
-```elixir
-defmodule ZenCex.WebSocket.Manager do
-  # Track active connections
-  # Handle subscription management
-  # Implement connection pooling
-  # Monitor connection health
-end
-```
+**Status**: COMPLETED
+**Description**: Centralized WebSocket connection tracking and health monitoring
+**Implementation**:
+- Created `ZenCex.Websocket.ConnectionRegistry` GenServer with ETS storage
+- Tracks active connections by `{exchange, symbol}` key
+- Provides connection reuse across modules
+- Health monitoring with `check_health/2` function
+- Automatic cleanup of stale connections every 60 seconds
+- Telemetry events for connection lifecycle
+- Full test coverage
 
 ## Phase 6: Testing Infrastructure ✅
 ### Ticket: WebSocket Integration Tests
@@ -92,46 +117,48 @@ end
 ## Phase 7: Advanced Features 🚀
 ### Ticket: Aggregated Order Books
 **Priority**: Low
-**Status**: TODO
+**Status**: TODO (Optional)
 **Description**: Combine multiple depth levels for complete order book view
 - Maintain full order book state
 - Handle incremental updates
 - Implement snapshot + diff pattern
+**Note**: Current implementation stores latest snapshots which is sufficient for most use cases
 
 ### Ticket: Trade Aggregation
 **Priority**: Low
-**Status**: TODO
+**Status**: TODO (Optional)
 **Description**: Aggregate trades into volume-weighted candles
 - Store trade history in circular buffer
 - Calculate VWAP in real-time
 - Emit custom telemetry events
-
-### Ticket: WebSocket Metrics Dashboard
-**Priority**: Low
-**Status**: TODO
-**Description**: Real-time monitoring of WebSocket connections
-- Connection status per exchange
-- Message rate monitoring
-- Latency tracking
-- Error rate tracking
+**Note**: May not be needed with current ETS cache approach
 
 ## Phase 8: Production Hardening 💪
-### Ticket: Circuit Breaker for WebSocket
+### Ticket: Circuit Breaker Pattern
 **Priority**: Medium
-**Status**: TODO
-**Description**: Implement circuit breaker pattern for WebSocket connections
-- Detect repeated failures
-- Implement backoff strategy
-- Auto-recovery logic
-- Telemetry integration
+**Status**: PARTIALLY COMPLETE (via zen_websocket)
+**Description**: Handle repeated connection failures
+**Built-in zen_websocket features**:
+- ✅ Automatic reconnection with exponential backoff
+- ✅ `ZenWebsocket.Reconnection` module handles backoff calculation
+- ✅ `ZenWebsocket.ErrorHandler` categorizes errors as recoverable/non-recoverable
+- ✅ Max retry configuration via `retry_count` option
+**Still TODO**:
+- Custom circuit breaker logic for application-specific failure patterns
+- Integration with monitoring/alerting systems
 
 ### Ticket: WebSocket Rate Limiting
 **Priority**: Medium
-**Status**: TODO
+**Status**: PARTIALLY COMPLETE (via zen_websocket)
 **Description**: Respect exchange WebSocket limits
-- Track subscription count
-- Implement subscription batching
-- Handle rate limit errors
+**Built-in zen_websocket features**:
+- ✅ `ZenWebsocket.RateLimiter` with token bucket algorithm
+- ✅ Configurable cost functions per request type
+- ✅ Support for credit-based (Deribit) and weight-based (Binance) patterns
+**Still TODO**:
+- Integration of RateLimiter into our adapters
+- Exchange-specific rate limit configurations
+- Subscription batching for efficiency
 
 ## Phase 9: Documentation 📚
 ### Ticket: WebSocket Usage Guide
@@ -144,29 +171,6 @@ end
 - Troubleshooting guide
 
 ## Phase 10: Code Quality & Refactoring 🔨
-### Ticket: Integrate zen_websocket Telemetry
-**Priority**: Medium
-**Status**: TODO
-**Description**: Replace Logger calls with telemetry event handlers
-```elixir
-# zen_websocket emits these events:
-[:zen_websocket, :client, :message_received]
-[:zen_websocket, :client, :message_sent]
-[:zen_websocket, :connection, :connected]
-[:zen_websocket, :connection, :disconnected]
-
-# Attach handlers in Application.start/2:
-:telemetry.attach_many(
-  "zen-cex-websocket",
-  [
-    [:zen_websocket, :client, :message_received],
-    [:zen_websocket, :connection, :connected],
-    [:zen_websocket, :connection, :disconnected]
-  ],
-  &ZenCex.WebSocket.TelemetryHandler.handle_event/4,
-  nil
-)
-```
 
 ## Phase 11: Module Refactoring 🔨
 ### Ticket: OrderSafety Module Refactoring
@@ -230,31 +234,39 @@ end
 
 ## Implementation Notes
 
-### Current State
-- ✅ WebSocket adapters implemented for Binance and Bybit
-- ✅ Cache.Market extended with WebSocket-specific functions
+### Current State (Using zen_websocket)
+- ✅ WebSocket adapters implemented as thin wrappers (5 functions each)
+- ✅ Using zen_websocket's ClientSupervisor for production supervision
+- ✅ ConnectionRegistry for tracking and health monitoring
+- ✅ Cache.Market stores WebSocket data with :infinity TTL
 - ✅ WebSocket data flows into ETS cache automatically
-- ✅ Full supervision tree with automatic reconnection
-- ✅ Registry-based connection management
-- ✅ Comprehensive test coverage
+- ✅ Gun-based connections with automatic reconnection
 - ✅ OrderSafety integration with WebSocket-first data strategy
-- ✅ Intelligent fallback mechanisms (WebSocket → REST)
+- ✅ Comprehensive test coverage (ws_refactor.md shows 86 tests passing)
 - ✅ Data freshness validation with configurable thresholds
 
-### Next Steps (Priority Order)
-1. ✅ COMPLETED: Update OrderSafety to use WebSocket data (Phase 4)
-2. Implement WebSocket Manager for centralized control (Phase 5)
-3. Add aggregated order books (Phase 7)
-4. Implement circuit breaker pattern (Phase 8)
-5. Add WebSocket rate limiting (Phase 8)
+### Architecture Changes from Original Plan
+- **Instead of**: Custom WebSocket.Supervisor → **Using**: zen_websocket's ClientSupervisor
+- **Instead of**: WebSocket.Manager → **Implemented**: ConnectionRegistry for tracking
+- **Instead of**: Custom telemetry → **Note**: zen_websocket has NO telemetry events
+- **Instead of**: GenServer adapters → **Using**: Thin function-based adapters
+- **Instead of**: Complex base behavior → **Using**: 5-function adapter pattern
 
-### Technical Debt
-- ✅ DONE: Core.Cache now supports :infinity TTL for non-expiring WebSocket data
-- ✅ DONE: zen_websocket has built-in telemetry events
-- ✅ DONE: Supervisor handles reconnection with exponential backoff
-- ✅ DONE: Registry provides connection management
-- TODO: Replace Logger calls with telemetry event handlers in our adapters
-- TODO: Add subscription state tracking for better management
+### Next Steps (Priority Order)
+1. ✅ COMPLETED: ConnectionRegistry for health monitoring
+2. Module refactoring to meet complexity guidelines (Phase 11)
+3. Optional: Integrate zen_websocket's RateLimiter
+4. Optional: Advanced order book aggregation if needed
+5. Optional: Custom circuit breaker for app-specific patterns
+
+### Technical Achievements
+- ✅ zen_websocket provides Gun transport with connection ownership
+- ✅ Built-in exponential backoff via Reconnection module
+- ✅ RateLimiter available (not yet integrated)
+- ✅ ErrorHandler categorizes errors automatically
+- ✅ ClientSupervisor provides production-grade supervision
+- ✅ ConnectionRegistry enables connection reuse
+- ❌ No telemetry events from zen_websocket (removed from plans)
 
 ### Configuration Required
 ```elixir
@@ -287,7 +299,9 @@ config :zen_cex, :websocket,
 
 ## Success Metrics
 - [x] Order book latency < 10ms (WebSocket vs REST: 200ms+)
-- [x] Zero REST calls for actively traded symbols
-- [ ] 99.9% WebSocket uptime in production (requires production deployment)
-- [x] Automatic recovery from all failure scenarios
-- [x] Complete test coverage for WebSocket code
+- [x] Zero REST calls for actively traded symbols with active WebSocket connections
+- [x] Automatic recovery from all failure scenarios via zen_websocket
+- [x] Complete test coverage (86 tests passing per ws_refactor.md)
+- [x] Gun-based transport for production reliability
+- [x] 5-function adapter pattern for maintainability
+- [ ] 99.9% WebSocket uptime (requires production deployment to verify)

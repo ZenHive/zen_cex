@@ -15,8 +15,8 @@ defmodule ZenCex.Safety.OrderSafety.MarketData do
   alias ZenCex.Adapters.Bybit.MarketData, as: BybitMarketData
   alias ZenCex.Adapters.Bybit.Unified
   alias ZenCex.Cache.Market
-  alias ZenCex.Config.TimeConstants
   alias ZenCex.Safety.OrderSafety.Cache
+  alias ZenCex.Safety.OrderSafety.Config
   alias ZenCex.Safety.OrderSafety.DecimalUtils
 
   # Binance adapters
@@ -24,19 +24,11 @@ defmodule ZenCex.Safety.OrderSafety.MarketData do
   # Bybit adapters
   require Logger
 
-  # Binance default minimum notional
-  @binance_default_min_notional "10.00"
+  # Binance default minimum notional - now configurable
+  @binance_default_min_notional Config.default_min_notional(:binance)
 
-  # Default minimum notionals by exchange
-  @default_min_notional %{
-    binance: 10.00,
-    bybit: 1.00,
-    kraken: 10.00,
-    deribit: 10.00
-  }
-
-  # WebSocket data freshness threshold in milliseconds
-  @websocket_data_max_age_ms TimeConstants.websocket_timeouts().data_freshness
+  # WebSocket data freshness threshold - now configurable
+  @websocket_data_max_age_ms Config.websocket_data_max_age_ms()
 
   # Public API
 
@@ -440,8 +432,8 @@ defmodule ZenCex.Safety.OrderSafety.MarketData do
 
             {:error, _reason} ->
               # Fallback to default if fetch fails
-              default_min = Map.get(@default_min_notional, exchange, 10.00)
-              Decimal.new(to_string(default_min))
+              default_min = Config.default_min_notional(exchange)
+              Decimal.new(default_min)
           end
 
         # Cache the result
@@ -829,8 +821,8 @@ defmodule ZenCex.Safety.OrderSafety.MarketData do
 
   defp extract_min_notional(exchange, _symbol_info) do
     # Fallback to default for unknown exchanges
-    default_min = Map.get(@default_min_notional, exchange, 10.00)
-    Decimal.new(to_string(default_min))
+    default_min = Config.default_min_notional(exchange)
+    Decimal.new(default_min)
   end
 
   # Helper functions
