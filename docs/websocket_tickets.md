@@ -149,7 +149,7 @@ def put(key, value, :infinity) # Store without expiry
 
 ### Ticket: WebSocket Rate Limiting
 **Priority**: Medium
-**Status**: PARTIALLY COMPLETE (via zen_websocket)
+**Status**: TODO - Integration needed
 **Description**: Respect exchange WebSocket limits
 **Built-in zen_websocket features**:
 - ✅ `ZenWebsocket.RateLimiter` with token bucket algorithm
@@ -220,11 +220,16 @@ end
 ```
 
 ### Ticket: WebSocket Market Data Parser
-**Priority**: High
-**Status**: TODO
-**Description**: Complete WebSocket parsing implementation
+**Priority**: Low
+**Status**: FUTURE IMPROVEMENT
+**Description**: Extract WebSocket parsing to Parser module when needed
+**Note**: Current inline parsing works well. Will refactor when:
+- Multiple message formats need support
+- Complex transformations are required
+- Shared logic between REST/WS becomes significant
+- Testing parsing logic in isolation becomes necessary
 ```elixir
-# lib/zen_cex/adapters/binance/parser.ex
+# Future: lib/zen_cex/adapters/binance/parser.ex
 # Add WebSocket-specific parsing functions:
 - parse_trade_data/1
 - parse_kline_data/1
