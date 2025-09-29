@@ -8,28 +8,30 @@ defmodule ZenCex.Adapters.Binance.UsdmFuturesIntegrationTest do
   - API type detection works correctly
   """
 
-  use ZenCex.IntegrationCase, exchange: :binance, api_type: :usdm_futures
+  use ZenCex.IntegrationCase, exchange: :binance, api_type: :usdm_futures, use_production_for_test: true
 
   import ExUnit.CaptureLog
 
   alias ZenCex.Adapters.Binance.RateLimiter
   alias ZenCex.Adapters.Binance.UsdmFutures
 
-  setup do
+  setup context do
     # Reset rate limiter state before each test
     RateLimiter.reset(nil)
-    :ok
+
+    # Pass through the credentials from IntegrationCase
+    {:ok, context}
   end
 
   describe "futures endpoints use correct testnet URL" do
-    test "get_balances returns futures balances" do
-      # Use futures-specific testnet credentials for this test
-      futures_key = System.get_env("BINANCE_FUTURES_TEST_API_KEY")
-      futures_secret = System.get_env("BINANCE_FUTURES_TEST_API_SECRET")
+    test "get_balances returns futures balances", context do
+      # Use credentials from IntegrationCase (which handles production vs testnet)
+      api_key = context[:api_key]
+      api_secret = context[:api_secret]
 
       opts =
-        if futures_key && futures_secret do
-          %{auth_credentials: %{api_key: futures_key, api_secret: futures_secret}}
+        if api_key && api_secret do
+          %{auth_credentials: %{api_key: api_key, api_secret: api_secret}}
         else
           %{}
         end

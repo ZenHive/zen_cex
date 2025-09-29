@@ -3,7 +3,7 @@ defmodule ZenCex.Adapters.Binance.AuthCredentialsIntegrationTest do
   Integration tests for passing auth_credentials in different formats.
   Tests both keyword lists and maps across different Binance API types.
   """
-  use ZenCex.IntegrationCase, exchange: :binance, api_type: :spot
+  use ZenCex.IntegrationCase, exchange: :binance, api_type: :spot, use_production_for_test: true
 
   alias ZenCex.Adapters.Binance.CoinmFutures
   alias ZenCex.Adapters.Binance.Spot
@@ -11,12 +11,12 @@ defmodule ZenCex.Adapters.Binance.AuthCredentialsIntegrationTest do
 
   describe "Spot API with auth_credentials" do
     @tag :integration
-    test "accepts auth_credentials as keyword list" do
-      # Get credentials from environment
-      api_key = System.get_env("BINANCE_TESTNET_API_KEY")
-      api_secret = System.get_env("BINANCE_TESTNET_API_SECRET")
+    test "accepts auth_credentials as keyword list", context do
+      # Get credentials from IntegrationCase context
+      api_key = context[:api_key]
+      api_secret = context[:api_secret]
 
-      assert api_key && api_secret, "BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET must be set"
+      assert api_key && api_secret, "API credentials must be provided by IntegrationCase"
 
       # Pass credentials as keyword list
       opts = [
@@ -32,12 +32,12 @@ defmodule ZenCex.Adapters.Binance.AuthCredentialsIntegrationTest do
     end
 
     @tag :integration
-    test "accepts auth_credentials as map" do
-      # Get credentials from environment
-      api_key = System.get_env("BINANCE_TESTNET_API_KEY")
-      api_secret = System.get_env("BINANCE_TESTNET_API_SECRET")
+    test "accepts auth_credentials as map", context do
+      # Get credentials from IntegrationCase context
+      api_key = context[:api_key]
+      api_secret = context[:api_secret]
 
-      assert api_key && api_secret, "BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET must be set"
+      assert api_key && api_secret, "API credentials must be provided by IntegrationCase"
 
       # Pass credentials as map
       opts = %{
@@ -69,11 +69,11 @@ defmodule ZenCex.Adapters.Binance.AuthCredentialsIntegrationTest do
 
   describe "Margin API with auth_credentials" do
     @tag :integration
-    test "margin endpoints accept auth_credentials as keyword list" do
-      api_key = System.get_env("BINANCE_TESTNET_API_KEY")
-      api_secret = System.get_env("BINANCE_TESTNET_API_SECRET")
+    test "margin endpoints accept auth_credentials as keyword list", context do
+      api_key = context[:api_key]
+      api_secret = context[:api_secret]
 
-      assert api_key && api_secret, "BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET must be set"
+      assert api_key && api_secret, "API credentials must be provided by IntegrationCase"
 
       opts = [
         auth_credentials: %{
@@ -88,11 +88,11 @@ defmodule ZenCex.Adapters.Binance.AuthCredentialsIntegrationTest do
     end
 
     @tag :integration
-    test "margin endpoints accept auth_credentials as map" do
-      api_key = System.get_env("BINANCE_TESTNET_API_KEY")
-      api_secret = System.get_env("BINANCE_TESTNET_API_SECRET")
+    test "margin endpoints accept auth_credentials as map", context do
+      api_key = context[:api_key]
+      api_secret = context[:api_secret]
 
-      assert api_key && api_secret, "BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET must be set"
+      assert api_key && api_secret, "API credentials must be provided by IntegrationCase"
 
       opts = %{
         auth_credentials: %{
@@ -109,12 +109,12 @@ defmodule ZenCex.Adapters.Binance.AuthCredentialsIntegrationTest do
 
   describe "USD-M Futures API with auth_credentials" do
     @tag :integration
-    test "usdm endpoints accept auth_credentials as keyword list" do
-      # Use futures-specific testnet credentials
-      api_key = System.get_env("BINANCE_FUTURES_TEST_API_KEY") || System.get_env("BINANCE_TESTNET_API_KEY")
-      api_secret = System.get_env("BINANCE_FUTURES_TEST_API_SECRET") || System.get_env("BINANCE_TESTNET_API_SECRET")
+    test "usdm endpoints accept auth_credentials as keyword list", context do
+      # Use futures-specific credentials from context if available
+      api_key = context[:futures_api_key] || context[:api_key]
+      api_secret = context[:futures_api_secret] || context[:api_secret]
 
-      assert api_key && api_secret, "BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET must be set"
+      assert api_key && api_secret, "API credentials must be provided by IntegrationCase"
 
       opts = [
         auth_credentials: %{
@@ -128,12 +128,12 @@ defmodule ZenCex.Adapters.Binance.AuthCredentialsIntegrationTest do
     end
 
     @tag :integration
-    test "usdm endpoints accept auth_credentials as map" do
-      # Use futures-specific testnet credentials
-      api_key = System.get_env("BINANCE_FUTURES_TEST_API_KEY")
-      api_secret = System.get_env("BINANCE_FUTURES_TEST_API_SECRET")
+    test "usdm endpoints accept auth_credentials as map", context do
+      # Use futures-specific credentials from context if available
+      api_key = context[:futures_api_key] || context[:api_key]
+      api_secret = context[:futures_api_secret] || context[:api_secret]
 
-      assert api_key && api_secret, "BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET must be set"
+      assert api_key && api_secret, "API credentials must be provided by IntegrationCase"
 
       opts = %{
         auth_credentials: %{
@@ -149,12 +149,12 @@ defmodule ZenCex.Adapters.Binance.AuthCredentialsIntegrationTest do
 
   describe "COIN-M Futures API with auth_credentials" do
     @tag :integration
-    test "coinm endpoints accept auth_credentials as keyword list" do
-      # Use futures-specific testnet credentials
-      api_key = System.get_env("BINANCE_FUTURES_TEST_API_KEY")
-      api_secret = System.get_env("BINANCE_FUTURES_TEST_API_SECRET")
+    test "coinm endpoints accept auth_credentials as keyword list", context do
+      # Use futures-specific credentials from context if available
+      api_key = context[:futures_api_key] || context[:api_key]
+      api_secret = context[:futures_api_secret] || context[:api_secret]
 
-      assert api_key && api_secret, "BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET must be set"
+      assert api_key && api_secret, "API credentials must be provided by IntegrationCase"
 
       opts = [
         auth_credentials: %{
@@ -168,12 +168,12 @@ defmodule ZenCex.Adapters.Binance.AuthCredentialsIntegrationTest do
     end
 
     @tag :integration
-    test "coinm endpoints accept auth_credentials as map" do
-      # Use futures-specific testnet credentials
-      api_key = System.get_env("BINANCE_FUTURES_TEST_API_KEY")
-      api_secret = System.get_env("BINANCE_FUTURES_TEST_API_SECRET")
+    test "coinm endpoints accept auth_credentials as map", context do
+      # Use futures-specific credentials from context if available
+      api_key = context[:futures_api_key] || context[:api_key]
+      api_secret = context[:futures_api_secret] || context[:api_secret]
 
-      assert api_key && api_secret, "BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET must be set"
+      assert api_key && api_secret, "API credentials must be provided by IntegrationCase"
 
       opts = %{
         auth_credentials: %{
@@ -189,12 +189,12 @@ defmodule ZenCex.Adapters.Binance.AuthCredentialsIntegrationTest do
 
   describe "Multi-account trading simulation" do
     @tag :integration
-    test "can use different credentials for different accounts" do
-      # Simulate having multiple accounts
-      account1_key = System.get_env("BINANCE_TESTNET_API_KEY")
-      account1_secret = System.get_env("BINANCE_TESTNET_API_SECRET")
+    test "can use different credentials for different accounts", context do
+      # Get credentials from context
+      account1_key = context[:api_key]
+      account1_secret = context[:api_secret]
 
-      assert account1_key && account1_secret, "BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET must be set"
+      assert account1_key && account1_secret, "API credentials must be provided by IntegrationCase"
 
       # In a real scenario, these would be different accounts
       # Using same for testing

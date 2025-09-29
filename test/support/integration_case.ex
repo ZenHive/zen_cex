@@ -31,6 +31,7 @@ defmodule ZenCex.IntegrationCase do
   using options do
     exchange = Keyword.fetch!(options, :exchange)
     api_type = Keyword.get(options, :api_type)
+    use_production_for_test = Keyword.get(options, :use_production_for_test, false)
 
     quote do
       use ExUnit.Case
@@ -40,12 +41,45 @@ defmodule ZenCex.IntegrationCase do
       # Import the shared env helpers
       import ZenCex.TestUtilities.EnvHelpers
 
+      alias ZenCex.Adapters.Binance.Endpoints
+
       @moduletag :integration
       @moduletag unquote(exchange)
       if unquote(api_type), do: @moduletag(unquote(api_type))
+      if unquote(use_production_for_test), do: @moduletag(:production_test)
 
       setup_all do
-        unquote(__MODULE__).enforce_testnet!(unquote(exchange), unquote(api_type))
+        # If using production for test, temporarily disable testnet mode
+        if unquote(use_production_for_test) do
+          # Save original values
+          original_binance_testnet = System.get_env("BINANCE_TESTNET")
+          original_bybit_testnet = System.get_env("BYBIT_TESTNET")
+
+          # Temporarily set to production mode
+          System.delete_env("BINANCE_TESTNET")
+          System.delete_env("BYBIT_TESTNET")
+
+          # Clear the cached environment from persistent_term
+          # This forces the Endpoints module to re-evaluate the environment
+          :persistent_term.erase({:zen_cex, Endpoints, :current_env})
+          :persistent_term.erase({:zen_cex, ZenCex.Adapters.Bybit.Endpoints, :current_env})
+
+          on_exit(fn ->
+            # Restore original values
+            if original_binance_testnet, do: System.put_env("BINANCE_TESTNET", original_binance_testnet)
+            if original_bybit_testnet, do: System.put_env("BYBIT_TESTNET", original_bybit_testnet)
+
+            # Clear the cache again to force re-evaluation with restored env
+            :persistent_term.erase({:zen_cex, Endpoints, :current_env})
+            :persistent_term.erase({:zen_cex, ZenCex.Adapters.Bybit.Endpoints, :current_env})
+          end)
+        end
+
+        unquote(__MODULE__).enforce_testnet!(
+          unquote(exchange),
+          unquote(api_type),
+          unquote(use_production_for_test)
+        )
       end
     end
   end
@@ -54,18 +88,22 @@ defmodule ZenCex.IntegrationCase do
   Enforces testnet usage for the given exchange and validates credentials.
 
   This function:
-  1. Verifies the exchange is configured for testnet/sandbox mode
-  2. Checks that testnet URLs are being used
+  1. Verifies the exchange is configured for testnet/sandbox mode (unless use_production_for_test is true)
+  2. Checks that testnet URLs are being used (unless use_production_for_test is true)
   3. Validates required credentials are present
   4. Tests basic connectivity to the testnet
+
+  ## Options
+  - `use_production_for_test`: When true, allows using production API with alternative test credentials.
+    WARNING: This uses REAL production endpoints with a test account. Only use with accounts that have minimal funds!
 
   Raises an error if any validation fails, ensuring tests don't accidentally
   run against production APIs or hide missing configuration.
   """
-  @spec enforce_testnet!(atom(), atom() | nil) :: {:ok, keyword()}
-  def enforce_testnet!(exchange, api_type \\ nil) do
+  @spec enforce_testnet!(atom(), atom() | nil, boolean()) :: {:ok, keyword()}
+  def enforce_testnet!(exchange, api_type \\ nil, use_production_for_test \\ false) do
     case exchange do
-      :binance -> enforce_binance_testnet!(api_type)
+      :binance -> enforce_binance_testnet!(api_type, use_production_for_test)
       :bybit -> enforce_bybit_testnet!(api_type)
       :kraken -> enforce_kraken_testnet!(api_type)
       :deribit -> enforce_deribit_testnet!(api_type)
@@ -75,82 +113,101 @@ defmodule ZenCex.IntegrationCase do
   end
 
   # Binance testnet enforcement
-  defp enforce_binance_testnet!(api_type) do
+  defp enforce_binance_testnet!(api_type, use_production_for_test) do
     alias ZenCex.Adapters.Binance.Endpoints
 
-    # Check environment is set to test
-    env = Endpoints.current_env()
+    require Logger
 
-    if env != :test do
-      raise """
-      TESTNET REQUIRED: Environment is #{env}, expected :test.
-      Set BINANCE_TESTNET=true to enable testnet mode.
-      """
-    end
+    # If using production for test, warn and skip testnet checks
+    if use_production_for_test do
+      Logger.warning("""
+      ⚠️  USING PRODUCTION API FOR TESTING
+      ⚠️  This test is configured to use PRODUCTION Binance endpoints
+      ⚠️  Make sure to use an account with MINIMAL funds!
+      ⚠️  API Type: #{inspect(api_type)}
+      """)
+    else
+      # Check environment is set to test
+      env = Endpoints.current_env()
 
-    # Verify base URL for the specific API type
-    actual_url = get_binance_base_url(api_type)
-
-    # Skip validation for portfolio margin (no testnet available)
-    if actual_url != :skip_portfolio_testnet_check do
-      expected_url = expected_binance_testnet_url(api_type)
-
-      if actual_url != expected_url do
+      if env != :test do
         raise """
-        TESTNET URL REQUIRED: Got #{actual_url}, expected #{expected_url}
-        Ensure BINANCE_TESTNET=true is set.
+        TESTNET REQUIRED: Environment is #{env}, expected :test.
+        Set BINANCE_TESTNET=true to enable testnet mode.
         """
+      end
+
+      # Verify base URL for the specific API type
+      actual_url = get_binance_base_url(api_type)
+
+      # Skip validation for portfolio margin (no testnet available)
+      if actual_url != :skip_portfolio_testnet_check do
+        expected_url = expected_binance_testnet_url(api_type)
+
+        if actual_url != expected_url do
+          raise """
+          TESTNET URL REQUIRED: Got #{actual_url}, expected #{expected_url}
+          Ensure BINANCE_TESTNET=true is set.
+          """
+        end
       end
     end
 
-    # Check credentials - use futures testnet for futures operations
+    # Check credentials - handle production test account if enabled
     {api_key, api_secret} =
-      if api_type in [:usdm_futures, :coinm_futures] do
-        # Futures testnet uses different credentials
-        api_key =
-          fetch_testnet_credential!("BINANCE_FUTURES_TEST_API_KEY", """
-          BINANCE_FUTURES_TEST_API_KEY required for futures integration tests.
-
-          Get futures testnet credentials at: https://testnet.binancefuture.com/
-          Then run: export BINANCE_FUTURES_TEST_API_KEY=your_futures_key
-          """)
-
-        api_secret =
-          fetch_testnet_credential!("BINANCE_FUTURES_TEST_API_SECRET", """
-          BINANCE_FUTURES_TEST_API_SECRET required for futures integration tests.
-
-          Get futures testnet credentials at: https://testnet.binancefuture.com/
-          Then run: export BINANCE_FUTURES_TEST_API_SECRET=your_futures_secret
-          """)
-
-        {api_key, api_secret}
+      if use_production_for_test do
+        # Using production API with test account - use alternative credentials
+        fetch_production_test_credentials!(api_type)
       else
-        # Spot/margin testnet uses standard testnet credentials
-        api_key =
-          fetch_testnet_credential!("BINANCE_TESTNET_API_KEY", """
-          BINANCE_TESTNET_API_KEY required for integration tests.
+        # Normal testnet flow
+        if api_type in [:usdm_futures, :coinm_futures] do
+          # Futures testnet uses different credentials
+          api_key =
+            fetch_testnet_credential!("BINANCE_FUTURES_TEST_API_KEY", """
+            BINANCE_FUTURES_TEST_API_KEY required for futures integration tests.
 
-          Get testnet credentials at: https://testnet.binance.vision/
-          Then run: export BINANCE_TESTNET_API_KEY=your_key
-          """)
+            Get futures testnet credentials at: https://testnet.binancefuture.com/
+            Then run: export BINANCE_FUTURES_TEST_API_KEY=your_futures_key
+            """)
 
-        api_secret =
-          fetch_testnet_credential!("BINANCE_TESTNET_API_SECRET", """
-          BINANCE_TESTNET_API_SECRET required for integration tests.
+          api_secret =
+            fetch_testnet_credential!("BINANCE_FUTURES_TEST_API_SECRET", """
+            BINANCE_FUTURES_TEST_API_SECRET required for futures integration tests.
 
-          Get testnet credentials at: https://testnet.binance.vision/
-          Then run: export BINANCE_TESTNET_API_SECRET=your_secret
-          """)
+            Get futures testnet credentials at: https://testnet.binancefuture.com/
+            Then run: export BINANCE_FUTURES_TEST_API_SECRET=your_futures_secret
+            """)
 
-        {api_key, api_secret}
+          {api_key, api_secret}
+        else
+          # Spot/margin testnet uses standard testnet credentials
+          api_key =
+            fetch_testnet_credential!("BINANCE_TESTNET_API_KEY", """
+            BINANCE_TESTNET_API_KEY required for integration tests.
+
+            Get testnet credentials at: https://testnet.binance.vision/
+            Then run: export BINANCE_TESTNET_API_KEY=your_key
+            """)
+
+          api_secret =
+            fetch_testnet_credential!("BINANCE_TESTNET_API_SECRET", """
+            BINANCE_TESTNET_API_SECRET required for integration tests.
+
+            Get testnet credentials at: https://testnet.binance.vision/
+            Then run: export BINANCE_TESTNET_API_SECRET=your_secret
+            """)
+
+          {api_key, api_secret}
+        end
       end
 
     # Test connectivity (skip for portfolio - no testnet)
-    if api_type != :portfolio do
+    # Also skip for production test mode since we don't want to make unnecessary API calls
+    if api_type != :portfolio and not use_production_for_test do
       verify_binance_connectivity!(api_type)
     end
 
-    {:ok, api_key: api_key, api_secret: api_secret, exchange: :binance}
+    {:ok, api_key: api_key, api_secret: api_secret, exchange: :binance, use_production_for_test: use_production_for_test}
   end
 
   # Kraken testnet enforcement
@@ -349,6 +406,68 @@ defmodule ZenCex.IntegrationCase do
   # Helper to fetch required testnet credentials
   defp fetch_testnet_credential!(env_var, error_message) do
     System.get_env(env_var) || raise(error_message)
+  end
+
+  # Helper to fetch production test account credentials
+  # WARNING: These are PRODUCTION credentials for a test account with minimal funds!
+  defp fetch_production_test_credentials!(api_type) do
+    require Logger
+
+    # First try to get ALT credentials (production test account)
+    api_key = System.get_env("BINANCE_TESTNET_ALT_API_KEY")
+    api_secret = System.get_env("BINANCE_TESTNET_ALT_API_SECRET")
+
+    if api_key && api_key != "" && api_secret && api_secret != "" do
+      Logger.warning("""
+      ⚠️  Using PRODUCTION TEST ACCOUNT credentials
+      ⚠️  API Type: #{inspect(api_type)}
+      ⚠️  These connect to PRODUCTION Binance, not testnet!
+      ⚠️  Ensure this account has MINIMAL funds for safety
+      """)
+
+      {api_key, api_secret}
+    else
+      # Fall back to regular testnet credentials if ALT not available
+      # This allows gradual migration
+      {fallback_key, fallback_secret} =
+        if api_type in [:usdm_futures, :coinm_futures] do
+          {System.get_env("BINANCE_FUTURES_TEST_API_KEY"), System.get_env("BINANCE_FUTURES_TEST_API_SECRET")}
+        else
+          {System.get_env("BINANCE_TESTNET_API_KEY"), System.get_env("BINANCE_TESTNET_API_SECRET")}
+        end
+
+      if fallback_key && fallback_key != "" && fallback_secret && fallback_secret != "" do
+        Logger.warning("""
+        ⚠️  ALT credentials not found, falling back to testnet credentials
+        ⚠️  This may fail if testnet has IP restrictions
+        ⚠️  Consider setting BINANCE_TESTNET_ALT_API_KEY/SECRET
+        """)
+
+        {fallback_key, fallback_secret}
+      else
+        raise """
+        PRODUCTION TEST ACCOUNT CREDENTIALS REQUIRED
+
+        When using use_production_for_test: true, you must provide:
+        - BINANCE_TESTNET_ALT_API_KEY
+        - BINANCE_TESTNET_ALT_API_SECRET
+
+        These should be credentials for a PRODUCTION Binance account
+        with MINIMAL funds that is used only for testing purposes.
+
+        ⚠️  WARNING: These will connect to PRODUCTION Binance API!
+        ⚠️  Only use an account with minimal funds for safety.
+
+        To set up:
+        1. Create a separate Binance account for testing
+        2. Fund it with minimal amounts (< $100 recommended)
+        3. Generate API credentials
+        4. Export them:
+           export BINANCE_TESTNET_ALT_API_KEY=your_test_account_key
+           export BINANCE_TESTNET_ALT_API_SECRET=your_test_account_secret
+        """
+      end
+    end
   end
 
   # Verify connectivity to Binance testnet

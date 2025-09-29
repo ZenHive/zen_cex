@@ -9,7 +9,7 @@ Guidance for Claude Code when working with the ZenCex library.
 - **NO** additional error handling beyond what's needed
 - **NO** extra validation or checks unless asked
 - **NO** refactoring unless specifically requested
-- **NO** documentation updates unless asked
+- **NO** no extra documentation files unless asked
 - **ONLY** implement the exact feature/fix requested
 - **ALWAYS** ask before adding anything not explicitly mentioned
 - **IF UNCLEAR**: Ask "Should I also do X?" before proceeding
@@ -47,6 +47,13 @@ mix doctor                # Check docs and specs
 iex -S mix                # Interactive shell
 ```
 
+### Testing Approach
+**Development Mode**: When implementing features from `docs/specs.md` or other task documents, run only specific tests as needed:
+- `mix test test/path/to/test.exs` - Run specific test file
+- `mix test --failed` - Re-run failed tests
+
+**Code Review Mode**: Overall code quality checks (`mix precommit`, `mix credo`, `mix dialyzer`, `mix coveralls`) will be run in a separate dedicated session after implementation is complete.
+
 ## Tidewave MCP
 
 Start with `mix tidewave` (port 4001). Use MCP tools for testing:
@@ -55,6 +62,18 @@ Start with `mix tidewave` (port 4001). Use MCP tools for testing:
 - `mcp__tidewave__get_source_location` - Find source locations
 - `mcp__tidewave__search_package_docs` - Search Hex docs
 - `mcp__tidewave__get_logs` - View application logs
+
+## Implementation Rules
+
+1. **Explore BEFORE coding** - Use `mcp__tidewave__project_eval` to explore API responses and data structures BEFORE writing any implementation. Understanding the actual response prevents incorrect assumptions.
+
+2. **Verify with Tidewave first** - Before implementing parsers or data transformations, test the actual API calls with Tidewave to see real response structures, error formats, and edge cases.
+
+3. **No assumptions about APIs** - Never assume what an API returns. Always verify the actual response structure, field names, data types, and error responses using Tidewave.
+
+4. **Debug with real data** - When something doesn't work as expected, use Tidewave to inspect the actual data flow rather than adding debug prints or modifying code.
+
+**Philosophy**: Understand reality before implementing against it. Tidewave is your exploration tool - use it liberally before and during development.
 
 ## Debug Module
 
@@ -209,8 +228,23 @@ children = [
 
 ## Testing
 
-**RULE: Test against REAL testnet APIs only. No mocks without real API testing first.**
-** You can TEST with Tidewave first to understand behavior. **
+### Testing Rules
+
+**CRITICAL: NEVER MAKE TEST FAILURES LOOK LIKE SUCCESS!** Tests that encounter errors must fail loudly and clearly. No `IO.puts("this is acceptable")`, no conditional logic to hide failures, no try/catch blocks that swallow errors. A failing test is valuable feedback - hiding it is dangerous.
+
+1. **Tests should be deterministic** - A test either passes or fails, period. NEVER add logic like "if it fails, that's okay" or hide failures behind conditional checks or rescue blocks.
+
+2. **Tests verify functionality, not configuration** - Tests should not check if API keys are configured. They should test that the code works correctly when called.
+
+3. **No mocks for external APIs initially** - Test against REAL testnet/production APIs first. Document actual response formats. Mocks must exactly match observed real API behavior.
+
+4. **Integration tests use real credentials** - When testing exchange integrations, use actual testnet or read-only production API keys to verify the code works with real API responses.
+
+5. **Test the actual response structure** - Tests should assert on the real data structure returned by functions, not on simplified or mocked structures.
+
+6. **Test against reality** - Use Tidewave first to understand behavior. Document actual API responses and edge cases from real testing.
+
+**Philosophy**: Test against reality, not against idealized or mocked scenarios. Failed tests are valuable signals - NEVER suppress them.
 
 ```bash
 mix test --exclude integration     # Unit tests only
@@ -232,6 +266,35 @@ test "real testnet API call" do
   # Document actual testnet response format
 end
 ```
+
+### Production API Testing with Test Account
+
+When testnet has IP restrictions or is unavailable, tests can fall back to production API with a dedicated test account:
+
+```elixir
+# In your test file
+use ZenCex.IntegrationCase,
+  exchange: :binance,
+  api_type: :spot,
+  use_production_for_test: true  # Enable production fallback
+```
+
+**Setup Requirements**:
+1. Set `BINANCE_TESTNET_ALT_API_KEY` and `BINANCE_TESTNET_ALT_API_SECRET` in environment
+2. These should point to a **production** account with **MINIMAL funds** for safety
+3. Tests will show warnings when using production endpoints
+
+**How It Works**:
+- IntegrationCase first tries regular testnet credentials
+- If unavailable or `use_production_for_test: true` is set, falls back to ALT credentials
+- Credentials are injected via test context (`:api_key`, `:api_secret`)
+- Tests use `context[:api_key]` instead of `System.get_env()`
+
+**Safety Notes**:
+- ⚠️ ONLY use accounts with MINIMAL funds (dust amounts)
+- ⚠️ Tests will show clear warnings when using production
+- ⚠️ Never run destructive operations in these tests
+- ⚠️ Primarily for read-only operations and auth validation
 
 ### Test Error Handling
 - **FAIL LOUDLY** - Never hide errors with `:ok`
@@ -331,18 +394,6 @@ Core Elixir best practices for library development:
 - **No custom error wrapping** - Pass raw errors through
 - **Create abstractions only with proven need** - Need 3+ use cases
 
-### Testing Philosophy
-```
-[!] TESTING POLICY [!]
---------------------------------------------------
-ALWAYS test against REAL APIs first to understand behavior.
-You can TEST with Tidewave first to understand behavior.
-NEVER create mocks without first testing real APIs.
-Document actual API responses and edge cases from real testing.
-Mocks must exactly match observed real API behavior.
-This ensures reliable, production-ready code.
---------------------------------------------------
-```
 
 ### Error Handling Philosophy
 
