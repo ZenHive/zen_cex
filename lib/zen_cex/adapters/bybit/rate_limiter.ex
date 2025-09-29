@@ -59,6 +59,12 @@ defmodule ZenCex.Adapters.Bybit.RateLimiter do
   # Buffer added to retry_after to ensure we're in the next window
   @retry_buffer_ms 100
 
+  # Maximum reasonable timestamp value (~2286 AD) to prevent overflow
+  @max_reset_timestamp_ms 10_000_000_000_000
+
+  # Minimum remaining requests (for clarity in calculations)
+  @min_remaining_requests 0
+
   # Emergency operations that should never be blocked
   # These patterns match operations for order cancellation and position closing
   @emergency_path_patterns ~w[
@@ -92,6 +98,22 @@ defmodule ZenCex.Adapters.Bybit.RateLimiter do
   ]
 
   # Emergency operations list for membership checking
+
+  @typedoc """
+  ETS table entry formats used by the rate limiter:
+
+  ## Rate limit tracking entries
+  - `{{:bybit, window_number}, request_count}` - Tracks requests per 5-second window
+    - `window_number` - Integer representing the current 5-second window (System.system_time(:second) div 5)
+    - `request_count` - Number of requests made in this window
+
+  ## Special entries
+  - `{{:bybit, :next_reset}, timestamp_ms}` - Stores API-provided reset timestamp
+    - `timestamp_ms` - Unix timestamp in milliseconds when rate limit resets
+  """
+  @type ets_entry ::
+          {{:bybit, non_neg_integer()}, non_neg_integer()}
+          | {{:bybit, :next_reset}, non_neg_integer()}
 
   @impl true
   @spec check_and_increment(String.t() | atom(), non_neg_integer()) ::
@@ -145,28 +167,22 @@ defmodule ZenCex.Adapters.Bybit.RateLimiter do
     table = get_or_create_table()
     key = {:bybit, get_current_window()}
 
-    # Check if adding weight would exceed regular limit
-    if check_regular_capacity(table, key, weight, regular_limit) do
-      # Atomic increment
-      :ets.update_counter(table, key, {2, weight}, {key, 0})
-      :ok
-    else
+    # Atomic increment and check - avoids race conditions
+    # The update_counter operation is atomic, so we increment first then check
+    new_count = :ets.update_counter(table, key, {2, weight}, {key, 0})
+
+    if new_count > regular_limit do
+      # Over limit - rollback the increment
+      :ets.update_counter(table, key, {2, -weight})
+
       # Rate limited - calculate retry after
       retry_after_ms = calculate_retry_after()
       Logger.warning("Rate limited on Bybit: regular capacity exceeded")
       {:error, {:rate_limited, retry_after_ms}}
+    else
+      # Within limit - request can proceed
+      :ok
     end
-  end
-
-  # Check if operation can proceed within regular capacity
-  defp check_regular_capacity(table, key, weight, limit) do
-    current_usage =
-      case :ets.lookup(table, key) do
-        [{^key, count}] -> count
-        [] -> 0
-      end
-
-    current_usage + weight <= limit
   end
 
   @impl true
@@ -189,8 +205,10 @@ defmodule ZenCex.Adapters.Bybit.RateLimiter do
   # Handle Bybit's official X-Bapi-Limit headers
   defp handle_bapi_headers(headers_map) do
     case safe_parse_header_value(headers_map["x-bapi-limit-status"]) do
-      {:ok, remaining} ->
+      {:ok, used} ->
         limit = extract_bapi_limit(headers_map)
+        # x-bapi-limit-status contains USED count, not remaining
+        remaining = max(@min_remaining_requests, limit - used)
         process_rate_limit_update(remaining, limit, :bapi_headers)
         handle_reset_timestamp(headers_map)
 
@@ -242,17 +260,28 @@ defmodule ZenCex.Adapters.Bybit.RateLimiter do
 
   # Handle reset timestamp if present
   defp handle_reset_timestamp(headers_map) do
-    with reset_str when is_binary(reset_str) <- headers_map["x-bapi-limit-reset-timestamp"],
-         {:ok, reset_time_ms} <- parse_reset_timestamp(reset_str) do
-      process_reset_timestamp(reset_str, reset_time_ms)
-    else
+    reset_str = extract_reset_header_value(headers_map["x-bapi-limit-reset-timestamp"])
+
+    case reset_str do
       nil ->
         :ok
 
-      {:error, reason} ->
-        Logger.warning("Failed to parse Bybit reset timestamp: #{reason}")
+      reset_str ->
+        case parse_reset_timestamp(reset_str) do
+          {:ok, reset_time_ms} ->
+            process_reset_timestamp(reset_str, reset_time_ms)
+
+          {:error, reason} ->
+            Logger.warning("Failed to parse Bybit reset timestamp: #{reason}")
+        end
     end
   end
+
+  # Extract header value from various formats (headers can be strings or lists)
+  defp extract_reset_header_value(nil), do: nil
+  defp extract_reset_header_value([value | _]) when is_binary(value), do: value
+  defp extract_reset_header_value(value) when is_binary(value), do: value
+  defp extract_reset_header_value(_), do: nil
 
   # Process the parsed reset timestamp
   defp process_reset_timestamp(reset_str, reset_time_ms) do
@@ -286,11 +315,11 @@ defmodule ZenCex.Adapters.Bybit.RateLimiter do
   # Parse reset timestamp from various formats
   defp parse_reset_timestamp(timestamp_str) when is_binary(timestamp_str) do
     case Integer.parse(timestamp_str) do
-      {timestamp_ms, ""} when timestamp_ms >= 10_000_000_000 ->
+      {timestamp_ms, ""} when timestamp_ms >= 10_000_000_000 and timestamp_ms <= @max_reset_timestamp_ms ->
         # Already in milliseconds
         {:ok, timestamp_ms}
 
-      {timestamp_s, ""} when timestamp_s > 0 ->
+      {timestamp_s, ""} when timestamp_s > 0 and timestamp_s * 1000 <= @max_reset_timestamp_ms ->
         # In seconds, convert to milliseconds
         {:ok, timestamp_s * 1000}
 
@@ -506,11 +535,21 @@ defmodule ZenCex.Adapters.Bybit.RateLimiter do
     table = get_or_create_table()
     current = get_current_window()
     cutoff = current - @cleanup_age_windows
+    now_ms = System.system_time(:millisecond)
 
     # Delete entries older than cleanup age
-    :ets.select_delete(table, [
-      {{{:"$1", :"$2"}, :_}, [{:<, :"$2", cutoff}], [true]}
-    ])
+    deleted_windows =
+      :ets.select_delete(table, [
+        {{{:"$1", :"$2"}, :_}, [{:<, :"$2", cutoff}], [true]}
+      ])
+
+    # Clean up expired reset timestamps (special entries)
+    deleted_resets =
+      :ets.select_delete(table, [
+        {{{:bybit, :next_reset}, :"$1"}, [{:<, :"$1", now_ms}], [true]}
+      ])
+
+    deleted_windows + deleted_resets
   catch
     :error, :badarg ->
       # Table doesn't exist yet

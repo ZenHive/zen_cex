@@ -115,8 +115,8 @@ defmodule ZenCex.Adapters.Bybit.RequestHelper do
     bybit_opts =
       opts_list
       |> Keyword.put(:retry, retry_config)
-      |> Keyword.put(:max_retries, Map.get(config, :max_retries, 0))
-      |> Keyword.put(:retry_delay, fn attempt -> attempt * @backoff_multiplier_ms end)
+      |> Keyword.put(:max_retries, Map.get(config, :max_retries, 3))
+      |> Keyword.put(:retry_delay, fn attempt -> max(1000, attempt * @backoff_multiplier_ms) end)
 
     # Delegate to base implementation with Bybit-specific options
     super(config, request_params, bybit_opts, base_url, exchange, operation_type)
@@ -132,34 +132,46 @@ defmodule ZenCex.Adapters.Bybit.RequestHelper do
 
     cond do
       max_retries == 0 or retry_on == [] ->
-        # No retry for critical operations
         false
 
-      # For GET requests with standard retry conditions, use Req's built-in :safe_transient
-      config.method == :get and retry_on == [:timeout, :server_error] ->
-        :safe_transient
-
-      # For other safe operations with retries, use :transient
-      retry_on == [:timeout, :server_error] ->
-        :transient
-
-      # For timeout-only retries, use custom function
       retry_on == [:timeout] ->
-        fn _request, error ->
-          case error do
-            %Mint.TransportError{reason: :timeout} -> true
-            %Req.TransportError{reason: :timeout} -> true
-            _ -> false
-          end
-        end
+        build_timeout_retry_function()
 
-      # Default to :safe_transient for other GET requests
       config.method == :get ->
-        :safe_transient
+        build_get_retry_config(retry_on)
 
-      # Default to no retry for other methods
       true ->
-        false
+        build_default_retry_config(retry_on)
+    end
+  end
+
+  @spec build_get_retry_config(list(atom())) :: atom()
+  defp build_get_retry_config(retry_on) do
+    if retry_on == [:timeout, :server_error] do
+      :safe_transient
+    else
+      # Default for GET requests
+      :safe_transient
+    end
+  end
+
+  @spec build_default_retry_config(list(atom())) :: atom() | false
+  defp build_default_retry_config(retry_on) do
+    if retry_on == [:timeout, :server_error] do
+      :transient
+    else
+      false
+    end
+  end
+
+  @spec build_timeout_retry_function() :: (Req.Request.t(), term() -> boolean())
+  defp build_timeout_retry_function do
+    fn _request, error ->
+      case error do
+        %Mint.TransportError{reason: :timeout} -> true
+        %Req.TransportError{reason: :timeout} -> true
+        _ -> false
+      end
     end
   end
 

@@ -73,20 +73,17 @@ defmodule ZenCex.Core.RateLimiter do
   def check_and_increment(table, api_type, weight, limit) do
     key = {api_type, get_current_window(:minute)}
 
-    # Get current usage
-    current_usage =
-      case :ets.lookup(table, key) do
-        [{^key, count}] -> count
-        [] -> 0
-      end
+    # Atomic increment and check - avoids race conditions
+    # The update_counter operation is atomic, so we increment first then check
+    new_count = :ets.update_counter(table, key, {2, weight}, {key, 0})
 
-    # Check if adding weight would exceed limit
-    if current_usage + weight <= limit do
-      # Atomic increment
-      :ets.update_counter(table, key, {2, weight}, {key, 0})
-      :ok
-    else
+    if new_count > limit do
+      # Over limit - rollback the increment
+      :ets.update_counter(table, key, {2, -weight})
       {:error, :rate_limited}
+    else
+      # Within limit - request can proceed
+      :ok
     end
   catch
     _error, _reason ->
