@@ -25,7 +25,10 @@ defmodule ZenCex.Application do
 
       # WebSocket connection supervisor from zen_websocket
       # Provides supervised WebSocket connections with automatic restart
-      ZenWebsocket.ClientSupervisor
+      ZenWebsocket.ClientSupervisor,
+
+      # WebSocket connection registry for tracking and health monitoring
+      ZenCex.Websocket.ConnectionRegistry
 
       # NOTE: Following Req-centric architecture:
       # - No Core.Supervisor needed (Req handles connection lifecycle)

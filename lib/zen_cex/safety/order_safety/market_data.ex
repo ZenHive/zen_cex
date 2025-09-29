@@ -328,11 +328,89 @@ defmodule ZenCex.Safety.OrderSafety.MarketData do
   - `{:error, term()}` - Error details
   """
   @spec ensure_websocket_connection(atom(), String.t()) :: :ok | {:error, term()}
-  def ensure_websocket_connection(_exchange, _symbol) do
-    # TODO: Implement WebSocket health check for zen_websocket connections
-    # zen_websocket manages connections directly, need to check connection status
-    # through the appropriate adapter (Binance.WebSocket or Bybit.WebSocket)
-    {:error, :websocket_health_check_not_implemented}
+  def ensure_websocket_connection(exchange, symbol) do
+    alias ZenCex.Websocket.ConnectionRegistry
+
+    case ConnectionRegistry.get(exchange, symbol) do
+      {:ok, client} ->
+        # Check if connection is still healthy
+        # Handle case where client process might be dead
+        try do
+          case ZenWebsocket.Client.get_state(client) do
+            :connected ->
+              Logger.debug("WebSocket connection healthy for #{exchange}:#{symbol}")
+              :ok
+
+            state ->
+              Logger.info("WebSocket connection #{state} for #{exchange}:#{symbol}, reconnecting...")
+              reconnect_or_create(exchange, symbol)
+          end
+        catch
+          :exit, _ ->
+            Logger.info("WebSocket connection dead for #{exchange}:#{symbol}, creating new connection...")
+            # Unregister the dead connection first
+            ConnectionRegistry.unregister(exchange, symbol)
+            reconnect_or_create(exchange, symbol)
+        end
+
+      {:error, :not_found} ->
+        Logger.info("No WebSocket connection for #{exchange}:#{symbol}, establishing...")
+        reconnect_or_create(exchange, symbol)
+    end
+  end
+
+  # Private helper to reconnect or create WebSocket connection
+  @spec reconnect_or_create(atom(), String.t()) :: :ok | {:error, term()}
+  defp reconnect_or_create(exchange, symbol) do
+    case exchange do
+      :binance ->
+        ensure_binance_connection(symbol)
+
+      :bybit ->
+        ensure_bybit_connection(symbol)
+
+      _ ->
+        {:error, {:unsupported_exchange, exchange}}
+    end
+  end
+
+  @spec ensure_binance_connection(String.t()) :: :ok | {:error, term()}
+  defp ensure_binance_connection(symbol) do
+    alias ZenCex.Adapters.Binance.WebSocket
+    alias ZenCex.Websocket.ConnectionRegistry
+
+    # Convert symbol to lowercase stream format for Binance
+    stream = String.downcase(symbol)
+    streams = ["#{stream}@depth20", "#{stream}@ticker"]
+
+    case WebSocket.ensure_connection(streams, supervised: true) do
+      {:ok, client} ->
+        ConnectionRegistry.register(:binance, symbol, client)
+        :ok
+
+      {:error, reason} ->
+        Logger.error("Failed to establish Binance WebSocket for #{symbol}: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  @spec ensure_bybit_connection(String.t()) :: :ok | {:error, term()}
+  defp ensure_bybit_connection(symbol) do
+    alias ZenCex.Adapters.Bybit.WebSocket
+    alias ZenCex.Websocket.ConnectionRegistry
+
+    # Bybit uses different topic format
+    topics = ["orderbook.50.#{symbol}", "tickers.#{symbol}"]
+
+    case WebSocket.ensure_connection(topics, supervised: true) do
+      {:ok, client} ->
+        ConnectionRegistry.register(:bybit, symbol, client)
+        :ok
+
+      {:error, reason} ->
+        Logger.error("Failed to establish Bybit WebSocket for #{symbol}: #{inspect(reason)}")
+        {:error, reason}
+    end
   end
 
   @doc """

@@ -372,7 +372,7 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
       result = Spot.cancel_oco_order(%{orderListId: 12_345})
       assert is_tuple(result) and tuple_size(result) == 2
 
-      # Missing both orderListId and listClientOrderId  
+      # Missing both orderListId and listClientOrderId
       result = Spot.cancel_oco_order(%{symbol: "BTCUSDT"})
       assert is_tuple(result) and tuple_size(result) == 2
 

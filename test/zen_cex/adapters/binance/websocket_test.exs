@@ -338,5 +338,57 @@ defmodule ZenCex.Adapters.Binance.WebSocketTest do
     end
   end
 
+  describe "newly added management functions" do
+    @tag :integration
+    @tag :ws_slow
+    test "get_heartbeat_health/1 and get_state_metrics/1 work on an active connection" do
+      {:ok, ws} = WebSocket.connect([], testnet: true)
+      assert %ZenWebsocket.Client{} = ws
+
+      # Test get_heartbeat_health/1 - should return nil or a map
+      health = WebSocket.get_heartbeat_health(ws)
+      assert is_nil(health) or is_map(health)
+
+      # Test get_state_metrics/1 - should return a map with expected keys
+      metrics = WebSocket.get_state_metrics(ws)
+      assert is_map(metrics)
+      assert Map.has_key?(metrics, :connection_state)
+      assert Map.has_key?(metrics, :memory)
+
+      WebSocket.close(ws)
+    end
+
+    @tag :integration
+    @tag :ws_slow
+    test "reconnect/1 returns a new client struct" do
+      {:ok, ws} = WebSocket.connect([], testnet: true)
+      assert %ZenWebsocket.Client{} = ws
+
+      # Reconnect should return a new client struct
+      assert {:ok, new_ws} = WebSocket.reconnect(ws)
+      assert %ZenWebsocket.Client{} = new_ws
+
+      # Ensure the new client is a different process
+      assert ws.server_pid != new_ws.server_pid
+
+      WebSocket.close(new_ws)
+    end
+
+    @tag :integration
+    @tag :ws_slow
+    test "send_message/2 sends a raw message without crashing" do
+      {:ok, ws} = WebSocket.connect([], testnet: true)
+
+      # Send a message that does not require a correlated response.
+      # This is a simple smoke test to ensure the function delegates correctly.
+      # A proper assertion would require receiving a specific reply, which is complex.
+      # Here, we just ensure it returns :ok as expected for a fire-and-forget message.
+      ping_message = %{"method" => "ping", "id" => System.unique_integer()}
+      assert :ok = WebSocket.send_message(ws, Jason.encode!(ping_message))
+
+      WebSocket.close(ws)
+    end
+  end
+
   # Helper functions
 end

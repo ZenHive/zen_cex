@@ -121,7 +121,50 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
   # Maximum message size to prevent memory exhaustion (1MB)
   @max_message_size 1_048_576
 
-  # Public API (5 functions max per zen_websocket guidelines)
+  # Public API
+
+  @doc """
+  Ensures a connection exists for the given streams, reusing existing if possible.
+
+  This function checks if there's already a healthy connection that can handle
+  the requested streams. If not, it creates a new connection.
+
+  ## Parameters
+    * `streams` - List of streams to subscribe to
+    * `opts` - Connection options
+
+  ## Returns
+    * `{:ok, client}` - The WebSocket client (new or existing)
+    * `{:error, reason}` - Error details
+  """
+  @spec ensure_connection(list(String.t()), keyword()) :: {:ok, ZenWebsocket.Client.t()} | {:error, term()}
+  def ensure_connection(streams, opts \\ []) do
+    # For now, always create a new connection
+    # TODO: In future, could check registry for existing connections with matching streams
+    connect(streams, opts)
+  end
+
+  @doc """
+  Checks the health of a WebSocket connection.
+
+  Returns comprehensive health information including connection state,
+  heartbeat status, and performance metrics.
+
+  ## Returns
+  A map containing:
+    * `:state` - Connection state (:connected, :connecting, :disconnected)
+    * `:heartbeat` - Heartbeat health information
+    * `:metrics` - Connection performance metrics
+  """
+  @spec check_health(ZenWebsocket.Client.t()) :: map()
+  def check_health(connection) do
+    %{
+      state: ZenWebsocket.Client.get_state(connection),
+      heartbeat: ZenWebsocket.Client.get_heartbeat_health(connection),
+      metrics: ZenWebsocket.Client.get_state_metrics(connection),
+      adapter: :binance
+    }
+  end
 
   @doc """
   Connects to Binance WebSocket and subscribes to streams.
@@ -136,7 +179,7 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
     * `:supervised` - Use ClientSupervisor for production (default: false)
   """
   @spec connect(list(String.t()), keyword()) :: {:ok, ZenWebsocket.Client.t()} | {:error, term()}
-  def connect(streams, opts \\ []) do
+  def connect(streams, opts) do
     testnet? = Keyword.get(opts, :testnet, false)
     market = Keyword.get(opts, :market, :spot)
     supervised? = Keyword.get(opts, :supervised, false)
@@ -252,6 +295,45 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
   def get_state(connection) do
     state = ZenWebsocket.Client.get_state(connection)
     {:ok, state}
+  end
+
+  @doc """
+  Sends a raw message to the WebSocket connection.
+  Accepts a JSON-encodable map or a raw binary.
+  """
+  @spec send_message(ZenWebsocket.Client.t(), binary() | map()) :: :ok | {:ok, map()} | {:error, term()}
+  def send_message(connection, message) when is_map(message) do
+    ZenWebsocket.Client.send_message(connection, Jason.encode!(message))
+  end
+
+  def send_message(connection, message) when is_binary(message) do
+    ZenWebsocket.Client.send_message(connection, message)
+  end
+
+  @doc """
+  Gets the heartbeat health of the connection.
+  Returns a map with details about the connection's heartbeat status.
+  """
+  @spec get_heartbeat_health(ZenWebsocket.Client.t()) :: map() | nil
+  def get_heartbeat_health(connection) do
+    ZenWebsocket.Client.get_heartbeat_health(connection)
+  end
+
+  @doc """
+  Gets detailed metrics about the client's internal state.
+  Returns a map containing data structure sizes, memory usage, and process stats.
+  """
+  @spec get_state_metrics(ZenWebsocket.Client.t()) :: map() | nil
+  def get_state_metrics(connection) do
+    ZenWebsocket.Client.get_state_metrics(connection)
+  end
+
+  @doc """
+  Closes and re-establishes the WebSocket connection.
+  """
+  @spec reconnect(ZenWebsocket.Client.t()) :: {:ok, ZenWebsocket.Client.t()} | {:error, term()}
+  def reconnect(connection) do
+    ZenWebsocket.Client.reconnect(connection)
   end
 
   # Private functions

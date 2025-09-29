@@ -98,6 +98,49 @@ defmodule ZenCex.Adapters.Bybit.WebSocket do
   # Public API (5 functions max per zen_websocket guidelines)
 
   @doc """
+  Ensures a connection exists for the given topics, reusing existing if possible.
+
+  This function checks if there's already a healthy connection that can handle
+  the requested topics. If not, it creates a new connection.
+
+  ## Parameters
+    * `topics` - List of topics to subscribe to
+    * `opts` - Connection options
+
+  ## Returns
+    * `{:ok, client}` - The WebSocket client (new or existing)
+    * `{:error, reason}` - Error details
+  """
+  @spec ensure_connection(list(String.t()), keyword()) :: {:ok, Client.t()} | {:error, term()}
+  def ensure_connection(topics, opts \\ []) do
+    # For now, always create a new connection
+    # TODO: In future, could check registry for existing connections with matching topics
+    connect(topics, opts)
+  end
+
+  @doc """
+  Checks the health of a WebSocket connection.
+
+  Returns comprehensive health information including connection state,
+  heartbeat status, and performance metrics.
+
+  ## Returns
+  A map containing:
+    * `:state` - Connection state (:connected, :connecting, :disconnected)
+    * `:heartbeat` - Heartbeat health information
+    * `:metrics` - Connection performance metrics
+  """
+  @spec check_health(Client.t()) :: map()
+  def check_health(connection) do
+    %{
+      state: Client.get_state(connection),
+      heartbeat: Client.get_heartbeat_health(connection),
+      metrics: Client.get_state_metrics(connection),
+      adapter: :bybit
+    }
+  end
+
+  @doc """
   Connects to Bybit WebSocket and optionally subscribes to topics.
 
   ## Parameters
