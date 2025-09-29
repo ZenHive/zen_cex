@@ -116,23 +116,23 @@ defmodule ZenCex.Examples.TelemetryHandlers do
     end
 
     def handle_error([:zen_cex, :request, :error], _measurements, metadata, _config) do
-      Logger.error("""
-      Request failed for #{metadata.exchange}
-      Endpoint: #{metadata.endpoint}
-      Error: #{inspect(metadata.error)}
-      Operation: #{metadata.operation_type}
-      """)
+      Logger.error(
+        "Request failed for #{metadata.exchange}. " <>
+          "Endpoint: #{metadata.endpoint}. " <>
+          "Error: #{inspect(metadata.error)}. " <>
+          "Operation: #{metadata[:operation_type] || "unknown"}"
+      )
 
       # You could send to error tracking service here
       # ErrorReporter.report(metadata.error, metadata)
     end
 
     def handle_error([:zen_cex, :auth, :failure], _measurements, metadata, _config) do
-      Logger.error("""
-      Authentication failed for #{metadata.exchange}
-      Method: #{metadata.auth_method}
-      Reason: #{inspect(metadata.reason)}
-      """)
+      Logger.error(
+        "Authentication failed for #{metadata.exchange}. " <>
+          "Method: #{metadata.auth_method}. " <>
+          "Reason: #{inspect(metadata.reason)}"
+      )
     end
   end
 
@@ -169,21 +169,21 @@ defmodule ZenCex.Examples.TelemetryHandlers do
           ""
         end
 
-      Logger.warning("""
-      Rate limit exceeded for #{metadata.exchange}
-      Endpoint: #{metadata.endpoint}#{retry_msg}
-      Consider reducing request frequency
-      """)
+      Logger.warning(
+        "Rate limit exceeded for #{metadata.exchange}. " <>
+          "Endpoint: #{metadata.endpoint}#{retry_msg}. " <>
+          "Consider reducing request frequency"
+      )
     end
 
     def handle_rate_limit([:zen_cex, :rate_limit, :updated], measurements, metadata, _config) do
       utilization = measurements.used / measurements.limit * 100
 
       if utilization > 80 do
-        Logger.warning("""
-        High rate limit utilization for #{metadata.exchange}
-        Used: #{measurements.used}/#{measurements.limit} (#{Float.round(utilization, 1)}%)
-        """)
+        Logger.warning(
+          "High rate limit utilization for #{metadata.exchange}. " <>
+            "Used: #{measurements.used}/#{measurements.limit} (#{Float.round(utilization, 1)}%)"
+        )
       end
     end
   end
@@ -366,11 +366,11 @@ defmodule ZenCex.Examples.TelemetryHandlers do
     end
 
     def handle_circuit_event([:zen_cex, :circuit_breaker, :blown], _measurements, metadata, _config) do
-      Logger.error("""
-      🚨 CIRCUIT BREAKER BLOWN for #{metadata.exchange}
-      All requests to this exchange will be rejected
-      Action required: Check exchange status and errors
-      """)
+      Logger.error(
+        "🚨 CIRCUIT BREAKER BLOWN for #{metadata.exchange}. " <>
+          "All requests to this exchange will be rejected. " <>
+          "Action required: Check exchange status and errors"
+      )
 
       # Send critical alert
       send_alert(:critical, "Circuit breaker blown for #{metadata.exchange}")
@@ -379,10 +379,10 @@ defmodule ZenCex.Examples.TelemetryHandlers do
     def handle_circuit_event([:zen_cex, :circuit_breaker, :reset], _measurements, metadata, _config) do
       reset_type = if metadata.manual, do: "manually", else: "automatically"
 
-      Logger.info("""
-      ✅ Circuit breaker #{reset_type} reset for #{metadata.exchange}
-      Normal operations resumed
-      """)
+      Logger.info(
+        "Circuit breaker #{reset_type} reset for #{metadata.exchange}. " <>
+          "Normal operations resumed"
+      )
 
       # Clear alert
       clear_alert("Circuit breaker for #{metadata.exchange}")
