@@ -3,7 +3,7 @@
 Actionable tasks extracted from codebase TODOs, organized for AI-assisted implementation.
 
 **Last Verified:** 2025-09-29 - All TODOs confirmed present in codebase
-**Last Updated:** 2025-09-29 - Removed backward compatibility TODO from market.ex:619
+**Last Updated:** 2025-09-29 - Clarified WebSocket connection architecture, removed outdated TODOs
 
 ## Recently Completed ✅
 
@@ -85,24 +85,21 @@ Actionable tasks extracted from codebase TODOs, organized for AI-assisted implem
 **Task:** Complete WebSocket market data parsing (deferred from initial implementation)
 **Current TODO:** `# TODO: WebSocket market data parsing deferred to WebSocket implementation phase`
 
-### WebSocket Connection Optimization
-**Files:**
-- `lib/zen_cex/adapters/binance/websocket.ex:143`
-- `lib/zen_cex/adapters/bybit/websocket.ex:117`
-**Task:** Check registry for existing connections with matching streams/topics to enable connection reuse
-**Current TODOs:**
-- Binance: `# TODO: In future, could check registry for existing connections with matching streams`
-- Bybit: `# TODO: In future, could check registry for existing connections with matching topics`
+### ~~WebSocket Connection Optimization~~ ✅ ARCHITECTURE CLARIFIED
+**Files:** `lib/zen_cex/adapters/binance/websocket.ex`, `lib/zen_cex/adapters/bybit/websocket.ex`
+**Status:** TODOs removed and architecture documented. Connection reuse is properly implemented at the application layer via `ConnectionRegistry` and `MarketData.ensure_websocket_connection/2`. The adapter layer intentionally creates new connections (by design) while the application layer manages reuse with full context about trading needs. Documentation updated to explain the three-layer architecture.
 
 ## Priority Order
 1. **Tasks 1-2**: New exchange support (Kraken, Deribit, OKX) - Expand platform coverage
 2. **Task 3**: Testnet enforcement - Complete testing infrastructure for new exchanges
 3. **Task 5a**: OAuth implementation for Deribit - Required for Deribit adapter
 4. **Task 4**: WebSocket registry enhancement - Nice-to-have improvement
-5. **Tasks 5b-5d**: Configuration management and optimizations - Lower priority improvements
+5. **Task 5b**: WebSocket parsing - Complete deferred parsing tasks
 
 ## Notes
 - All critical order safety and portfolio management tasks have been completed
 - WebSocket implementation is fully operational with zen_websocket library
+- WebSocket connection management architecture has been clarified and documented
+- Connection reuse is properly handled at the application layer, not adapter layer
 - Focus has shifted to expanding exchange support and completing test infrastructure
 - Integration test files appear to have some duplication between `test/support/` and `lib/zen_cex/test_utilities/`

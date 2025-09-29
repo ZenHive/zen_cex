@@ -5,11 +5,37 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
   Provides a thin layer over zen_websocket for Binance-specific WebSocket handling.
   Data is automatically stored in ETS cache for fast access by other modules.
 
-  ## Architecture
+  ## Connection Management Architecture
 
-  This adapter uses zen_websocket's Client GenServer which owns the Gun connection.
-  Gun sends all WebSocket messages to the process that opens the connection, so the
-  Client GenServer maintains this ownership throughout reconnections.
+  This module operates as part of a three-layer architecture:
+
+  1. **Transport Layer (zen_websocket)**:
+     - Maintains Gun connection ownership through the Client GenServer
+     - Handles automatic reconnection with exponential backoff
+     - Returns stable client structs that survive reconnections
+     - The `server_pid` in the client struct remains constant through reconnects
+
+  2. **Adapter Layer (this module)**:
+     - Provides exchange-specific protocol handling
+     - Creates new connections when called directly (by design)
+     - Does NOT manage connection reuse - that's an application concern
+     - Focuses on Binance-specific stream formats and message parsing
+
+  3. **Application Layer (ConnectionRegistry + MarketData)**:
+     - `ConnectionRegistry` tracks all active connections by `{exchange, symbol}`
+     - `MarketData.ensure_websocket_connection/2` checks registry before creating
+     - Implements actual connection reuse logic with application context
+     - Manages connection lifecycle based on trading needs
+
+  ## Why Connection Reuse is NOT at the Adapter Level
+
+  The adapter intentionally creates new connections because:
+  - It lacks context about which symbols are being traded together
+  - Connection grouping decisions require application-level knowledge
+  - The registry provides centralized connection tracking
+  - Different use cases may want different connection strategies
+
+  ## Architecture
 
   ## Supported Streams
 
@@ -124,23 +150,38 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
   # Public API
 
   @doc """
-  Ensures a connection exists for the given streams, reusing existing if possible.
+  Creates a new WebSocket connection for the given streams.
 
-  This function checks if there's already a healthy connection that can handle
-  the requested streams. If not, it creates a new connection.
+  This is a convenience function that delegates to `connect/2`. It always creates
+  a new connection by design.
+
+  ## Architecture Note
+
+  Connection reuse is handled at the application layer, not the adapter layer:
+
+  - **Application Layer** (`ZenCex.Safety.OrderSafety.MarketData`): Checks the
+    ConnectionRegistry for existing connections before creating new ones
+  - **Registry Layer** (`ZenCex.Websocket.ConnectionRegistry`): Tracks all active
+    connections by `{exchange, symbol}` for reuse
+  - **Adapter Layer** (this module): Always creates new connections when called directly
+  - **Transport Layer** (`zen_websocket`): Maintains connection stability through
+    automatic reconnection with exponential backoff
+
+  This separation ensures that connection management decisions are made at the
+  appropriate level with full context about application needs.
 
   ## Parameters
     * `streams` - List of streams to subscribe to
     * `opts` - Connection options
 
   ## Returns
-    * `{:ok, client}` - The WebSocket client (new or existing)
+    * `{:ok, client}` - The newly created WebSocket client
     * `{:error, reason}` - Error details
   """
   @spec ensure_connection(list(String.t()), keyword()) :: {:ok, ZenWebsocket.Client.t()} | {:error, term()}
   def ensure_connection(streams, opts \\ []) do
-    # For now, always create a new connection
-    # TODO: In future, could check registry for existing connections with matching streams
+    # Always creates a new connection - connection reuse happens at the application layer
+    # via ConnectionRegistry and MarketData.ensure_websocket_connection/2
     connect(streams, opts)
   end
 

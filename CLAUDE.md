@@ -187,6 +187,36 @@ H.rate_status()   # Rate limiter status
 
 **Source Access**: Full zen_websocket source code available at `./zen_websocket/` (symlink).
 
+**Connection Management Architecture**:
+
+WebSocket connections in zen_cex use a three-layer architecture:
+
+1. **Transport Layer (zen_websocket)**:
+   - Returns stable client structs with `server_pid` that survives reconnections
+   - Client GenServer owns Gun connection throughout lifecycle
+   - Handles automatic reconnection with exponential backoff
+   - Maintains message routing continuity through reconnects
+
+2. **Adapter Layer (Binance.WebSocket, Bybit.WebSocket)**:
+   - Exchange-specific protocol handling (streams, topics, ping/pong)
+   - Always creates NEW connections when called directly (by design)
+   - Does NOT implement connection reuse - that's an application concern
+   - `ensure_connection/2` is just a convenience alias to `connect/2`
+
+3. **Application Layer (ConnectionRegistry + MarketData)**:
+   - `ConnectionRegistry` tracks all connections by `{exchange, symbol}`
+   - `MarketData.ensure_websocket_connection/2` checks registry BEFORE creating
+   - Implements actual connection reuse with application context
+   - Makes decisions about connection grouping based on trading needs
+
+**Why Connection Reuse is at Application Layer**:
+- Adapters lack context about which symbols are traded together
+- Connection grouping requires application-level knowledge
+- Different use cases need different connection strategies
+- Registry provides centralized connection tracking
+
+**Key Point**: The TODOs in adapter files about "checking registry for existing connections" are intentionally NOT implemented. Connection reuse happens where it should - at the application layer with full context.
+
 **Core Features**:
 - **Gun Transport**: Battle-tested HTTP/2 & WebSocket client for production reliability
 - **Automatic Reconnection**: Exponential backoff with state preservation & connection ownership
