@@ -128,18 +128,18 @@ defmodule ZenCex.Analysis.BasisTest do
     test "sorts term structure by days to expiry" do
       spot_price = Decimal.new("45000.00")
 
-      # Provide out-of-order expiries
+      # Provide out-of-order expiries (using future dates in 2026)
       futures_data = [
-        %{expiry: "250926", price: Decimal.new("46500.00")},
-        %{expiry: "250328", price: Decimal.new("45500.00")},
-        %{expiry: "250627", price: Decimal.new("46000.00")}
+        %{expiry: "260926", price: Decimal.new("46500.00")},
+        %{expiry: "260328", price: Decimal.new("45500.00")},
+        %{expiry: "260627", price: Decimal.new("46000.00")}
       ]
 
       {:ok, result} = Basis.calculate_term_structure(spot_price, futures_data)
 
       # Should be sorted by days to expiry (ascending)
       expiries = Enum.map(result, & &1.expiry)
-      assert expiries == ["250328", "250627", "250926"]
+      assert expiries == ["260328", "260627", "260926"]
     end
 
     test "handles empty futures data" do

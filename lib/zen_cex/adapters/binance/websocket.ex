@@ -1,10 +1,15 @@
 defmodule ZenCex.Adapters.Binance.WebSocket do
   @moduledoc """
-  Binance WebSocket adapter for real-time market data.
+  Minimal Binance WebSocket adapter using zen_websocket directly.
 
-  Handles WebSocket connections to Binance streams for order books,
-  trades, and ticker updates. Data is automatically stored in ETS
-  for fast access by other modules.
+  Provides a thin layer over zen_websocket for Binance-specific WebSocket handling.
+  Data is automatically stored in ETS cache for fast access by other modules.
+
+  ## Architecture
+
+  This adapter uses zen_websocket's Client GenServer which owns the Gun connection.
+  Gun sends all WebSocket messages to the process that opens the connection, so the
+  Client GenServer maintains this ownership throughout reconnections.
 
   ## Supported Streams
 
@@ -13,141 +18,312 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
   - Ticker: `{symbol}@ticker`
   - Mini ticker: `{symbol}@miniTicker`
   - Book ticker: `{symbol}@bookTicker`
+  - All book tickers: `!bookTicker` (for all symbols)
 
-  ## Usage
+  ## Connection Modes
 
-      # Development - Direct connection
-      {:ok, ws} = Binance.WebSocket.connect()
-      :ok = Binance.WebSocket.subscribe(ws, ["btcusdt@depth20", "ethusdt@trade"])
+  ### Development Mode (Direct Connection)
 
-      # Access cached data from ETS
+  The Client GenServer runs unsupervised. If it crashes, the connection is lost.
+
+      # Connect to spot market
+      {:ok, client} = Binance.WebSocket.connect(["btcusdt@depth20", "ethusdt@trade"])
+
+      # Connect to testnet
+      {:ok, client} = Binance.WebSocket.connect(["btcusdt@ticker"], testnet: true)
+
+      # The client struct contains:
+      # - server_pid: The Client GenServer that owns the Gun connection
+      # - gun_pid: The Gun process itself
+      # - stream_ref: The WebSocket stream reference
+
+      # Subscribe to additional streams
+      {:ok, :subscribed} = Binance.WebSocket.subscribe(client, ["bnbusdt@bookTicker"])
+
+      # Unsubscribe from streams
+      {:ok, :unsubscribed} = Binance.WebSocket.unsubscribe(client, ["ethusdt@trade"])
+
+      # Close when done
+      :ok = Binance.WebSocket.close(client)
+
+  ### Production Mode (Supervised Connection)
+
+  The Client GenServer runs under ClientSupervisor and will be restarted on crashes.
+  The supervisor must be started in your application supervision tree.
+
+      # In your application.ex
+      children = [
+        ZenWebsocket.ClientSupervisor,
+        # ... other children
+      ]
+
+      # In your code - returns the same client struct, but the GenServer is supervised
+      {:ok, client} = Binance.WebSocket.connect(
+        ["btcusdt@depth20", "btcusdt@ticker"],
+        supervised: true
+      )
+
+      # For futures market (supervised)
+      {:ok, client} = Binance.WebSocket.connect(
+        ["btcusdt@depth20"],
+        market: :futures,
+        supervised: true
+      )
+
+  ## Data Access Pattern
+
+  All market data is automatically cached in ETS by the message handler:
+
+      # The WebSocket handler stores normalized data in ETS
+      # Your application code reads from ETS cache
       {:ok, orderbook} = ZenCex.Cache.Market.get_orderbook(:binance, "BTCUSDT")
-  """
+      {:ok, ticker} = ZenCex.Cache.Market.get_ticker(:binance, "BTCUSDT")
+      {:ok, trade} = ZenCex.Cache.Market.get_last_trade(:binance, "ETHUSDT")
 
-  @behaviour ZenCex.WebSocket.Base
+  ## Error Handling
+
+  - **Connection failures**: zen_websocket handles retry with exponential backoff
+  - **Message size limits**: Messages over 1MB are dropped to prevent memory exhaustion
+  - **Invalid messages**: Malformed JSON is logged and ignored
+  - **Gun ownership**: The Client GenServer maintains Gun ownership through reconnections
+  - **Supervisor restarts**: In supervised mode, crashes trigger automatic restarts
+
+  ## Market Type Configuration
+
+      # Spot market (default)
+      {:ok, client} = Binance.WebSocket.connect(streams)
+
+      # Futures market
+      {:ok, client} = Binance.WebSocket.connect(streams, market: :futures)
+
+      # Testnet (both spot and futures have separate testnets)
+      {:ok, client} = Binance.WebSocket.connect(streams, testnet: true, market: :spot)
+      {:ok, client} = Binance.WebSocket.connect(streams, testnet: true, market: :futures)
+
+  ## Implementation Notes
+
+  The adapter creates a message handler function that processes Binance messages and
+  stores them in ETS. This handler runs in the Client GenServer process, maintaining
+  proper Gun message ownership. Unlike Bybit, Binance doesn't require periodic ping
+  messages as it handles heartbeat internally.
+  """
 
   alias ZenCex.Cache.Market
 
   require Logger
 
-  # WebSocket endpoints (no port needed in URL)
+  # WebSocket endpoints
   @spot_ws_url "wss://stream.binance.com/ws"
-  @spot_ws_testnet_url "wss://testnet.binance.vision/ws"
+  @spot_ws_testnet_url "wss://stream.testnet.binance.vision/ws"
   @futures_ws_url "wss://fstream.binance.com/ws"
-  @futures_ws_testnet_url "wss://stream.binancefuture.com/ws"
+  @futures_ws_testnet_url "wss://fstream.binancefuture.com/ws"
 
-  # Stream update intervals (for reference)
-  # @orderbook_update_ms 100
-  # @trade_update_instant 0
-  # @ticker_update_ms 1000
+  # Maximum message size to prevent memory exhaustion (1MB)
+  @max_message_size 1_048_576
 
-  @impl true
-  def connect(opts \\ []) do
+  # Public API (5 functions max per zen_websocket guidelines)
+
+  @doc """
+  Connects to Binance WebSocket and subscribes to streams.
+
+  ## Parameters
+    * `streams` - List of streams to subscribe to initially
+    * `opts` - Connection options
+
+  ## Options
+    * `:testnet` - Use testnet endpoints (default: false)
+    * `:market` - Market type :spot or :futures (default: :spot)
+    * `:supervised` - Use ClientSupervisor for production (default: false)
+  """
+  @spec connect(list(String.t()), keyword()) :: {:ok, ZenWebsocket.Client.t()} | {:error, term()}
+  def connect(streams, opts \\ []) do
     testnet? = Keyword.get(opts, :testnet, false)
     market = Keyword.get(opts, :market, :spot)
+    supervised? = Keyword.get(opts, :supervised, false)
 
     url = get_ws_url(market, testnet?)
 
-    # Create a handler function that processes messages properly
-    # Note: The client may send both raw and decoded messages
-    handler = fn
-      {:message, {:text, data}} when is_binary(data) -> handle_message(data)
-      {:message, {:binary, data}} when is_binary(data) -> handle_message(data)
-      {:message, data} when is_binary(data) -> handle_message(data)
-      # Already decoded
-      {:message, %{} = decoded} -> process_stream_data(decoded)
-      _other -> :ok
-    end
+    # Create message handler for Binance data
+    handler = create_message_handler()
 
-    # Connect with auto-reconnect and heartbeat
-    case ZenWebsocket.Client.connect(url, handler: handler) do
-      {:ok, client} ->
-        Logger.info("Connected to Binance WebSocket at #{url}")
-        {:ok, client}
+    # Connection options for zen_websocket
+    ws_opts = [
+      handler: handler,
+      retry_count: 5,
+      retry_delay: 1000,
+      max_backoff: 30_000,
+      reconnect_on_error: true
+    ]
 
+    # Connect using zen_websocket
+    with {:ok, client} <- do_connect(url, ws_opts, supervised?),
+         {:ok, _} <- subscribe(client, streams) do
+      Logger.info("Connected to Binance WebSocket: #{url}")
+      {:ok, client}
+    else
       {:error, reason} = error ->
         Logger.error("Failed to connect to Binance WebSocket: #{inspect(reason)}")
         error
     end
   end
 
-  @impl true
+  @doc """
+  Subscribes to additional streams on existing connection.
+  """
+  @spec subscribe(ZenWebsocket.Client.t(), list(String.t())) :: {:ok, :subscribed} | {:error, term()}
   def subscribe(connection, streams) when is_list(streams) do
-    # Binance uses a subscription message format
-    sub_message = %{
-      method: "SUBSCRIBE",
-      params: streams,
-      id: :os.system_time(:millisecond)
-    }
+    # Return early if no streams to subscribe
+    if streams == [] do
+      {:ok, :subscribed}
+    else
+      sub_message = %{
+        method: "SUBSCRIBE",
+        params: streams,
+        id: :os.system_time(:millisecond)
+      }
 
-    case ZenWebsocket.Client.send_message(connection, Jason.encode!(sub_message)) do
-      :ok ->
-        Logger.debug("Subscribed to Binance streams: #{inspect(streams)}")
-        :ok
+      # Binance responds with {"result": nil, "id": <same_id>}
+      case ZenWebsocket.Client.send_message(connection, Jason.encode!(sub_message)) do
+        {:ok, %{"result" => nil}} ->
+          Logger.debug("Subscribed to Binance streams: #{inspect(streams)}")
+          {:ok, :subscribed}
 
-      {:ok, _response} ->
-        # Binance returns a response with the subscription result
-        Logger.debug("Subscribed to Binance streams: #{inspect(streams)}")
-        :ok
+        :ok ->
+          Logger.debug("Subscribed to Binance streams: #{inspect(streams)}")
+          {:ok, :subscribed}
 
-      error ->
-        Logger.error("Failed to subscribe to Binance streams: #{inspect(error)}")
-        error
+        {:error, reason} = error ->
+          Logger.error("Failed to subscribe to streams: #{inspect(reason)}")
+          error
+
+        other ->
+          Logger.error("Unexpected subscription response: #{inspect(other)}")
+          {:error, {:unexpected_response, other}}
+      end
     end
   end
 
-  @impl true
+  @doc """
+  Unsubscribes from streams.
+  """
+  @spec unsubscribe(ZenWebsocket.Client.t(), list(String.t())) :: {:ok, :unsubscribed} | {:error, term()}
   def unsubscribe(connection, streams) when is_list(streams) do
-    unsub_message = %{
-      method: "UNSUBSCRIBE",
-      params: streams,
-      id: :os.system_time(:millisecond)
-    }
+    if streams == [] do
+      {:ok, :unsubscribed}
+    else
+      unsub_message = %{
+        method: "UNSUBSCRIBE",
+        params: streams,
+        id: :os.system_time(:millisecond)
+      }
 
-    case ZenWebsocket.Client.send_message(connection, Jason.encode!(unsub_message)) do
-      :ok ->
-        Logger.debug("Unsubscribed from Binance streams: #{inspect(streams)}")
-        :ok
+      case ZenWebsocket.Client.send_message(connection, Jason.encode!(unsub_message)) do
+        {:ok, %{"result" => nil}} ->
+          Logger.debug("Unsubscribed from streams: #{inspect(streams)}")
+          {:ok, :unsubscribed}
 
-      error ->
-        Logger.error("Failed to unsubscribe from Binance streams: #{inspect(error)}")
-        error
+        :ok ->
+          Logger.debug("Unsubscribed from streams: #{inspect(streams)}")
+          {:ok, :unsubscribed}
+
+        {:error, reason} = error ->
+          Logger.error("Failed to unsubscribe from streams: #{inspect(reason)}")
+          error
+
+        other ->
+          Logger.error("Unexpected unsubscribe response: #{inspect(other)}")
+          {:error, {:unexpected_response, other}}
+      end
     end
   end
 
-  @impl true
-  def state(connection) do
-    {:ok, %{status: ZenWebsocket.Client.get_state(connection)}}
-  end
-
-  @impl true
+  @doc """
+  Closes the WebSocket connection.
+  """
+  @spec close(ZenWebsocket.Client.t()) :: :ok
   def close(connection) do
     ZenWebsocket.Client.close(connection)
   end
 
+  @doc """
+  Gets connection state.
+  """
+  @spec get_state(ZenWebsocket.Client.t()) :: {:ok, :connected | :connecting | :disconnected}
+  def get_state(connection) do
+    state = ZenWebsocket.Client.get_state(connection)
+    {:ok, state}
+  end
+
   # Private functions
 
+  @spec get_ws_url(atom(), boolean()) :: String.t()
   defp get_ws_url(:spot, true), do: @spot_ws_testnet_url
   defp get_ws_url(:spot, false), do: @spot_ws_url
   defp get_ws_url(:futures, true), do: @futures_ws_testnet_url
   defp get_ws_url(:futures, false), do: @futures_ws_url
 
-  defp handle_message(message) when is_binary(message) do
+  @spec do_connect(String.t(), keyword(), boolean()) :: {:ok, ZenWebsocket.Client.t()} | {:error, term()}
+  defp do_connect(url, opts, false) do
+    # Direct connection for development
+    ZenWebsocket.Client.connect(url, opts)
+  end
+
+  defp do_connect(url, opts, true) do
+    # Supervised connection for production
+    # ClientSupervisor must be started in application supervisor
+    ZenWebsocket.ClientSupervisor.start_client(url, opts)
+  end
+
+  @spec create_message_handler() :: (term() -> :ok)
+  defp create_message_handler do
+    fn
+      {:message, {:text, data}} when is_binary(data) ->
+        handle_message(data)
+
+      {:message, {:binary, data}} when is_binary(data) ->
+        handle_message(data)
+
+      {:message, data} when is_binary(data) ->
+        handle_message(data)
+
+      {:message, %{} = decoded} ->
+        process_stream_data(decoded)
+
+      _other ->
+        :ok
+    end
+  end
+
+  @spec handle_message(binary()) :: :ok
+  defp handle_message(message) when is_binary(message) and byte_size(message) <= @max_message_size do
     case Jason.decode(message) do
       {:ok, data} ->
         process_stream_data(data)
 
       {:error, reason} ->
-        Logger.error("Failed to decode Binance WebSocket message: #{inspect(reason)}")
+        Logger.error("Failed to decode Binance message: #{inspect(reason)}")
     end
   end
 
+  defp handle_message(message) when is_binary(message) do
+    Logger.warning(
+      "Binance WebSocket message exceeded size limit: #{byte_size(message)} bytes (max: #{@max_message_size})"
+    )
+
+    :ok
+  end
+
+  @spec process_stream_data(map()) :: :ok
   defp process_stream_data(%{"e" => event_type} = data) do
     case event_type do
       "depthUpdate" ->
         process_orderbook_update(data)
 
       "trade" ->
+        process_trade(data)
+
+      "aggTrade" ->
+        # Aggregate trades have similar structure to regular trades
         process_trade(data)
 
       "24hrTicker" ->
@@ -160,32 +336,34 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
         process_book_ticker(data)
 
       _ ->
-        Logger.debug("Unknown Binance event type: #{event_type}")
+        Logger.debug("Unhandled Binance event type: #{event_type}")
     end
   end
 
   defp process_stream_data(%{"result" => nil, "id" => _id}) do
-    # Subscription confirmation
-    Logger.debug("Binance subscription confirmed")
+    # Subscription/unsubscription confirmation
+    :ok
   end
 
-  # Handle book ticker data without "e" field (raw format from stream)
-  defp process_stream_data(%{"s" => _symbol, "b" => _bid, "a" => _ask} = data) do
-    # This is book ticker data in raw format
-    process_book_ticker(data)
+  defp process_stream_data(%{"code" => code, "msg" => msg}) do
+    # Error response
+    Logger.error("Binance WebSocket error: #{code} - #{msg}")
   end
 
   defp process_stream_data(data) do
-    Logger.debug("Unhandled Binance WebSocket data: #{inspect(data)}")
+    Logger.debug("Unhandled Binance message: #{inspect(data)}")
   end
 
-  defp process_orderbook_update(%{
-         "s" => symbol,
-         "U" => first_update_id,
-         "u" => final_update_id,
-         "b" => bids,
-         "a" => asks
-       }) do
+  @spec process_orderbook_update(map()) :: :ok
+  defp process_orderbook_update(data) do
+    %{
+      "s" => symbol,
+      "U" => first_update_id,
+      "u" => final_update_id,
+      "b" => bids,
+      "a" => asks
+    } = data
+
     orderbook = %{
       symbol: symbol,
       update_id: final_update_id,
@@ -195,107 +373,81 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
       timestamp: :os.system_time(:millisecond)
     }
 
-    # Store in ETS cache
+    # Store with infinite TTL - orderbook updates are frequent
     Market.put_orderbook(:binance, symbol, orderbook)
-
-    # Emit telemetry
-    :telemetry.execute(
-      [:zen_cex, :websocket, :orderbook_update],
-      %{count: 1},
-      %{exchange: :binance, symbol: symbol}
-    )
   end
 
-  defp process_trade(%{"s" => symbol, "p" => price, "q" => quantity, "T" => trade_time, "m" => is_buyer_maker}) do
+  @spec process_trade(map()) :: :ok
+  defp process_trade(data) do
     trade = %{
-      symbol: symbol,
-      price: price,
-      quantity: quantity,
-      time: trade_time,
-      is_buyer_maker: is_buyer_maker,
+      symbol: data["s"],
+      price: data["p"],
+      quantity: data["q"],
+      time: data["T"] || data["E"],
+      is_buyer_maker: data["m"] || false,
+      trade_id: to_string(data["t"] || data["a"]),
       timestamp: :os.system_time(:millisecond)
     }
 
-    # Store latest trade
-    Market.put_last_trade(:binance, symbol, trade)
-
-    # Emit telemetry
-    :telemetry.execute(
-      [:zen_cex, :websocket, :trade],
-      %{count: 1},
-      %{exchange: :binance, symbol: symbol}
-    )
+    Market.put_last_trade(:binance, data["s"], trade)
   end
 
-  defp process_ticker(%{
-         "s" => symbol,
-         "c" => last_price,
-         "o" => open_price,
-         "h" => high_price,
-         "l" => low_price,
-         "v" => volume,
-         "q" => quote_volume
-       }) do
+  @spec process_ticker(map()) :: :ok
+  defp process_ticker(data) do
     ticker = %{
-      symbol: symbol,
-      last_price: last_price,
-      open_price: open_price,
-      high_price: high_price,
-      low_price: low_price,
-      volume: volume,
-      quote_volume: quote_volume,
+      symbol: data["s"],
+      last_price: data["c"],
+      open_price: data["o"],
+      high_price: data["h"],
+      low_price: data["l"],
+      volume: data["v"],
+      quote_volume: data["q"],
+      open_time: data["O"],
+      close_time: data["C"],
+      first_trade_id: data["F"],
+      last_trade_id: data["L"],
+      trade_count: data["n"],
       timestamp: :os.system_time(:millisecond)
     }
 
-    # Store in cache with appropriate TTL
-    Market.put_ticker(:binance, symbol, ticker)
-
-    # Emit telemetry
-    :telemetry.execute(
-      [:zen_cex, :websocket, :ticker],
-      %{count: 1},
-      %{exchange: :binance, symbol: symbol}
-    )
+    Market.put_ticker(:binance, data["s"], ticker)
   end
 
-  defp process_mini_ticker(%{"s" => symbol, "c" => close_price, "v" => volume}) do
-    mini_ticker = %{
-      symbol: symbol,
-      close_price: close_price,
-      volume: volume,
+  @spec process_mini_ticker(map()) :: :ok
+  defp process_mini_ticker(data) do
+    ticker = %{
+      symbol: data["s"],
+      last_price: data["c"],
+      open_price: data["o"],
+      high_price: data["h"],
+      low_price: data["l"],
+      volume: data["v"],
+      quote_volume: data["q"],
       timestamp: :os.system_time(:millisecond)
     }
 
-    # Store as mini ticker
-    Market.put_ticker(:binance, symbol, mini_ticker, 30)
+    Market.put_ticker(:binance, data["s"], ticker, 30)
   end
 
-  defp process_book_ticker(%{
-         "s" => symbol,
-         "b" => best_bid_price,
-         "B" => best_bid_qty,
-         "a" => best_ask_price,
-         "A" => best_ask_qty
-       }) do
+  @spec process_book_ticker(map()) :: :ok
+  defp process_book_ticker(data) do
     book_ticker = %{
-      symbol: symbol,
-      bid_price: best_bid_price,
-      bid_qty: best_bid_qty,
-      ask_price: best_ask_price,
-      ask_qty: best_ask_qty,
+      symbol: data["s"],
+      bid_price: data["b"],
+      bid_qty: data["B"],
+      ask_price: data["a"],
+      ask_qty: data["A"],
+      update_id: data["u"],
       timestamp: :os.system_time(:millisecond)
     }
 
-    # Store best bid/ask
-    Market.put_book_ticker(:binance, symbol, book_ticker)
+    Market.put_book_ticker(:binance, data["s"], book_ticker)
   end
 
+  @spec parse_orderbook_levels(list()) :: list(map())
   defp parse_orderbook_levels(levels) do
     Enum.map(levels, fn [price, quantity] ->
-      %{
-        price: price,
-        quantity: quantity
-      }
+      %{price: price, quantity: quantity}
     end)
   end
 end

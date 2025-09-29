@@ -40,8 +40,7 @@ ZenCex - Elixir library for crypto exchange APIs (REST + WebSocket via zen_webso
 
 ```bash
 mix deps.get              # Install dependencies
-mix test                  # Run all tests
-mix test --exclude integration  # Unit tests only
+mix test --cover          # Run all tests (and with cover)
 mix precommit             # Format, credo, dialyzer, tests
 mix doctor                # Check docs and specs
 iex -S mix                # Interactive shell
@@ -180,51 +179,141 @@ H.rate_status()   # Rate limiter status
 
 ### WebSocket Integration (zen_websocket)
 
-**Source Access**: Full zen_websocket source code available at `./zen_websocket/` (symlink to `/Users/efries/_DATA/code/zen_websocket`).
-- Main modules: `./zen_websocket/lib/zen_websocket/*.ex`
-- Tests for reference: `./zen_websocket/test/*.exs`
-- **Examples**: `./zen_websocket/test/zen_websocket/examples/` - Comprehensive usage examples including:
-  - `basic_usage_test.exs` - Simple connection and messaging
-  - `supervised_client_test.exs` - Production supervision patterns
-  - `subscription_management_test.exs` - Channel subscription patterns
-  - `error_handling_test.exs` - Error recovery strategies
-  - `rate_limiting_test.exs` - Rate limit handling
-  - `platform_adapter_template_test.exs` - Exchange adapter patterns
-- Documentation: `./zen_websocket/README.md` and `./zen_websocket/CLAUDE.md`
+**CRITICAL: zen_websocket is NOT in training data!** This library was private during training, so you CANNOT make ANY assumptions about its API or behavior. You MUST:
+- Check `deps/zen_websocket/` for examples and documentation
+- Use Tidewave MCP tools to explore and understand the actual API
+- Never assume function signatures or behavior patterns
+- Always verify against the actual source code
 
-**Core API** (5 functions only):
-- `connect/2` - Establish WebSocket connection
-- `send/2` - Send messages to server
-- `subscribe/2` - Subscribe to data channels
-- `state/1` - Check connection state
-- `close/1` - Close connection
+**Source Access**: Full zen_websocket source code available at `./zen_websocket/` (symlink).
 
-**Usage Patterns**:
+**Core Features**:
+- **Gun Transport**: Battle-tested HTTP/2 & WebSocket client for production reliability
+- **Automatic Reconnection**: Exponential backoff with state preservation & connection ownership
+- **JSON-RPC 2.0**: Full protocol support with request/response correlation & notifications
+- **Rate Limiting**: Token bucket algorithm with configurable costs per request type
+- **Supervision**: Optional DynamicSupervisor for crash recovery & isolation
+- **Connection Registry**: ETS-based tracking without GenServer overhead
+- **Frame Handling**: Proper WebSocket frame encoding/decoding with text/binary support
+- **Error Categorization**: Structured error handling with recovery strategies
+- **Heartbeat Support**: Built-in ping/pong & platform-specific heartbeats (Deribit, Binance)
+- **Message Correlation**: Track request/response pairs for async operations
+- **Telemetry Integration**: Comprehensive event emission for monitoring
+
+**Public API (Client module - 5 functions)**:
 ```elixir
-# Development - Direct connection
-{:ok, ws} = ZenWebsocket.connect("wss://stream.binance.com:9443/ws", [])
-:ok = ZenWebsocket.subscribe(ws, "btcusdt@trade")
+# Connect with options
+{:ok, client} = ZenWebsocket.Client.connect("wss://example.com", [
+  timeout: 5000,
+  retry_count: 3,
+  retry_delay: 1000,
+  max_backoff: 60_000,
+  heartbeat_interval: 30_000,
+  reconnect_on_error: true
+])
 
-# Production - Supervised connection
-children = [
-  {ZenWebsocket.ClientSupervisor, name: :market_data_supervisor},
-  {Binance.WebSocket.MarketData, symbol: "BTCUSDT"}
-]
+# Send messages (text or binary)
+{:ok, _} = ZenWebsocket.Client.send_message(client, "text message")
+{:ok, _} = ZenWebsocket.Client.send_message(client, {:binary, <<1,2,3>>})
+
+# Subscribe to channels (platform-specific)
+{:ok, _} = ZenWebsocket.Client.subscribe(client, ["channel1", "channel2"])
+
+# Get connection state
+{:connected, info} = ZenWebsocket.Client.get_state(client)
+
+# Close connection
+:ok = ZenWebsocket.Client.close(client)
 ```
 
-**Design Rules** (from zen_websocket):
-- Start simple: Direct connections for development
-- Add supervision only for production
-- Always test against real WebSocket endpoints
-- Use built-in retry and heartbeat mechanisms
-- Maximum 5 public functions per WebSocket module
-- Leverage telemetry for monitoring
+**Advanced Features**:
 
-**Market Data Caching**:
-- Store latest tickers/orderbooks in ETS
-- Update via WebSocket callbacks
-- REST fallback for initial state
-- TTL-based cache invalidation
+```elixir
+# JSON-RPC Support (for Deribit, etc.)
+use ZenWebsocket.JsonRpc
+defrpc :authenticate, "public/auth"
+{:ok, request} = authenticate(%{grant_type: "client_credentials"})
+
+# Supervised Connections
+{:ok, _} = ZenWebsocket.ClientSupervisor.start_link([])
+{:ok, client} = ClientSupervisor.start_client("wss://example.com", [
+  retry_count: 5,
+  heartbeat_config: %{type: :deribit, interval: 30_000}
+])
+
+# Rate Limiting (prevent API violations)
+config = %{
+  tokens: 100,              # Max tokens in bucket
+  refill_rate: 10,          # Tokens added per interval
+  refill_interval: 1000,    # Refill every 1 second
+  request_cost: fn         # Dynamic cost calculation
+    %{method: "subscribe"} -> 5
+    %{method: "order"} -> 10
+    _ -> 1
+  end
+}
+{:ok, limiter} = RateLimiter.init(:my_limiter, config)
+
+# Platform Adapters (thin wrappers)
+{:ok, adapter} = DeribitAdapter.connect(
+  client_id: "...",
+  client_secret: "...",
+  test_mode: true
+)
+{:ok, adapter} = DeribitAdapter.authenticate(adapter)
+{:ok, adapter} = DeribitAdapter.subscribe(adapter, ["book.BTC-PERPETUAL.raw"])
+```
+
+**Architecture Patterns**:
+- **GenServer-based Client**: Owns Gun connection for message routing
+- **Connection Ownership**: Client process maintains Gun ownership through reconnections
+- **Modular Handlers**: Pluggable message, error, and connection handlers
+- **ETS State Storage**: Rate limiting & connection registry use ETS for performance
+- **Single-flight Protection**: Prevents duplicate operations during transitions
+
+**Testing Utilities**:
+```elixir
+# Mix tasks for validation
+mix zen_websocket.usage       # Show API usage examples
+mix zen_websocket.validate    # Check adapter compliance
+mix stability_test            # Long-running stability test
+```
+
+**Key Files for Reference**:
+- `lib/zen_websocket/client.ex` - Main client implementation
+- `lib/zen_websocket/examples/deribit_adapter.ex` - Complete platform adapter example
+- `lib/zen_websocket/json_rpc.ex` - JSON-RPC protocol support
+- `lib/zen_websocket/rate_limiter.ex` - Rate limiting implementation
+- `test/zen_websocket/examples/*_test.exs` - Comprehensive usage examples
+
+**Design Philosophy**:
+- Start simple: Direct `Client.connect/2` for development
+- Add supervision only when needed for production
+- Test against real endpoints, not mocks
+- Use platform adapters as thin wrappers (5 functions max)
+- Leverage built-in features instead of reimplementing
+- Message handling in caller process, not internal GenServer
+
+**Market Data Integration Pattern**:
+```elixir
+# ETS table for latest market data
+:ets.new(:market_data, [:set, :public, :named_table])
+
+# WebSocket callback updates cache
+def handle_message({:text, msg}, state) do
+  data = Jason.decode!(msg)
+  :ets.insert(:market_data, {data["symbol"], data})
+  {:ok, state}
+end
+
+# REST fallback for initial load
+def get_ticker(symbol) do
+  case :ets.lookup(:market_data, symbol) do
+    [] -> fetch_via_rest(symbol)
+    [{_, data}] -> {:ok, data}
+  end
+end
+```
 
 ## Testing
 

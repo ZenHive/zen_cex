@@ -23,16 +23,15 @@ defmodule ZenCex.Application do
       # Clock synchronization for accurate exchange timestamps
       ZenCex.Safety.ClockSync,
 
-      # WebSocket connection registry
-      {Registry, keys: :unique, name: ZenCex.WebSocket.Registry},
-
-      # WebSocket supervisor for managing connections
-      ZenCex.WebSocket.Supervisor
+      # WebSocket connection supervisor from zen_websocket
+      # Provides supervised WebSocket connections with automatic restart
+      ZenWebsocket.ClientSupervisor
 
       # NOTE: Following Req-centric architecture:
       # - No Core.Supervisor needed (Req handles connection lifecycle)
       # - Rate limiting is now reactive (no ETS tracking or cleanup needed)
       # - Auth as stateless Req middleware steps (except Deribit OAuth)
+      # - WebSocket connections supervised by zen_websocket's ClientSupervisor
       # - TODO: Add Deribit.Auth GenServer when OAuth is implemented
     ]
 

@@ -328,25 +328,11 @@ defmodule ZenCex.Safety.OrderSafety.MarketData do
   - `{:error, term()}` - Error details
   """
   @spec ensure_websocket_connection(atom(), String.t()) :: :ok | {:error, term()}
-  def ensure_websocket_connection(exchange, symbol) do
-    # Check if WebSocket supervisor is running
-    case Process.whereis(ZenCex.WebSocket.Supervisor) do
-      nil ->
-        # WebSocket supervisor not started, REST will be used
-        {:error, :websocket_not_started}
-
-      _pid ->
-        # Check if connection already exists for this symbol
-        connection_name = :"market_data_#{symbol}"
-
-        if ZenCex.WebSocket.Supervisor.connection_active?(exchange, connection_name) do
-          # Connection already active
-          :ok
-        else
-          # Start connection for this symbol
-          start_websocket_connection(exchange, connection_name, symbol)
-        end
-    end
+  def ensure_websocket_connection(_exchange, _symbol) do
+    # TODO: Implement WebSocket health check for zen_websocket connections
+    # zen_websocket manages connections directly, need to check connection status
+    # through the appropriate adapter (Binance.WebSocket or Bybit.WebSocket)
+    {:error, :websocket_health_check_not_implemented}
   end
 
   @doc """
@@ -770,20 +756,4 @@ defmodule ZenCex.Safety.OrderSafety.MarketData do
   end
 
   # Helper functions
-
-  # Starts a WebSocket connection for a specific symbol
-  defp start_websocket_connection(exchange, connection_name, symbol) do
-    case ZenCex.WebSocket.Supervisor.start_connection(
-           exchange,
-           connection_name,
-           symbols: [symbol],
-           streams: [:orderbook, :trades, :ticker]
-         ) do
-      {:ok, _pid} ->
-        :ok
-
-      {:error, reason} ->
-        {:error, {:websocket_start_failed, reason}}
-    end
-  end
 end

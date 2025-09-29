@@ -1,155 +1,303 @@
 defmodule ZenCex.Adapters.Bybit.WebSocket do
   @moduledoc """
-  Bybit WebSocket adapter for real-time market data.
+  Minimal Bybit WebSocket adapter using zen_websocket directly.
 
-  Handles WebSocket connections to Bybit V5 streams for order books,
-  trades, and ticker updates. Data is automatically stored in ETS
-  for fast access by other modules.
+  Provides a thin layer over zen_websocket for Bybit-specific WebSocket handling.
+  Data is automatically stored in ETS cache for fast access by other modules.
 
-  ## Supported Streams
+  ## Architecture
+
+  This adapter uses zen_websocket's Client GenServer which owns the Gun connection.
+  Gun sends all WebSocket messages to the process that opens the connection, so the
+  Client GenServer maintains this ownership throughout reconnections.
+
+  ## Supported Topics
 
   - Order book: `orderbook.{depth}.{symbol}` (e.g., "orderbook.50.BTCUSDT")
-  - Trades: `publicTrade.{symbol}`
-  - Ticker: `tickers.{symbol}`
-  - Best bid/ask: `bookticker.{symbol}`
+  - Public trades: `publicTrade.{symbol}`
+  - Tickers: `tickers.{symbol}`
+  - Book ticker: `bookticker.{symbol}`
   - Liquidations: `liquidation.{symbol}`
 
-  ## Usage
+  ## Connection Modes
 
-      # Development - Direct connection
-      {:ok, ws} = Bybit.WebSocket.connect()
-      :ok = Bybit.WebSocket.subscribe(ws, ["orderbook.50.BTCUSDT", "publicTrade.ETHUSDT"])
+  ### Development Mode (Direct Connection)
 
-      # Access cached data from ETS
+  The Client GenServer runs unsupervised. If it crashes, the connection is lost.
+
+      # Connect to testnet for development
+      {:ok, client} = Bybit.WebSocket.connect(["orderbook.50.BTCUSDT"], testnet: true)
+
+      # The client struct contains:
+      # - server_pid: The Client GenServer that owns the Gun connection
+      # - gun_pid: The Gun process itself
+      # - stream_ref: The WebSocket stream reference
+
+      # Subscribe to additional topics
+      {:ok, :subscribed} = Bybit.WebSocket.subscribe(client, ["publicTrade.ETHUSDT"])
+
+      # Close when done
+      :ok = Bybit.WebSocket.close(client)
+
+  ### Production Mode (Supervised Connection)
+
+  The Client GenServer runs under ClientSupervisor and will be restarted on crashes.
+  The supervisor must be started in your application supervision tree.
+
+      # In your application.ex
+      children = [
+        ZenWebsocket.ClientSupervisor,
+        # ... other children
+      ]
+
+      # In your code - returns the same client struct, but the GenServer is supervised
+      {:ok, client} = Bybit.WebSocket.connect(
+        ["orderbook.50.BTCUSDT", "tickers.BTCUSDT"],
+        supervised: true
+      )
+
+  ## Data Access Pattern
+
+  All market data is automatically cached in ETS by the message handler:
+
+      # The WebSocket handler stores data in ETS
+      # Your application code reads from ETS cache
       {:ok, orderbook} = ZenCex.Cache.Market.get_orderbook(:bybit, "BTCUSDT")
+
+  ## Error Handling
+
+  - **Connection failures**: zen_websocket handles retry with exponential backoff
+  - **Message size limits**: Messages over 1MB are dropped to prevent memory exhaustion
+  - **Gun ownership**: The Client GenServer maintains Gun ownership through reconnections
+  - **Supervisor restarts**: In supervised mode, crashes trigger automatic restarts
+
+  ## Implementation Notes
+
+  The adapter creates a message handler function that processes Bybit messages and
+  stores them in ETS. This handler runs in the Client GenServer process, maintaining
+  proper Gun message ownership.
   """
 
-  @behaviour ZenCex.WebSocket.Base
-
   alias ZenCex.Cache.Market
-  alias ZenCex.Config.TimeConstants
+  alias ZenWebsocket.Client
 
   require Logger
 
-  # WebSocket endpoints - Bybit V5 unified
+  # WebSocket endpoints
   @public_ws_url "wss://stream.bybit.com/v5/public/spot"
   @public_ws_testnet_url "wss://stream-testnet.bybit.com/v5/public/spot"
   @futures_ws_url "wss://stream.bybit.com/v5/public/linear"
   @futures_ws_testnet_url "wss://stream-testnet.bybit.com/v5/public/linear"
 
-  # Ping interval for Bybit (20 seconds)
-  @ping_interval_ms TimeConstants.websocket_timeouts().bybit_ping_interval
+  # Bybit requires ping every 20 seconds to keep connection alive
+  @ping_interval_ms 20_000
 
-  @impl true
-  def connect(opts \\ []) do
+  # Maximum message size to prevent memory exhaustion (1MB)
+  @max_message_size 1_048_576
+
+  # Public API (5 functions max per zen_websocket guidelines)
+
+  @doc """
+  Connects to Bybit WebSocket and optionally subscribes to topics.
+
+  ## Parameters
+    * `topics` - List of topics to subscribe to initially
+    * `opts` - Connection options
+
+  ## Options
+    * `:testnet` - Use testnet endpoints (default: false)
+    * `:market` - Market type :spot, :linear, :futures (default: :spot)
+    * `:supervised` - Use ClientSupervisor for production (default: false)
+  """
+  @spec connect(list(String.t()), keyword()) :: {:ok, Client.t()} | {:error, term()}
+  def connect(topics \\ [], opts \\ []) do
     testnet? = Keyword.get(opts, :testnet, false)
-    market = Keyword.get(opts, :market, :spot)
+    market = normalize_market(Keyword.get(opts, :market, :spot))
+    supervised? = Keyword.get(opts, :supervised, false)
 
     url = get_ws_url(market, testnet?)
 
-    # Create a handler function that processes messages properly
-    # Note: The client may send both raw and decoded messages
-    handler = fn
-      {:message, {:text, data}} when is_binary(data) -> handle_message(data)
-      {:message, {:binary, data}} when is_binary(data) -> handle_message(data)
-      {:message, data} when is_binary(data) -> handle_message(data)
-      # Already decoded
-      {:message, %{} = decoded} -> process_stream_data(decoded)
-      _other -> :ok
-    end
+    # Create message handler for Bybit data
+    handler = create_message_handler()
 
-    # Connect with auto-reconnect and custom ping
-    case ZenWebsocket.Client.connect(url,
-           handler: handler,
-           heartbeat_interval: @ping_interval_ms,
-           heartbeat_message: Jason.encode!(%{op: "ping"})
-         ) do
-      {:ok, client} ->
-        Logger.info("Connected to Bybit WebSocket at #{url}")
-        {:ok, client}
+    # Connection options for zen_websocket
+    ws_opts = [
+      handler: handler,
+      retry_count: 5,
+      retry_delay: 1000,
+      max_backoff: 30_000,
+      reconnect_on_error: true,
+      heartbeat_interval: @ping_interval_ms
+    ]
 
+    # Connect using zen_websocket
+    with {:ok, client} <- do_connect(url, ws_opts, supervised?),
+         start_ping_timer(client),
+         {:ok, _} <- subscribe(client, topics) do
+      Logger.info("Connected to Bybit WebSocket: #{url}")
+      {:ok, client}
+    else
       {:error, reason} = error ->
         Logger.error("Failed to connect to Bybit WebSocket: #{inspect(reason)}")
         error
     end
   end
 
-  @impl true
+  @doc """
+  Subscribes to additional topics on existing connection.
+  """
+  @spec subscribe(Client.t(), list(String.t())) :: {:ok, :subscribed} | {:error, term()}
   def subscribe(connection, topics) when is_list(topics) do
-    # Bybit V5 subscription format
-    sub_message = %{
-      op: "subscribe",
-      args: topics
-    }
+    if topics == [] do
+      {:ok, :subscribed}
+    else
+      sub_message = %{
+        op: "subscribe",
+        args: topics
+      }
 
-    case ZenWebsocket.Client.send_message(connection, Jason.encode!(sub_message)) do
-      :ok ->
-        Logger.debug("Subscribed to Bybit topics: #{inspect(topics)}")
-        :ok
+      case Client.send_message(connection, Jason.encode!(sub_message)) do
+        {:ok, %{"success" => true}} ->
+          Logger.debug("Subscribed to Bybit topics: #{inspect(topics)}")
+          {:ok, :subscribed}
 
-      {:ok, _response} ->
-        # Bybit returns a response with the subscription result
-        Logger.debug("Subscribed to Bybit topics: #{inspect(topics)}")
-        :ok
+        :ok ->
+          Logger.debug("Subscribed to Bybit topics: #{inspect(topics)}")
+          {:ok, :subscribed}
 
-      error ->
-        Logger.error("Failed to subscribe to Bybit topics: #{inspect(error)}")
-        error
+        {:error, reason} = error ->
+          Logger.error("Failed to subscribe to topics: #{inspect(reason)}")
+          error
+
+        other ->
+          Logger.error("Unexpected subscription response: #{inspect(other)}")
+          {:error, {:unexpected_response, other}}
+      end
     end
   end
 
-  @impl true
+  @doc """
+  Unsubscribes from topics.
+  """
+  @spec unsubscribe(Client.t(), list(String.t())) :: {:ok, :unsubscribed} | {:error, term()}
   def unsubscribe(connection, topics) when is_list(topics) do
-    unsub_message = %{
-      op: "unsubscribe",
-      args: topics
-    }
+    if topics == [] do
+      {:ok, :unsubscribed}
+    else
+      unsub_message = %{
+        op: "unsubscribe",
+        args: topics
+      }
 
-    case ZenWebsocket.Client.send_message(connection, Jason.encode!(unsub_message)) do
-      :ok ->
-        Logger.debug("Unsubscribed from Bybit topics: #{inspect(topics)}")
-        :ok
+      case Client.send_message(connection, Jason.encode!(unsub_message)) do
+        {:ok, %{"success" => true}} ->
+          Logger.debug("Unsubscribed from topics: #{inspect(topics)}")
+          {:ok, :unsubscribed}
 
-      error ->
-        Logger.error("Failed to unsubscribe from Bybit topics: #{inspect(error)}")
-        error
+        :ok ->
+          Logger.debug("Unsubscribed from topics: #{inspect(topics)}")
+          {:ok, :unsubscribed}
+
+        {:error, reason} = error ->
+          Logger.error("Failed to unsubscribe from topics: #{inspect(reason)}")
+          error
+
+        other ->
+          Logger.error("Unexpected unsubscribe response: #{inspect(other)}")
+          {:error, {:unexpected_response, other}}
+      end
     end
   end
 
-  @impl true
-  def state(connection) do
-    {:ok, %{status: ZenWebsocket.Client.get_state(connection)}}
+  @doc """
+  Closes the WebSocket connection.
+  """
+  @spec close(Client.t()) :: :ok
+  def close(connection) do
+    Client.close(connection)
   end
 
-  @impl true
-  def close(connection) do
-    ZenWebsocket.Client.close(connection)
+  @doc """
+  Gets connection state.
+  """
+  @spec get_state(Client.t()) :: {:ok, %{status: :connected | :connecting | :disconnected}}
+  def get_state(connection) do
+    state = Client.get_state(connection)
+    {:ok, %{status: state}}
   end
 
   # Private functions
 
+  @spec normalize_market(atom()) :: atom()
+  defp normalize_market(:futures), do: :linear
+  defp normalize_market(market), do: market
+
+  @spec get_ws_url(atom(), boolean()) :: String.t()
   defp get_ws_url(:spot, true), do: @public_ws_testnet_url
   defp get_ws_url(:spot, false), do: @public_ws_url
   defp get_ws_url(:linear, true), do: @futures_ws_testnet_url
   defp get_ws_url(:linear, false), do: @futures_ws_url
-  defp get_ws_url(:futures, testnet?), do: get_ws_url(:linear, testnet?)
 
-  defp handle_message(message) when is_binary(message) do
-    case Jason.decode(message) do
-      {:ok, data} ->
-        process_stream_data(data)
+  @spec do_connect(String.t(), keyword(), boolean()) :: {:ok, Client.t()} | {:error, term()}
+  defp do_connect(url, opts, false) do
+    # Direct connection for development
+    Client.connect(url, opts)
+  end
 
-      {:error, reason} ->
-        Logger.error("Failed to decode Bybit WebSocket message: #{inspect(reason)}")
+  defp do_connect(url, opts, true) do
+    # Supervised connection for production
+    # ClientSupervisor must be started in application supervisor
+    ZenWebsocket.ClientSupervisor.start_client(url, opts)
+  end
+
+  @spec start_ping_timer(Client.t()) :: :ok
+  defp start_ping_timer(client) do
+    # Schedule periodic ping messages
+    Process.send_after(self(), {:send_ping, client}, @ping_interval_ms)
+    :ok
+  end
+
+  @spec create_message_handler() :: (term() -> :ok)
+  defp create_message_handler do
+    fn
+      {:message, {:text, data}} when is_binary(data) ->
+        handle_message(data)
+
+      {:message, {:binary, data}} when is_binary(data) ->
+        handle_message(data)
+
+      {:message, data} when is_binary(data) ->
+        handle_message(data)
+
+      {:message, %{} = decoded} ->
+        process_message(decoded)
+
+      _other ->
+        :ok
     end
   end
 
-  defp process_stream_data(%{"topic" => topic, "data" => data}) do
-    Logger.debug("Bybit stream data - topic: #{topic}")
+  @spec handle_message(binary()) :: :ok
+  defp handle_message(message) when is_binary(message) and byte_size(message) <= @max_message_size do
+    case Jason.decode(message) do
+      {:ok, data} ->
+        process_message(data)
 
+      {:error, reason} ->
+        Logger.error("Failed to decode Bybit message: #{inspect(reason)}")
+    end
+  end
+
+  defp handle_message(message) when is_binary(message) do
+    Logger.warning("Bybit WebSocket message exceeded size limit: #{byte_size(message)} bytes (max: #{@max_message_size})")
+    :ok
+  end
+
+  @spec process_message(map()) :: :ok
+  defp process_message(%{"topic" => topic, "data" => data}) do
     case parse_topic(topic) do
-      {:orderbook, depth, symbol} ->
-        process_orderbook(symbol, depth, data)
+      {:orderbook, _depth, symbol} ->
+        process_orderbook(symbol, data)
 
       {:trade, symbol} ->
         process_trades(symbol, data)
@@ -163,24 +311,34 @@ defmodule ZenCex.Adapters.Bybit.WebSocket do
       {:liquidation, symbol} ->
         process_liquidation(symbol, data)
 
-      _ ->
+      {:unknown, _} ->
         Logger.debug("Unknown Bybit topic: #{topic}")
     end
   end
 
-  defp process_stream_data(%{"success" => true, "op" => op}) do
-    Logger.debug("Bybit #{op} operation successful")
+  defp process_message(%{"success" => true, "op" => op}) do
+    Logger.debug("Bybit operation successful: #{op}")
   end
 
-  defp process_stream_data(%{"op" => "pong"}) do
-    # Pong response, connection is alive
-    :ok
+  defp process_message(%{"success" => false, "ret_msg" => msg}) do
+    Logger.error("Bybit operation failed: #{msg}")
   end
 
-  defp process_stream_data(data) do
-    Logger.debug("Unhandled Bybit WebSocket data: #{inspect(data)}")
+  defp process_message(%{"op" => "pong"}) do
+    Logger.debug("Received pong from Bybit")
   end
 
+  defp process_message(msg) do
+    Logger.debug("Unhandled Bybit message: #{inspect(msg)}")
+  end
+
+  @spec parse_topic(String.t()) ::
+          {:orderbook, integer(), String.t()}
+          | {:trade, String.t()}
+          | {:ticker, String.t()}
+          | {:bookticker, String.t()}
+          | {:liquidation, String.t()}
+          | {:unknown, String.t()}
   defp parse_topic(topic) do
     case String.split(topic, ".") do
       ["orderbook", depth, symbol] ->
@@ -203,141 +361,83 @@ defmodule ZenCex.Adapters.Bybit.WebSocket do
     end
   end
 
-  defp process_orderbook(symbol, _depth, %{"s" => _symbol, "b" => bids, "a" => asks, "u" => update_id, "seq" => sequence}) do
+  @spec process_orderbook(String.t(), map()) :: :ok
+  defp process_orderbook(symbol, data) do
     orderbook = %{
       symbol: symbol,
-      update_id: update_id,
-      sequence: sequence,
-      bids: parse_orderbook_levels(bids),
-      asks: parse_orderbook_levels(asks),
+      update_id: data["u"],
+      sequence: data["seq"],
+      bids: parse_orderbook_levels(data["b"]),
+      asks: parse_orderbook_levels(data["a"]),
       timestamp: :os.system_time(:millisecond)
     }
 
-    # Store in ETS cache
     Market.put_orderbook(:bybit, symbol, orderbook)
-
-    # Emit telemetry
-    :telemetry.execute(
-      [:zen_cex, :websocket, :orderbook_update],
-      %{count: 1},
-      %{exchange: :bybit, symbol: symbol}
-    )
   end
 
+  @spec process_trades(String.t(), list(map())) :: :ok
   defp process_trades(symbol, trades) when is_list(trades) do
-    # Process each trade
-    Enum.each(trades, fn trade ->
-      process_single_trade(symbol, trade)
+    # Process multiple trades, keep only the last one
+    Enum.each(trades, fn trade_data ->
+      trade = %{
+        symbol: symbol,
+        trade_id: trade_data["i"],
+        price: trade_data["p"],
+        quantity: trade_data["v"],
+        side: trade_data["S"],
+        time: trade_data["T"],
+        is_block_trade: trade_data["BT"] || false,
+        timestamp: :os.system_time(:millisecond)
+      }
+
+      Market.put_last_trade(:bybit, symbol, trade)
     end)
   end
 
-  defp process_single_trade(symbol, %{"p" => price, "v" => volume, "T" => timestamp, "S" => side, "i" => trade_id}) do
-    trade = %{
-      symbol: symbol,
-      trade_id: trade_id,
-      price: price,
-      quantity: volume,
-      side: side,
-      time: timestamp,
-      timestamp: :os.system_time(:millisecond)
-    }
-
-    # Store latest trade
-    Market.put_last_trade(:bybit, symbol, trade)
-
-    # Emit telemetry
-    :telemetry.execute(
-      [:zen_cex, :websocket, :trade],
-      %{count: 1},
-      %{exchange: :bybit, symbol: symbol}
-    )
-  end
-
+  @spec process_ticker(String.t(), map()) :: :ok
   defp process_ticker(symbol, data) do
-    # Handle both formats - full ticker and simplified ticker
-    last_price = Map.get(data, "lastPrice") || Map.get(data, "last_price")
-    high_24h = Map.get(data, "highPrice24h") || Map.get(data, "high_price")
-    low_24h = Map.get(data, "lowPrice24h") || Map.get(data, "low_price")
-    prev_price_24h = Map.get(data, "prevPrice24h") || Map.get(data, "prev_price")
-    volume_24h = Map.get(data, "volume24h") || Map.get(data, "volume")
-    turnover_24h = Map.get(data, "turnover24h") || Map.get(data, "turnover")
-    bid_price = Map.get(data, "bid1Price")
-    bid_size = Map.get(data, "bid1Size")
-    ask_price = Map.get(data, "ask1Price")
-    ask_size = Map.get(data, "ask1Size")
-
     ticker = %{
       symbol: symbol,
-      last_price: last_price,
-      high_24h: high_24h,
-      low_24h: low_24h,
-      prev_price_24h: prev_price_24h,
-      volume_24h: volume_24h,
-      turnover_24h: turnover_24h,
-      bid_price: bid_price,
-      bid_size: bid_size,
-      ask_price: ask_price,
-      ask_size: ask_size,
+      last_price: data["lastPrice"],
+      high_24h: data["highPrice24h"],
+      low_24h: data["lowPrice24h"],
+      prev_price_24h: data["prevPrice24h"],
+      volume_24h: data["volume24h"],
+      turnover_24h: data["turnover24h"],
+      price_24h_pcnt: data["price24hPcnt"],
+      bid_price: data["bid1Price"],
+      bid_size: data["bid1Size"],
+      ask_price: data["ask1Price"],
+      ask_size: data["ask1Size"],
       timestamp: :os.system_time(:millisecond)
     }
 
-    # Store in cache
     Market.put_ticker(:bybit, symbol, ticker)
-
-    # Emit telemetry
-    :telemetry.execute(
-      [:zen_cex, :websocket, :ticker],
-      %{count: 1},
-      %{exchange: :bybit, symbol: symbol}
-    )
   end
 
-  defp process_book_ticker(symbol, %{
-         "symbol" => _symbol,
-         "bp" => bid_price,
-         "bq" => bid_qty,
-         "ap" => ask_price,
-         "aq" => ask_qty
-       }) do
+  @spec process_book_ticker(String.t(), map()) :: :ok
+  defp process_book_ticker(symbol, data) do
     book_ticker = %{
       symbol: symbol,
-      bid_price: bid_price,
-      bid_qty: bid_qty,
-      ask_price: ask_price,
-      ask_qty: ask_qty,
+      bid_price: data["bp"],
+      bid_qty: data["bq"],
+      ask_price: data["ap"],
+      ask_qty: data["aq"],
       timestamp: :os.system_time(:millisecond)
     }
 
-    # Store best bid/ask
     Market.put_book_ticker(:bybit, symbol, book_ticker)
   end
 
-  defp process_liquidation(symbol, %{"updatedTime" => timestamp, "side" => side, "size" => size, "price" => price}) do
-    _liquidation = %{
-      symbol: symbol,
-      side: side,
-      size: size,
-      price: price,
-      timestamp: timestamp
-    }
-
-    # Could store liquidations if needed for risk monitoring
-    Logger.info("Liquidation on #{symbol}: #{side} #{size} @ #{price}")
-
-    # Emit telemetry
-    :telemetry.execute(
-      [:zen_cex, :websocket, :liquidation],
-      %{size: String.to_float(size)},
-      %{exchange: :bybit, symbol: symbol, side: side}
-    )
+  @spec process_liquidation(String.t(), map()) :: :ok
+  defp process_liquidation(symbol, data) do
+    Logger.info("Liquidation on #{symbol}: #{data["size"]} @ #{data["price"]} (#{data["side"]})")
   end
 
+  @spec parse_orderbook_levels(list()) :: list(map())
   defp parse_orderbook_levels(levels) do
     Enum.map(levels, fn [price, quantity] ->
-      %{
-        price: price,
-        quantity: quantity
-      }
+      %{price: price, quantity: quantity}
     end)
   end
 end

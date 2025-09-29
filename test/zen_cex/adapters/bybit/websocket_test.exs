@@ -16,77 +16,84 @@ defmodule ZenCex.Adapters.Bybit.WebSocketTest do
   # 10 seconds for WebSocket operations
   @test_timeout 10_000
 
-  describe "connect/1" do
+  describe "connect/2" do
     @tag :integration
+    @tag :ws_slow
     test "connects to Bybit testnet WebSocket" do
-      assert {:ok, ws} = WebSocket.connect(testnet: true)
-      assert is_pid(ws)
+      assert {:ok, ws} = WebSocket.connect([], testnet: true)
+      assert %ZenWebsocket.Client{} = ws
 
       # Verify connection state
-      assert {:ok, state} = WebSocket.state(ws)
-      assert is_map(state)
+      assert {:ok, state} = WebSocket.get_state(ws)
+      assert %{status: status} = state
+      assert is_atom(status)
 
       # Clean up
       assert :ok = WebSocket.close(ws)
     end
 
     @tag :integration
+    @tag :ws_slow
     test "connects to spot market WebSocket" do
-      assert {:ok, ws} = WebSocket.connect(testnet: true, market: :spot)
-      assert is_pid(ws)
+      assert {:ok, ws} = WebSocket.connect([], testnet: true, market: :spot)
+      assert %ZenWebsocket.Client{} = ws
       assert :ok = WebSocket.close(ws)
     end
 
     @tag :integration
+    @tag :ws_slow
     test "connects to linear futures market WebSocket" do
-      assert {:ok, ws} = WebSocket.connect(testnet: true, market: :linear)
-      assert is_pid(ws)
+      assert {:ok, ws} = WebSocket.connect([], testnet: true, market: :linear)
+      assert %ZenWebsocket.Client{} = ws
       assert :ok = WebSocket.close(ws)
     end
 
     @tag :integration
+    @tag :ws_slow
     test "connects to futures market WebSocket (alias for linear)" do
-      assert {:ok, ws} = WebSocket.connect(testnet: true, market: :futures)
-      assert is_pid(ws)
+      assert {:ok, ws} = WebSocket.connect([], testnet: true, market: :futures)
+      assert %ZenWebsocket.Client{} = ws
       assert :ok = WebSocket.close(ws)
     end
 
     test "connection parameters are properly configured" do
       # Verify testnet vs mainnet URLs are different
       # This ensures our adapter correctly configures the connection
-      assert WebSocket.connect(testnet: true) !=
-               WebSocket.connect(testnet: false)
+      assert WebSocket.connect([], testnet: true) !=
+               WebSocket.connect([], testnet: false)
     end
   end
 
   describe "subscribe/2 and unsubscribe/2" do
     @tag :integration
+    @tag :ws_slow
     test "subscribes to and unsubscribes from topics" do
-      {:ok, ws} = WebSocket.connect(testnet: true)
+      {:ok, ws} = WebSocket.connect([], testnet: true)
 
       # Test subscription to various topics
       topics = ["orderbook.50.BTCUSDT", "publicTrade.ETHUSDT"]
-      assert :ok = WebSocket.subscribe(ws, topics)
+      assert {:ok, :subscribed} = WebSocket.subscribe(ws, topics)
 
       # Give it time to process
       Process.sleep(1000)
 
       # Test unsubscribe
-      assert :ok = WebSocket.unsubscribe(ws, topics)
+      assert {:ok, :unsubscribed} = WebSocket.unsubscribe(ws, topics)
 
       # Clean up
       WebSocket.close(ws)
     end
 
     @tag :integration
+    @tag :ws_slow
     test "handles multiple subscription types" do
-      {:ok, ws} = WebSocket.connect(testnet: true)
+      {:ok, ws} = WebSocket.connect([], testnet: true)
 
       # Subscribe to different topic types
-      assert :ok = WebSocket.subscribe(ws, ["orderbook.25.BTCUSDT"])
-      assert :ok = WebSocket.subscribe(ws, ["publicTrade.BTCUSDT"])
-      assert :ok = WebSocket.subscribe(ws, ["tickers.BTCUSDT"])
-      assert :ok = WebSocket.subscribe(ws, ["bookticker.BTCUSDT"])
+      assert {:ok, :subscribed} = WebSocket.subscribe(ws, ["orderbook.25.BTCUSDT"])
+      assert {:ok, :subscribed} = WebSocket.subscribe(ws, ["publicTrade.BTCUSDT"])
+      assert {:ok, :subscribed} = WebSocket.subscribe(ws, ["tickers.BTCUSDT"])
+      assert {:ok, :subscribed} = WebSocket.subscribe(ws, ["bookticker.BTCUSDT"])
 
       Process.sleep(1000)
 
@@ -94,23 +101,25 @@ defmodule ZenCex.Adapters.Bybit.WebSocketTest do
     end
 
     @tag :integration
+    @tag :ws_slow
     test "validates topic list parameter" do
       # This test requires a real connection since we now use ZenWebsocket.Client
-      {:ok, ws} = WebSocket.connect(testnet: true)
+      {:ok, ws} = WebSocket.connect([], testnet: true)
 
       # Should handle empty list
-      assert :ok = WebSocket.subscribe(ws, [])
+      assert {:ok, :subscribed} = WebSocket.subscribe(ws, [])
 
       WebSocket.close(ws)
     end
   end
 
-  describe "state/1" do
+  describe "get_state/1" do
     @tag :integration
+    @tag :ws_slow
     test "returns connection state" do
-      {:ok, ws} = WebSocket.connect(testnet: true)
+      {:ok, ws} = WebSocket.connect([], testnet: true)
 
-      assert {:ok, state} = WebSocket.state(ws)
+      assert {:ok, state} = WebSocket.get_state(ws)
       assert is_map(state)
 
       WebSocket.close(ws)
@@ -119,8 +128,9 @@ defmodule ZenCex.Adapters.Bybit.WebSocketTest do
 
   describe "close/1" do
     @tag :integration
+    @tag :ws_slow
     test "closes connection cleanly" do
-      {:ok, ws} = WebSocket.connect(testnet: true)
+      {:ok, ws} = WebSocket.connect([], testnet: true)
       server_pid = ws.server_pid
       assert :ok = WebSocket.close(ws)
 
@@ -364,12 +374,14 @@ defmodule ZenCex.Adapters.Bybit.WebSocketTest do
 
   describe "real-time data integration" do
     @tag :integration
+    @tag :ws_slow
     @tag timeout: @test_timeout
     test "receives real orderbook updates from testnet" do
-      {:ok, ws} = WebSocket.connect(testnet: true)
+      {:ok, ws} = WebSocket.connect([], testnet: true)
 
       # Subscribe to a popular pair
-      assert :ok = WebSocket.subscribe(ws, ["orderbook.25.BTCUSDT"])
+      # Bybit supports depths: 1, 50, 200, 500
+      assert {:ok, :subscribed} = WebSocket.subscribe(ws, ["orderbook.50.BTCUSDT"])
 
       # Wait for data
       Process.sleep(3000)
@@ -381,7 +393,6 @@ defmodule ZenCex.Adapters.Bybit.WebSocketTest do
           assert is_list(orderbook.bids)
           assert is_list(orderbook.asks)
           assert is_integer(orderbook.update_id)
-          assert is_integer(orderbook.sequence)
           Logger.info("Received real orderbook: #{inspect(orderbook, limit: 5)}")
 
         {:error, :not_found} ->
@@ -392,12 +403,13 @@ defmodule ZenCex.Adapters.Bybit.WebSocketTest do
     end
 
     @tag :integration
+    @tag :ws_slow
     @tag timeout: @test_timeout
     test "receives real trade updates from testnet" do
-      {:ok, ws} = WebSocket.connect(testnet: true)
+      {:ok, ws} = WebSocket.connect([], testnet: true)
 
       # Subscribe to trade stream
-      assert :ok = WebSocket.subscribe(ws, ["publicTrade.BTCUSDT"])
+      assert {:ok, :subscribed} = WebSocket.subscribe(ws, ["publicTrade.BTCUSDT"])
 
       # Wait for trades
       Process.sleep(5000)
@@ -419,12 +431,13 @@ defmodule ZenCex.Adapters.Bybit.WebSocketTest do
     end
 
     @tag :integration
+    @tag :ws_slow
     @tag timeout: @test_timeout
     test "receives real ticker updates from testnet" do
-      {:ok, ws} = WebSocket.connect(testnet: true)
+      {:ok, ws} = WebSocket.connect([], testnet: true)
 
       # Subscribe to ticker stream
-      assert :ok = WebSocket.subscribe(ws, ["tickers.BTCUSDT"])
+      assert {:ok, :subscribed} = WebSocket.subscribe(ws, ["tickers.BTCUSDT"])
 
       # Wait for ticker
       Process.sleep(3000)

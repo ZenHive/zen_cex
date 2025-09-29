@@ -16,31 +16,34 @@ defmodule ZenCex.Adapters.Binance.WebSocketTest do
   # 10 seconds for WebSocket operations
   @test_timeout 10_000
 
-  describe "connect/1" do
+  describe "connect/2" do
     @tag :integration
+    @tag :ws_slow
     test "connects to Binance testnet WebSocket" do
-      assert {:ok, ws} = WebSocket.connect(testnet: true)
-      assert is_pid(ws)
+      assert {:ok, ws} = WebSocket.connect([], testnet: true)
+      assert %ZenWebsocket.Client{} = ws
 
       # Verify connection state
-      assert {:ok, state} = WebSocket.state(ws)
-      assert is_map(state)
+      assert {:ok, state} = WebSocket.get_state(ws)
+      assert state in [:connecting, :connected, :disconnected]
 
       # Clean up
       assert :ok = WebSocket.close(ws)
     end
 
     @tag :integration
+    @tag :ws_slow
     test "connects to spot market WebSocket" do
-      assert {:ok, ws} = WebSocket.connect(testnet: true, market: :spot)
-      assert is_pid(ws)
+      assert {:ok, ws} = WebSocket.connect([], testnet: true, market: :spot)
+      assert %ZenWebsocket.Client{} = ws
       assert :ok = WebSocket.close(ws)
     end
 
     @tag :integration
+    @tag :ws_slow
     test "connects to futures market WebSocket" do
-      assert {:ok, ws} = WebSocket.connect(testnet: true, market: :futures)
-      assert is_pid(ws)
+      assert {:ok, ws} = WebSocket.connect([], testnet: true, market: :futures)
+      assert %ZenWebsocket.Client{} = ws
       assert :ok = WebSocket.close(ws)
     end
 
@@ -48,39 +51,41 @@ defmodule ZenCex.Adapters.Binance.WebSocketTest do
       # Test that proper parameters are passed for testnet
       # This ensures our adapter correctly configures the connection
       # The actual connection test is done in the integration test above
-      assert WebSocket.connect(testnet: true, market: :spot) !=
-               WebSocket.connect(testnet: false, market: :spot)
+      assert WebSocket.connect([], testnet: true, market: :spot) !=
+               WebSocket.connect([], testnet: false, market: :spot)
     end
   end
 
   describe "subscribe/2 and unsubscribe/2" do
     @tag :integration
+    @tag :ws_slow
     test "subscribes to and unsubscribes from streams", %{} do
-      {:ok, ws} = WebSocket.connect(testnet: true)
+      {:ok, ws} = WebSocket.connect([], testnet: true)
 
       # Test subscription
       streams = ["btcusdt@depth20", "ethusdt@trade"]
-      assert :ok = WebSocket.subscribe(ws, streams)
+      assert {:ok, :subscribed} = WebSocket.subscribe(ws, streams)
 
       # Give it time to process
       Process.sleep(1000)
 
       # Test unsubscribe
-      assert :ok = WebSocket.unsubscribe(ws, streams)
+      assert {:ok, :unsubscribed} = WebSocket.unsubscribe(ws, streams)
 
       # Clean up
       WebSocket.close(ws)
     end
 
     @tag :integration
+    @tag :ws_slow
     test "handles multiple subscriptions" do
-      {:ok, ws} = WebSocket.connect(testnet: true)
+      {:ok, ws} = WebSocket.connect([], testnet: true)
 
       # Subscribe to different stream types
-      assert :ok = WebSocket.subscribe(ws, ["btcusdt@depth20"])
-      assert :ok = WebSocket.subscribe(ws, ["btcusdt@trade"])
-      assert :ok = WebSocket.subscribe(ws, ["btcusdt@ticker"])
-      assert :ok = WebSocket.subscribe(ws, ["btcusdt@bookTicker"])
+      assert {:ok, :subscribed} = WebSocket.subscribe(ws, ["btcusdt@depth20"])
+      assert {:ok, :subscribed} = WebSocket.subscribe(ws, ["btcusdt@trade"])
+      assert {:ok, :subscribed} = WebSocket.subscribe(ws, ["btcusdt@ticker"])
+      assert {:ok, :subscribed} = WebSocket.subscribe(ws, ["btcusdt@bookTicker"])
 
       Process.sleep(1000)
 
@@ -88,12 +93,13 @@ defmodule ZenCex.Adapters.Binance.WebSocketTest do
     end
 
     @tag :integration
+    @tag :ws_slow
     test "validates stream list parameter" do
       # This test requires a real connection since we now use ZenWebsocket.Client
-      {:ok, ws} = WebSocket.connect(testnet: true)
+      {:ok, ws} = WebSocket.connect([], testnet: true)
 
       # Should handle empty list
-      assert :ok = WebSocket.subscribe(ws, [])
+      assert {:ok, :subscribed} = WebSocket.subscribe(ws, [])
 
       # Invalid params should be caught by zen_websocket
       # We're testing our adapter passes correct format
@@ -102,13 +108,14 @@ defmodule ZenCex.Adapters.Binance.WebSocketTest do
     end
   end
 
-  describe "state/1" do
+  describe "get_state/1" do
     @tag :integration
+    @tag :ws_slow
     test "returns connection state" do
-      {:ok, ws} = WebSocket.connect(testnet: true)
+      {:ok, ws} = WebSocket.connect([], testnet: true)
 
-      assert {:ok, state} = WebSocket.state(ws)
-      assert is_map(state)
+      assert {:ok, state} = WebSocket.get_state(ws)
+      assert state in [:connecting, :connected, :disconnected]
 
       WebSocket.close(ws)
     end
@@ -116,9 +123,10 @@ defmodule ZenCex.Adapters.Binance.WebSocketTest do
 
   describe "close/1" do
     @tag :integration
+    @tag :ws_slow
     test "closes connection cleanly" do
-      {:ok, ws} = WebSocket.connect(testnet: true)
-      server_pid = ws.server_pid
+      {:ok, ws} = WebSocket.connect([], testnet: true)
+      assert %ZenWebsocket.Client{server_pid: server_pid} = ws
       assert :ok = WebSocket.close(ws)
 
       # Verify connection is closed
@@ -275,12 +283,13 @@ defmodule ZenCex.Adapters.Binance.WebSocketTest do
 
   describe "real-time data integration" do
     @tag :integration
+    @tag :ws_slow
     @tag timeout: @test_timeout
     test "receives real orderbook updates from testnet" do
-      {:ok, ws} = WebSocket.connect(testnet: true)
+      {:ok, ws} = WebSocket.connect([], testnet: true)
 
       # Subscribe to a popular pair
-      assert :ok = WebSocket.subscribe(ws, ["btcusdt@depth5"])
+      assert {:ok, :subscribed} = WebSocket.subscribe(ws, ["btcusdt@depth5"])
 
       # Wait for data
       Process.sleep(3000)
@@ -302,12 +311,13 @@ defmodule ZenCex.Adapters.Binance.WebSocketTest do
     end
 
     @tag :integration
+    @tag :ws_slow
     @tag timeout: @test_timeout
     test "receives real trade updates from testnet" do
-      {:ok, ws} = WebSocket.connect(testnet: true)
+      {:ok, ws} = WebSocket.connect([], testnet: true)
 
       # Subscribe to trade stream
-      assert :ok = WebSocket.subscribe(ws, ["btcusdt@trade"])
+      assert {:ok, :subscribed} = WebSocket.subscribe(ws, ["btcusdt@trade"])
 
       # Wait for trades
       Process.sleep(5000)
