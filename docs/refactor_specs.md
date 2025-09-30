@@ -1,10 +1,26 @@
 # Refactoring Analysis Task Specification
 
-## Overview
+## ⚠️ DEPRECATED - See docs/critical_refactors.md
 
-This document breaks down the comprehensive refactoring analysis of the zen_cex codebase into manageable tasks. Each numbered task is designed to be completed in a single Claude Code session and will produce a specific section of the final refactoring opportunities document.
+This comprehensive 23-task analysis has been **replaced** by a focused approach in `docs/critical_refactors.md`.
 
-The final output will be `docs/refactoring_opportunities.md`, built incrementally through these tasks.
+**Why Deprecated**:
+- 140+ issues identified (only 4/23 tasks complete)
+- Would take months to complete all tasks
+- Most issues are low-impact improvements
+- New approach focuses on 10 critical issues only
+
+**New Document**: `docs/critical_refactors.md` - Contains only high-priority refactors (3-4 weeks of work)
+
+**Archive**: `docs/archive_refactoring_opportunities.md` - Detailed findings preserved for reference
+
+---
+
+## Original Overview (Historical Reference)
+
+This document broke down the comprehensive refactoring analysis of the zen_cex codebase into manageable tasks. Each numbered task was designed to be completed in a single Claude Code session and produce a specific section of the refactoring opportunities document.
+
+The original output was `docs/refactoring_opportunities.md` (now archived), built incrementally through these tasks.
 
 ## Session Continuation Prompt
 
