@@ -293,7 +293,8 @@ defmodule ZenCex.Safety.OrderSafetyTest do
 
       order = %{symbol: "INVALID", side: :buy, quantity: "0.001"}
 
-      assert {:error, {:invalid_symbol, "INVALID"}} = OrderSafety.validate_order(:binance, order)
+      # Now returns raw Binance error response
+      assert {:error, %{"code" => -1121, "msg" => _}} = OrderSafety.validate_order(:binance, order)
     end
 
     test "rejects duplicate order" do
@@ -353,7 +354,8 @@ defmodule ZenCex.Safety.OrderSafetyTest do
     end
 
     test "validate_symbol/2 rejects invalid symbols" do
-      assert {:error, {:invalid_symbol, "INVALID"}} = OrderSafety.validate_symbol(:binance, "INVALID")
+      # Now returns raw Binance error response
+      assert {:error, %{"code" => -1121, "msg" => _}} = OrderSafety.validate_symbol(:binance, "INVALID")
     end
 
     test "validate_symbol/2 rejects non-string symbols" do

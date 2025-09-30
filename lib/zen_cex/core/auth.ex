@@ -111,7 +111,7 @@ defmodule ZenCex.Core.Auth do
         end
 
       _ ->
-        get_api_key_from_env(exchange)
+        get_api_key_from_env(request, exchange)
     end
   end
 
@@ -160,7 +160,7 @@ defmodule ZenCex.Core.Auth do
         end
 
       _ ->
-        get_api_secret_from_env(exchange)
+        get_api_secret_from_env(request, exchange)
     end
   end
 
@@ -379,11 +379,17 @@ defmodule ZenCex.Core.Auth do
 
   # Private functions
 
-  @spec get_api_key_from_env(atom()) :: String.t() | nil
-  defp get_api_key_from_env(exchange) do
+  @spec get_api_key_from_env(Req.Request.t(), atom()) :: String.t() | nil
+  defp get_api_key_from_env(request, exchange) do
     if testnet?(exchange) do
-      # Try testnet key first, fall back to production
-      testnet_key = System.get_env(exchange_testnet_api_key(exchange))
+      # Binance has separate testnet credentials for futures
+      testnet_key =
+        if exchange == :binance && futures_api_type?(request) do
+          System.get_env("BINANCE_FUTURES_TEST_API_KEY")
+        else
+          System.get_env(exchange_testnet_api_key(exchange))
+        end
+
       production_key = System.get_env(exchange_api_key(exchange))
       testnet_key || production_key
     else
@@ -391,16 +397,29 @@ defmodule ZenCex.Core.Auth do
     end
   end
 
-  @spec get_api_secret_from_env(atom()) :: String.t() | nil
-  defp get_api_secret_from_env(exchange) do
+  @spec get_api_secret_from_env(Req.Request.t(), atom()) :: String.t() | nil
+  defp get_api_secret_from_env(request, exchange) do
     if testnet?(exchange) do
-      # Try testnet secret first, fall back to production
-      testnet_secret = System.get_env(exchange_testnet_api_secret(exchange))
+      # Binance has separate testnet credentials for futures
+      testnet_secret =
+        if exchange == :binance && futures_api_type?(request) do
+          System.get_env("BINANCE_FUTURES_TEST_API_SECRET")
+        else
+          System.get_env(exchange_testnet_api_secret(exchange))
+        end
+
       production_secret = System.get_env(exchange_api_secret(exchange))
       testnet_secret || production_secret
     else
       System.get_env(exchange_api_secret(exchange))
     end
+  end
+
+  # Check if the request is for Binance futures API type
+  @spec futures_api_type?(Req.Request.t()) :: boolean()
+  defp futures_api_type?(request) do
+    api_type = get_in(request.private, [:api_type])
+    api_type in [:usdm_futures, :coinm_futures]
   end
 
   # Environment variable name helpers

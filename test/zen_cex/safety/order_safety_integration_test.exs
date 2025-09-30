@@ -71,7 +71,8 @@ defmodule ZenCex.Safety.OrderSafetyIntegrationTest do
         quantity: "0.001"
       }
 
-      assert {:error, {:invalid_symbol, "INVALIDPAIR"}} =
+      # Now returns raw Binance error response
+      assert {:error, %{"code" => -1121, "msg" => _}} =
                OrderSafety.validate_order(:binance, order_params)
     end
 

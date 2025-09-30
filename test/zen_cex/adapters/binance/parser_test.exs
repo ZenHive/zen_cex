@@ -403,44 +403,39 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
   end
 
   describe "parse_error/1" do
-    test "parses standard Binance error codes" do
-      # Now we pass through raw errors with code and message, except for rate limiting
+    test "passes through all error responses unchanged" do
+      # All errors return raw response - no mapping or transformation
       error_cases = [
-        {%{"code" => -1121, "msg" => "Invalid symbol"}, {:error, {:binance_error, -1121, "Invalid symbol"}}},
-        {%{"code" => -2010, "msg" => "Account has insufficient balance"},
-         {:error, {:binance_error, -2010, "Account has insufficient balance"}}},
-        {%{"code" => -1013, "msg" => "Filter failure: LOT_SIZE"},
-         {:error, {:binance_error, -1013, "Filter failure: LOT_SIZE"}}},
-        # Rate limiting still gets special treatment
-        {%{"code" => 429, "msg" => "Too many requests"}, {:error, :rate_limited}},
-        # Also rate limiting
-        {%{"code" => -1003, "msg" => "Too many requests"}, {:error, :rate_limited}},
-        {%{"code" => -1022, "msg" => "Signature not valid"}, {:error, {:binance_error, -1022, "Signature not valid"}}},
-        {%{"code" => -2011, "msg" => "Unknown order sent"}, {:error, {:binance_error, -2011, "Unknown order sent"}}}
+        %{"code" => -1121, "msg" => "Invalid symbol"},
+        %{"code" => -2010, "msg" => "Account has insufficient balance"},
+        %{"code" => -1013, "msg" => "Filter failure: LOT_SIZE"},
+        %{"code" => 429, "msg" => "Too many requests"},
+        %{"code" => -1003, "msg" => "Too many requests"},
+        %{"code" => -1022, "msg" => "Signature not valid"},
+        %{"code" => -2011, "msg" => "Unknown order sent"}
       ]
 
-      for {error_response, expected_result} <- error_cases do
-        assert Parser.parse_error(error_response) == expected_result
+      for error_response <- error_cases do
+        assert {:error, ^error_response} = Parser.parse_error(error_response)
       end
     end
 
-    test "handles unknown error codes with details" do
+    test "handles unknown error codes - returns raw response" do
       unknown_error = %{"code" => -9999, "msg" => "Something went wrong"}
 
-      assert {:error, {:binance_error, -9999, "Something went wrong"}} =
-               Parser.parse_error(unknown_error)
+      assert {:error, ^unknown_error} = Parser.parse_error(unknown_error)
     end
 
-    test "handles errors without codes by message content" do
+    test "handles errors without codes - returns raw response" do
       message_cases = [
-        {%{"msg" => "Insufficient balance for transfer"}, {:error, :insufficient_balance}},
-        {%{"msg" => "Invalid symbol INVALIDPAIR"}, {:error, :invalid_symbol}},
-        {%{"msg" => "Unauthorized request"}, {:error, :unauthorized}},
-        {%{"msg" => "Some other error"}, {:error, {:exchange_error, "Some other error"}}}
+        %{"msg" => "Insufficient balance for transfer"},
+        %{"msg" => "Invalid symbol INVALIDPAIR"},
+        %{"msg" => "Unauthorized request"},
+        %{"msg" => "Some other error"}
       ]
 
-      for {error_response, expected_result} <- message_cases do
-        assert Parser.parse_error(error_response) == expected_result
+      for error_response <- message_cases do
+        assert {:error, ^error_response} = Parser.parse_error(error_response)
       end
     end
 

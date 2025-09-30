@@ -4,26 +4,35 @@ defmodule ZenCex.Adapters.Binance.Parser do
 
   Parses Binance-specific JSON responses and normalizes them to common formats
   used throughout the ZenCex library. Handles type conversions, null fields,
-  and exchange-specific error codes.
+  and follows pure error pass-through philosophy.
 
   ## Supported Response Types
 
   - **Positions**: Spot and futures position data
   - **Balances**: Account balance information
   - **Orders**: Order placement and query responses
-  - **Errors**: Binance error codes and messages
 
-  ## Error Code Mapping
+  ## Error Handling
 
-  Binance uses negative integer error codes:
-  - `-1121` -> `:invalid_symbol`
-  - `-2010` -> `:insufficient_balance`
-  - `-1013` -> `:invalid_quantity`
-  - `429` -> `:rate_limited`
+  All errors are returned unchanged as `{:error, raw_response}` where `raw_response`
+  is the complete Binance response map. This preserves all original error context
+  including codes, messages, and any additional fields.
+
+  ## Common Error Codes (Reference Only)
+
+  Binance uses negative integer error codes. These are documented for reference -
+  actual errors are passed through unchanged:
+
+  - **-1121**: Invalid symbol
+  - **-2010**: Insufficient balance
+  - **-1013**: Invalid quantity/precision
+  - **-1022**: Invalid signature
+  - **-1102**: Mandatory parameter missing
+  - **429**: Rate limit exceeded
 
   ## Type Conversions
 
-  All financial values are converted from strings to `Decimal.t()`:
+  All financial values in SUCCESS responses are converted from strings to `Decimal.t()`:
   - Prices: `"50000.00"` -> `Decimal.new("50000.00")`
   - Quantities: `"0.5"` -> `Decimal.new("0.5")`
   - PnL values: `"125.50"` -> `Decimal.new("125.50")`
@@ -273,43 +282,12 @@ defmodule ZenCex.Adapters.Binance.Parser do
       {:error, {:binance_error, -1013, "Filter failure: PERCENT_PRICE_BY_SIDE"}} = parse_error(response)
   """
   @impl true
-  def parse_error(%{"code" => code} = response) when is_integer(code) do
-    # Log the actual error response for debugging
-    ResponseParser.log_error_response(response, "Binance")
-
-    message = extract_field(response, ["msg"], :string)
-
-    # Only handle special cases that need specific treatment in the library
-    case code do
-      429 ->
-        # Rate limiting needs special handling for backoff
-        {:error, :rate_limited}
-
-      -1003 ->
-        # Too many requests also needs rate limit handling
-        {:error, :rate_limited}
-
-      _ ->
-        # Pass through the raw error with code and message
-        # This preserves all context for the application to handle
-        {:error, {:binance_error, code, message}}
-    end
-  end
-
-  def parse_error(%{"msg" => message} = response) do
-    # Log the actual error response for debugging
-    ResponseParser.log_error_response(response, "Binance")
-
-    # Use core standardization for message-based errors
-    {:error, ResponseParser.standardize_error_message(message)}
-  end
-
   def parse_error(response) when is_map(response) do
-    # Log unexpected error format for debugging
+    # Log error for debugging (internal use only)
     ResponseParser.log_error_response(response, "Binance")
 
-    # Generic error handling for unexpected formats
-    {:error, {:unknown_error, response}}
+    # Pass through raw error response unchanged - preserve all original context
+    {:error, response}
   end
 
   def parse_error(response) do

@@ -50,39 +50,9 @@ defmodule ZenCex.Adapters.BaseParserTest do
     end
   end
 
-  describe "standardize_error/1" do
-    test "standardizes common error messages" do
-      # These should return atoms or tuples based on Core.ResponseParser.standardize_error_message/1
-      result = TestParser.standardize_error("Invalid symbol")
-      assert result == :invalid_symbol
-
-      result = TestParser.standardize_error("Rate limit exceeded")
-      assert result == :rate_limited
-
-      result = TestParser.standardize_error("Unauthorized")
-      assert result == :unauthorized
-    end
-
-    test "extracts error from map with msg field" do
-      result = TestParser.standardize_error(%{"msg" => "Invalid API key"})
-      assert match?({:exchange_error, _}, result) or is_atom(result)
-    end
-
-    test "extracts error from map with message field" do
-      result = TestParser.standardize_error(%{"message" => "Order not found"})
-      assert result == :order_not_found or match?({:exchange_error, _}, result)
-    end
-
-    test "extracts error from map with error field" do
-      result = TestParser.standardize_error(%{"error" => "Server error"})
-      assert match?({:exchange_error, _}, result) or is_atom(result)
-    end
-
-    test "returns unknown_error for unrecognized format" do
-      assert TestParser.standardize_error(%{}) == :unknown_error
-      assert TestParser.standardize_error(nil) == :unknown_error
-    end
-  end
+  # NOTE: standardize_error/1 was removed as part of pure error pass-through philosophy
+  # All errors are now passed through unchanged as raw exchange responses
+  # See lib/zen_cex/adapters/base_parser.ex moduledoc for rationale
 
   describe "parse_balances/1" do
     test "parses Binance-style balance format" do

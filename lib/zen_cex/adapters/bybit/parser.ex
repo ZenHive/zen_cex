@@ -3,8 +3,8 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   Response parser for Bybit V5 API.
 
   Handles Bybit's unified response structure with retCode/retMsg/result format.
-  Leverages Core.ResponseParser for common parsing patterns while handling
-  Bybit-specific response formats and error codes.
+  Follows pure Elixir error pass-through philosophy - all errors are returned
+  as `{:error, raw_response}` with original exchange data preserved.
 
   ## Response Structure
   All Bybit V5 API responses follow this structure:
@@ -18,60 +18,31 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   }
   ```
 
-  ## Error Codes
-  - 10001-10999: Authentication/signature errors
-  - 11000-11999: Order-related errors
-  - 12000-12999: Position-related errors
-  - 20000-29999: Business logic errors
-  - 30000-39999: API-specific errors
-  - 110000+: System and rate limit errors
+  ## Error Handling
+
+  All errors are returned unchanged as `{:error, raw_response}` where `raw_response`
+  is the complete Bybit response map including `retCode`, `retMsg`, and any other fields.
+
+  ## Common Error Codes (Reference Only)
+
+  These are documented for reference - the actual errors are passed through unchanged:
+
+  - **10001-10999**: Authentication/signature errors
+    - 10001: Invalid request params
+    - 10002: Invalid API key
+    - 10003: Invalid signature
+    - 10006: Rate limited
+  - **110000-119999**: Order-related errors
+    - 110001: Order not found
+    - 110004: Insufficient balance
+    - 110012: Invalid symbol
+  - **130000+**: System errors
+    - 130006: Rate limit exceeded
   """
 
   alias ZenCex.Core.ResponseParser
 
   require Logger
-
-  # Bybit-specific error code mappings
-  @error_code_atoms %{
-    # Authentication errors (10xxx)
-    10_001 => :invalid_request_params,
-    10_002 => :invalid_api_key,
-    10_003 => :invalid_signature,
-    10_004 => :signature_not_valid,
-    10_005 => :permission_denied,
-    10_006 => :rate_limited,
-    10_007 => :api_key_expired,
-    10_008 => :invalid_recv_window,
-    10_009 => :invalid_timestamp,
-    10_010 => :ip_not_whitelisted,
-
-    # Order errors (110xxx)
-    110_001 => :order_not_found,
-    110_003 => :order_already_canceled,
-    110_004 => :insufficient_balance,
-    110_005 => :invalid_order_qty,
-    110_007 => :invalid_order_price,
-    110_012 => :invalid_symbol,
-    110_013 => :invalid_order_type,
-    110_014 => :invalid_order_side,
-    110_017 => :duplicate_order_id,
-    110_025 => :position_not_found,
-    110_043 => :order_would_trigger_immediately,
-
-    # Business errors (170xxx)
-    170_131 => :insufficient_balance,
-
-    # System errors (10000+)
-    10_016 => :server_error,
-    10_018 => :too_many_requests,
-    10_027 => :timestamp_out_of_range,
-    20_001 => :order_not_exists,
-    30_024 => :account_not_unified,
-
-    # Rate limit specific
-    130_006 => :rate_limit_exceeded,
-    140_003 => :request_frequency_exceeded
-  }
 
   @doc """
   Parses a Bybit API response into a standardized format.
@@ -153,26 +124,15 @@ defmodule ZenCex.Adapters.Bybit.Parser do
     {:ok, Map.drop(data, ["retCode", "retMsg", "time", "retExtInfo"])}
   end
 
-  defp handle_bybit_response(%{"retCode" => code, "retMsg" => msg}, _status, _response) when is_integer(code) do
-    error_atom = Map.get(@error_code_atoms, code)
-
-    if error_atom do
-      # Preserve both the atom and original message for debugging context
-      # This allows callers to match on the atom while still having access to the detailed message
-      {:error, {error_atom, msg}}
-    else
-      # Unknown error code - use standardized error message parsing
-      case ResponseParser.standardize_error_message(msg) do
-        {:exchange_error, _} -> {:error, {code, msg}}
-        atom -> {:error, atom}
-      end
-    end
+  defp handle_bybit_response(%{"retCode" => code} = response, _status, _response) when is_integer(code) and code != 0 do
+    # Pass through raw error response unchanged - preserve all original context
+    {:error, response}
   end
 
-  defp handle_bybit_response(%{"retCode" => code, "retMsg" => msg}, _status, _response) do
-    # Non-integer retCode (shouldn't happen but handle gracefully)
-    Logger.warning("Bybit returned non-integer retCode: #{inspect(code)}")
-    {:error, {code, msg}}
+  defp handle_bybit_response(%{"retCode" => code} = response, _status, _response) do
+    # Non-integer retCode or other error format - pass through unchanged
+    Logger.warning("Bybit returned unexpected retCode format: #{inspect(code)}")
+    {:error, response}
   end
 
   defp handle_bybit_response(data, status, _response) when is_map(data) do

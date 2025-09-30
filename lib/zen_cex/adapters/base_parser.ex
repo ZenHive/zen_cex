@@ -2,8 +2,75 @@ defmodule ZenCex.Adapters.BaseParser do
   @moduledoc """
   Common parsing patterns for all exchange adapters.
 
-  Provides shared parsing logic for common response formats,
-  error handling, and data normalization across exchanges.
+  Provides shared parsing logic for common response formats and
+  data normalization across exchanges.
+
+  ## Error Handling Philosophy: Pure Pass-Through
+
+  **CRITICAL**: This library follows pure Elixir/Erlang error handling philosophy:
+
+  ### Always Pass Raw Errors Through Unchanged
+
+  Exchange APIs return diverse, unpredictable error formats. We CANNOT and SHOULD NOT
+  attempt to standardize them because:
+
+  1. **Incompleteness**: We can never cover all error codes from all exchanges
+  2. **Loss of Context**: Wrapping errors loses original messages, codes, and metadata
+  3. **Maintenance Burden**: New errors are added, old ones change - leaky abstraction
+  4. **User Needs**: Users handle exchange-specific errors anyway for edge cases
+
+  ### What To Do Instead
+
+  ```elixir
+  # ❌ BAD: Error standardization/mapping
+  def parse_response(%{"code" => 10001}) do
+    {:error, :invalid_api_key}  # Lost original message and context!
+  end
+
+  def parse_response(%{"code" => code}) do
+    {:error, map_error_code(code)}  # Incomplete - can't cover all codes
+  end
+
+  # ✅ GOOD: Pass raw errors through
+  def parse_response(%{"code" => code} = response) when code != 0 do
+    {:error, response}  # Preserve everything!
+  end
+
+  def parse_response(%{"retCode" => code, "retMsg" => msg} = response) when code != 0 do
+    {:error, response}  # Keep original structure
+  end
+  ```
+
+  ### Documentation Over Code
+
+  Instead of error mapping in code, document common patterns in your adapter's moduledoc:
+
+  ```elixir
+  @moduledoc \"\"\"
+  Bybit Parser
+
+  ## Common Error Codes (Reference Only)
+  - 10001: Invalid API key
+  - 110004: Insufficient balance
+  - 130006: Rate limit exceeded
+
+  All errors are returned as `{:error, raw_response}` with the original
+  exchange response preserved.
+  \"\"\"
+  ```
+
+  ### Benefits of Pass-Through
+
+  - **Simplicity**: No error mapping code to maintain
+  - **Completeness**: All errors automatically handled
+  - **Debugging**: Original error messages preserved
+  - **Flexibility**: Users can handle errors their way
+  - **Future-proof**: New errors work automatically
+
+  ## Data Normalization
+
+  This module provides helpers for normalizing SUCCESS responses (balances, positions, etc.)
+  where standardization adds value. Errors should NEVER be normalized.
   """
 
   defmacro __using__(_opts) do
@@ -48,6 +115,9 @@ defmodule ZenCex.Adapters.BaseParser do
 
       @doc """
       Logs error responses for debugging.
+
+      Note: This is for internal debugging only. The error response should still
+      be passed through unchanged to the caller.
       """
       @spec log_error_response(any(), atom()) :: :ok
       def log_error_response(response, exchange) do
@@ -56,19 +126,6 @@ defmodule ZenCex.Adapters.BaseParser do
           exchange: exchange
         )
       end
-
-      @doc """
-      Standardizes common error messages across exchanges.
-      """
-      @spec standardize_error(String.t() | map()) :: atom() | String.t()
-      def standardize_error(message) when is_binary(message) do
-        ResponseParser.standardize_error_message(message)
-      end
-
-      def standardize_error(%{"msg" => msg}), do: standardize_error(msg)
-      def standardize_error(%{"message" => msg}), do: standardize_error(msg)
-      def standardize_error(%{"error" => msg}), do: standardize_error(msg)
-      def standardize_error(_), do: :unknown_error
 
       @doc """
       Parses balance responses into a common format.
@@ -144,8 +201,7 @@ defmodule ZenCex.Adapters.BaseParser do
       # Allow adapters to override these if needed
       defoverridable parse_generic: 1,
                      parse_server_time: 1,
-                     parse_balances: 1,
-                     standardize_error: 1
+                     parse_balances: 1
     end
   end
 end

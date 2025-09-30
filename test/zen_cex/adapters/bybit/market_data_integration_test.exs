@@ -376,21 +376,22 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
                  symbol: "INVALID_SYMBOL_XYZ"
                })
 
-      # Should get an error from Bybit
-      assert reason in [
-               {:invalid_request_params, "Not supported symbols"},
-               {:invalid_symbol, "Not supported symbols"},
-               "Not supported symbols"
-             ] or match?({:invalid_request_params, _}, reason)
+      # Now returns raw Bybit error response
+      assert is_map(reason)
+      assert reason["retCode"] != 0
     end
 
     @tag :integration
     test "returns error for invalid category" do
-      assert {:error, _reason} =
+      assert {:error, reason} =
                MarketData.get_tickers(%{
                  category: "invalid_category",
                  symbol: @test_symbol_spot
                })
+
+      # Now returns raw Bybit error response
+      assert is_map(reason)
+      assert reason["retCode"] != 0
     end
 
     @tag :integration
@@ -403,7 +404,10 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
                  # Missing intervalTime
                })
 
-      assert match?({:invalid_request_params, _}, reason)
+      # Now returns raw Bybit error response
+      assert is_map(reason)
+      assert reason["retCode"] == 10_001
+      assert reason["retMsg"] =~ "params error"
     end
   end
 

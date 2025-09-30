@@ -2,8 +2,42 @@ defmodule ZenCex.Adapters.BaseRateLimiter do
   @moduledoc """
   Common rate limiting patterns for all exchange adapters.
 
-  Provides shared rate limiting logic including capacity calculations,
-  threshold monitoring, and emergency operation handling.
+  Provides shared rate limiting logic including:
+  - ETS table setup and management
+  - Capacity calculations and threshold monitoring
+  - Emergency operation handling
+  - Time-based cleanup utilities
+
+  ## ETS Table Management
+
+  All exchange rate limiters should use the provided helpers for consistent
+  ETS table creation and management:
+
+      # In your rate limiter module
+      defp get_or_create_table(api_type) do
+        table_name = build_table_name(__MODULE__, api_type)
+        setup_ets_table(table_name)
+        table_name
+      end
+
+  ## Emergency Operations
+
+  Configure emergency operations that should bypass rate limits:
+
+      use ZenCex.Adapters.BaseRateLimiter,
+        exchange: :binance,
+        emergency_operations: [:cancel_order, :cancel_all_orders],
+        emergency_path_patterns: ["/order", "/allOpenOrders"]
+
+  ## Time-Based Cleanup
+
+  Use the cleanup utilities to remove stale entries from ETS tables:
+
+      # Cleanup entries older than 2 minutes in a minute-based system
+      cleanup_old_minutes(table, current_minute, 2)
+
+      # Cleanup entries older than 24 windows in a 5-second window system
+      cleanup_old_windows(table, key_prefix, current_window, 24)
   """
 
   defmacro __using__(opts) do
@@ -77,6 +111,103 @@ defmodule ZenCex.Adapters.BaseRateLimiter do
       @spec has_regular_capacity?(number(), number()) :: boolean()
       def has_regular_capacity?(current, limit) do
         current < limit * @regular_capacity_ratio
+      end
+
+      @doc """
+      Creates an ETS table with standard options if it doesn't exist.
+
+      Returns the table name. If the table already exists, returns the name unchanged.
+      Uses standard options: `:set`, `:public`, `:named_table`, with `write_concurrency: true`
+      for high-throughput rate limiting.
+      """
+      @spec setup_ets_table(atom()) :: atom()
+      def setup_ets_table(table_name) do
+        case :ets.whereis(table_name) do
+          :undefined ->
+            :ets.new(table_name, [:set, :public, :named_table, write_concurrency: true])
+            table_name
+
+          _tid ->
+            table_name
+        end
+      end
+
+      @doc """
+      Builds a standardized table name from module and api_type.
+
+      ## Examples
+
+          build_table_name(MyExchange.RateLimiter, :spot)
+          # => :"Elixir.MyExchange.RateLimiter.Table.spot"
+      """
+      @spec build_table_name(module(), atom()) :: atom()
+      def build_table_name(module, api_type) do
+        String.to_atom("#{module}.Table.#{api_type}")
+      end
+
+      @doc """
+      Cleans up old minute-based entries from ETS table.
+
+      Used for rate limiters that track per-minute usage. Removes all entries
+      older than the specified age in minutes.
+
+      ## Parameters
+        - `table` - ETS table name
+        - `current_minute` - Current minute timestamp
+        - `max_age_minutes` - Maximum age of entries to keep (default: 2)
+
+      ## Examples
+
+          current_minute = div(System.system_time(:second), 60)
+          cleanup_old_minutes(table, current_minute, 2)
+      """
+      @spec cleanup_old_minutes(atom(), integer(), integer()) :: :ok
+      def cleanup_old_minutes(table, current_minute, max_age_minutes \\ 2) do
+        cutoff_minute = current_minute - max_age_minutes
+
+        # Delete entries older than cutoff
+        :ets.select_delete(table, [
+          {
+            {{:"$1", :"$2"}, :_},
+            [{:<, :"$2", cutoff_minute}],
+            [true]
+          }
+        ])
+
+        :ok
+      end
+
+      @doc """
+      Cleans up old window-based entries from ETS table.
+
+      Used for rate limiters that track per-window usage (e.g., 5-second windows).
+      Removes all entries older than the specified number of windows.
+
+      ## Parameters
+        - `table` - ETS table name
+        - `key_prefix` - Prefix used in keys (e.g., `:bybit`)
+        - `current_window` - Current window number
+        - `max_age_windows` - Maximum number of windows to keep (default: 24)
+
+      ## Examples
+
+          current_window = div(System.system_time(:second), 5)
+          cleanup_old_windows(table, :bybit, current_window, 24)
+      """
+      @spec cleanup_old_windows(atom(), atom(), integer(), integer()) :: :ok
+      def cleanup_old_windows(table, key_prefix, current_window, max_age_windows \\ 24) do
+        cutoff_window = current_window - max_age_windows
+
+        # Delete entries older than cutoff
+        :ets.select_delete(table, [
+          {
+            {{key_prefix, :"$1"}, :_},
+            [{:<, :"$1", cutoff_window}],
+            [true]
+          }
+        ])
+
+        :ok
       end
 
       # Allow adapters to override these if needed
