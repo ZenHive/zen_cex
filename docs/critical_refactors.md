@@ -24,24 +24,37 @@ All other issues (130+ items) are documented in `refactoring_opportunities.md` b
 
 ## 🔥 Critical Issues (Fix Immediately)
 
-### 1. Missing Bybit Configuration [D:2/B:8 → Priority:4.00] 🔥
+### ~~1. Missing Bybit Configuration~~ [REMOVED - Was Not Actually Critical] ❌
 
-**Issue**: Bybit adapter exists and is used in production, but `lib/zen_cex/config.ex` has no configuration for it.
+**LESSON LEARNED**: This was flagged as Priority 4.00 (🔥 Critical) but turned out to be **zero impact**.
 
-**Location**:
-- `lib/zen_cex/config.ex:28` (type spec excludes :bybit)
-- No `testnet?(:bybit)`, `base_url(:bybit)`, or `credentials(:bybit)` functions
-- Bybit must handle its own config elsewhere (duplication)
+**What Happened**:
+1. Analysis found `ZenCex.Config` didn't include `:bybit`
+2. Scored as Benefit 8/10 (high) because "configuration inconsistency"
+3. **But investigation revealed**: `ZenCex.Config` was barely used (only `.iex.exs` and 2 lines in `Strategies`)
+4. **Actual adapters use**: `BaseEndpoints` pattern, not `ZenCex.Config`
 
-**Impact**: Configuration inconsistency, potential runtime errors, unclear credential management
+**Root Cause Analysis**:
+- `ZenCex.Config` was likely created by AI assistant for IEx convenience
+- `Binance.Strategies` saw it and started using it (AI cascade)
+- Module became **AI-generated technical debt** with no real purpose
+- Analysis assumed incomplete module = critical bug (false assumption)
 
-**Suggested Fix**:
-1. Add `:bybit` to `@type exchange`
-2. Implement config functions for Bybit following existing patterns
-3. Document Bybit testnet environment variables
-4. Audit Bybit adapter for duplicate config logic
+**Resolution** (2025-01-30):
+- ✅ Removed `lib/zen_cex/config.ex` entirely
+- ✅ Removed `test/zen_cex/config_test.exs`
+- ✅ Updated `.iex.exs` to use `Endpoints.current_env()` directly
+- ✅ Updated `Binance.Strategies` to use `Endpoints.current_env()` directly
 
-**Effort**: Low (1-2 hours)
+**Why Libraries Should Avoid Centralized Config**:
+1. **Namespace collision** - Multiple apps using the library
+2. **Inflexibility** - Forces Mix config instead of runtime/per-request credentials
+3. **Poor multi-instance support** - Can't handle multiple API keys, testnet + prod simultaneously
+4. **Violates library principles** - Creates hidden global state
+
+**Correct Pattern**: Pass configuration explicitly via function opts, use environment variables as fallback defaults
+
+**Key Takeaway**: Always verify if "inconsistencies" actually cause problems before rating them as critical. Unused infrastructure doesn't deserve high priority.
 
 ---
 

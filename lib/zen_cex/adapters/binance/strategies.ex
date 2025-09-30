@@ -10,6 +10,7 @@ defmodule ZenCex.Adapters.Binance.Strategies do
   """
 
   alias ZenCex.Adapters.Binance.CoinmFutures
+  alias ZenCex.Adapters.Binance.Endpoints
   alias ZenCex.Adapters.Binance.MarketData
   alias ZenCex.Adapters.Binance.PortfolioMargin
   alias ZenCex.Adapters.Binance.Spot
@@ -1200,7 +1201,7 @@ defmodule ZenCex.Adapters.Binance.Strategies do
 
   defp handle_ticker_fetch_error(symbol, reason, fallback_price) do
     Logger.error("Failed to fetch #{symbol} price: #{inspect(reason)}")
-    env = ZenCex.Config.environment(:binance)
+    env = Endpoints.current_env()
 
     if env == :test do
       Logger.warning("Using fallback price for #{symbol} on testnet")
@@ -1220,7 +1221,7 @@ defmodule ZenCex.Adapters.Binance.Strategies do
 
       {:error, reason} ->
         Logger.warning("Failed to fetch price for #{symbol}: #{inspect(reason)}")
-        env = ZenCex.Config.environment(:binance)
+        env = Endpoints.current_env()
 
         if env == :test do
           Logger.warning("Using fallback price for #{symbol} on testnet")

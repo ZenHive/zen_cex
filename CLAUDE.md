@@ -27,6 +27,41 @@ ZenCex - Elixir library for crypto exchange APIs (REST + WebSocket via zen_webso
 - WebSocket for real-time market data via [zen_websocket](https://github.com/ZenHive/zen_websocket)
 **Design**: Req-centric HTTP, ETS state, minimal supervision, Gun-based WebSocket
 
+## Library Design Principles
+
+**CRITICAL: ZenCex is a LIBRARY, not an APPLICATION**
+
+### Configuration Management
+
+**❌ NEVER use centralized Mix config (`Application.get_env(:zen_cex, ...)`):**
+- **Namespace collision**: Multiple apps using zen_cex would conflict
+- **No multi-instance support**: Can't connect to testnet + prod simultaneously
+- **No multi-account support**: Can't use different API keys for different subaccounts
+- **Forces config pattern**: Users may prefer database, vault, or per-request credentials
+- **Hidden global state**: Violates functional programming principles
+- **Testing complexity**: Hard to test with different configs in parallel
+
+**✅ CORRECT patterns (already used by zen_cex):**
+1. **Explicit function opts**: `get_balances(api_key: key, api_secret: secret)`
+2. **Environment variable fallback**: `System.get_env("BINANCE_API_KEY")` as default
+3. **Adapter-specific config**: `BaseEndpoints` for exchange URLs (not global config)
+4. **Runtime values only**: No compile-time Application config dependencies
+
+**Example:**
+```elixir
+# ❌ BAD: Centralized config (creates singleton)
+def get_balances() do
+  api_key = Application.get_env(:zen_cex, :api_key)  # Global state!
+end
+
+# ✅ GOOD: Explicit with fallback
+def get_balances(opts \\ []) do
+  api_key = opts[:api_key] || System.get_env("BINANCE_API_KEY")
+end
+```
+
+**Note**: `.iex.exs` helper functions are fine for developer convenience, but they should NOT create library-level abstractions.
+
 **zen_websocket Access**: The zen_websocket library code is available via symlink at `./zen_websocket/` for reference and understanding of WebSocket implementation details.
 
 **Use Cases**:

@@ -32,7 +32,6 @@ Quick start:
 """
 
 # Core aliases
-alias ZenCex.Config
 alias ZenCex.Core.{HTTP, Registry, Telemetry}
 
 # Binance adapters
@@ -43,7 +42,8 @@ alias ZenCex.Adapters.Binance.{
   RateLimiter,
   Auth,
   Parser,
-  RequestHelper
+  RequestHelper,
+  Endpoints
 }
 
 # Other useful modules
@@ -57,8 +57,8 @@ defmodule IExHelpers do
   @moduledoc false
 
   def env do
-    env = Config.environment(:binance)
-    url = Config.base_url(:binance)
+    env = Endpoints.current_env()
+    url = Endpoints.base_url()
 
     IO.puts """
 
@@ -66,30 +66,53 @@ defmodule IExHelpers do
     --------------------
     Mode:     #{env}
     Base URL: #{url}
-    Testnet:  #{Config.testnet?(:binance)}
     """
 
     env
   end
 
+  defp has_credentials? do
+    env = Endpoints.current_env()
+
+    {api_key, api_secret} = case env do
+      :test ->
+        {System.get_env("BINANCE_TESTNET_API_KEY"), System.get_env("BINANCE_TESTNET_API_SECRET")}
+      :prod ->
+        {System.get_env("BINANCE_API_KEY"), System.get_env("BINANCE_API_SECRET")}
+    end
+
+    not is_nil(api_key) and not is_nil(api_secret)
+  end
+
   def credentials do
-    creds = Config.credentials(:binance)
+    # Check credentials based on current environment
+    env = Endpoints.current_env()
+
+    {api_key, api_secret} = case env do
+      :test ->
+        {System.get_env("BINANCE_TESTNET_API_KEY"), System.get_env("BINANCE_TESTNET_API_SECRET")}
+      :prod ->
+        {System.get_env("BINANCE_API_KEY"), System.get_env("BINANCE_API_SECRET")}
+    end
 
     IO.puts """
 
     API Credentials Status:
     -----------------------
-    API Key:    #{if creds.api_key, do: "✓ Configured (#{String.slice(creds.api_key, 0..7)}...)", else: "✗ Missing"}
-    API Secret: #{if creds.api_secret, do: "✓ Configured", else: "✗ Missing"}
+    API Key:    #{if api_key, do: "✓ Configured (#{String.slice(api_key, 0..7)}...)", else: "✗ Missing"}
+    API Secret: #{if api_secret, do: "✓ Configured", else: "✗ Missing"}
     """
 
-    case Config.validate_credentials(:binance) do
-      :ok ->
+    cond do
+      is_nil(api_key) ->
+        IO.puts "Status:     Missing API key - Only public endpoints available"
+        {:error, :missing_api_key}
+      is_nil(api_secret) ->
+        IO.puts "Status:     Missing API secret - Only public endpoints available"
+        {:error, :missing_api_secret}
+      true ->
         IO.puts "Status:     Ready for authenticated operations ✓"
         :ok
-      {:error, reason} ->
-        IO.puts "Status:     #{reason} - Only public endpoints available"
-        {:error, reason}
     end
   end
 
@@ -111,7 +134,7 @@ defmodule IExHelpers do
 
     # 2. Get open orders (public info not available without ticker)
     IO.puts "\n2. Checking for open orders (requires auth)..."
-    if Config.validate_credentials(:binance) == :ok do
+    if has_credentials?() do
       case Spot.get_openOrders(%{symbol: "BTCUSDT"}) do
         {:ok, orders} ->
           IO.puts "   Open orders: #{length(orders)}"
@@ -123,7 +146,7 @@ defmodule IExHelpers do
     end
 
     # 3. Check if we can do authenticated operations
-    if Config.validate_credentials(:binance) == :ok do
+    if has_credentials?() do
       IO.puts "\n3. Getting account balances (requires auth)..."
       case Spot.get_balances() do
         {:ok, balances} ->
@@ -171,7 +194,7 @@ defmodule IExHelpers do
 
     # 1. Check futures account configuration
     IO.puts "\n1. Getting futures account configuration..."
-    if Config.validate_credentials(:binance) == :ok do
+    if has_credentials?() do
       case UsdmFutures.get_account_config() do
         {:ok, config} ->
           IO.puts "   Position mode: #{config["dualSidePosition"]}"
@@ -183,7 +206,7 @@ defmodule IExHelpers do
     end
 
     # 2. Check if we can do authenticated operations
-    if Config.validate_credentials(:binance) == :ok do
+    if has_credentials?() do
       IO.puts "\n2. Getting futures account info (requires auth)..."
       case UsdmFutures.get_balances() do
         {:ok, balances} ->
@@ -313,9 +336,8 @@ defmodule IExHelpers do
       RateLimiter.reset(:spot)
 
     Configuration:
-      Config.testnet?(:binance)
-      Config.base_url(:binance)
-      Config.credentials(:binance)
+      Endpoints.current_env()
+      Endpoints.base_url()
     """
   end
 end
