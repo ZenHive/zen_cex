@@ -84,7 +84,7 @@ defmodule ZenCex.Adapters.BaseAuth do
       @doc false
       @spec log_credential_status(atom(), String.t(), String.t()) :: :ok
       defp log_credential_status(exchange, api_key, api_secret) do
-        if Application.get_env(:zen_cex, :debug_auth, false) do
+        if System.get_env("ZEN_CEX_DEBUG_AUTH") in ["true", "TRUE", "1"] do
           key_preview = String.slice(api_key, 0..7) <> "..."
           # api_secret is always a binary at this point
           secret_preview = "***"

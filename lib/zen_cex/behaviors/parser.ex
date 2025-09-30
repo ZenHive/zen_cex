@@ -94,16 +94,53 @@ defmodule ZenCex.Behaviors.Parser do
     - response: Raw error response
 
   ## Returns
-    - `{:error, atom()}` - Normalized error atom
-    - `{:error, {atom(), details}}` - Error with details
+  Error return formats vary by exchange to preserve context:
 
-  ## Common Error Atoms
-    - `:unauthorized` - Auth failure (401 status)
-    - `:insufficient_balance` - Not enough funds
-    - `:rate_limited` - Rate limit exceeded
-    - `:invalid_symbol` - Unknown trading pair
-    - `:order_not_found` - Order doesn't exist
-    - `:exchange_error` - Generic exchange error
+  ### Simple Errors (no additional context needed)
+    - `{:error, :rate_limited}` - Rate limit exceeded
+    - `{:error, :unauthorized}` - Auth failure
+    - `{:error, :invalid_format}` - Malformed response
+
+  ### Exchange-Specific Errors (includes error code/message)
+    - **Binance**: `{:error, {:binance_error, code, message}}`
+      - Example: `{:error, {:binance_error, -2010, "Insufficient balance"}}`
+      - Rate limits return simple `:rate_limited` atom
+    - **Bybit**: `{:error, {error_atom, message}}`
+      - Example: `{:error, {:insufficient_balance, "Not enough balance"}}`
+      - Maps Bybit error codes to semantic atoms
+
+  ### Generic Errors (fallback)
+    - `{:error, {:unknown_error, response}}` - Unrecognized format
+    - `{:error, {:http_error, status}}` - HTTP error without body
+
+  ## Pattern Matching Examples
+
+      # Handle any rate limit error
+      case exchange_call() do
+        {:error, :rate_limited} -> handle_rate_limit()
+        {:error, {:rate_limited, retry_after_ms}} -> wait_and_retry(retry_after_ms)
+      end
+
+      # Handle exchange-specific errors
+      case Binance.place_order(params) do
+        {:ok, order} -> {:ok, order}
+        {:error, {:binance_error, -2010, msg}} -> {:error, :insufficient_balance}
+        {:error, {:binance_error, _code, msg}} -> {:error, msg}
+      end
+
+      # Handle semantic errors from Bybit
+      case Bybit.place_order(params) do
+        {:ok, order} -> {:ok, order}
+        {:error, {:insufficient_balance, _msg}} -> {:error, :not_enough_funds}
+        {:error, {_reason, msg}} -> {:error, msg}
+      end
+
+  ## Design Philosophy
+  Error formats match information available rather than forcing rigid standardization:
+  - Preserves exchange error codes for debugging
+  - Allows semantic error matching
+  - Maintains original message context
+  - Each exchange is internally consistent
   """
   @callback parse_error(term()) :: {:error, atom()} | {:error, {atom(), term()}}
 

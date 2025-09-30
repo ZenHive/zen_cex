@@ -433,9 +433,9 @@ defmodule ZenCex.Safety.ClockSync do
   defp get_time_endpoint_url(unknown, _), do: {:error, {:unsupported_exchange, unknown}}
 
   defp get_deribit_base_url do
-    # Check if we should use testnet based on environment config or env variables
+    # Check if we should use testnet based on environment variables
     cond do
-      Application.get_env(:zen_cex, :use_testnet, false) ->
+      System.get_env("DERIBIT_TESTNET") in ["true", "TRUE", "1"] ->
         "https://test.deribit.com"
 
       System.get_env("DERIBIT_TESTNET_API_KEY") != nil ->
@@ -447,7 +447,7 @@ defmodule ZenCex.Safety.ClockSync do
   end
 
   defp get_bybit_time_url do
-    if Application.get_env(:zen_cex, :use_testnet, false) do
+    if System.get_env("BYBIT_TESTNET") in ["true", "TRUE", "1"] do
       {:ok, "https://api-testnet.bybit.com/v5/market/time"}
     else
       {:ok, "https://api.bybit.com/v5/market/time"}
@@ -467,7 +467,7 @@ defmodule ZenCex.Safety.ClockSync do
   end
 
   defp get_futures_time_url(api_prefix) do
-    if Application.get_env(:zen_cex, :use_testnet, false) do
+    if System.get_env("BINANCE_TESTNET") in ["true", "TRUE", "1"] do
       "https://testnet.binancefuture.com/#{api_prefix}/v1/time"
     else
       "https://#{api_prefix}.binance.com/#{api_prefix}/v1/time"
@@ -475,7 +475,7 @@ defmodule ZenCex.Safety.ClockSync do
   end
 
   defp get_portfolio_time_url do
-    if Application.get_env(:zen_cex, :use_testnet, false) do
+    if System.get_env("BINANCE_TESTNET") in ["true", "TRUE", "1"] do
       "https://testnet.binance.vision/papi/v1/time"
     else
       "https://papi.binance.com/papi/v1/time"
