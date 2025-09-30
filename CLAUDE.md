@@ -36,6 +36,52 @@ ZenCex - Elixir library for crypto exchange APIs (REST + WebSocket via zen_webso
 - Subaccount risk isolation
 - Trade execution on signals
 
+## Task Prioritization Framework (Standard for All Task Lists)
+
+When creating any task list or TODO document, always include difficulty and benefit scores:
+
+### Scoring Format
+- **Format**: `[D:X/B:Y → Priority:Z]` where Priority = Benefit/Difficulty
+- **Quick Scale**: Use 1-10 for both Difficulty and Benefit
+- **Priority Interpretation**:
+  - Priority > 2.0: 🎯 Exceptional ROI - do immediately
+  - Priority 1.5-2.0: 🚀 High ROI - do soon
+  - Priority 1.0-1.5: 📋 Good ROI - plan carefully
+  - Priority < 1.0: ⚠️ Poor ROI - reconsider or defer
+
+### Benefit Scoring Guidelines (1-10)
+- **10**: Transforms entire system/workflow
+- **8-9**: Major improvement to core functionality
+- **6-7**: Significant quality of life improvement
+- **4-5**: Moderate improvement, nice to have
+- **2-3**: Minor improvement, cosmetic
+- **1**: Minimal impact
+
+### Difficulty Scoring Guidelines (1-10)
+- **10**: Requires architectural changes, multiple weeks
+- **8-9**: Complex implementation, 1-2 weeks
+- **6-7**: Significant work, 2-5 days
+- **4-5**: Moderate complexity, 1-2 days
+- **2-3**: Simple changes, few hours
+- **1**: Trivial, under 1 hour
+
+### Exclusions (Don't Score These)
+- 🐛 Critical bugs - always highest priority
+- 🔒 Security issues - always highest priority
+- 📝 Documentation of completed work - just do it
+- ✅ Tasks already in progress - finish them first
+
+### Example Task List
+```markdown
+## Development Tasks
+- [ ] Add WebSocket reconnection logic [D:3/B:9 → Priority:3.0] 🎯
+- [ ] Refactor parser modules [D:7/B:7 → Priority:1.0] 📋
+- [ ] Update color scheme [D:2/B:3 → Priority:1.5] 🚀
+- [ ] Rewrite entire auth system [D:9/B:8 → Priority:0.89] ⚠️
+```
+
+This system helps us focus on high-impact, low-effort wins first!
+
 ## Commands
 
 ```bash
