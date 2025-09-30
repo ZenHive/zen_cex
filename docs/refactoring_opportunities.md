@@ -190,25 +190,25 @@ Issues may appear in multiple task sections - this duplication is intentional an
 
 ### Task 2: Rate Limiting Implementations
 
-*To be completed - analyzing all `**/rate_limiter.ex` files and `base_rate_limiter.ex`*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
 ### Task 3: Authentication and Signing Patterns
 
-*To be completed - analyzing all `**/auth.ex`, `**/signer.ex`, `common_signer.ex`, `base_auth.ex`*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
 ### Task 4: Parser Implementations
 
-*To be completed - analyzing all `**/parser.ex` files, `base_parser.ex`, `parser_macros.ex`, `response_parser.ex`*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
 ### Task 5: Parameter Builders
 
-*To be completed - analyzing all `**/parameter_builder.ex` files, `base_parameter_builder.ex`*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
@@ -441,43 +441,417 @@ Issues may appear in multiple task sections - this duplication is intentional an
 
 ### Task 7: Binance Adapter Structure
 
-*To be completed - analyzing `lib/zen_cex/adapters/binance/` (excluding generated files)*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
 ### Task 8: Bybit Adapter Structure
 
-*To be completed - analyzing `lib/zen_cex/adapters/bybit/` (excluding generated files)*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
 ### Task 9: Generated vs Handwritten Code
 
-*To be completed - analyzing all `generated_*.ex` files vs non-generated counterparts*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
 ### Task 10: WebSocket Adapters
 
-*To be completed - analyzing WebSocket adapter implementations and connection management*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
 ### Task 11: Market Data and Caching
 
-*To be completed - analyzing cache usage patterns and ETS table management*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
-### Task 12: Order Safety Components
+### Task 12: Order Safety Components ✅
 
-*To be completed - analyzing all files in `lib/zen_cex/safety/order_safety/`*
+**Scope**: `lib/zen_cex/safety/order_safety/cache.ex`, `lib/zen_cex/safety/order_safety/decimal_utils.ex`, `lib/zen_cex/safety/order_safety/market_data.ex`, `lib/zen_cex/safety/order_safety/validation.ex`, `lib/zen_cex/safety/order_safety/config.ex`
+
+#### 1. Duplicated Asset Extraction Heuristics
+
+**Issue**: Asset extraction logic repeated with inconsistent approaches across modules
+
+**Location**:
+- `lib/zen_cex/safety/order_safety/validation.ex:398-406` (extract_quote_asset_heuristic)
+- `lib/zen_cex/safety/order_safety/validation.ex:408-411` (extract_base_asset - uses heuristic)
+- `lib/zen_cex/safety/order_safety/validation.ex:414-447` (extract_assets_from_symbol_info - exchange-specific)
+- Similar logic likely exists in other modules for parsing symbol pairs
+
+**Impact**: Changes to asset extraction require updates in multiple places, inconsistent behavior across symbol parsing
+
+**Suggested Fix**:
+- Create a dedicated SymbolParser module with canonical implementations
+- Support both heuristic (fallback) and API-based (authoritative) extraction
+- Cache symbol → {base, quote} mappings to avoid repeated parsing
+- Use symbol info from exchange when available, heuristic only as fallback
+- Single source of truth for common quote assets list
+
+**Effort**: Medium
+
+#### 2. Safe ETS Operations Pattern Duplication
+
+**Issue**: Identical safe ETS wrapper pattern repeated across multiple functions
+
+**Location**:
+- `lib/zen_cex/safety/order_safety/cache.ex:272-303` (safe_ets_lookup, safe_ets_insert, safe_ets_delete, safe_ets_select_delete)
+- Each function has same rescue ArgumentError pattern
+- All return safe defaults ([], false, 0) when table doesn't exist
+
+**Impact**: Maintenance burden if error handling changes, code duplication
+
+**Suggested Fix**:
+- Create a SafeETS utility module with generic wrappers
+- Use macros to define safe wrappers with consistent behavior
+- Consider moving to shared ZenCex.Core.ETS module since pattern appears elsewhere
+- Document when to use safe vs unsafe ETS operations
+
+**Effort**: Low
+
+#### 3. Inconsistent Balance Field Access Patterns
+
+**Issue**: Multiple exchange formats handled with cascading pattern matches
+
+**Location**:
+- `lib/zen_cex/safety/order_safety/decimal_utils.ex:89-106` (extract_available_balance with 4 different field names)
+- `lib/zen_cex/safety/order_safety/market_data.ex:646-655` (normalize_spot_balances)
+- `lib/zen_cex/safety/order_safety/market_data.ex:674-684` (normalize_margin_balances)
+- `lib/zen_cex/safety/order_safety/market_data.ex:704-713` (normalize_futures_balances)
+- `lib/zen_cex/safety/order_safety/market_data.ex:783-793` (normalize_bybit_balances)
+
+**Impact**: Adding new exchanges requires updates in multiple places, fragile to API changes
+
+**Suggested Fix**:
+- Create exchange-specific balance normalizer behaviors/protocols
+- Each exchange adapter provides its own balance normalizer implementation
+- DecimalUtils should accept pre-normalized balance format
+- Consolidate normalization logic in adapter modules, not in OrderSafety
+- Define canonical internal balance structure as a struct
+
+**Effort**: Medium
+
+#### 4. Redundant Decimal Parsing Functions
+
+**Issue**: Two nearly identical decimal parsing functions with overlapping responsibility
+
+**Location**:
+- `lib/zen_cex/safety/order_safety/decimal_utils.ex:10-45` (parse_decimal - returns Decimal, falls back to zero)
+- `lib/zen_cex/safety/order_safety/decimal_utils.ex:51-83` (safe_parse_decimal - returns {:ok, Decimal} | {:error, reason})
+- Similar special value handling in both (Infinity, NaN, empty string)
+- Duplicate validation logic for partial parse detection
+
+**Impact**: Duplicate maintenance, confusion about which function to use when
+
+**Suggested Fix**:
+- Keep only safe_parse_decimal/1 as the authoritative implementation
+- Implement parse_decimal/1 as a wrapper: `safe_parse_decimal(val) |> Result.unwrap_or(Decimal.new("0"))`
+- Document clearly: safe_parse for validation, parse for permissive contexts
+- Consider renaming: parse_decimal! (raises) and parse_decimal (returns Decimal)
+
+**Effort**: Low
+
+#### 5. Duplicate Price Fetching Logic
+
+**Issue**: Price fetching with WebSocket fallback pattern duplicated
+
+**Location**:
+- `lib/zen_cex/safety/order_safety/market_data.ex:83-114` (fetch_current_price)
+- `lib/zen_cex/safety/order_safety/market_data.ex:117-145` (fetch_price_from_websocket helper)
+- `lib/zen_cex/safety/order_safety/market_data.ex:148-161` (fetch_and_cache_rest_price helper)
+- Similar pattern for orderbook: lines 220-306
+
+**Impact**: Changes to fallback strategy require updates in multiple places
+
+**Suggested Fix**:
+- Extract fallback pattern to generic function: `with_websocket_fallback(fetch_ws_fn, fetch_rest_fn, cache_key)`
+- Parameterize freshness threshold and cache TTL
+- Reuse pattern for both price and orderbook fetching
+- Consider making this a general DataSource behavior
+
+**Effort**: Medium
+
+#### 6. Exchange-Specific Module Coupling
+
+**Issue**: MarketData module directly depends on all exchange adapter modules
+
+**Location**:
+- `lib/zen_cex/safety/order_safety/market_data.ex:9-16` (imports for Binance adapters)
+- `lib/zen_cex/safety/order_safety/market_data.ex:500-602` (fetch_symbol_info_from_exchange with hardcoded module calls)
+- `lib/zen_cex/safety/order_safety/market_data.ex:554-598` (fetch_price_from_exchange with exchange-specific logic)
+- `lib/zen_cex/safety/order_safety/market_data.ex:604-794` (fetch_balances with account-type switching)
+
+**Impact**: Adding new exchanges requires modifying MarketData module, tight coupling, difficult to test
+
+**Suggested Fix**:
+- Use Core.Registry to look up exchange adapters dynamically
+- Define MarketDataProvider behavior that exchanges implement
+- Remove direct module references, use dynamic module resolution
+- MarketData becomes a coordinator, not implementation
+- Each exchange adapter provides its own MarketDataProvider implementation
+
+**Effort**: High
+
+#### 7. Hardcoded Account Type → API Module Mapping
+
+**Issue**: Binance account type routing uses explicit case statements
+
+**Location**:
+- `lib/zen_cex/safety/order_safety/market_data.ex:604-627` (fetch_binance_balances case statement)
+- Maps :spot → Spot, :margin → Margin, :usdm_futures → UsdmFutures, etc.
+- Similar pattern for determining WebSocket connection type at lines 357-406
+
+**Impact**: Adding new account types requires code changes, not data-driven
+
+**Suggested Fix**:
+- Define account_type → module mapping in Binance adapter configuration
+- Use dynamic module lookup: `account_module = get_account_module(:binance, account_type)`
+- Move account type knowledge to exchange adapter where it belongs
+- MarketData shouldn't need to know Binance's internal account structure
+
+**Effort**: Medium
+
+#### 8. Credential Validation Complexity
+
+**Issue**: Complex credential validation with suspicious pattern detection
+
+**Location**:
+- `lib/zen_cex/safety/order_safety/market_data.ex:447-498` (validate_auth_credentials and helpers)
+- Whitelist approach with allowed_keys check
+- Regex pattern matching for "suspicious" content (password, token, bearer, oauth)
+- Validation duplicated before every balance fetch
+
+**Impact**: Overly defensive validation adds complexity, unclear security benefit, performance overhead
+
+**Suggested Fix**:
+- Move credential validation to Core.Auth module (single responsibility)
+- Validation should happen at credential configuration time, not per-request
+- Question whether suspicious pattern check provides real security value
+- If keeping validation, make it a compile-time check or startup validation
+- Consider removing entirely if Core.Auth already validates credentials
+
+**Effort**: Low
+
+#### 9. Duplicate WebSocket Connection Management
+
+**Issue**: WebSocket connection logic repeated for each exchange
+
+**Location**:
+- `lib/zen_cex/safety/order_safety/market_data.ex:322-352` (ensure_websocket_connection with registry lookup)
+- `lib/zen_cex/safety/order_safety/market_data.ex:356-407` (reconnect helpers per exchange)
+- `lib/zen_cex/safety/order_safety/market_data.ex:369-406` (ensure_binance_connection, ensure_bybit_connection)
+- Nearly identical pattern with different stream format and topics
+
+**Impact**: Adding exchanges requires duplicating connection logic, inconsistent error handling
+
+**Suggested Fix**:
+- Create WebSocketConnectionManager behavior that exchanges implement
+- Move exchange-specific stream formatting to adapter modules
+- MarketData.ensure_websocket_connection/2 should delegate to adapter
+- Consolidate connection registry interaction in one place
+- Define standard connection interface: `Adapter.WebSocket.ensure_connection(symbol)`
+
+**Effort**: Medium
+
+#### 10. Configuration Value Extraction Pattern Duplication
+
+**Issue**: Similar environment variable + application config pattern repeated
+
+**Location**:
+- `lib/zen_cex/safety/order_safety/config.ex:67-79` (max_price_deviation_percent)
+- `lib/zen_cex/safety/order_safety/config.ex:101-120` (max_price_deviation_percent/1)
+- `lib/zen_cex/safety/order_safety/config.ex:133-146` (idempotency_window_ms)
+- `lib/zen_cex/safety/order_safety/config.ex:159-172` (cleanup_interval_ms)
+- `lib/zen_cex/safety/order_safety/config.ex:198-211` (websocket_data_max_age_ms)
+- `lib/zen_cex/safety/order_safety/config.ex:227-245` (default_min_notional)
+
+**Impact**: Every config value requires 10-15 lines of boilerplate, difficult to add new config
+
+**Suggested Fix**:
+- Create a generic get_config/3 helper: `get_config(key, default, opts)`
+- Support both global and exchange-specific lookups in one function
+- Use NimbleOptions or similar for schema-based configuration
+- Example: `get_config(:max_price_deviation, 20, exchange: :binance)`
+- Reduces each config function to 1-2 lines
+
+**Effort**: Low
+
+#### 11. Cache Key Pattern Duplication
+
+**Issue**: Cache key construction `{cache_type, {exchange, symbol}}` repeated
+
+**Location**:
+- `lib/zen_cex/safety/order_safety/cache.ex:30-35` (lookup with cache key construction)
+- `lib/zen_cex/safety/order_safety/cache.ex:73-76` (put with cache key construction)
+- `lib/zen_cex/safety/order_safety/cache.ex:131-155` (invalidate functions with key construction)
+- Pattern repeated 8+ times across the module
+
+**Impact**: Changes to key structure require updates in multiple places
+
+**Suggested Fix**:
+- Create private cache_key/2 and cache_key/3 helper functions
+- All cache operations use helper: `cache_key(:price, exchange, symbol)`
+- Encapsulates key format in one place
+- Makes future key structure changes easier (e.g., adding version)
+
+**Effort**: Low
+
+#### 12. Telemetry Event Emission Pattern Duplication
+
+**Issue**: Similar telemetry emission pattern repeated for cache events
+
+**Location**:
+- `lib/zen_cex/safety/order_safety/cache.ex:39-43` (cache hit event)
+- `lib/zen_cex/safety/order_safety/cache.ex:48-52` (cache expired event)
+- `lib/zen_cex/safety/order_safety/cache.ex:59-63` (cache miss event)
+- `lib/zen_cex/safety/order_safety/validation.ex:151-155` (notional calc failed event)
+- Each has same structure: [:zen_cex, :order_safety, ...], %{count: 1}, metadata
+
+**Impact**: Inconsistent metadata, difficult to update telemetry structure
+
+**Suggested Fix**:
+- Create emit_cache_event/3 helper: `emit_cache_event(event_type, cache_type, key)`
+- Standardize metadata structure in one place
+- Consider using macros for telemetry emission consistency
+- Extract to shared Telemetry.OrderSafety module if pattern grows
+
+**Effort**: Low
+
+#### 13. Inconsistent Error Return Formats
+
+**Issue**: Mix of :ok, {:error, atom}, and {:error, {atom, details}} across validation
+
+**Location**:
+- `lib/zen_cex/safety/order_safety/validation.ex:32-38` (validate_order returns :ok | {:error, term})
+- `lib/zen_cex/safety/order_safety/validation.ex:84-120` (calculate_required_quote_amount returns {:ok, Decimal} | {:error, {:price_required_for_market_order, details}})
+- `lib/zen_cex/safety/order_safety/validation.ex:132-171` (calculate_order_notional returns {:ok, Decimal} | {:error, {:price_unavailable, details}})
+- `lib/zen_cex/safety/order_safety/validation.ex:185` ({:error, {:missing_required_fields, fields}})
+- Some errors are just atoms, others are tuples with maps
+
+**Impact**: Callers must handle multiple error formats, inconsistent error handling patterns
+
+**Suggested Fix**:
+- Standardize on {:error, {error_type, details_map}} for all validation errors
+- Define error types as module constants or a dedicated ErrorTypes module
+- Provide error_message/1 helper to extract human-readable messages
+- Document canonical error format in module docs
+- Consider using error structs for richer error information
+
+**Effort**: Medium
+
+#### 14. Notional Calculation Duplication
+
+**Issue**: Similar notional calculation logic in two places
+
+**Location**:
+- `lib/zen_cex/safety/order_safety/validation.ex:84-120` (calculate_required_quote_amount)
+- `lib/zen_cex/safety/order_safety/validation.ex:132-171` (calculate_order_notional)
+- Both handle market orders by fetching current price
+- Both multiply price * quantity
+- Different error messages but same logic
+
+**Impact**: Changes to calculation logic require dual updates
+
+**Suggested Fix**:
+- Implement calculate_required_quote_amount/1 in terms of calculate_order_notional/1
+- Single implementation of price * quantity logic
+- calculate_required_quote_amount becomes a semantic wrapper
+- Reduces duplication while keeping intent clear
+
+**Effort**: Low
+
+#### 15. Validation Step Composition Pattern
+
+**Issue**: Multiple validation steps chained with `with` could be more declarative
+
+**Location**:
+- `lib/zen_cex/safety/order_safety/validation.ex:32-38` (validate_order with clause)
+- `lib/zen_cex/safety/order_safety/validation.ex:347-364` (validate_buy_balance with clause)
+- Each validation function called explicitly in order
+- Implicit ordering dependency
+
+**Impact**: Difficult to reorder validations, hard to make validation pipeline configurable
+
+**Suggested Fix**:
+- Create a ValidationPipeline abstraction
+- Define validations as a list of {validator_fn, opts} tuples
+- Allow runtime composition of validation steps
+- Make validation ordering explicit and configurable
+- Example: `run_validations(order, [required_fields, symbol_exists, order_size, price_levels])`
+
+**Effort**: Medium
+
+#### 16. Magic Numbers for Cache Statistics
+
+**Issue**: Hardcoded statistical calculations with assumptions
+
+**Location**:
+- `lib/zen_cex/safety/order_safety/cache.ex:256-257` (avg_age calculation assumes length > 0)
+- `lib/zen_cex/safety/order_safety/cache.ex:263` (similar check for oldest_ms)
+- Inline mathematical operations without explanation
+
+**Impact**: Unclear intent, potential for division by zero (prevented by check)
+
+**Suggested Fix**:
+- Extract statistical calculations to helper functions: `calculate_avg_age/1`, `find_oldest/1`
+- Use Enum functions more idiomatically (Enum.sum/1, Enum.max/1 with defaults)
+- Add @doc explaining what statistics are calculated
+- Consider returning nil instead of 0 for empty collections
+
+**Effort**: Low
+
+#### 17. Multiple Responsibilities in MarketData Module
+
+**Issue**: MarketData module handles too many concerns: caching, fetching, WebSocket management, balance normalization
+
+**Location**:
+- Lines 1-830 span symbol info, prices, balances, orderbook, WebSocket connections, credential validation
+- Each concern has 50-200 lines of code
+- Module is 830 lines (exceeds recommended max ~400)
+
+**Impact**: Difficult to understand, test, and maintain. Changes cascade across unrelated functionality
+
+**Suggested Fix**:
+- Split into focused modules:
+  - MarketData.SymbolInfo (symbol info fetching + caching)
+  - MarketData.Pricing (price + orderbook data)
+  - MarketData.Balances (balance fetching + normalization)
+  - MarketData.WebSocket (connection management)
+- Main MarketData module becomes facade/coordinator
+- Each submodule has clear, single responsibility
+- Easier to test and modify in isolation
+
+**Effort**: High
+
+#### 18. Missing Minimum Notional Validation Configuration
+
+**Issue**: Hardcoded minimum notional defaults without clear rationale
+
+**Location**:
+- `lib/zen_cex/safety/order_safety/market_data.ex:28` (@binance_default_min_notional from Config)
+- `lib/zen_cex/safety/order_safety/config.ex:248-252` (fallback values: Binance $10, Bybit $1, Kraken $10)
+- `lib/zen_cex/safety/order_safety/market_data.ex:796-825` (extract_min_notional with hardcoded Bybit value of $1)
+
+**Impact**: Arbitrary defaults may not match current exchange minimums, could cause order rejections
+
+**Suggested Fix**:
+- Document the source of default values (exchange docs as of date)
+- Add TODO comments to check defaults periodically
+- Consider fetching actual minimums from exchange APIs at startup
+- Make defaults configurable per symbol category (spot vs futures)
+- Log warnings when using fallback defaults instead of API values
+
+**Effort**: Low
 
 ---
 
 ### Task 13: Clock Sync and Circuit Breaker
 
-*To be completed - analyzing `safety/clock_sync.ex`, `core/circuit_breaker.ex`*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
@@ -766,55 +1140,55 @@ Issues may appear in multiple task sections - this duplication is intentional an
 
 ### Task 15: Telemetry and Debug Systems
 
-*To be completed - analyzing telemetry and debug infrastructure*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
 ### Task 16: Test Utilities and Helpers
 
-*To be completed - analyzing test helper duplication and fixture patterns*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
 ### Task 17: Integration Test Patterns
 
-*To be completed - analyzing integration test structure across adapters*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
 ### Task 18: Behavior Definitions
 
-*To be completed - analyzing all files in `lib/zen_cex/behaviors/`*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
 ### Task 19: Endpoint Registry Pattern
 
-*To be completed - analyzing endpoint definition and discovery mechanisms*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
 ### Task 20: Analysis Modules
 
-*To be completed - analyzing business logic organization and calculation patterns*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
 ### Task 21: Cross-Module Dependency Analysis
 
-*To be completed - analyzing module dependencies using `mix xref`*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
 ### Task 22: Performance and Complexity Metrics
 
-*To be completed - analyzing complex modules and performance bottlenecks*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
 ### Task 23: Create Refactoring Priority Matrix
 
-*To be completed - final synthesis and prioritization*
+**Status**: Not yet analyzed. See `docs/refactor_specs.md` for task details and priority ranking.
 
 ---
 
