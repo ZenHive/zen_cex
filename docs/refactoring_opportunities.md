@@ -212,9 +212,230 @@ Issues may appear in multiple task sections - this duplication is intentional an
 
 ---
 
-### Task 6: Request Helpers
+### Task 6: Request Helpers ✅
 
-*To be completed - analyzing all `**/request_helper.ex` files, `base_request_helper.ex`*
+**Scope**: `lib/zen_cex/adapters/binance/request_helper.ex`, `lib/zen_cex/adapters/bybit/request_helper.ex`, `lib/zen_cex/adapters/base_request_helper.ex`
+
+#### 1. Inconsistent Base Module Usage Pattern
+
+**Issue**: Bybit uses `use ZenCex.Adapters.BaseRequestHelper` while Binance does not, leading to inconsistent inheritance patterns
+
+**Location**:
+- `lib/zen_cex/adapters/bybit/request_helper.ex:39` (uses BaseRequestHelper)
+- `lib/zen_cex/adapters/binance/request_helper.ex` (no inheritance, standalone implementation)
+- `lib/zen_cex/adapters/base_request_helper.ex:1-180` (shared base implementation)
+
+**Impact**: Code duplication between Binance and BaseRequestHelper, inconsistent maintenance burden, unclear which pattern to follow for new exchanges
+
+**Suggested Fix**:
+- Migrate Binance.RequestHelper to use BaseRequestHelper inheritance
+- Override only exchange-specific logic (e.g., Spot API parameter handling)
+- Document when to use inheritance vs standalone implementation
+
+**Effort**: Medium
+
+#### 2. Duplicate Request Execution Logic
+
+**Issue**: Core request execution pattern duplicated between BaseRequestHelper and Binance.RequestHelper
+
+**Location**:
+- `lib/zen_cex/adapters/base_request_helper.ex:56-105` (execute_request implementation)
+- `lib/zen_cex/adapters/binance/request_helper.ex:128-173` (nearly identical execute_request)
+- Both handle: success status range checking, error logging, response mapping
+
+**Impact**: Changes to request execution must be applied in multiple places, risk of divergence
+
+**Suggested Fix**:
+- Binance should inherit from BaseRequestHelper and only override if truly necessary
+- Extract common patterns (status range checking, error handling) into shared helpers
+- Use overridable callbacks for exchange-specific behavior
+
+**Effort**: Low
+
+#### 3. Duplicated Helper Functions Across Modules
+
+**Issue**: Multiple helper functions repeated across both implementations
+
+**Location**:
+- `lib/zen_cex/adapters/binance/request_helper.ex:224-231` (normalize_to_keyword_list, maybe_add_option)
+- `lib/zen_cex/adapters/base_request_helper.ex:155-169` (maybe_add_option, extract params functions)
+- `lib/zen_cex/adapters/bybit/request_helper.ex` (implicit use via BaseRequestHelper)
+
+**Impact**: Duplicate maintenance, potential for inconsistent behavior
+
+**Suggested Fix**:
+- Keep helper functions ONLY in BaseRequestHelper
+- Remove duplicates from Binance.RequestHelper once it uses inheritance
+- Consider moving to a shared Utils module if used beyond request helpers
+
+**Effort**: Low
+
+#### 4. Inconsistent Parameter Building Approaches
+
+**Issue**: Three different approaches to parameter building across the codebase
+
+**Location**:
+- `lib/zen_cex/adapters/binance/request_helper.ex:82-88` (API-type-specific with case statement)
+- `lib/zen_cex/adapters/binance/request_helper.ex:184-209` (Spot and Margin-specific functions)
+- `lib/zen_cex/adapters/bybit/request_helper.ex:186-202` (method-based with simple logic)
+- `lib/zen_cex/adapters/base_request_helper.ex:133-169` (method-based default implementation)
+
+**Impact**: Difficult to understand which pattern applies when, maintenance complexity for parameter logic changes
+
+**Suggested Fix**:
+- Standardize on method-based approach as the default (GET → params, POST → json)
+- Override with exchange-specific logic ONLY when necessary (e.g., Binance Spot all-in-query-string)
+- Document the parameter building decision tree clearly
+- Consider a ParameterRouter abstraction if complexity grows
+
+**Effort**: Medium
+
+#### 5. Magic Numbers in Retry Configuration
+
+**Issue**: Hardcoded retry constants scattered in Bybit implementation
+
+**Location**:
+- `lib/zen_cex/adapters/bybit/request_helper.ex:46` (@backoff_multiplier_ms 1000)
+- `lib/zen_cex/adapters/bybit/request_helper.ex:118` (max_retries: 3)
+- `lib/zen_cex/adapters/bybit/request_helper.ex:119` (retry_delay calculation with 1000)
+- `lib/zen_cex/adapters/base_request_helper.ex:36` (@default_timeout 30_000)
+
+**Impact**: Cannot tune retry behavior without code changes, magic numbers reduce readability
+
+**Suggested Fix**:
+- Extract retry constants to module attributes with descriptive names
+- Move to configuration module for runtime tuning
+- Create retry profiles (aggressive, standard, conservative) that can be selected
+
+**Effort**: Low
+
+#### 6. Complex Retry Configuration Builder
+
+**Issue**: Retry configuration logic in Bybit is complex with multiple nested conditions
+
+**Location**:
+- `lib/zen_cex/adapters/bybit/request_helper.ex:128-176` (build_retry_config and helper functions)
+
+**Impact**: Difficult to test all retry scenarios, hard to understand retry behavior at a glance
+
+**Suggested Fix**:
+- Extract retry strategies to separate modules/functions with clear names
+- Use pattern matching on structured retry policies instead of nested conds
+- Consider a RetryPolicy behavior that exchanges can implement
+- Document retry behavior clearly in module docs
+
+**Effort**: Medium
+
+#### 7. Inconsistent Error Response Handling
+
+**Issue**: Different error response patterns between implementations
+
+**Location**:
+- `lib/zen_cex/adapters/binance/request_helper.ex:165-172` (returns {:error, %Req.Response{}} or {:error, exception})
+- `lib/zen_cex/adapters/base_request_helper.ex:96-104` (returns {:error, {:http_error, status, body}} or {:error, exception})
+- Different tuple structures for HTTP errors
+
+**Impact**: Calling code must handle different error formats depending on which helper is used
+
+**Suggested Fix**:
+- Standardize on ONE error response format across all request helpers
+- Document the canonical error format in BaseRequestHelper
+- Ensure Binance conforms to the same pattern
+- Consider creating an ErrorResponse struct for consistency
+
+**Effort**: Low
+
+#### 8. Operation Type Determination Duplication
+
+**Issue**: Operation type logic repeated with similar patterns
+
+**Location**:
+- `lib/zen_cex/adapters/binance/request_helper.ex:214-221` (determine_spot_operation_type)
+- `lib/zen_cex/adapters/bybit/request_helper.ex:213-232` (determine_operation_type)
+- Both map operations to :trading, :standard, :market, :health categories
+
+**Impact**: Changes to operation categorization require updates in multiple places
+
+**Suggested Fix**:
+- Define operation type mapping in BaseRequestHelper with sensible defaults
+- Allow exchanges to override with custom mappings via callbacks
+- Use a consistent set of operation type atoms across all exchanges
+- Consider creating an OperationTypeResolver behavior
+
+**Effort**: Medium
+
+#### 9. Inconsistent Function Visibility and Documentation
+
+**Issue**: Some helpers are public when they should be private, inconsistent @doc coverage
+
+**Location**:
+- `lib/zen_cex/adapters/binance/request_helper.ex:214-221` (determine_spot_operation_type is public but internal)
+- `lib/zen_cex/adapters/binance/request_helper.ex:184-209` (build_*_request_params public but internal)
+- `lib/zen_cex/adapters/bybit/request_helper.ex:245-258` (build_url public but seems internal)
+
+**Impact**: Exposes internal implementation details, increases API surface area, harder to refactor
+
+**Suggested Fix**:
+- Make helper functions private unless they're genuinely part of the public API
+- Add @doc false to functions that must be public but are internal
+- Complete @doc coverage for all truly public functions
+- Define clear boundaries between public API and internal helpers
+
+**Effort**: Low
+
+#### 10. Backward Compatibility Delegates in Bybit
+
+**Issue**: Delegation functions for backward compatibility clutter the API
+
+**Location**:
+- `lib/zen_cex/adapters/bybit/request_helper.ex:48-51` (defdelegate current_env, base_url)
+
+**Impact**: Unclear where functionality lives, potential for circular dependencies, API bloat
+
+**Suggested Fix**:
+- Remove delegates if they're not actually used externally
+- If needed, document why they exist with TODO comments for removal
+- Consider deprecating and removing in next major version
+- Direct callers to use Endpoints module instead
+
+**Effort**: Low
+
+#### 11. URL Building Logic Should Be Centralized
+
+**Issue**: URL construction scattered across multiple functions
+
+**Location**:
+- `lib/zen_cex/adapters/bybit/request_helper.ex:245-258` (build_url function)
+- `lib/zen_cex/adapters/binance/request_helper.ex:70-75` (inline base_url construction)
+- Both duplicate environment detection and URL assembly logic
+
+**Impact**: Changes to URL structure require updates in multiple places
+
+**Suggested Fix**:
+- URL construction should live ONLY in Endpoints modules
+- Request helpers should call Endpoints.base_url() without reimplementing logic
+- Remove build_url from Bybit.RequestHelper (use Endpoints directly)
+- BaseRequestHelper should expect base_url as a parameter, not construct it
+
+**Effort**: Low
+
+#### 12. Auth Parameter Extraction Logic
+
+**Issue**: Hardcoded auth parameter list used for splitting params vs body
+
+**Location**:
+- `lib/zen_cex/adapters/binance/request_helper.ex:176` (@auth_params ["timestamp", "recvWindow", "signature"])
+- `lib/zen_cex/adapters/binance/request_helper.ex:205-207` (splitting logic in build_margin_request_params)
+
+**Impact**: Fragile if auth parameters change, knowledge duplication with Auth module
+
+**Suggested Fix**:
+- Define auth parameter list in Auth module (single source of truth)
+- Request helper should query Auth module for parameter names
+- Consider whether this splitting logic belongs in RequestHelper at all
+- Document why Margin API requires this split (preserve knowledge)
+
+**Effort**: Low
 
 ---
 
