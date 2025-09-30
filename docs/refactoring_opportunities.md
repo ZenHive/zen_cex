@@ -481,9 +481,286 @@ Issues may appear in multiple task sections - this duplication is intentional an
 
 ---
 
-### Task 14: Configuration Management
+### Task 14: Configuration Management ✅
 
-*To be completed - analyzing `config.ex`, `config/time_constants.ex`, `application.ex`*
+**Scope**: `lib/zen_cex/config.ex`, `lib/zen_cex/config/time_constants.ex`, `lib/zen_cex/application.ex`
+
+#### 1. Repeated Testnet Detection Pattern
+
+**Issue**: Duplicate testnet detection logic across exchange functions
+
+**Location**:
+- `lib/zen_cex/config.ex:46-56` (testnet?/1 - three nearly identical functions)
+- `lib/zen_cex/config.ex:90-109` (base_url/1 - repeated testnet checks)
+- `lib/zen_cex/config.ex:127-167` (credentials/1 - repeated testnet checks)
+
+**Impact**: Changes to testnet detection logic require updates in multiple places, violates DRY
+
+**Suggested Fix**:
+- Create a generic `get_env_var/2` helper that constructs exchange-specific env var names
+- Single testnet detection pattern: `System.get_env("#{String.upcase(exchange)}_TESTNET") == "true"`
+- Reduce three separate functions to one with pattern matching or use a macro
+- Example: `def testnet?(exchange), do: System.get_env(env_var_name(exchange, "TESTNET")) == "true"`
+
+**Effort**: Low
+
+#### 2. Hardcoded Exchange-Specific Environment Variable Names
+
+**Issue**: Environment variable naming patterns scattered and duplicated
+
+**Location**:
+- `lib/zen_cex/config.ex:130-131` (BINANCE_TESTNET_API_KEY, BINANCE_TESTNET_API_SECRET)
+- `lib/zen_cex/config.ex:135-136` (BINANCE_API_KEY, BINANCE_API_SECRET)
+- `lib/zen_cex/config.ex:143-151` (KRAKEN patterns)
+- `lib/zen_cex/config.ex:158-165` (DERIBIT patterns - different naming: CLIENT_ID/CLIENT_SECRET)
+
+**Impact**: Inconsistent credential naming across exchanges (api_key vs client_id), difficult to add new exchanges
+
+**Suggested Fix**:
+- Create a credential configuration map at module level that defines naming patterns per exchange
+- Example: `@credential_patterns %{binance: {"API_KEY", "API_SECRET"}, deribit: {"CLIENT_ID", "CLIENT_SECRET"}}`
+- Single function to build env var names: `build_env_var_name(exchange, credential_type, testnet?)`
+- Makes adding new exchanges just a matter of adding to the configuration map
+
+**Effort**: Low
+
+#### 3. Duplicated Testnet/Production Branching Logic
+
+**Issue**: Repeated if/else pattern for testnet vs production in every function
+
+**Location**:
+- `lib/zen_cex/config.ex:90-96` (base_url - testnet branch)
+- `lib/zen_cex/config.ex:103-109` (base_url - testnet branch)
+- `lib/zen_cex/config.ex:128-138` (credentials - testnet branch)
+- `lib/zen_cex/config.ex:141-152` (credentials - testnet branch)
+- `lib/zen_cex/config.ex:155-166` (credentials - testnet branch)
+
+**Impact**: Same branching logic repeated 8+ times, makes code verbose and hard to maintain
+
+**Suggested Fix**:
+- Create a higher-order function: `select_by_env(exchange, testnet_value, prod_value)`
+- Or use a generic config lookup: `get_config(exchange, config_type, testnet?)`
+- Centralize the testnet/production selection logic in one place
+- Example: `def credentials(exchange), do: get_config(exchange, :credentials, testnet?(exchange))`
+
+**Effort**: Low
+
+#### 4. Missing Exchange Configuration (Bybit)
+
+**Issue**: Bybit is not included in the configuration module despite being implemented in the codebase
+
+**Location**:
+- `lib/zen_cex/config.ex:28` (type spec only lists :binance, :kraken, :deribit)
+- No base_url/1 clause for :bybit
+- No credentials/1 clause for :bybit
+- Bybit adapter exists at `lib/zen_cex/adapters/bybit/`
+
+**Impact**: Inconsistent configuration coverage, Bybit must handle its own config elsewhere (duplication)
+
+**Suggested Fix**:
+- Add :bybit to @type exchange
+- Implement testnet?(:bybit), base_url(:bybit), credentials(:bybit)
+- Verify Bybit testnet environment variables are documented
+- Check if Bybit currently has duplicate config logic in its adapter
+
+**Effort**: Low
+
+#### 5. Hardcoded URL Strings Without Constants
+
+**Issue**: Base URLs hardcoded as string literals throughout the module
+
+**Location**:
+- `lib/zen_cex/config.ex:92-95` ("https://testnet.binance.vision", "https://api.binance.com")
+- `lib/zen_cex/config.ex:100` ("https://api.kraken.com")
+- `lib/zen_cex/config.ex:105-108` ("https://test.deribit.com", "https://www.deribit.com")
+
+**Impact**: Magic strings reduce readability, no single source of truth for endpoints
+
+**Suggested Fix**:
+- Extract URLs to module attributes at the top of the file
+- Example: `@binance_testnet_url "https://testnet.binance.vision"`
+- Group by exchange for clarity: `@binance_urls %{test: "...", prod: "..."}`
+- Or move to a dedicated ExchangeUrls configuration module if list grows
+
+**Effort**: Low
+
+#### 6. Inconsistent Cache Clearing Implementation
+
+**Issue**: Cache clearing only targets Binance-specific cache, incomplete implementation
+
+**Location**:
+- `lib/zen_cex/config.ex:202-210` (clear_cache/0)
+- Only clears `{ZenCex.Adapters.Binance.Endpoints, :current_env}`
+- No clearing for other exchanges (Kraken, Deribit, Bybit)
+- Comment says "Clear Binance cached environment" but function name suggests global clearing
+
+**Impact**: Misleading function name, incomplete cache management, testing gaps
+
+**Suggested Fix**:
+- Either rename to `clear_binance_cache/0` to match behavior
+- Or implement proper multi-exchange cache clearing: iterate over all known exchanges
+- Document what caches exist and why they need clearing
+- Consider creating a CacheRegistry to track all caches that need clearing
+
+**Effort**: Low
+
+#### 7. Missing Configuration for Application-Level Settings
+
+**Issue**: TimeConstants and Application modules contain config that should be unified
+
+**Location**:
+- `lib/zen_cex/config/time_constants.ex:80-111` (cache TTLs by environment)
+- `lib/zen_cex/config/time_constants.ex:138-149` (rate limit windows)
+- `lib/zen_cex/application.ex:43-46` (enable_debug_table configuration)
+- No centralized place for all application configuration
+
+**Impact**: Configuration scattered across multiple modules, hard to discover all settings
+
+**Suggested Fix**:
+- Create a unified Config.Application module or expand Config module
+- Centralize: cache TTLs, timeouts, rate limit windows, feature flags
+- Support runtime configuration via Application.get_env
+- Document all configuration options in one place (or generate docs from config schema)
+
+**Effort**: Medium
+
+#### 8. Compile-Time Environment Detection in TimeConstants
+
+**Issue**: Cache TTLs locked at compile time based on Mix.env()
+
+**Location**:
+- `lib/zen_cex/config/time_constants.ex:114` (@current_env Mix.env())
+- `lib/zen_cex/config/time_constants.ex:115-120` (@cache_ttls set at compile time)
+
+**Impact**: Cannot change cache TTLs without recompilation, limits runtime flexibility
+
+**Suggested Fix**:
+- Change cache_ttls/0 to runtime lookup: `cache_ttls_by_env()[Mix.env()]`
+- Remove @current_env and @cache_ttls module attributes
+- Make all timeout/TTL configurations runtime-configurable via Application env
+- Provide sensible defaults but allow overrides
+
+**Effort**: Low
+
+#### 9. Magic Numbers Throughout TimeConstants
+
+**Issue**: While TimeConstants addresses some magic numbers, many remain throughout the codebase
+
+**Location**:
+- `lib/zen_cex/config/time_constants.ex:87` (5 seconds for prices - hardcoded)
+- `lib/zen_cex/config/time_constants.ex:89` (10 seconds for balances - hardcoded)
+- `lib/zen_cex/config/time_constants.ex:143` (seconds(5) - duplicates 5 seconds value)
+- Values defined but not consistently used across the codebase
+
+**Impact**: TimeConstants module exists but isn't universally adopted, residual magic numbers remain
+
+**Suggested Fix**:
+- Audit entire codebase for timeout/delay literals
+- Ensure ALL timeout values use TimeConstants functions
+- Add missing constants to TimeConstants for values not yet defined
+- Create a mix task or credo check to catch new magic number introductions
+
+**Effort**: Medium
+
+#### 10. Inconsistent Timeout Groupings
+
+**Issue**: Timeout configurations spread across multiple functions with overlapping purposes
+
+**Location**:
+- `lib/zen_cex/config/time_constants.ex:156-170` (websocket_timeouts)
+- `lib/zen_cex/config/time_constants.ex:196-210` (operation_timeouts)
+- `lib/zen_cex/config/time_constants.ex:217-231` (retry_delays)
+- Some timeouts could belong in multiple categories
+
+**Impact**: Unclear where to find specific timeout values, potential for duplication
+
+**Suggested Fix**:
+- Reorganize timeouts by domain: network, trading, cache, websocket
+- Create a single unified timeout map with nested structure
+- Document the timeout taxonomy clearly
+- Consider returning a single `all_timeouts/0` function with categorized map
+
+**Effort**: Low
+
+#### 11. No Validation of Configuration Values
+
+**Issue**: Configuration values are returned as-is without validation
+
+**Location**:
+- `lib/zen_cex/config.ex:185-194` (validate_credentials only checks presence, not format)
+- `lib/zen_cex/config/time_constants.ex` (no validation that values are positive integers)
+- No validation that URLs are well-formed
+- No validation that exchange atom is supported
+
+**Impact**: Invalid configuration silently accepted, errors surface later during runtime
+
+**Suggested Fix**:
+- Add validate_base_url/1 to check URL format
+- Add validate_exchange/1 to check supported exchanges
+- Add validate_timeout/1 to ensure positive integers
+- Create a Config.Validator module for comprehensive validation
+- Validate configuration at application startup
+
+**Effort**: Medium
+
+#### 12. Application Supervision Strategy Could Be Clearer
+
+**Issue**: Children list construction is imperative with conditional logic
+
+**Location**:
+- `lib/zen_cex/application.ex:13-47` (children list with conditional append)
+- Comment about "Req-centric architecture" mixed with child list definition
+
+**Impact**: Supervision tree structure not immediately obvious, architectural notes buried in code
+
+**Suggested Fix**:
+- Extract child spec building to separate functions: `base_children/0`, `optional_children/0`
+- Create `build_supervision_tree/1` that composes children based on config
+- Move architectural notes to module @moduledoc
+- Consider using a more declarative supervision spec format
+
+**Effort**: Low
+
+#### 13. No Configuration Schema or Type Specs for Config Values
+
+**Issue**: Configuration structure is implicit, no schema defines valid configurations
+
+**Location**:
+- All configuration modules lack formal schema definitions
+- Return types are basic (String.t(), pos_integer()) without semantic meaning
+- No way to validate entire configuration structure
+
+**Impact**: Difficult to validate configuration is complete and correct, no auto-generated docs
+
+**Suggested Fix**:
+- Define configuration schema using typed structs or NimbleOptions
+- Create Config.Schema module with all configuration definitions
+- Add validate_config!/0 function that checks entire configuration
+- Generate configuration documentation from schema
+- Support config file loading (e.g., config.exs, runtime.exs integration)
+
+**Effort**: High
+
+#### 14. Missing Environment Variable Documentation
+
+**Issue**: No centralized list of all required/optional environment variables
+
+**Location**:
+- Environment variables mentioned in @moduledoc but scattered
+- `lib/zen_cex/config.ex:8-13` (only lists testnet flags)
+- Credential variables not documented in Config module
+- No documentation of BYBIT environment variables
+
+**Impact**: Developers must read code to discover required configuration, poor DX
+
+**Suggested Fix**:
+- Create comprehensive environment variable documentation in Config @moduledoc
+- List all variables with: name, purpose, required/optional, example value
+- Generate this documentation from code if possible
+- Add a `list_required_env_vars/1` function for runtime checking
+- Consider creating a .env.example file for the project
+
+**Effort**: Low
 
 ---
 
