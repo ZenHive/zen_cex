@@ -167,7 +167,11 @@ defmodule Mix.Tasks.ZenCex.GenerateEndpoints do
             if String.contains?(path, "order"), do: "cancel", else: "delete"
         end
 
-      String.to_atom("#{method_prefix}_#{path_part}")
+      # Convert camelCase API paths to snake_case Elixir function names
+      # Example: "openOrders" → "get_open_orders"
+      "#{method_prefix}_#{path_part}"
+      |> Macro.underscore()
+      |> String.to_atom()
     end
   end
 

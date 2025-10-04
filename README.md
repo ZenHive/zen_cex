@@ -1,13 +1,15 @@
 # ZenCex
 
-A comprehensive Elixir library for centralized cryptocurrency exchange (CEX) REST API integrations, providing unified access to multiple exchanges with built-in safety features and optimized performance.
+A comprehensive Elixir library for centralized cryptocurrency exchange (CEX) integrations, providing unified REST and WebSocket access with built-in safety features and optimized performance.
 
 ## Features
 
 - **Multi-Exchange Support**: Binance (fully implemented), Bybit (trading complete)
+- **REST + WebSocket**: Full support for both HTTP APIs and real-time WebSocket streams
 - **Unified API Interface**: Consistent function naming across exchanges
 - **Built-in Safety Features**: Rate limiting, clock synchronization, order safety checks
 - **Req-Centric Architecture**: Leverages Req's powerful HTTP client capabilities
+- **zen_websocket Integration**: Battle-tested WebSocket client with automatic reconnection
 - **Comprehensive Market Coverage**: Spot, margin, futures (USD-M & COIN-M), portfolio margin
 - **Real Testnet Testing**: All integration tests run against real exchange testnets
 - **High-Level Strategies**: Pre-built trading strategies for hedging and rebalancing
@@ -56,6 +58,8 @@ The library starts automatically with your application. Key components include:
 - **Finch**: HTTP connection pooling (via Req)
 - **OrderSafety**: Idempotency checks for safe order placement
 - **ClockSync**: Synchronizes time with exchange servers
+- **WebSocket Supervisor**: Manages WebSocket connections with automatic restart
+- **ConnectionRegistry**: Tracks active WebSocket connections
 
 Optional features can be configured in your `config.exs`:
 
@@ -321,6 +325,40 @@ alias ZenCex.Adapters.Bybit.Common
 })
 ```
 
+### WebSocket Streams
+
+```elixir
+alias ZenCex.Adapters.Binance.WebSocket
+alias ZenCex.Adapters.Bybit.WebSocket, as: BybitWS
+
+# Binance - Subscribe to order book updates
+{:ok, client} = WebSocket.connect(["btcusdt@depth20"])
+
+# Binance - Subscribe to multiple streams
+{:ok, client} = WebSocket.connect([
+  "btcusdt@depth20",
+  "ethusdt@trade",
+  "bnbusdt@ticker"
+])
+
+# Bybit - Subscribe to order book
+{:ok, client} = BybitWS.connect([
+  "orderbook.50.BTCUSDT"
+])
+
+# Subscribe to additional streams on existing connection
+{:ok, _} = WebSocket.subscribe(client, ["adausdt@ticker"])
+
+# Data is automatically cached in ETS - access via Cache.Market
+alias ZenCex.Cache.Market
+{:ok, ticker} = Market.get_ticker(:binance, "BTCUSDT")
+{:ok, orderbook} = Market.get_orderbook(:binance, "BTCUSDT")
+{:ok, trade} = Market.get_last_trade(:binance, "BTCUSDT")
+
+# Close connection when done
+:ok = WebSocket.close(client)
+```
+
 ## Advanced Features
 
 ### High-Level Trading Strategies
@@ -550,4 +588,4 @@ Licensed under the MIT License. See LICENSE file for details.
 ## Support
 
 For issues, questions, or contributions, please visit:
-https://github.com/yourusername/zen_cex
+https://github.com/ZenHive/zen_cex

@@ -1,15 +1,22 @@
 defmodule ZenCex.MixProject do
   use Mix.Project
 
+  @version "0.1.0"
+
   def project do
     [
       app: :zen_cex,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
+      description: description(),
+      package: package(),
+      source_url: "https://github.com/ZenHive/zen_cex",
+      homepage_url: "https://github.com/ZenHive/zen_cex",
+      docs: docs(),
       test_coverage: [tool: ExCoveralls],
       preferred_cli_env: [
         coveralls: :test,
@@ -25,6 +32,34 @@ defmodule ZenCex.MixProject do
         plt_local_path: "priv/plts/project.plt",
         plt_core_path: "priv/plts/core.plt"
       ]
+    ]
+  end
+
+  defp description do
+    """
+    A comprehensive Elixir library for cryptocurrency exchange integrations with REST and WebSocket support.
+    Provides unified API access to Binance and Bybit exchanges with built-in rate limiting, clock sync, and safety features.
+    """
+  end
+
+  defp package do
+    [
+      name: "zen_cex",
+      licenses: ["MIT"],
+      links: %{
+        "GitHub" => "https://github.com/ZenHive/zen_cex",
+        "Changelog" => "https://github.com/ZenHive/zen_cex/blob/main/CHANGELOG.md"
+      },
+      files: ~w(lib .formatter.exs mix.exs README.md LICENSE CHANGELOG.md)
+    ]
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      extras: ["README.md", "CHANGELOG.md", "docs/TELEMETRY.md"],
+      source_ref: "v#{@version}",
+      formatters: ["html"]
     ]
   end
 

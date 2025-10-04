@@ -3,14 +3,14 @@ defmodule ZenCex.Adapters.Binance.SpotCancelAllTest do
 
   alias ZenCex.Adapters.Binance.Spot
 
-  describe "cancel_all_orders/1 (auto-generated from :delete_openOrders)" do
+  describe "delete_open_orders/1 (auto-generated from :delete_openOrders)" do
     @tag :integration
     test "cancels all open orders for a symbol (testnet)", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
       opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
 
       # Note: This test expects no open orders on testnet for BTCUSDT
       # In a real test scenario, you would first place orders, then cancel them
-      result = Spot.cancel_all_orders(%{symbol: "BTCUSDT"}, opts)
+      result = Spot.delete_open_orders(%{symbol: "BTCUSDT"}, opts)
 
       case result do
         {:ok, canceled_orders} ->
@@ -47,7 +47,7 @@ defmodule ZenCex.Adapters.Binance.SpotCancelAllTest do
           :ok
 
         {:error, reason} ->
-          flunk("Unexpected error in cancel_all_orders test: #{inspect(reason)}")
+          flunk("Unexpected error in delete_open_orders test: #{inspect(reason)}")
       end
     end
   end

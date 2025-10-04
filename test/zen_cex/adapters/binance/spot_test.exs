@@ -103,9 +103,9 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
       # New generated endpoints
       assert :get_time in operations
       assert :get_ping in operations
-      assert :get_trade_history in operations
-      assert :get_order_history in operations
-      assert :cancel_all_orders in operations
+      assert :get_my_trades in operations
+      assert :get_all_orders in operations
+      assert :delete_open_orders in operations
     end
   end
 
@@ -131,7 +131,7 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
     test "exports complex operation functions" do
       assert function_exported?(Spot, :place_oco_order, 1)
       assert function_exported?(Spot, :cancel_oco_order, 1)
-      assert function_exported?(Spot, :cancel_all_orders, 1)
+      assert function_exported?(Spot, :delete_open_orders, 1)
     end
   end
 

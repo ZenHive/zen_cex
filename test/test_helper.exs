@@ -2,7 +2,7 @@ require Logger
 # Start the application for tests
 Application.ensure_all_started(:zen_cex)
 
-Logger.configure(level: :warning)
+# Logger.configure(level: :warning)
 
 # Exclude WebSocket tests by default (they're slow and require network)
 exclude_tags = [:websocket, :ws_slow]

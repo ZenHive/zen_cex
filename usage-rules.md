@@ -7,17 +7,18 @@
 export BINANCE_API_KEY="your_key"
 export BINANCE_API_SECRET="your_secret"
 
-# 2. Use the library
-alias ZenCex.Adapters.Binance.Endpoints, as: Binance
+# 2. Use the library - import API modules directly
+alias ZenCex.Adapters.Binance.Spot
+alias ZenCex.Adapters.Binance.Common
 
-# Get current BTC price
-{:ok, price} = Binance.get_ticker_price(%{symbol: "BTCUSDT"})
+# Get current BTC price (no auth required)
+{:ok, price} = Common.get_ticker_price(%{symbol: "BTCUSDT"})
 
 # Get your balances
-{:ok, balances} = Binance.spot_get_balances()
+{:ok, balances} = Spot.get_balances()
 
 # Place a market buy order
-{:ok, order} = Binance.spot_place_order(%{
+{:ok, order} = Spot.place_order(%{
   symbol: "BTCUSDT",
   side: "BUY",
   type: "MARKET",
@@ -29,26 +30,34 @@ alias ZenCex.Adapters.Binance.Endpoints, as: Binance
 
 ### Primary Modules to Use
 ```elixir
-# Binance - Full trading support
-alias ZenCex.Adapters.Binance.Endpoints, as: Binance
+# Binance - Use product-specific modules
+alias ZenCex.Adapters.Binance.Spot
+alias ZenCex.Adapters.Binance.Margin
+alias ZenCex.Adapters.Binance.UsdmFutures
+alias ZenCex.Adapters.Binance.CoinmFutures
+alias ZenCex.Adapters.Binance.PortfolioMargin
+alias ZenCex.Adapters.Binance.MarketData  # Market data endpoints
+alias ZenCex.Adapters.Binance.Common      # Utility endpoints (server time)
 
-# Bybit - Trading operations
-alias ZenCex.Adapters.Bybit.Endpoints, as: Bybit
+# Bybit - Use Unified API or Common
+alias ZenCex.Adapters.Bybit.Unified
+alias ZenCex.Adapters.Bybit.Common
 ```
 
-### Function Naming Convention
+### Module Organization
 ```elixir
-# Binance functions are prefixed by product type
-Binance.spot_*         # Spot trading
-Binance.usdm_*         # USD-M futures
-Binance.coinm_*        # COIN-M futures  
-Binance.margin_*       # Margin trading
-Binance.portfolio_*    # Portfolio margin
+# Binance - Product-specific modules
+Spot.*                # Spot trading operations
+Margin.*              # Margin trading
+UsdmFutures.*         # USD-M futures
+CoinmFutures.*        # COIN-M futures
+PortfolioMargin.*     # Portfolio margin
+MarketData.*          # Market data (tickers, order books, klines)
+Common.*              # Utility endpoints (server time)
 
-# Bybit uses category prefixes
-Bybit.spot_*           # Spot trading
-Bybit.linear_*         # Linear futures
-Bybit.inverse_*        # Inverse futures
+# Bybit - Unified API with category parameter
+Unified.*             # All trading via category parameter
+Common.*              # Market data
 ```
 
 ## Common Operations
@@ -56,42 +65,50 @@ Bybit.inverse_*        # Inverse futures
 ### 1. Check Connection
 ```elixir
 # Always verify connection first
-{:ok, server_time} = Binance.get_server_time()
+alias ZenCex.Adapters.Binance.Common
+{:ok, server_time} = Common.get_server_time()
 ```
 
 ### 2. Get Market Prices (No Auth Required)
 ```elixir
+alias ZenCex.Adapters.Binance.MarketData
+
 # Current price
-{:ok, ticker} = Binance.get_ticker_price(%{symbol: "BTCUSDT"})
+{:ok, ticker} = MarketData.get_ticker_price(%{symbol: "BTCUSDT"})
 price = ticker["price"]
 
 # 24hr stats
-{:ok, stats} = Binance.get_ticker_24hr(%{symbol: "BTCUSDT"})
+{:ok, stats} = MarketData.get_ticker_24hr(%{symbol: "BTCUSDT"})
 volume = stats["volume"]
 
 # Order book
-{:ok, book} = Binance.get_order_book(%{symbol: "BTCUSDT", limit: 10})
+{:ok, book} = MarketData.get_order_book(%{symbol: "BTCUSDT", limit: 10})
 best_bid = hd(book["bids"])
 best_ask = hd(book["asks"])
 ```
 
 ### 3. Account Operations (Auth Required)
 ```elixir
+alias ZenCex.Adapters.Binance.Spot
+alias ZenCex.Adapters.Binance.UsdmFutures
+
 # Get balances
-{:ok, balances} = Binance.spot_get_balances()
+{:ok, balances} = Spot.get_balances()
 btc_balance = Enum.find(balances, &(&1["asset"] == "BTC"))
 
 # Get open orders
-{:ok, orders} = Binance.spot_get_open_orders()
+{:ok, orders} = Spot.get_open_orders()
 
 # Get positions (futures)
-{:ok, positions} = Binance.usdm_get_positions()
+{:ok, positions} = UsdmFutures.get_positions()
 ```
 
 ### 4. Trading
 ```elixir
+alias ZenCex.Adapters.Binance.Spot
+
 # Market order
-{:ok, order} = Binance.spot_place_order(%{
+{:ok, order} = Spot.place_order(%{
   symbol: "BTCUSDT",
   side: "BUY",    # or "SELL"
   type: "MARKET",
@@ -99,7 +116,7 @@ btc_balance = Enum.find(balances, &(&1["asset"] == "BTC"))
 })
 
 # Limit order
-{:ok, order} = Binance.spot_place_order(%{
+{:ok, order} = Spot.place_order(%{
   symbol: "BTCUSDT",
   side: "SELL",
   type: "LIMIT",
@@ -109,7 +126,7 @@ btc_balance = Enum.find(balances, &(&1["asset"] == "BTC"))
 })
 
 # Cancel order
-{:ok, _} = Binance.spot_cancel_order(%{
+{:ok, _} = Spot.cancel_order(%{
   symbol: "BTCUSDT",
   orderId: order["orderId"]
 })
@@ -119,8 +136,10 @@ btc_balance = Enum.find(balances, &(&1["asset"] == "BTC"))
 
 ### Method 1: Direct Credentials (Multi-Account/Dynamic)
 ```elixir
+alias ZenCex.Adapters.Binance.Spot
+
 # Pass credentials directly in options
-{:ok, balances} = Binance.spot_get_balances(%{}, [
+{:ok, balances} = Spot.get_balances(%{}, [
   auth_credentials: %{
     api_key: "your_api_key",
     api_secret: "your_api_secret"
@@ -128,7 +147,7 @@ btc_balance = Enum.find(balances, &(&1["asset"] == "BTC"))
 ])
 
 # Works with any authenticated endpoint
-{:ok, order} = Binance.spot_place_order(%{
+{:ok, order} = Spot.place_order(%{
   symbol: "BTCUSDT",
   side: "BUY",
   type: "MARKET",
@@ -147,7 +166,7 @@ accounts = [
 ]
 
 Enum.each(accounts, fn creds ->
-  {:ok, balances} = Binance.spot_get_balances(%{}, [auth_credentials: creds])
+  {:ok, balances} = Spot.get_balances(%{}, [auth_credentials: creds])
   IO.inspect(balances)
 end)
 ```
@@ -170,14 +189,16 @@ When no credentials are passed, the library automatically uses environment varia
 
 ### Standard Function Signatures
 ```elixir
+alias ZenCex.Adapters.Binance.Spot
+
 # No parameters (uses defaults)
-{:ok, result} = Binance.spot_get_balances()
+{:ok, result} = Spot.get_balances()
 
 # With parameters
-{:ok, result} = Binance.spot_place_order(%{symbol: "BTCUSDT", ...})
+{:ok, result} = Spot.place_order(%{symbol: "BTCUSDT", ...})
 
 # With options
-{:ok, result} = Binance.spot_get_balances(%{}, [timeout: 10_000])
+{:ok, result} = Spot.get_balances(%{}, [timeout: 10_000])
 ```
 
 ### Common Options
@@ -192,16 +213,18 @@ When no credentials are passed, the library automatically uses environment varia
 ## Error Handling
 
 ```elixir
-case Binance.spot_place_order(params) do
+alias ZenCex.Adapters.Binance.Spot
+
+case Spot.place_order(params) do
   {:ok, order} ->
     IO.puts("Order ID: #{order["orderId"]}")
-    
+
   {:error, %{"code" => -2010}} ->
     IO.puts("Insufficient balance")
-    
+
   {:error, %{"code" => -1121}} ->
     IO.puts("Invalid symbol")
-    
+
   {:error, reason} ->
     IO.puts("Error: #{inspect(reason)}")
 end
@@ -210,15 +233,17 @@ end
 ## Discovering Available Functions
 
 ```elixir
+alias ZenCex.Adapters.Binance.Endpoints
+
 # List all endpoints
-Binance.list_available_endpoints()
+Endpoints.list_available_endpoints()
 
 # List by type
-Binance.list_available_endpoints(:spot)
-Binance.list_available_endpoints(:usdm_futures)
+Endpoints.list_available_endpoints(:spot)
+Endpoints.list_available_endpoints(:usdm_futures)
 
 # Get function details
-Binance.get_endpoint_info(:spot_place_order)
+Endpoints.get_endpoint_info(:place_order, :spot)
 # => %{
 #   method: :post,
 #   path: "/api/v3/order",
@@ -537,21 +562,22 @@ mcp__tidewave__project_eval(code: """
 
 ## Key Rules for AI Agents
 
-1. **Always use the Endpoints module** - Don't try to call internal modules directly
+1. **Use product-specific modules** - Import `Spot`, `UsdmFutures`, etc. directly
 2. **Check server time first** - Ensures connection and time sync
-3. **Use testnet for testing** - Set BINANCE_TESTNET=true
+3. **Use testnet for testing** - Set environment variables with `_TESTNET_` in name
 4. **Handle errors properly** - All functions return {:ok, result} or {:error, reason}
 5. **Respect rate limits** - Library handles this automatically
-6. **Use prefixed functions** - spot_*, usdm_*, etc. for clarity
-7. **Never mock APIs** - Test against real testnets only
+6. **Never mock APIs** - Test against real testnets only
+7. **Endpoints module is for discovery** - Not for direct API calls
 
 ## Quick Reference
 
-| Task | Function | Parameters |
-|------|----------|------------|
-| Get price | `get_ticker_price/1` | `%{symbol: "BTCUSDT"}` |
-| Get balances | `spot_get_balances/0` | None |
-| Place order | `spot_place_order/1` | `%{symbol, side, type, quantity}` |
-| Cancel order | `spot_cancel_order/1` | `%{symbol, orderId}` |
-| Get positions | `usdm_get_positions/0` | None |
-| Server time | `get_server_time/0` | None |
+| Task | Module | Function | Parameters |
+|------|--------|----------|------------|
+| Get price | `MarketData` | `get_ticker_price/1` | `%{symbol: "BTCUSDT"}` |
+| Get balances | `Spot` | `get_balances/0` | None |
+| Place order | `Spot` | `place_order/1` | `%{symbol, side, type, quantity}` |
+| Cancel order | `Spot` | `cancel_order/1` | `%{symbol, orderId}` |
+| Get positions | `UsdmFutures` | `get_positions/0` | None |
+| Server time | `Common` | `get_server_time/0` | None |
+| WebSocket | `WebSocket` | `connect/1` | `["btcusdt@depth20"]` |

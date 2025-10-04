@@ -20,7 +20,7 @@
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/algo/spot/historicalOrders",
+    operation: :"get_/sapi/v1/algo/spot/historical_orders",
     method: :get,
     path: "/sapi/v1/algo/spot/historicalOrders",
     requires_auth: true,
@@ -54,7 +54,7 @@ VIP loan is available for VIP users only.
 Weight(UID): 6000"
   },
   %{
-    operation: :"create_/sapi/v1/simple-earn/locked/setAutoSubscribe",
+    operation: :"create_/sapi/v1/simple-earn/locked/set_auto_subscribe",
     method: :post,
     path: "/sapi/v1/simple-earn/locked/setAutoSubscribe",
     requires_auth: true,
@@ -69,7 +69,7 @@ Weight(UID): 6000"
 Weight(IP): 150"
   },
   %{
-    operation: :"get_/sapi/v1/c2c/orderMatch/listUserOrderHistory",
+    operation: :"get_/sapi/v1/c2c/order_match/list_user_order_history",
     method: :get,
     path: "/sapi/v1/c2c/orderMatch/listUserOrderHistory",
     requires_auth: true,
@@ -102,7 +102,7 @@ Weight(IP): 1"
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/margin/tradeCoeff",
+    operation: :"get_/sapi/v1/margin/trade_coeff",
     method: :get,
     path: "/sapi/v1/margin/tradeCoeff",
     requires_auth: true,
@@ -168,7 +168,7 @@ Get recent trades.
 Weight(IP): 10"
   },
   %{
-    operation: :"get_/sapi/v1/asset/assetDividend",
+    operation: :"get_/sapi/v1/asset/asset_dividend",
     method: :get,
     path: "/sapi/v1/asset/assetDividend",
     requires_auth: true,
@@ -240,7 +240,7 @@ Query Source Asset to be used for investment
 Weight(IP): 1"
   },
   %{
-    operation: :"cancel_/sapi/v1/margin/orderList",
+    operation: :"cancel_/sapi/v1/margin/order_list",
     method: :delete,
     path: "/sapi/v1/margin/orderList",
     requires_auth: true,
@@ -260,7 +260,7 @@ Cancel an entire Order List for a margin account
 Weight(UID): 1"
   },
   %{
-    operation: :"get_/sapi/v1/margin/orderList",
+    operation: :"get_/sapi/v1/margin/order_list",
     method: :get,
     path: "/sapi/v1/margin/orderList",
     requires_auth: true,
@@ -314,7 +314,7 @@ Weight(IP): 400"
 Weight(IP): 400"
   },
   %{
-    operation: :"get_/sapi/v1/simple-earn/flexible/personalLeftQuota",
+    operation: :"get_/sapi/v1/simple-earn/flexible/personal_left_quota",
     method: :get,
     path: "/sapi/v1/simple-earn/flexible/personalLeftQuota",
     requires_auth: true,
@@ -329,7 +329,7 @@ Weight(IP): 400"
 Weight(IP): 150"
   },
   %{
-    operation: :"get_/sapi/v2/sub-account/futures/accountSummary",
+    operation: :"get_/sapi/v2/sub-account/futures/account_summary",
     method: :get,
     path: "/sapi/v2/sub-account/futures/accountSummary",
     requires_auth: true,
@@ -344,7 +344,7 @@ Weight(IP): 150"
 Weight(IP): 10"
   },
   %{
-    operation: :"get_/sapi/v1/accountSnapshot",
+    operation: :"get_/sapi/v1/account_snapshot",
     method: :get,
     path: "/sapi/v1/accountSnapshot",
     requires_auth: true,
@@ -363,7 +363,7 @@ Weight(IP): 10"
 Weight(IP): 2400"
   },
   %{
-    operation: :"get_/sapi/v1/managed-subaccount/marginAsset",
+    operation: :"get_/sapi/v1/managed-subaccount/margin_asset",
     method: :get,
     path: "/sapi/v1/managed-subaccount/marginAsset",
     requires_auth: true,
@@ -378,7 +378,7 @@ Weight(IP): 2400"
 Investor can use this api to query managed sub account margin asset details"
   },
   %{
-    operation: :"get_/sapi/v1/algo/spot/subOrders",
+    operation: :"get_/sapi/v1/algo/spot/sub_orders",
     method: :get,
     path: "/sapi/v1/algo/spot/subOrders",
     requires_auth: true,
@@ -395,7 +395,7 @@ Get respective sub orders for a specified algoId
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/eth-staking/eth/history/redemptionHistory",
+    operation: :"get_/sapi/v1/eth-staking/eth/history/redemption_history",
     method: :get,
     path: "/sapi/v1/eth-staking/eth/history/redemptionHistory",
     requires_auth: true,
@@ -415,7 +415,7 @@ Weight(IP): 1"
 Weight(IP): 150"
   },
   %{
-    operation: :"get_/sapi/v1/simple-earn/flexible/history/rateHistory",
+    operation: :"get_/sapi/v1/simple-earn/flexible/history/rate_history",
     method: :get,
     path: "/sapi/v1/simple-earn/flexible/history/rateHistory",
     requires_auth: true,
@@ -535,7 +535,7 @@ VIP loan is available for VIP users only.
 Weight(IP): 6000"
   },
   %{
-    operation: :get_openOrderList,
+    operation: :get_open_order_list,
     method: :get,
     path: "/api/v3/openOrderList",
     requires_auth: true,
@@ -550,7 +550,7 @@ Weight(IP): 6000"
 Weight(IP): 6"
   },
   %{
-    operation: :"get_/sapi/v1/margin/allOrderList",
+    operation: :"get_/sapi/v1/margin/all_order_list",
     method: :get,
     path: "/sapi/v1/margin/allOrderList",
     requires_auth: true,
@@ -567,7 +567,7 @@ Retrieves all OCO for a specific margin account based on provided optional param
 Weight(IP): 200"
   },
   %{
-    operation: :"get_/sapi/v1/giftcard/buyCode/token-limit",
+    operation: :"get_/sapi/v1/giftcard/buy_code/token-limit",
     method: :get,
     path: "/sapi/v1/giftcard/buyCode/token-limit",
     requires_auth: true,
@@ -584,7 +584,7 @@ This API is to help you verify which tokens are available for you to purchase fi
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/algo/spot/openOrders",
+    operation: :"get_/sapi/v1/algo/spot/open_orders",
     method: :get,
     path: "/sapi/v1/algo/spot/openOrders",
     requires_auth: true,
@@ -601,7 +601,7 @@ Get all open SPOT TWAP orders
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/sub-account/transfer/subUserHistory",
+    operation: :"get_/sapi/v1/sub-account/transfer/sub_user_history",
     method: :get,
     path: "/sapi/v1/sub-account/transfer/subUserHistory",
     requires_auth: true,
@@ -651,7 +651,7 @@ Fetch sub-account assets
 Weight(UID): 60"
   },
   %{
-    operation: :"create_/sapi/v1/sub-account/virtualSubAccount",
+    operation: :"create_/sapi/v1/sub-account/virtual_sub_account",
     method: :post,
     path: "/sapi/v1/sub-account/virtualSubAccount",
     requires_auth: true,
@@ -686,7 +686,7 @@ Transfers all assets from Futures Account to Margin account
 Weight(IP): 1500"
   },
   %{
-    operation: :"get_/sapi/v1/simple-earn/flexible/history/collateralRecord",
+    operation: :"get_/sapi/v1/simple-earn/flexible/history/collateral_record",
     method: :get,
     path: "/sapi/v1/simple-earn/flexible/history/collateralRecord",
     requires_auth: true,
@@ -701,12 +701,12 @@ Weight(IP): 1500"
 Weight(IP): 150"
   },
   %{
-    operation: :cancel_orderList,
+    operation: :cancel_order_list,
     method: :delete,
     path: "/api/v3/orderList",
     requires_auth: true,
     weight: 1,
-    timeout: 5000,
+    timeout: 2000,
     max_retries: 1,
     retry_on: [:timeout],
     response_parser: &Parser.parse_order/1,
@@ -720,7 +720,7 @@ Canceling an individual leg will cancel the entire OCO
 Weight(IP): 1"
   },
   %{
-    operation: :get_orderList,
+    operation: :get_order_list,
     method: :get,
     path: "/api/v3/orderList",
     requires_auth: true,
@@ -797,7 +797,7 @@ Get interest rate and borrow limit of loanable assets. The borrow limit is shown
 Weight(IP): 400"
   },
   %{
-    operation: :"get_/sapi/v1/simple-earn/locked/subscriptionPreview",
+    operation: :"get_/sapi/v1/simple-earn/locked/subscription_preview",
     method: :get,
     path: "/sapi/v1/simple-earn/locked/subscriptionPreview",
     requires_auth: true,
@@ -867,7 +867,7 @@ Post a new `OTO` order for margin account:
 Weight(UID): 6"
   },
   %{
-    operation: :get_allOrderList,
+    operation: :get_all_order_list,
     method: :get,
     path: "/api/v3/allOrderList",
     requires_auth: true,
@@ -884,7 +884,7 @@ Retrieves all OCO based on provided optional parameters
 Weight(IP): 20"
   },
   %{
-    operation: :"delete_/sapi/v1/margin/openOrders",
+    operation: :"delete_/sapi/v1/margin/open_orders",
     method: :delete,
     path: "/sapi/v1/margin/openOrders",
     requires_auth: true,
@@ -903,7 +903,7 @@ Weight(IP): 1
 "
   },
   %{
-    operation: :"get_/sapi/v1/margin/openOrders",
+    operation: :"get_/sapi/v1/margin/open_orders",
     method: :get,
     path: "/sapi/v1/margin/openOrders",
     requires_auth: true,
@@ -922,7 +922,7 @@ Weight(IP): 1
 Weight(IP): 10"
   },
   %{
-    operation: :"get_/sapi/v1/algo/futures/openOrders",
+    operation: :"get_/sapi/v1/algo/futures/open_orders",
     method: :get,
     path: "/sapi/v1/algo/futures/openOrders",
     requires_auth: true,
@@ -940,7 +940,7 @@ Weight(IP): 10"
 Weight(IP): 1"
   },
   %{
-    operation: :get_avgPrice,
+    operation: :get_avg_price,
     method: :get,
     path: "/api/v3/avgPrice",
     requires_auth: false,
@@ -1032,7 +1032,7 @@ ENUM of transfer types:
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/copyTrading/futures/userStatus",
+    operation: :"get_/sapi/v1/copy_trading/futures/user_status",
     method: :get,
     path: "/sapi/v1/copyTrading/futures/userStatus",
     requires_auth: true,
@@ -1049,7 +1049,7 @@ Get Futures Lead Trader Status
 Weight(UID): 20"
   },
   %{
-    operation: :"get_/sapi/v1/account/apiTradingStatus",
+    operation: :"get_/sapi/v1/account/api_trading_status",
     method: :get,
     path: "/sapi/v1/account/apiTradingStatus",
     requires_auth: true,
@@ -1066,7 +1066,7 @@ Fetch account API trading status with details.
 Weight(IP): 1"
   },
   %{
-    operation: :"place_orderList/oto",
+    operation: :"place_order_list/oto",
     method: :post,
     path: "/api/v3/orderList/oto",
     requires_auth: true,
@@ -1089,7 +1089,7 @@ Places an `OTO`.
 Weight: 1"
   },
   %{
-    operation: :"get_/sapi/v1/blvt/tokenInfo",
+    operation: :"get_/sapi/v1/blvt/token_info",
     method: :get,
     path: "/sapi/v1/blvt/tokenInfo",
     requires_auth: true,
@@ -1200,7 +1200,7 @@ Execute transfer between spot account and futures account.
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/margin/openOrderList",
+    operation: :"get_/sapi/v1/margin/open_order_list",
     method: :get,
     path: "/sapi/v1/margin/openOrderList",
     requires_auth: true,
@@ -1265,7 +1265,7 @@ Weight(UID): 6000"
 Weight(IP): 400"
   },
   %{
-    operation: :"create_/sapi/v1/algo/futures/newOrderVp",
+    operation: :"create_/sapi/v1/algo/futures/new_order_vp",
     method: :post,
     path: "/sapi/v1/algo/futures/newOrderVp",
     requires_auth: true,
@@ -1338,7 +1338,7 @@ Repay futures Negative Balance
 Weight(IP): 1500"
   },
   %{
-    operation: :"get_/sapi/v1/eth-staking/eth/history/stakingHistory",
+    operation: :"get_/sapi/v1/eth-staking/eth/history/staking_history",
     method: :get,
     path: "/sapi/v1/eth-staking/eth/history/stakingHistory",
     requires_auth: true,
@@ -1393,7 +1393,7 @@ Weight(IP): 400"
 Weight(UID): 3000"
   },
   %{
-    operation: :"get_/sapi/v1/managed-subaccount/queryTransLogForTradeParent",
+    operation: :"get_/sapi/v1/managed-subaccount/query_trans_log_for_trade_parent",
     method: :get,
     path: "/sapi/v1/managed-subaccount/queryTransLogForTradeParent",
     requires_auth: true,
@@ -1428,7 +1428,7 @@ If the clientId has been used before, will not do the convert transfer, the orig
 Weight(UID): 5"
   },
   %{
-    operation: :"create_/sapi/v1/simple-earn/flexible/setAutoSubscribe",
+    operation: :"create_/sapi/v1/simple-earn/flexible/set_auto_subscribe",
     method: :post,
     path: "/sapi/v1/simple-earn/flexible/setAutoSubscribe",
     requires_auth: true,
@@ -1515,7 +1515,7 @@ Submit a withdraw request.
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/margin/myTrades",
+    operation: :"get_/sapi/v1/margin/my_trades",
     method: :get,
     path: "/sapi/v1/margin/myTrades",
     requires_auth: true,
@@ -1550,7 +1550,7 @@ The max interval between startTime and endTime is 180 days.
 Weight(IP): 400"
   },
   %{
-    operation: :"get_/sapi/v1/asset/assetDetail",
+    operation: :"get_/sapi/v1/asset/asset_detail",
     method: :get,
     path: "/sapi/v1/asset/assetDetail",
     requires_auth: true,
@@ -1588,7 +1588,7 @@ Redeem WBETH or BETH and get ETH
 Weight(IP): 150"
   },
   %{
-    operation: :"get_/sapi/v1/convert/exchangeInfo",
+    operation: :"get_/sapi/v1/convert/exchange_info",
     method: :get,
     path: "/sapi/v1/convert/exchangeInfo",
     requires_auth: false,
@@ -1605,7 +1605,7 @@ Query for all convertible token pairs and the tokens’ respective upper/lower l
 Weight(IP): 3000"
   },
   %{
-    operation: :"get_/sapi/v1/futures/histDataLink",
+    operation: :"get_/sapi/v1/futures/hist_data_link",
     method: :get,
     path: "/sapi/v1/futures/histDataLink",
     requires_auth: true,
@@ -1676,7 +1676,7 @@ Margin account borrow/repay(MARGIN)
 Weight(UID): 3000"
   },
   %{
-    operation: :"get_/sapi/v1/eth-staking/eth/history/rateHistory",
+    operation: :"get_/sapi/v1/eth-staking/eth/history/rate_history",
     method: :get,
     path: "/sapi/v1/eth-staking/eth/history/rateHistory",
     requires_auth: true,
@@ -1849,7 +1849,7 @@ Get available Simple Earn flexible product list
 Weight(IP): 150"
   },
   %{
-    operation: :"create_/sapi/v1/lending/customizedFixed/purchase",
+    operation: :"create_/sapi/v1/lending/customized_fixed/purchase",
     method: :post,
     path: "/sapi/v1/lending/customizedFixed/purchase",
     requires_auth: true,
@@ -1898,7 +1898,7 @@ Customize margin call for ongoing orders only.
 Weight(UID): 6000"
   },
   %{
-    operation: :"get_/sapi/v2/portfolio/collateralRate",
+    operation: :"get_/sapi/v2/portfolio/collateral_rate",
     method: :get,
     path: "/sapi/v2/portfolio/collateralRate",
     requires_auth: true,
@@ -1915,7 +1915,7 @@ Portfolio Margin PRO Tiered Collateral Rate
 Weight(IP): 50"
   },
   %{
-    operation: :"get_/sapi/v1/managed-subaccount/accountSnapshot",
+    operation: :"get_/sapi/v1/managed-subaccount/account_snapshot",
     method: :get,
     path: "/sapi/v1/managed-subaccount/accountSnapshot",
     requires_auth: false,
@@ -1954,7 +1954,7 @@ Klines are uniquely identified by their open time.
 Weight(IP): 2"
   },
   %{
-    operation: :"get_/sapi/v1/eth-staking/wbeth/history/unwrapHistory",
+    operation: :"get_/sapi/v1/eth-staking/wbeth/history/unwrap_history",
     method: :get,
     path: "/sapi/v1/eth-staking/wbeth/history/unwrapHistory",
     requires_auth: true,
@@ -1991,7 +1991,7 @@ Weight(IP): 150"
 Weight(UID): 6000"
   },
   %{
-    operation: :"get_/sapi/v1/simple-earn/flexible/history/rewardsRecord",
+    operation: :"get_/sapi/v1/simple-earn/flexible/history/rewards_record",
     method: :get,
     path: "/sapi/v1/simple-earn/flexible/history/rewardsRecord",
     requires_auth: true,
@@ -2006,7 +2006,7 @@ Weight(UID): 6000"
 Weight(IP): 150"
   },
   %{
-    operation: :"get_/sapi/v1/margin/maxTransferable",
+    operation: :"get_/sapi/v1/margin/max_transferable",
     method: :get,
     path: "/sapi/v1/margin/maxTransferable",
     requires_auth: true,
@@ -2023,7 +2023,7 @@ Weight(IP): 150"
 Weight(IP): 50"
   },
   %{
-    operation: :"get_/sapi/v1/margin/forceLiquidationRec",
+    operation: :"get_/sapi/v1/margin/force_liquidation_rec",
     method: :get,
     path: "/sapi/v1/margin/forceLiquidationRec",
     requires_auth: true,
@@ -2040,7 +2040,7 @@ Weight(IP): 50"
 Weight(IP): 1"
   },
   %{
-    operation: :delete_userDataStream,
+    operation: :delete_user_data_stream,
     method: :delete,
     path: "/api/v3/userDataStream",
     requires_auth: true,
@@ -2057,7 +2057,7 @@ Close out a user data stream.
 Weight: 2"
   },
   %{
-    operation: :create_userDataStream,
+    operation: :create_user_data_stream,
     method: :post,
     path: "/api/v3/userDataStream",
     requires_auth: true,
@@ -2075,7 +2075,7 @@ The stream will close after 60 minutes unless a keepalive is sent. If the accoun
 Weight: 2"
   },
   %{
-    operation: :update_userDataStream,
+    operation: :update_user_data_stream,
     method: :put,
     path: "/api/v3/userDataStream",
     requires_auth: true,
@@ -2180,7 +2180,7 @@ Fetch system status.
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/simple-earn/locked/history/subscriptionRecord",
+    operation: :"get_/sapi/v1/simple-earn/locked/history/subscription_record",
     method: :get,
     path: "/sapi/v1/simple-earn/locked/history/subscriptionRecord",
     requires_auth: true,
@@ -2195,7 +2195,7 @@ Weight(IP): 1"
 Weight(IP): 150"
   },
   %{
-    operation: :"get_/sapi/v1/sub-account/margin/accountSummary",
+    operation: :"get_/sapi/v1/sub-account/margin/account_summary",
     method: :get,
     path: "/sapi/v1/sub-account/margin/accountSummary",
     requires_auth: true,
@@ -2246,7 +2246,7 @@ Get cross or isolated margin capital flow
 Weight(IP): 100"
   },
   %{
-    operation: :"get_/sapi/v1/sub-account/futures/accountSummary",
+    operation: :"get_/sapi/v1/sub-account/futures/account_summary",
     method: :get,
     path: "/sapi/v1/sub-account/futures/accountSummary",
     requires_auth: true,
@@ -2261,7 +2261,7 @@ Weight(IP): 100"
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/mining/pub/algoList",
+    operation: :"get_/sapi/v1/mining/pub/algo_list",
     method: :get,
     path: "/sapi/v1/mining/pub/algoList",
     requires_auth: true,
@@ -2276,7 +2276,7 @@ Weight(IP): 1"
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/asset/convert-transfer/queryByPage",
+    operation: :"get_/sapi/v1/asset/convert-transfer/query_by_page",
     method: :get,
     path: "/sapi/v1/asset/convert-transfer/queryByPage",
     requires_auth: true,
@@ -2308,7 +2308,7 @@ Query subscription transaction history of a plan
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/simple-earn/flexible/history/redemptionRecord",
+    operation: :"get_/sapi/v1/simple-earn/flexible/history/redemption_record",
     method: :get,
     path: "/sapi/v1/simple-earn/flexible/history/redemptionRecord",
     requires_auth: true,
@@ -2340,7 +2340,7 @@ Weight(IP): 150"
 Weight(IP): 6000"
   },
   %{
-    operation: :"get_rateLimit/order",
+    operation: :"get_rate_limit/order",
     method: :get,
     path: "/api/v3/rateLimit/order",
     requires_auth: true,
@@ -2374,7 +2374,7 @@ Weight(IP): 40"
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/convert/assetInfo",
+    operation: :"get_/sapi/v1/convert/asset_info",
     method: :get,
     path: "/sapi/v1/convert/assetInfo",
     requires_auth: true,
@@ -2428,7 +2428,7 @@ Fetch deposit history.
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/margin/isolatedMarginData",
+    operation: :"get_/sapi/v1/margin/isolated_margin_data",
     method: :get,
     path: "/sapi/v1/margin/isolatedMarginData",
     requires_auth: true,
@@ -2515,7 +2515,7 @@ Get investor's managed sub-account list.
 Weight(UID): 60"
   },
   %{
-    operation: :"get_/sapi/v1/simple-earn/locked/personalLeftQuota",
+    operation: :"get_/sapi/v1/simple-earn/locked/personal_left_quota",
     method: :get,
     path: "/sapi/v1/simple-earn/locked/personalLeftQuota",
     requires_auth: true,
@@ -2568,7 +2568,7 @@ Weight(IP): 4 for each requested symbol regardless of windowSize.
 The weight for this request will cap at 200 once the number of symbols in the request is more than 50."
   },
   %{
-    operation: :"get_/sapi/v1/convert/limit/queryOpenOrders",
+    operation: :"get_/sapi/v1/convert/limit/query_open_orders",
     method: :get,
     path: "/sapi/v1/convert/limit/queryOpenOrders",
     requires_auth: true,
@@ -2585,7 +2585,7 @@ Enable users to query for all existing limit orders
 Weight(UID): 3000"
   },
   %{
-    operation: :get_myTrades,
+    operation: :get_my_trades,
     method: :get,
     path: "/api/v3/myTrades",
     requires_auth: true,
@@ -2657,7 +2657,7 @@ Weight(IP):
 - 50 if not send asset"
   },
   %{
-    operation: :"get_/sapi/v1/asset/ledger-transfer/cloud-mining/queryByPage",
+    operation: :"get_/sapi/v1/asset/ledger-transfer/cloud-mining/query_by_page",
     method: :get,
     path: "/sapi/v1/asset/ledger-transfer/cloud-mining/queryByPage",
     requires_auth: true,
@@ -2689,7 +2689,7 @@ Weight(UID): 600"
 Weight(IP): 150"
   },
   %{
-    operation: :"get_/sapi/v1/loan/vip/request/interestRate",
+    operation: :"get_/sapi/v1/loan/vip/request/interest_rate",
     method: :get,
     path: "/sapi/v1/loan/vip/request/interestRate",
     requires_auth: true,
@@ -2723,7 +2723,7 @@ Transfers specific asset from Futures Account to Margin account
 Weight(IP): 60"
   },
   %{
-    operation: :"get_/sapi/v1/sub-account/spotSummary",
+    operation: :"get_/sapi/v1/sub-account/spot_summary",
     method: :get,
     path: "/sapi/v1/sub-account/spotSummary",
     requires_auth: true,
@@ -2740,7 +2740,7 @@ Get BTC valued asset summary of subaccounts.
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/sub-account/futures/positionRisk",
+    operation: :"get_/sapi/v1/sub-account/futures/position_risk",
     method: :get,
     path: "/sapi/v1/sub-account/futures/positionRisk",
     requires_auth: true,
@@ -2755,7 +2755,7 @@ Weight(IP): 1"
 Weight(IP): 10"
   },
   %{
-    operation: :"get_/sapi/v1/margin/isolatedMarginTier",
+    operation: :"get_/sapi/v1/margin/isolated_margin_tier",
     method: :get,
     path: "/sapi/v1/margin/isolatedMarginTier",
     requires_auth: true,
@@ -2772,7 +2772,7 @@ Get isolated margin tier data collection with any tier as https://www.binance.co
 Weight(IP): 1"
   },
   %{
-    operation: :get_aggTrades,
+    operation: :get_agg_trades,
     method: :get,
     path: "/api/v3/aggTrades",
     requires_auth: false,
@@ -2799,7 +2799,7 @@ Get compressed, aggregate trades. Trades that fill at the time, from the same or
 Weight(IP): 2"
   },
   %{
-    operation: :"get_/sapi/v1/convert/orderStatus",
+    operation: :"get_/sapi/v1/convert/order_status",
     method: :get,
     path: "/sapi/v1/convert/orderStatus",
     requires_auth: true,
@@ -2850,7 +2850,7 @@ Query holding details of the plan
 Weight(IP): 1"
   },
   %{
-    operation: :"create_/sapi/v2/sub-account/subAccountApi/ipRestriction",
+    operation: :"create_/sapi/v2/sub-account/sub_account_api/ip_restriction",
     method: :post,
     path: "/sapi/v2/sub-account/subAccountApi/ipRestriction",
     requires_auth: true,
@@ -2963,7 +2963,7 @@ Query Managed Sub Account Transfer Log (For Trading Team Sub Account)
 Weight(UID): 60"
   },
   %{
-    operation: :"get_/sapi/v1/margin/interestRateHistory",
+    operation: :"get_/sapi/v1/margin/interest_rate_history",
     method: :get,
     path: "/sapi/v1/margin/interestRateHistory",
     requires_auth: true,
@@ -3109,7 +3109,7 @@ Weight(IP): 10"
 Weight(UID): 3000"
   },
   %{
-    operation: :"get_/sapi/v1/margin/crossMarginData",
+    operation: :"get_/sapi/v1/margin/cross_margin_data",
     method: :get,
     path: "/sapi/v1/margin/crossMarginData",
     requires_auth: true,
@@ -3143,7 +3143,7 @@ Get LTV information and collateral limit of collateral assets. The collateral li
 Weight(IP): 400"
   },
   %{
-    operation: :"create_/sapi/v1/algo/spot/newOrderTwap",
+    operation: :"create_/sapi/v1/algo/spot/new_order_twap",
     method: :post,
     path: "/sapi/v1/algo/spot/newOrderTwap",
     requires_auth: true,
@@ -3230,7 +3230,7 @@ Get symbols delist schedule for spot
 Weight(IP): 100"
   },
   %{
-    operation: :"get_/sapi/v1/simple-earn/locked/history/rewardsRecord",
+    operation: :"get_/sapi/v1/simple-earn/locked/history/rewards_record",
     method: :get,
     path: "/sapi/v1/simple-earn/locked/history/rewardsRecord",
     requires_auth: true,
@@ -3277,7 +3277,7 @@ Weight(IP): 1"
 Weight(IP): 1"
   },
   %{
-    operation: :"place_order/cancelReplace",
+    operation: :"place_order/cancel_replace",
     method: :post,
     path: "/api/v3/order/cancelReplace",
     requires_auth: true,
@@ -3316,7 +3316,7 @@ Weight(IP): 1"
 Weight(UID): 6000"
   },
   %{
-    operation: :"get_/sapi/v1/margin/rateLimit/order",
+    operation: :"get_/sapi/v1/margin/rate_limit/order",
     method: :get,
     path: "/sapi/v1/margin/rateLimit/order",
     requires_auth: true,
@@ -3414,7 +3414,7 @@ Weight(UID): 10"
 Weight(IP): 50"
   },
   %{
-    operation: :"get_/sapi/v1/simple-earn/flexible/history/subscriptionRecord",
+    operation: :"get_/sapi/v1/simple-earn/flexible/history/subscription_record",
     method: :get,
     path: "/sapi/v1/simple-earn/flexible/history/subscriptionRecord",
     requires_auth: true,
@@ -3429,7 +3429,7 @@ Weight(IP): 50"
 Weight(IP): 150"
   },
   %{
-    operation: :get_myPreventedMatches,
+    operation: :get_my_prevented_matches,
     method: :get,
     path: "/api/v3/myPreventedMatches",
     requires_auth: true,
@@ -3475,7 +3475,7 @@ Querying by orderId: 	          20"
 Weight(IP): 1"
   },
   %{
-    operation: :"create_/sapi/v1/convert/acceptQuote",
+    operation: :"create_/sapi/v1/convert/accept_quote",
     method: :post,
     path: "/sapi/v1/convert/acceptQuote",
     requires_auth: true,
@@ -3624,7 +3624,7 @@ Weight(IP): 10"
 Weight(IP): 10"
   },
   %{
-    operation: :"get_/sapi/v1/margin/maxBorrowable",
+    operation: :"get_/sapi/v1/margin/max_borrowable",
     method: :get,
     path: "/sapi/v1/margin/maxBorrowable",
     requires_auth: true,
@@ -3642,7 +3642,7 @@ Weight(IP): 10"
 Weight(IP): 50"
   },
   %{
-    operation: :get_myAllocations,
+    operation: :get_my_allocations,
     method: :get,
     path: "/api/v3/myAllocations",
     requires_auth: true,
@@ -3735,7 +3735,7 @@ Weight(UID): 1"
 Weight(UID): 6000"
   },
   %{
-    operation: :"create_/sapi/v1/convert/getQuote",
+    operation: :"create_/sapi/v1/convert/get_quote",
     method: :post,
     path: "/sapi/v1/convert/getQuote",
     requires_auth: true,
@@ -3874,7 +3874,7 @@ User can use it to turn on or turn off the BUSD auto-conversion from/to a specif
 Weight(UID): 600'"
   },
   %{
-    operation: :"get_/sapi/v1/rebate/taxQuery",
+    operation: :"get_/sapi/v1/rebate/tax_query",
     method: :get,
     path: "/sapi/v1/rebate/taxQuery",
     requires_auth: true,
@@ -3893,7 +3893,7 @@ Weight(UID): 600'"
 Weight(UID): 3000"
   },
   %{
-    operation: :"create_/sapi/v1/convert/limit/placeOrder",
+    operation: :"create_/sapi/v1/convert/limit/place_order",
     method: :post,
     path: "/sapi/v1/convert/limit/placeOrder",
     requires_auth: true,
@@ -3931,7 +3931,7 @@ Query interest history of negative balance for portfolio margin.
 Weight(IP): 50"
   },
   %{
-    operation: :"get_/sapi/v1/margin/leverageBracket",
+    operation: :"get_/sapi/v1/margin/leverage_bracket",
     method: :get,
     path: "/sapi/v1/margin/leverageBracket",
     requires_auth: true,
@@ -3948,7 +3948,7 @@ Liability Coin Leverage Bracket in Cross Margin Pro Mode
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/capital/deposit/subAddress",
+    operation: :"get_/sapi/v1/capital/deposit/sub_address",
     method: :get,
     path: "/sapi/v1/capital/deposit/subAddress",
     requires_auth: true,
@@ -3983,7 +3983,7 @@ Weight(IP): 1"
 Weight(UID): 3000"
   },
   %{
-    operation: :"place_orderList/otoco",
+    operation: :"place_order_list/otoco",
     method: :post,
     path: "/api/v3/orderList/otoco",
     requires_auth: true,
@@ -4006,7 +4006,7 @@ Place an `OTOCO`.
 Weight: 1"
   },
   %{
-    operation: :"create_/sapi/v1/algo/futures/newOrderTwap",
+    operation: :"create_/sapi/v1/algo/futures/new_order_twap",
     method: :post,
     path: "/sapi/v1/algo/futures/newOrderTwap",
     requires_auth: true,
@@ -4033,7 +4033,7 @@ Base URL: https://api.binance.com
 Weight(UID): 3000}
   },
   %{
-    operation: :"get_/sapi/v1/eth-staking/eth/history/wbethRewardsHistory",
+    operation: :"get_/sapi/v1/eth-staking/eth/history/wbeth_rewards_history",
     method: :get,
     path: "/sapi/v1/eth-staking/eth/history/wbethRewardsHistory",
     requires_auth: true,
@@ -4053,7 +4053,7 @@ Weight(UID): 3000}
 Weight(IP): 150"
   },
   %{
-    operation: :get_uiKlines,
+    operation: :get_ui_klines,
     method: :get,
     path: "/api/v3/uiKlines",
     requires_auth: false,
@@ -4108,7 +4108,7 @@ Cancel an open TWAP order
 Weight(IP): 1"
   },
   %{
-    operation: :"get_ticker/tradingDay",
+    operation: :"get_ticker/trading_day",
     method: :get,
     path: "/api/v3/ticker/tradingDay",
     requires_auth: false,
@@ -4179,7 +4179,7 @@ Weight(IP): 1"
 Weight(IP): 5"
   },
   %{
-    operation: :"get_/sapi/v1/margin/isolated/accountLimit",
+    operation: :"get_/sapi/v1/margin/isolated/account_limit",
     method: :get,
     path: "/sapi/v1/margin/isolated/accountLimit",
     requires_auth: true,
@@ -4196,7 +4196,7 @@ Query enabled isolated margin account limit.
 Weight(IP): 1"
   },
   %{
-    operation: :"place_orderList/oco",
+    operation: :"place_order_list/oco",
     method: :post,
     path: "/api/v3/orderList/oco",
     requires_auth: true,
@@ -4220,7 +4220,7 @@ Send in an one-cancels-the-other (OCO) pair, where activation of one order immed
 Weight(IP): 1"
   },
   %{
-    operation: :get_allOrders,
+    operation: :get_all_orders,
     method: :get,
     path: "/api/v3/allOrders",
     requires_auth: true,
@@ -4241,7 +4241,7 @@ Get all account orders; active, canceled, or filled..
 Weight(IP): 20"
   },
   %{
-    operation: :"get_/sapi/v1/portfolio/collateralRate",
+    operation: :"get_/sapi/v1/portfolio/collateral_rate",
     method: :get,
     path: "/sapi/v1/portfolio/collateralRate",
     requires_auth: true,
@@ -4258,7 +4258,7 @@ Portfolio Margin Collateral Rate.
 Weight(IP): 50"
   },
   %{
-    operation: :"get_/sapi/v1/simple-earn/locked/history/redemptionRecord",
+    operation: :"get_/sapi/v1/simple-earn/locked/history/redemption_record",
     method: :get,
     path: "/sapi/v1/simple-earn/locked/history/redemptionRecord",
     requires_auth: true,
@@ -4273,7 +4273,7 @@ Weight(IP): 50"
 Weight(IP): 150"
   },
   %{
-    operation: :"get_/sapi/v1/sub-account/universalTransfer",
+    operation: :"get_/sapi/v1/sub-account/universal_transfer",
     method: :get,
     path: "/sapi/v1/sub-account/universalTransfer",
     requires_auth: true,
@@ -4293,7 +4293,7 @@ Weight(IP): 150"
 Weight(IP): 1"
   },
   %{
-    operation: :"create_/sapi/v1/sub-account/universalTransfer",
+    operation: :"create_/sapi/v1/sub-account/universal_transfer",
     method: :post,
     path: "/sapi/v1/sub-account/universalTransfer",
     requires_auth: true,
@@ -4316,7 +4316,7 @@ Weight(IP): 1"
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/portfolio/pmLoan",
+    operation: :"get_/sapi/v1/portfolio/pm_loan",
     method: :get,
     path: "/sapi/v1/portfolio/pmLoan",
     requires_auth: true,
@@ -4333,7 +4333,7 @@ Query Portfolio Margin Bankruptcy Loan Amount.
 Weight(UID): 500"
   },
   %{
-    operation: :delete_openOrders,
+    operation: :delete_open_orders,
     method: :delete,
     path: "/api/v3/openOrders",
     requires_auth: true,
@@ -4351,7 +4351,7 @@ This includes OCO orders.
 Weight(IP): 1"
   },
   %{
-    operation: :get_openOrders,
+    operation: :get_open_orders,
     method: :get,
     path: "/api/v3/openOrders",
     requires_auth: true,
@@ -4370,7 +4370,7 @@ Weight(IP):
 - `80` when the symbol parameter is omitted;"
   },
   %{
-    operation: :"create_/sapi/v3/asset/getUserAsset",
+    operation: :"create_/sapi/v3/asset/get_user_asset",
     method: :post,
     path: "/sapi/v3/asset/getUserAsset",
     requires_auth: true,
@@ -4387,7 +4387,7 @@ Get user assets, just for positive data.
 Weight(IP): 5"
   },
   %{
-    operation: :"get_/sapi/v1/copyTrading/futures/leadSymbol",
+    operation: :"get_/sapi/v1/copy_trading/futures/lead_symbol",
     method: :get,
     path: "/sapi/v1/copyTrading/futures/leadSymbol",
     requires_auth: true,
@@ -4438,7 +4438,7 @@ Weight(IP): 1"
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v2/sub-account/futures/positionRisk",
+    operation: :"get_/sapi/v2/sub-account/futures/position_risk",
     method: :get,
     path: "/sapi/v2/sub-account/futures/positionRisk",
     requires_auth: true,
@@ -4453,7 +4453,7 @@ Weight(IP): 1"
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/convert/tradeFlow",
+    operation: :"get_/sapi/v1/convert/trade_flow",
     method: :get,
     path: "/sapi/v1/convert/tradeFlow",
     requires_auth: true,
@@ -4539,7 +4539,7 @@ Weight: 20"
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/asset/tradeFee",
+    operation: :"get_/sapi/v1/asset/trade_fee",
     method: :get,
     path: "/sapi/v1/asset/tradeFee",
     requires_auth: true,
@@ -4556,7 +4556,7 @@ Fetch trade fee
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/simple-earn/flexible/subscriptionPreview",
+    operation: :"get_/sapi/v1/simple-earn/flexible/subscription_preview",
     method: :get,
     path: "/sapi/v1/simple-earn/flexible/subscriptionPreview",
     requires_auth: true,
@@ -4657,7 +4657,7 @@ Fetch deposit address with network.
 Weight(IP): 10"
   },
   %{
-    operation: :"create_/sapi/v1/sub-account/transfer/subToMaster",
+    operation: :"create_/sapi/v1/sub-account/transfer/sub_to_master",
     method: :post,
     path: "/sapi/v1/sub-account/transfer/subToMaster",
     requires_auth: true,
@@ -4672,7 +4672,7 @@ Weight(IP): 10"
 Weight(IP): 1"
   },
   %{
-    operation: :"create_/sapi/v1/giftcard/createCode",
+    operation: :"create_/sapi/v1/giftcard/create_code",
     method: :post,
     path: "/sapi/v1/giftcard/createCode",
     requires_auth: true,
@@ -4696,7 +4696,7 @@ Daily creation volume: 2 BTC / 24H Daily creation times: 200 Codes / 24H
 Weight(IP): 1"
   },
   %{
-    operation: :"get_ticker/bookTicker",
+    operation: :"get_ticker/book_ticker",
     method: :get,
     path: "/api/v3/ticker/bookTicker",
     requires_auth: false,
@@ -4734,7 +4734,7 @@ Fetch account status detail.
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/margin/isolated/allPairs",
+    operation: :"get_/sapi/v1/margin/isolated/all_pairs",
     method: :get,
     path: "/sapi/v1/margin/isolated/allPairs",
     requires_auth: true,
@@ -4749,7 +4749,7 @@ Weight(IP): 1"
 Weight(IP): 10"
   },
   %{
-    operation: :"get_/sapi/v1/margin/allPairs",
+    operation: :"get_/sapi/v1/margin/all_pairs",
     method: :get,
     path: "/sapi/v1/margin/allPairs",
     requires_auth: true,
@@ -4764,7 +4764,7 @@ Weight(IP): 10"
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/eth-staking/wbeth/history/wrapHistory",
+    operation: :"get_/sapi/v1/eth-staking/wbeth/history/wrap_history",
     method: :get,
     path: "/sapi/v1/eth-staking/wbeth/history/wrapHistory",
     requires_auth: true,
@@ -4804,7 +4804,7 @@ If no startTime and endTime, default to show past 30 day records
 Weight(IP): 1"
   },
   %{
-    operation: :"create_/sapi/v1/convert/limit/cancelOrder",
+    operation: :"create_/sapi/v1/convert/limit/cancel_order",
     method: :post,
     path: "/sapi/v1/convert/limit/cancelOrder",
     requires_auth: true,
@@ -4821,7 +4821,7 @@ Enable users to cancel a limit order
 Weight(UID): 200"
   },
   %{
-    operation: :"get_/sapi/v1/margin/priceIndex",
+    operation: :"get_/sapi/v1/margin/price_index",
     method: :get,
     path: "/sapi/v1/margin/priceIndex",
     requires_auth: true,
@@ -4836,7 +4836,7 @@ Weight(UID): 200"
 Weight(IP): 10"
   },
   %{
-    operation: :"get_/sapi/v1/sub-account/futures/internalTransfer",
+    operation: :"get_/sapi/v1/sub-account/futures/internal_transfer",
     method: :get,
     path: "/sapi/v1/sub-account/futures/internalTransfer",
     requires_auth: true,
@@ -4851,7 +4851,7 @@ Weight(IP): 10"
 Weight(IP): 1"
   },
   %{
-    operation: :"create_/sapi/v1/sub-account/futures/internalTransfer",
+    operation: :"create_/sapi/v1/sub-account/futures/internal_transfer",
     method: :post,
     path: "/sapi/v1/sub-account/futures/internalTransfer",
     requires_auth: true,
@@ -4917,7 +4917,7 @@ Weight(IP): 1"
 Weight(UID): 90000"
   },
   %{
-    operation: :"get_/sapi/v1/algo/futures/subOrders",
+    operation: :"get_/sapi/v1/algo/futures/sub_orders",
     method: :get,
     path: "/sapi/v1/algo/futures/subOrders",
     requires_auth: true,
@@ -4935,7 +4935,7 @@ Weight(UID): 90000"
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/margin/allAssets",
+    operation: :"get_/sapi/v1/margin/all_assets",
     method: :get,
     path: "/sapi/v1/margin/allAssets",
     requires_auth: true,
@@ -4950,7 +4950,7 @@ Weight(IP): 1"
 Weight(IP): 1"
   },
   %{
-    operation: :"create_/sapi/v1/account/enableFastWithdrawSwitch",
+    operation: :"create_/sapi/v1/account/enable_fast_withdraw_switch",
     method: :post,
     path: "/sapi/v1/account/enableFastWithdrawSwitch",
     requires_auth: true,
@@ -4968,7 +4968,7 @@ Weight(IP): 1"
 Weight(IP): 1"
   },
   %{
-    operation: :"create_/sapi/v1/sub-account/transfer/subToSub",
+    operation: :"create_/sapi/v1/sub-account/transfer/sub_to_sub",
     method: :post,
     path: "/sapi/v1/sub-account/transfer/subToSub",
     requires_auth: true,
@@ -4983,7 +4983,7 @@ Weight(IP): 1"
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/account/apiRestrictions",
+    operation: :"get_/sapi/v1/account/api_restrictions",
     method: :get,
     path: "/sapi/v1/account/apiRestrictions",
     requires_auth: true,
@@ -4998,7 +4998,7 @@ Weight(IP): 1"
 Weight(IP): 1"
   },
   %{
-    operation: :get_exchangeInfo,
+    operation: :get_exchange_info,
     method: :get,
     path: "/api/v3/exchangeInfo",
     requires_auth: false,
@@ -5133,7 +5133,7 @@ Please note that the RSA Public key fetched is valid only for the current day.
 Weight(IP): 1"
   },
   %{
-    operation: :get_historicalTrades,
+    operation: :get_historical_trades,
     method: :get,
     path: "/api/v3/historicalTrades",
     requires_auth: false,
@@ -5150,7 +5150,7 @@ Get older market trades.
 Weight(IP): 10"
   },
   %{
-    operation: :"get_/sapi/v1/algo/futures/historicalOrders",
+    operation: :"get_/sapi/v1/algo/futures/historical_orders",
     method: :get,
     path: "/sapi/v1/algo/futures/historicalOrders",
     requires_auth: true,
@@ -5168,7 +5168,7 @@ Weight(IP): 10"
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/bnbBurn",
+    operation: :"get_/sapi/v1/bnb_burn",
     method: :get,
     path: "/sapi/v1/bnbBurn",
     requires_auth: true,
@@ -5183,7 +5183,7 @@ Weight(IP): 1"
 Weight(IP): 1"
   },
   %{
-    operation: :"create_/sapi/v1/bnbBurn",
+    operation: :"create_/sapi/v1/bnb_burn",
     method: :post,
     path: "/sapi/v1/bnbBurn",
     requires_auth: true,
@@ -5233,7 +5233,7 @@ Weight(IP): 1"
 Weight(IP): 300"
   },
   %{
-    operation: :"get_/sapi/v1/margin/allOrders",
+    operation: :"get_/sapi/v1/margin/all_orders",
     method: :get,
     path: "/sapi/v1/margin/allOrders",
     requires_auth: true,
@@ -5270,7 +5270,7 @@ Request Limit: 60 times/min per IP"
 Weight(IP): 150"
   },
   %{
-    operation: :"get_/sapi/v1/managed-subaccount/queryTransLogForInvestor",
+    operation: :"get_/sapi/v1/managed-subaccount/query_trans_log_for_investor",
     method: :get,
     path: "/sapi/v1/managed-subaccount/queryTransLogForInvestor",
     requires_auth: true,
@@ -5304,7 +5304,7 @@ Weight(IP): 1
 Rate Limit: 1/3s per account"
   },
   %{
-    operation: :"delete_/sapi/v1/userDataStream/isolated",
+    operation: :"delete_/sapi/v1/user_data_stream/isolated",
     method: :delete,
     path: "/sapi/v1/userDataStream/isolated",
     requires_auth: true,
@@ -5321,7 +5321,7 @@ Close out a user data stream.
 Weight: 1"
   },
   %{
-    operation: :"create_/sapi/v1/userDataStream/isolated",
+    operation: :"create_/sapi/v1/user_data_stream/isolated",
     method: :post,
     path: "/sapi/v1/userDataStream/isolated",
     requires_auth: true,
@@ -5339,7 +5339,7 @@ The stream will close after 60 minutes unless a keepalive is sent. If the accoun
 Weight: 1"
   },
   %{
-    operation: :"update_/sapi/v1/userDataStream/isolated",
+    operation: :"update_/sapi/v1/user_data_stream/isolated",
     method: :put,
     path: "/sapi/v1/userDataStream/isolated",
     requires_auth: true,
@@ -5371,7 +5371,7 @@ Weight: 1"
 Weight(IP): 5"
   },
   %{
-    operation: :"delete_/sapi/v1/sub-account/subAccountApi/ipRestriction/ipList",
+    operation: :"delete_/sapi/v1/sub-account/sub_account_api/ip_restriction/ip_list",
     method: :delete,
     path: "/sapi/v1/sub-account/subAccountApi/ipRestriction/ipList",
     requires_auth: true,
@@ -5386,7 +5386,7 @@ Weight(IP): 5"
 Weight(UID): 3000"
   },
   %{
-    operation: :"get_/sapi/v1/sub-account/subAccountApi/ipRestriction",
+    operation: :"get_/sapi/v1/sub-account/sub_account_api/ip_restriction",
     method: :get,
     path: "/sapi/v1/sub-account/subAccountApi/ipRestriction",
     requires_auth: true,
@@ -5419,7 +5419,7 @@ Weight(UID): 3000"
 Weight(IP): 400"
   },
   %{
-    operation: :"get_/sapi/v1/eth-staking/eth/history/rewardsHistory",
+    operation: :"get_/sapi/v1/eth-staking/eth/history/rewards_history",
     method: :get,
     path: "/sapi/v1/eth-staking/eth/history/rewardsHistory",
     requires_auth: true,
@@ -5473,7 +5473,7 @@ Get the account info
 'Weight(IP): 1'"
   },
   %{
-    operation: :"get_/sapi/v1/margin/crossMarginCollateralRatio",
+    operation: :"get_/sapi/v1/margin/cross_margin_collateral_ratio",
     method: :get,
     path: "/sapi/v1/margin/crossMarginCollateralRatio",
     requires_auth: true,
@@ -5489,7 +5489,7 @@ Get the account info
 Weight(IP): 100"
   },
   %{
-    operation: :"get_/sapi/v1/simple-earn/locked/setRedeemOption",
+    operation: :"get_/sapi/v1/simple-earn/locked/set_redeem_option",
     method: :get,
     path: "/sapi/v1/simple-earn/locked/setRedeemOption",
     requires_auth: true,
@@ -5540,7 +5540,7 @@ Get interest rate and borrow limit of loanable assets. The borrow limit is shown
 Weight(IP): 400"
   },
   %{
-    operation: :"create_/sapi/v1/giftcard/buyCode",
+    operation: :"create_/sapi/v1/giftcard/buy_code",
     method: :post,
     path: "/sapi/v1/giftcard/buyCode",
     requires_auth: true,
@@ -5582,7 +5582,7 @@ Weight(IP): 1"
 Weight(IP): 5"
   },
   %{
-    operation: :"get_/sapi/v1/blvt/userLimit",
+    operation: :"get_/sapi/v1/blvt/user_limit",
     method: :get,
     path: "/sapi/v1/blvt/userLimit",
     requires_auth: true,
@@ -5776,7 +5776,7 @@ Post an investment plan creation
 Weight(IP): 1"
   },
   %{
-    operation: :"delete_/sapi/v1/userDataStream",
+    operation: :"delete_/sapi/v1/user_data_stream",
     method: :delete,
     path: "/sapi/v1/userDataStream",
     requires_auth: true,
@@ -5793,7 +5793,7 @@ Close out a user data stream.
 Weight: 1"
   },
   %{
-    operation: :"create_/sapi/v1/userDataStream",
+    operation: :"create_/sapi/v1/user_data_stream",
     method: :post,
     path: "/sapi/v1/userDataStream",
     requires_auth: true,
@@ -5811,7 +5811,7 @@ The stream will close after 60 minutes unless a keepalive is sent. If the accoun
 Weight: 1"
   },
   %{
-    operation: :"update_/sapi/v1/userDataStream",
+    operation: :"update_/sapi/v1/user_data_stream",
     method: :put,
     path: "/sapi/v1/userDataStream",
     requires_auth: true,
@@ -5828,7 +5828,7 @@ Keepalive a user data stream to prevent a time out. User data streams will close
 Weight: 1"
   },
   %{
-    operation: :"create_/sapi/v1/giftcard/redeemCode",
+    operation: :"create_/sapi/v1/giftcard/redeem_code",
     method: :post,
     path: "/sapi/v1/giftcard/redeemCode",
     requires_auth: true,
@@ -5847,7 +5847,7 @@ Please note that if you enter the wrong code 5 times within 24 hours, you will n
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/capital/deposit/subHisrec",
+    operation: :"get_/sapi/v1/capital/deposit/sub_hisrec",
     method: :get,
     path: "/sapi/v1/capital/deposit/subHisrec",
     requires_auth: true,
@@ -5864,7 +5864,7 @@ Fetch sub-account deposit history
 Weight(IP): 1"
   },
   %{
-    operation: :"create_/sapi/v1/lending/positionChanged",
+    operation: :"create_/sapi/v1/lending/position_changed",
     method: :post,
     path: "/sapi/v1/lending/positionChanged",
     requires_auth: true,
@@ -5881,7 +5881,7 @@ Weight(IP): 1"
 Weight(IP): 1"
   },
   %{
-    operation: :"create_/sapi/v1/account/disableFastWithdrawSwitch",
+    operation: :"create_/sapi/v1/account/disable_fast_withdraw_switch",
     method: :post,
     path: "/sapi/v1/account/disableFastWithdrawSwitch",
     requires_auth: true,
@@ -5934,7 +5934,7 @@ Weight(IP): 150"
 | 1001-5000           | 250         |"
   },
   %{
-    operation: :"get_/sapi/v1/nft/user/getAsset",
+    operation: :"get_/sapi/v1/nft/user/get_asset",
     method: :get,
     path: "/sapi/v1/nft/user/getAsset",
     requires_auth: true,
@@ -5949,7 +5949,7 @@ Weight(IP): 150"
 Weight(UID): 3000"
   },
   %{
-    operation: :"get_/sapi/v1/margin/interestHistory",
+    operation: :"get_/sapi/v1/margin/interest_history",
     method: :get,
     path: "/sapi/v1/margin/interestHistory",
     requires_auth: true,
@@ -5990,7 +5990,7 @@ Query Source Asset to be used for investment
 Weight(IP): 1"
   },
   %{
-    operation: :"get_/sapi/v1/mining/pub/coinList",
+    operation: :"get_/sapi/v1/mining/pub/coin_list",
     method: :get,
     path: "/sapi/v1/mining/pub/coinList",
     requires_auth: true,

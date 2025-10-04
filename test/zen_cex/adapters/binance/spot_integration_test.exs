@@ -44,10 +44,10 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
   end
 
   describe "order query endpoints (read-only)" do
-    test "get_order_history with default params" do
+    test "get_all_orders with default params" do
       # May fail without symbol - document requirement
-      result = Spot.get_order_history()
-      Logger.debug("TESTNET get_order_history response: #{inspect(result)}")
+      result = Spot.get_all_orders()
+      Logger.debug("TESTNET get_all_orders response: #{inspect(result)}")
 
       case result do
         {:ok, response} ->
@@ -58,9 +58,9 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
       end
     end
 
-    test "get_openOrders returns open orders" do
-      result = Spot.get_openOrders()
-      Logger.debug("TESTNET get_openOrders response: #{inspect(result)}")
+    test "get_open_orders returns open orders" do
+      result = Spot.get_open_orders()
+      Logger.debug("TESTNET get_open_orders response: #{inspect(result)}")
 
       case result do
         {:ok, response} ->
@@ -71,10 +71,10 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
       end
     end
 
-    test "get_trade_history with default params" do
+    test "get_my_trades with default params" do
       # Will likely fail without symbol - document requirement
-      result = Spot.get_trade_history()
-      Logger.debug("TESTNET get_trade_history response: #{inspect(result)}")
+      result = Spot.get_my_trades()
+      Logger.debug("TESTNET get_my_trades response: #{inspect(result)}")
 
       case result do
         {:ok, response} ->
@@ -85,9 +85,9 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
       end
     end
 
-    test "get_oco_history returns OCO order history" do
-      result = Spot.get_oco_history()
-      Logger.debug("TESTNET get_oco_history response: #{inspect(result)}")
+    test "get_all_order_list returns OCO order history" do
+      result = Spot.get_all_order_list()
+      Logger.debug("TESTNET get_all_order_list response: #{inspect(result)}")
 
       case result do
         {:ok, response} ->
@@ -413,22 +413,22 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
   end
 
   describe "OCO and advanced order endpoints" do
-    test "cancel_orderList with invalid order list returns error" do
-      result = Spot.cancel_orderList(%{symbol: "BTCUSDT", orderListId: 99_999_999})
+    test "cancel_order_list with invalid order list returns error" do
+      result = Spot.cancel_order_list(%{symbol: "BTCUSDT", orderListId: 99_999_999})
 
       assert {:error, reason} = result
-      Logger.debug("TESTNET cancel_orderList error response: #{inspect(reason)}")
+      Logger.debug("TESTNET cancel_order_list error response: #{inspect(reason)}")
     end
 
-    test "get_orderList with invalid order list returns error" do
-      result = Spot.get_orderList(%{orderListId: 99_999_999})
+    test "get_order_list with invalid order list returns error" do
+      result = Spot.get_order_list(%{orderListId: 99_999_999})
 
       assert {:error, reason} = result
-      Logger.debug("TESTNET get_orderList error response: #{inspect(reason)}")
+      Logger.debug("TESTNET get_order_list error response: #{inspect(reason)}")
     end
 
     # NOTE: OCO placement tests would be dangerous - we only test error cases
-    test "place_orderList/oco with invalid params returns error" do
+    test "place_order_list/oco with invalid params returns error" do
       invalid_params = %{
         symbol: "INVALID",
         side: "BUY",
@@ -437,7 +437,7 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
         stopPrice: "0"
       }
 
-      result = Spot."place_orderList/oco"(invalid_params)
+      result = Spot."place_order_list/oco"(invalid_params)
       assert {:error, reason} = result
       Logger.debug("TESTNET place OCO error response: #{inspect(reason)}")
     end
@@ -644,10 +644,10 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
   end
 
   describe "batch operations" do
-    test "cancel_all_orders returns appropriate response" do
+    test "delete_open_orders returns appropriate response" do
       # This is safer - cancels any existing orders but won't place new ones
-      result = Spot.cancel_all_orders(%{symbol: "BTCUSDT"})
-      Logger.debug("TESTNET cancel_all_orders response: #{inspect(result)}")
+      result = Spot.delete_open_orders(%{symbol: "BTCUSDT"})
+      Logger.debug("TESTNET delete_open_orders response: #{inspect(result)}")
 
       case result do
         {:ok, response} ->
