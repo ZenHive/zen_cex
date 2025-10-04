@@ -51,41 +51,6 @@ defmodule Mix.Tasks.ZenCex.GenerateBybitEndpoints do
   # Postman collection URL
   @postman_url "https://raw.githubusercontent.com/bybit-exchange/QuickStartWithPostman/refs/heads/main/V5APIs/Open%20API%20V5.postman_collection.json"
 
-  # Trading-related endpoint patterns to include (as strings)
-  @trading_pattern_strings [
-    "/v5/account/",
-    "/v5/asset/",
-    "/v5/order/",
-    "/v5/position/",
-    "/v5/execution/",
-    "/v5/user/",
-    "/v5/spot/",
-    "/v5/ins-loan/",
-    "/v5/portfolio/",
-    "/v5/broker/"
-  ]
-
-  # Patterns to explicitly exclude (as strings)
-  @exclude_pattern_strings [
-    "/kline",
-    "/orderbook",
-    "/tickers",
-    "/ticker",
-    "/recent-trade",
-    "/public/",
-    "/market/",
-    "/announcements",
-    "/status"
-  ]
-
-  defp trading_patterns do
-    Enum.map(@trading_pattern_strings, &Regex.compile!/1)
-  end
-
-  defp exclude_patterns do
-    Enum.map(@exclude_pattern_strings, &Regex.compile!/1)
-  end
-
   @doc """
   Runs the Bybit endpoint generation task.
   """
@@ -131,7 +96,7 @@ defmodule Mix.Tasks.ZenCex.GenerateBybitEndpoints do
   defp parse_and_filter_endpoints(collection) do
     collection
     |> extract_all_requests()
-    |> filter_trading_endpoints()
+    |> filter_non_market_data_endpoints()
     |> map_to_endpoint_format()
     |> add_smart_defaults()
     |> deduplicate_endpoints()
@@ -176,17 +141,12 @@ defmodule Mix.Tasks.ZenCex.GenerateBybitEndpoints do
     end)
   end
 
-  defp filter_trading_endpoints(requests) do
-    trading = trading_patterns()
-    exclude = exclude_patterns()
-
-    Enum.filter(requests, fn {request, _item} ->
+  defp filter_non_market_data_endpoints(requests) do
+    # Only exclude market data endpoints - keep everything else
+    # Market data is handled by generate_bybit_market_data.ex
+    Enum.reject(requests, fn {request, _item} ->
       path = extract_path(request)
-
-      matches_trading = Enum.any?(trading, &Regex.match?(&1, path))
-      is_excluded = Enum.any?(exclude, &Regex.match?(&1, path))
-
-      matches_trading and not is_excluded
+      String.contains?(path, "/v5/market/")
     end)
   end
 

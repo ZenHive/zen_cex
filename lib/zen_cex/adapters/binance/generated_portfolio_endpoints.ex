@@ -17,6 +17,34 @@
     doc: "Account Information"
   },
   %{
+    operation: :fund_collection_by_asset,
+    method: :post,
+    path: "/papi/v1/asset-collection",
+    api_type: :portfolio,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 1,
+    retry_on: [:timeout],
+    response_parser: &Parser.parse_generic/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Fund Collection by Asset"
+  },
+  %{
+    operation: :fund_auto_collection,
+    method: :post,
+    path: "/papi/v1/auto-collection",
+    api_type: :portfolio,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 1,
+    retry_on: [:timeout],
+    response_parser: &Parser.parse_generic/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Fund Auto-collection"
+  },
+  %{
     operation: :account_balance,
     method: :get,
     path: "/papi/v1/balance",
@@ -29,6 +57,20 @@
     response_parser: &Parser.parse_balances/1,
     error_mapping: &Parser.parse_error/1,
     doc: "Account Balance"
+  },
+  %{
+    operation: :bnb_transfer,
+    method: :post,
+    path: "/papi/v1/bnb-transfer",
+    api_type: :portfolio,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 1,
+    retry_on: [:timeout],
+    response_parser: &Parser.parse_generic/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "BNB transfer"
   },
   %{
     operation: :get_cm_account_detail,
@@ -241,6 +283,20 @@
     doc: "Query User Negative Balance Auto Exchange Record"
   },
   %{
+    operation: :query_user_rate_limit,
+    method: :get,
+    path: "/papi/v1/rateLimit/order",
+    api_type: :portfolio,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 3,
+    retry_on: [:rate_limited, :timeout, :server_error],
+    response_parser: &Parser.parse_order/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Query User Rate Limit"
+  },
+  %{
     operation: :repay_futures_negative_balance,
     method: :post,
     path: "/papi/v1/repay-futures-negative-balance",
@@ -253,6 +309,34 @@
     response_parser: &Parser.parse_balances/1,
     error_mapping: &Parser.parse_error/1,
     doc: "Repay futures Negative Balance"
+  },
+  %{
+    operation: :change_auto_repay_futures_status,
+    method: :post,
+    path: "/papi/v1/repay-futures-switch",
+    api_type: :portfolio,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 1,
+    retry_on: [:timeout],
+    response_parser: &Parser.parse_generic/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Change Auto-repay-futures Status"
+  },
+  %{
+    operation: :get_auto_repay_futures_status,
+    method: :get,
+    path: "/papi/v1/repay-futures-switch",
+    api_type: :portfolio,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 3,
+    retry_on: [:rate_limited, :timeout, :server_error],
+    response_parser: &Parser.parse_generic/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Get Auto-repay-futures Status"
   },
   %{
     operation: :get_um_account_detail,
@@ -323,6 +407,34 @@
     response_parser: &Parser.parse_income/1,
     error_mapping: &Parser.parse_error/1,
     doc: "Get UM Income History"
+  },
+  %{
+    operation: :get_download_id_for_um_futures_transaction_history,
+    method: :get,
+    path: "/papi/v1/um/income/asyn",
+    api_type: :portfolio,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 3,
+    retry_on: [:rate_limited, :timeout, :server_error],
+    response_parser: &Parser.parse_income/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Get Download Id For UM Futures Transaction History"
+  },
+  %{
+    operation: :get_um_futures_transaction_download_link_by_id,
+    method: :get,
+    path: "/papi/v1/um/income/asyn/id",
+    api_type: :portfolio,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 3,
+    retry_on: [:rate_limited, :timeout, :server_error],
+    response_parser: &Parser.parse_income/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Get UM Futures Transaction Download Link by Id"
   },
   %{
     operation: :change_um_initial_leverage,
@@ -421,6 +533,48 @@
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
     doc: "Get UM Current Position Mode"
+  },
+  %{
+    operation: :um_futures_symbol_configuration,
+    method: :get,
+    path: "/papi/v1/um/symbolConfig",
+    api_type: :portfolio,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 3,
+    retry_on: [:rate_limited, :timeout, :server_error],
+    response_parser: &Parser.parse_generic/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "UM Futures Symbol Configuration"
+  },
+  %{
+    operation: :get_download_id_for_um_futures_trade_history,
+    method: :get,
+    path: "/papi/v1/um/trade/asyn",
+    api_type: :portfolio,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 3,
+    retry_on: [:rate_limited, :timeout, :server_error],
+    response_parser: &Parser.parse_generic/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Get Download Id For UM Futures Trade History"
+  },
+  %{
+    operation: :get_um_futures_trade_download_link_by_id,
+    method: :get,
+    path: "/papi/v1/um/trade/asyn/id",
+    api_type: :portfolio,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 3,
+    retry_on: [:rate_limited, :timeout, :server_error],
+    response_parser: &Parser.parse_generic/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Get UM Futures Trade Download Link by Id"
   },
   %{
     operation: :get_um_account_detail_v2,
@@ -1065,6 +1219,34 @@
     response_parser: &Parser.parse_order/1,
     error_mapping: &Parser.parse_error/1,
     doc: "Query UM Conditional Order History"
+  },
+  %{
+    operation: :get_um_futures_bnb_burn_status,
+    method: :get,
+    path: "/papi/v1/um/feeBurn",
+    api_type: :portfolio,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 3,
+    retry_on: [:rate_limited, :timeout, :server_error],
+    response_parser: &Parser.parse_generic/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Get UM Futures BNB Burn Status"
+  },
+  %{
+    operation: :toggle_bnb_burn_on_um_futures_trade,
+    method: :post,
+    path: "/papi/v1/um/feeBurn",
+    api_type: :portfolio,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 1,
+    retry_on: [:timeout],
+    response_parser: &Parser.parse_generic/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Toggle BNB Burn On UM Futures Trade"
   },
   %{
     operation: :query_user_s_um_force_orders,

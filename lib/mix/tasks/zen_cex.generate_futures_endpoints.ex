@@ -26,42 +26,6 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
   # Default timeout for generated endpoints in milliseconds
   @default_endpoint_timeout_ms 5_000
 
-  # Core trading and account operations - skip market data
-  @trading_operations [
-    # Account operations
-    "account",
-    "commission",
-    "balance",
-    "position",
-    "leverage",
-    "margin",
-    # Order operations
-    "order",
-    "orders",
-    "cancel",
-    "modify",
-    # Trade history
-    "trades",
-    "income",
-    "fills"
-  ]
-
-  @skip_operations [
-    # Market data operations we don't want
-    "klines",
-    "ticker",
-    "depth",
-    "trades",
-    "aggTrades",
-    "fundingRate",
-    "markPrice",
-    "premiumIndex",
-    "openInterest",
-    "indexPrice",
-    # System info we don't need
-    "exchangeInfo"
-  ]
-
   @doc """
   Runs the futures endpoint generation task for the specified type.
 
@@ -128,7 +92,7 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
     endpoints =
       collection_json
       |> Jason.decode!()
-      |> extract_trading_endpoints()
+      |> extract_all_endpoints()
       |> map_postman_to_endpoint_format(api_type)
       |> add_smart_defaults()
       # Remove duplicates
@@ -159,30 +123,18 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
     end
   end
 
-  defp extract_trading_endpoints(collection) do
-    # Get Account and Trade sections
+  defp extract_all_endpoints(collection) do
+    # Get Account and Trade sections - these contain all relevant futures endpoints
     account_items = get_section_items(collection, "Account")
     trade_items = get_section_items(collection, "Trade")
 
-    Enum.filter(account_items ++ trade_items, &trading_endpoint?/1)
+    account_items ++ trade_items
   end
 
   defp get_section_items(collection, section_name) do
     collection["item"]
     |> Enum.find(%{}, fn item -> item["name"] == section_name end)
     |> Map.get("item", [])
-  end
-
-  defp trading_endpoint?(item) do
-    name = String.downcase(item["name"] || "")
-
-    # Check if it's a trading operation
-    has_trading = Enum.any?(@trading_operations, &String.contains?(name, &1))
-
-    # Check if it's NOT a market data operation
-    not_market_data = not Enum.any?(@skip_operations, &String.contains?(name, &1))
-
-    has_trading and not_market_data
   end
 
   defp map_postman_to_endpoint_format(items, api_type) do

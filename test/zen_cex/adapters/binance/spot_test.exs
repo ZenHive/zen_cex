@@ -7,7 +7,8 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
   describe "endpoint configurations" do
     test "all endpoints have required fields" do
       endpoints = Spot.all_endpoints()
-      assert length(endpoints) == 17
+      # After removing filtering: 17 -> 340 endpoints (comprehensive OpenAPI coverage)
+      assert length(endpoints) == 340
 
       Enum.each(endpoints, fn config ->
         assert Map.has_key?(config, :operation)

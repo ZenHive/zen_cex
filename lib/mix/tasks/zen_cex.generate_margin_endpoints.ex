@@ -25,55 +25,6 @@ defmodule Mix.Tasks.ZenCex.GenerateMarginEndpoints do
   # HTTP success status code
   @http_success_status 200
 
-  # Core margin trading operations - skip market data
-  @trading_operations [
-    # Account operations
-    "account",
-    "balance",
-    "capital",
-    "isolated",
-    "cross",
-    "leverage",
-    "margin",
-    # Transfer operations
-    "transfer",
-    # Loan operations
-    "loan",
-    "borrow",
-    "repay",
-    "interest",
-    # Order operations
-    "order",
-    "orders",
-    "cancel",
-    # Trade history
-    "trades",
-    "myTrades",
-    # OCO operations
-    "orderList",
-    "allOrderList",
-    # Risk management
-    "tradeCoeff",
-    "maxBorrowable",
-    "maxTransferable",
-    # BNB burn
-    "bnbBurn"
-  ]
-
-  @skip_operations [
-    # Market data operations we don't want
-    "klines",
-    "ticker",
-    "depth",
-    "trades",
-    "aggTrades",
-    "bookTicker",
-    # System operations we already have
-    # "ping",
-    # "time",
-    "exchangeInfo"
-  ]
-
   @doc """
   Runs the margin endpoint generation task.
 
@@ -103,7 +54,7 @@ defmodule Mix.Tasks.ZenCex.GenerateMarginEndpoints do
     endpoints =
       collection_json
       |> Jason.decode!()
-      |> extract_trading_endpoints()
+      |> extract_all_endpoints()
       |> map_postman_to_endpoint_format()
       |> add_smart_defaults()
       # Remove duplicates
@@ -134,11 +85,10 @@ defmodule Mix.Tasks.ZenCex.GenerateMarginEndpoints do
     end
   end
 
-  defp extract_trading_endpoints(collection) do
+  defp extract_all_endpoints(collection) do
     collection
     |> Map.get("item", [])
     |> Enum.flat_map(&extract_from_folder/1)
-    |> Enum.filter(&trading_endpoint?/1)
   end
 
   defp extract_from_folder(%{"item" => items} = folder) do
@@ -165,18 +115,6 @@ defmodule Mix.Tasks.ZenCex.GenerateMarginEndpoints do
   end
 
   defp extract_from_folder(_), do: []
-
-  defp trading_endpoint?(%{"request" => %{"url" => url}}) when is_map(url) do
-    path = get_path_from_url(url)
-
-    # Check if it's a trading operation and not a skip operation
-    is_trading = Enum.any?(@trading_operations, &String.contains?(path, &1))
-    is_skip = Enum.any?(@skip_operations, &String.contains?(path, &1))
-
-    is_trading and not is_skip
-  end
-
-  defp trading_endpoint?(_), do: false
 
   defp get_path_from_url(%{"raw" => raw}) when is_binary(raw) do
     # Extract path from raw URL, removing the {{url}} placeholder

@@ -17,6 +17,20 @@
     doc: "Futures Account Configuration"
   },
   %{
+    operation: :futures_trading_quantitative_rules_indicators,
+    method: :get,
+    path: "/fapi/v1/apiTradingStatus",
+    api_type: :usdm_futures,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 3,
+    retry_on: [:rate_limited, :timeout, :server_error],
+    response_parser: &Parser.parse_generic/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Futures Trading Quantitative Rules Indicators"
+  },
+  %{
     operation: :user_commission_rate,
     method: :get,
     path: "/fapi/v1/commissionRate",
@@ -29,6 +43,34 @@
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
     doc: "User Commission Rate"
+  },
+  %{
+    operation: :get_bnb_burn_status,
+    method: :get,
+    path: "/fapi/v1/feeBurn",
+    api_type: :usdm_futures,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 3,
+    retry_on: [:rate_limited, :timeout, :server_error],
+    response_parser: &Parser.parse_generic/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Get BNB Burn Status"
+  },
+  %{
+    operation: :toggle_bnb_burn_on_futures_trade,
+    method: :post,
+    path: "/fapi/v1/feeBurn",
+    api_type: :usdm_futures,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 1,
+    retry_on: [:timeout],
+    response_parser: &Parser.parse_generic/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Toggle BNB Burn On Futures Trade"
   },
   %{
     operation: :get_income_history,
@@ -45,6 +87,34 @@
     doc: "Get Income History"
   },
   %{
+    operation: :get_download_id_for_futures_transaction_history,
+    method: :get,
+    path: "/fapi/v1/income/asyn",
+    api_type: :usdm_futures,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 3,
+    retry_on: [:rate_limited, :timeout, :server_error],
+    response_parser: &Parser.parse_income/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Get Download Id For Futures Transaction History"
+  },
+  %{
+    operation: :get_futures_transaction_history_download_link_by_id,
+    method: :get,
+    path: "/fapi/v1/income/asyn/id",
+    api_type: :usdm_futures,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 3,
+    retry_on: [:rate_limited, :timeout, :server_error],
+    response_parser: &Parser.parse_income/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Get Futures Transaction History Download Link by Id"
+  },
+  %{
     operation: :notional_and_leverage_brackets,
     method: :get,
     path: "/fapi/v1/leverageBracket",
@@ -57,6 +127,20 @@
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
     doc: "Notional and Leverage Brackets"
+  },
+  %{
+    operation: :get_current_multi_assets_mode,
+    method: :get,
+    path: "/fapi/v1/multiAssetsMargin",
+    api_type: :usdm_futures,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 3,
+    retry_on: [:rate_limited, :timeout, :server_error],
+    response_parser: &Parser.parse_generic/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Get Current Multi-Assets Mode"
   },
   %{
     operation: :get_download_id_for_futures_order_history,
@@ -99,6 +183,62 @@
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
     doc: "Get Current Position Mode"
+  },
+  %{
+    operation: :query_user_rate_limit,
+    method: :get,
+    path: "/fapi/v1/rateLimit/order",
+    api_type: :usdm_futures,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 3,
+    retry_on: [:rate_limited, :timeout, :server_error],
+    response_parser: &Parser.parse_order/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Query User Rate Limit"
+  },
+  %{
+    operation: :symbol_configuration,
+    method: :get,
+    path: "/fapi/v1/symbolConfig",
+    api_type: :usdm_futures,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 3,
+    retry_on: [:rate_limited, :timeout, :server_error],
+    response_parser: &Parser.parse_generic/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Symbol Configuration"
+  },
+  %{
+    operation: :get_download_id_for_futures_trade_history,
+    method: :get,
+    path: "/fapi/v1/trade/asyn",
+    api_type: :usdm_futures,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 3,
+    retry_on: [:rate_limited, :timeout, :server_error],
+    response_parser: &Parser.parse_generic/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Get Download Id For Futures Trade History"
+  },
+  %{
+    operation: :get_futures_trade_download_link_by_id,
+    method: :get,
+    path: "/fapi/v1/trade/asyn/id",
+    api_type: :usdm_futures,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 3,
+    retry_on: [:rate_limited, :timeout, :server_error],
+    response_parser: &Parser.parse_generic/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Get Futures Trade Download Link by Id"
   },
   %{
     operation: :account_information_v2,
@@ -295,6 +435,20 @@
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
     doc: "Change Margin Type"
+  },
+  %{
+    operation: :change_multi_assets_mode,
+    method: :post,
+    path: "/fapi/v1/multiAssetsMargin",
+    api_type: :usdm_futures,
+    requires_auth: true,
+    weight: 5,
+    timeout: 5000,
+    max_retries: 1,
+    retry_on: [:timeout],
+    response_parser: &Parser.parse_generic/1,
+    error_mapping: &Parser.parse_error/1,
+    doc: "Change Multi-Assets Mode"
   },
   %{
     operation: :query_current_open_order,
