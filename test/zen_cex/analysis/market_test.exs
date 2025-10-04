@@ -292,53 +292,28 @@ defmodule ZenCex.Analysis.MarketTest do
     end
 
     @tag :integration
-    test "compares rates across multiple exchanges" do
-      # Get real testnet configs from environment
+    test "compares rates across multiple exchanges", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
+      # Build config from IntegrationCase context
       binance_config = %{
-        api_key: System.get_env("BINANCE_FUTURES_TEST_API_KEY"),
-        api_secret: System.get_env("BINANCE_FUTURES_TEST_API_SECRET"),
-        testnet: true
+        api_key: api_key,
+        api_secret: api_secret,
+        testnet: testnet
       }
 
-      bybit_config = %{
-        api_key: System.get_env("BYBIT_TESTNET_API_KEY"),
-        api_secret: System.get_env("BYBIT_TESTNET_API_SECRET"),
-        testnet: true
-      }
+      # Test with just Binance (since this uses single-exchange IntegrationCase)
+      exchanges_with_configs = [{:binance, binance_config}]
 
-      # Only test exchanges with configured credentials
-      exchanges_with_configs = []
+      result = Market.compare_funding_rates(exchanges_with_configs, ["BTCUSDT"])
 
-      exchanges_with_configs =
-        if binance_config.api_key && binance_config.api_secret do
-          [{:binance, binance_config} | exchanges_with_configs]
-        else
-          exchanges_with_configs
-        end
+      case result do
+        {:ok, comparison} ->
+          assert is_map(comparison)
+          # Verify structure of comparison data
+          assert Map.has_key?(comparison, "BTCUSDT")
 
-      exchanges_with_configs =
-        if bybit_config.api_key && bybit_config.api_secret do
-          [{:bybit, bybit_config} | exchanges_with_configs]
-        else
-          exchanges_with_configs
-        end
-
-      if length(exchanges_with_configs) > 0 do
-        result = Market.compare_funding_rates(exchanges_with_configs, ["BTCUSDT"])
-
-        case result do
-          {:ok, comparison} ->
-            assert is_map(comparison)
-            # Verify structure of comparison data
-            assert Map.has_key?(comparison, "BTCUSDT")
-
-          {:error, reason} ->
-            # Document the actual error for debugging
-            flunk("Failed to compare funding rates: #{inspect(reason)}")
-        end
-      else
-        # Skip test if no credentials are configured
-        IO.puts("Skipping test - no exchange credentials configured")
+        {:error, reason} ->
+          # Document the actual error for debugging
+          flunk("Failed to compare funding rates: #{inspect(reason)}")
       end
     end
   end

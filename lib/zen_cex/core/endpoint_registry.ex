@@ -600,7 +600,10 @@ defmodule ZenCex.EndpointRegistry do
     quote do
       defp determine_base_url(config, adapter) do
         if supports_multi_api?(config, adapter) do
-          adapter.base_url(adapter.current_env(), config.api_type)
+          # New signature: base_url(api_type, opts)
+          # For now, always use production (testnet: false) since library doesn't track environment
+          # IntegrationCase will inject auth_credentials with testnet flag when needed
+          adapter.base_url(config.api_type, testnet: false)
         else
           adapter.base_url()
         end
@@ -618,19 +621,36 @@ defmodule ZenCex.EndpointRegistry do
       defp configure_request(request, config, params, base_url) do
         {request_params, request_json} = build_request_data(config.method, params)
 
-        Req.merge(request,
+        # Build base options (always present)
+        base_opts = [
           method: config.method,
           url: base_url <> config.path,
-          params: request_params,
-          json: request_json,
           receive_timeout: config.timeout,
           skip_auth: not config.requires_auth,
           retry: false
-        )
+        ]
+
+        # Add params/json only if not nil (Req doesn't accept nil values)
+        opts =
+          base_opts
+          |> maybe_add_params(request_params)
+          |> maybe_add_json(request_json)
+
+        Req.merge(request, opts)
       end
 
+      # HTTP method semantics: GET uses query params, POST/PUT/DELETE use JSON body
+      # Returns nil for unused parameter location to be filtered out by maybe_add_* helpers
       defp build_request_data(:get, params), do: {params, nil}
       defp build_request_data(_, params), do: {nil, params}
+
+      # Helper functions to conditionally add params/json to options
+      # Req.merge doesn't accept nil values, so we only add the key when value is present
+      defp maybe_add_params(opts, nil), do: opts
+      defp maybe_add_params(opts, params), do: Keyword.put(opts, :params, params)
+
+      defp maybe_add_json(opts, nil), do: opts
+      defp maybe_add_json(opts, json), do: Keyword.put(opts, :json, json)
 
       defp add_request_metadata(request, config) do
         request

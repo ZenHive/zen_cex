@@ -9,17 +9,14 @@ defmodule ZenCex.Core.Auth do
   - Credential validation and error messages
   - Dynamic credential lookup from request options or environment
 
-  ## Credential Priority Order
+  ## Credential Resolution
 
-  All exchanges follow the same credential resolution priority:
+  Credentials are resolved from request private data ONLY:
+  - `request.private[:auth_credentials][:api_key]`
+  - `request.private[:auth_credentials][:api_secret]`
+  - `request.private[:auth_credentials][:testnet]` (optional, defaults to false)
 
-  1. **Request private data** (highest priority):
-     - `request.private[:auth_credentials][:api_key]`
-     - `request.private[:auth_credentials][:api_secret]`
-
-  2. **Environment variables** (fallback):
-     - When `{EXCHANGE}_TESTNET` is set: Uses testnet credentials
-     - Otherwise: Uses production credentials
+  No environment variable fallback exists. All credentials must be passed explicitly.
 
   ## Memory Management for Credentials
 
@@ -33,10 +30,10 @@ defmodule ZenCex.Core.Auth do
 
   ## Testnet Support
 
-  The module automatically detects testnet mode via environment variables:
-  - `{EXCHANGE}_TESTNET` - If set to any value except "false" or "", enables testnet mode
-  - `{EXCHANGE}_TESTNET_API_KEY` - Testnet API key (used when testnet mode is enabled)
-  - `{EXCHANGE}_TESTNET_API_SECRET` - Testnet API secret (used when testnet mode is enabled)
+  Testnet mode is determined by the `testnet` flag in auth_credentials:
+  - `auth_credentials: %{api_key: "...", api_secret: "...", testnet: true}`
+  - Defaults to `false` if not specified
+  - This flag is used by adapter modules to select the appropriate base URL
 
   ## Usage by Exchange Adapters
 
@@ -56,6 +53,11 @@ defmodule ZenCex.Core.Auth do
           end
         end
       end
+
+  Adapter modules should extract the testnet flag separately:
+
+      testnet = get_in(request.private, [:auth_credentials, :testnet]) || false
+      base_url = Endpoints.base_url(testnet, :my_exchange, :spot)
   """
 
   require Logger
@@ -63,15 +65,10 @@ defmodule ZenCex.Core.Auth do
   @type credentials :: {String.t() | nil, String.t() | nil}
   @type credentials_result :: {:ok, {String.t(), String.t()}} | {:error, :missing_api_key | :missing_api_secret}
 
-  # Values that disable testnet mode when set as EXCHANGE_TESTNET env var
-  @testnet_disabled_values [nil, "", "false", "0", "no", "disabled"]
-
   @doc """
-  Gets the API key for the specified exchange from request private data or environment.
+  Gets the API key for the specified exchange from request private data.
 
-  Checks in order:
-  1. Request private data: `request.private[:auth_credentials][:api_key]`
-  2. Environment variables based on testnet mode
+  Checks only: `request.private[:auth_credentials][:api_key]`
 
   ## Parameters
     * `request` - The Req.Request struct containing options
@@ -79,7 +76,7 @@ defmodule ZenCex.Core.Auth do
 
   ## Returns
     * The API key string if found
-    * `nil` if no API key is available
+    * Raises `ArgumentError` if credentials are missing or invalid
 
   ## Examples
 
@@ -91,36 +88,50 @@ defmodule ZenCex.Core.Auth do
       Auth.get_api_key(request, :binance)
       # => "my_key"
 
-      # Falls back to environment variables when not in options
-      # Assuming BINANCE_API_KEY="env_key" is set in environment
+      # Without credentials raises error
       request = Req.new()
       Auth.get_api_key(request, :binance)
-      # => "env_key"
+      # => ** (ArgumentError) Missing auth_credentials.api_key for binance
   """
-  @spec get_api_key(Req.Request.t(), atom()) :: String.t() | nil
+  @spec get_api_key(Req.Request.t(), atom()) :: String.t()
   def get_api_key(request, exchange) do
-    # Use safer access pattern for better debugging
-    case Map.fetch(request.private || %{}, :auth_credentials) do
+    case Map.fetch(request.private, :auth_credentials) do
       {:ok, creds} when is_map(creds) ->
-        # If auth_credentials are explicitly provided, use them exclusively (no fallback)
-        # Explicit validation to prevent silent failures
         case Map.fetch(creds, :api_key) do
-          {:ok, key} when is_binary(key) and byte_size(key) > 0 -> key
-          # Let caller handle missing or invalid key
-          _ -> nil
+          {:ok, key} when is_binary(key) and byte_size(key) > 0 ->
+            key
+
+          {:ok, ""} ->
+            raise ArgumentError,
+                  "auth_credentials.api_key cannot be empty for #{exchange}. " <>
+                    "Provide a valid API key in auth_credentials option."
+
+          {:ok, invalid} ->
+            raise ArgumentError,
+                  "auth_credentials.api_key must be a string for #{exchange}, got: #{inspect(invalid)}"
+
+          :error ->
+            raise ArgumentError,
+                  "Missing auth_credentials.api_key for #{exchange}. " <>
+                    ~s(Include api_key in auth_credentials: %{api_key: "...", api_secret: "..."})
         end
 
-      _ ->
-        get_api_key_from_env(request, exchange)
+      :error ->
+        raise ArgumentError,
+              "Missing auth_credentials for #{exchange}. " <>
+                "Pass credentials via auth_credentials option: " <>
+                ~s(%{api_key: "...", api_secret: "...", testnet: true/false})
+
+      {:ok, invalid} ->
+        raise ArgumentError,
+              "auth_credentials must be a map for #{exchange}, got: #{inspect(invalid)}"
     end
   end
 
   @doc """
-  Gets the API secret for the specified exchange from request private data or environment.
+  Gets the API secret for the specified exchange from request private data.
 
-  Checks in order:
-  1. Request private data: `request.private[:auth_credentials][:api_secret]`
-  2. Environment variables based on testnet mode
+  Checks only: `request.private[:auth_credentials][:api_secret]`
 
   ## Parameters
     * `request` - The Req.Request struct containing options
@@ -128,7 +139,7 @@ defmodule ZenCex.Core.Auth do
 
   ## Returns
     * The API secret string if found
-    * `nil` if no API secret is available
+    * Raises `ArgumentError` if credentials are missing or invalid
 
   ## Examples
 
@@ -140,34 +151,50 @@ defmodule ZenCex.Core.Auth do
       Auth.get_api_secret(request, :binance)
       # => "my_secret"
 
-      # Falls back to environment variables when not in options
-      # Assuming BINANCE_API_SECRET="env_secret" is set in environment
+      # Without credentials raises error
       request = Req.new()
       Auth.get_api_secret(request, :binance)
-      # => "env_secret"
+      # => ** (ArgumentError) Missing auth_credentials.api_secret for binance
   """
-  @spec get_api_secret(Req.Request.t(), atom()) :: String.t() | nil
+  @spec get_api_secret(Req.Request.t(), atom()) :: String.t()
   def get_api_secret(request, exchange) do
-    # Use safer access pattern for better debugging
-    case Map.fetch(request.private || %{}, :auth_credentials) do
+    case Map.fetch(request.private, :auth_credentials) do
       {:ok, creds} when is_map(creds) ->
-        # If auth_credentials are explicitly provided, use them exclusively (no fallback)
-        # Explicit validation to prevent silent failures
         case Map.fetch(creds, :api_secret) do
-          {:ok, secret} when is_binary(secret) and byte_size(secret) > 0 -> secret
-          # Let caller handle missing or invalid secret
-          _ -> nil
+          {:ok, secret} when is_binary(secret) and byte_size(secret) > 0 ->
+            secret
+
+          {:ok, ""} ->
+            raise ArgumentError,
+                  "auth_credentials.api_secret cannot be empty for #{exchange}. " <>
+                    "Provide a valid API secret in auth_credentials option."
+
+          {:ok, invalid} ->
+            raise ArgumentError,
+                  "auth_credentials.api_secret must be a string for #{exchange}, got: #{inspect(invalid)}"
+
+          :error ->
+            raise ArgumentError,
+                  "Missing auth_credentials.api_secret for #{exchange}. " <>
+                    ~s(Include api_secret in auth_credentials: %{api_key: "...", api_secret: "..."})
         end
 
-      _ ->
-        get_api_secret_from_env(request, exchange)
+      :error ->
+        raise ArgumentError,
+              "Missing auth_credentials for #{exchange}. " <>
+                "Pass credentials via auth_credentials option: " <>
+                ~s(%{api_key: "...", api_secret: "...", testnet: true/false})
+
+      {:ok, invalid} ->
+        raise ArgumentError,
+              "auth_credentials must be a map for #{exchange}, got: #{inspect(invalid)}"
     end
   end
 
   @doc """
   Gets both API key and secret for the specified exchange.
 
-  Returns the legacy tuple format for backward compatibility.
+  Returns a tuple or error for compatibility with try/rescue patterns.
   Use `get_credentials_with_result/2` for more detailed error information.
 
   ## Parameters
@@ -176,7 +203,7 @@ defmodule ZenCex.Core.Auth do
 
   ## Returns
     * `{api_key, api_secret}` tuple with both credentials
-    * `{nil, nil}` if either credential is missing
+    * `{:error, message}` if credentials are missing or invalid (when rescued)
 
   ## Examples
 
@@ -189,17 +216,16 @@ defmodule ZenCex.Core.Auth do
       {key, secret} = Auth.get_credentials(request, :binance)
       # => {"key", "secret"}
 
-      # With missing credentials
+      # With missing credentials - returns error tuple when rescued
       request = Req.new()
-      {key, secret} = Auth.get_credentials(request, :binance)
-      # => {nil, nil}
+      Auth.get_credentials(request, :binance)
+      # => Raises ArgumentError, or {:error, message} when rescued
   """
-  @spec get_credentials(Req.Request.t(), atom()) :: credentials()
+  @spec get_credentials(Req.Request.t(), atom()) :: credentials() | {:error, String.t()}
   def get_credentials(request, exchange) do
-    case get_credentials_with_result(request, exchange) do
-      {:ok, credentials} -> credentials
-      {:error, _} -> {nil, nil}
-    end
+    {get_api_key(request, exchange), get_api_secret(request, exchange)}
+  rescue
+    e in ArgumentError -> {:error, e.message}
   end
 
   @doc """
@@ -245,7 +271,7 @@ defmodule ZenCex.Core.Auth do
   end
 
   @doc """
-  Validates that both API key and secret are present for authentication.
+  Validates that both API key and secret are present and non-empty for authentication.
 
   This is a convenience function for auth modules to check if they have
   the necessary credentials to proceed with signing requests.
@@ -255,8 +281,8 @@ defmodule ZenCex.Core.Auth do
     * `exchange` - The exchange atom (e.g., `:binance`, `:bybit`, `:kraken`)
 
   ## Returns
-    * `true` if both API key and secret are present
-    * `false` if either is missing
+    * `true` if both API key and secret are present and non-empty
+    * `false` if either is missing or if ArgumentError is raised
 
   ## Examples
 
@@ -280,9 +306,14 @@ defmodule ZenCex.Core.Auth do
   @spec valid_credentials?(Req.Request.t(), atom()) :: boolean()
   def valid_credentials?(request, exchange) do
     case get_credentials(request, exchange) do
-      {nil, nil} -> false
-      {_, _} -> true
+      {key, secret} when is_binary(key) and is_binary(secret) ->
+        byte_size(key) > 0 and byte_size(secret) > 0
+
+      {:error, _} ->
+        false
     end
+  rescue
+    ArgumentError -> false
   end
 
   @doc """
@@ -326,36 +357,6 @@ defmodule ZenCex.Core.Auth do
   def validate_credentials(_), do: {:error, :invalid_credentials}
 
   @doc """
-  Checks if the exchange is in testnet mode.
-
-  An exchange is in testnet mode if the `{EXCHANGE}_TESTNET` environment
-  variable is set to any value except "false" or "".
-
-  ## Parameters
-    * `exchange` - The exchange atom (e.g., `:binance`, `:bybit`, `:kraken`)
-
-  ## Returns
-    * `true` if testnet mode is enabled
-    * `false` otherwise
-
-  ## Examples
-
-      # When BINANCE_TESTNET="true" is set in environment
-      Auth.testnet?(:binance)
-      # => true
-
-      # When BINANCE_TESTNET is not set
-      Auth.testnet?(:binance)
-      # => false
-  """
-  @spec testnet?(atom()) :: boolean()
-  def testnet?(exchange) do
-    env_key = exchange_testnet_env_key(exchange)
-    value = System.get_env(env_key)
-    value not in @testnet_disabled_values
-  end
-
-  @doc """
   Logs debug information about credential availability.
 
   Useful for debugging authentication issues without exposing sensitive data.
@@ -377,75 +378,47 @@ defmodule ZenCex.Core.Auth do
     :ok
   end
 
-  # Private functions
+  @doc """
+  Extracts the testnet flag from request options.
 
-  @spec get_api_key_from_env(Req.Request.t(), atom()) :: String.t() | nil
-  defp get_api_key_from_env(request, exchange) do
-    if testnet?(exchange) do
-      # Binance has separate testnet credentials for futures
-      testnet_key =
-        if exchange == :binance && futures_api_type?(request) do
-          System.get_env("BINANCE_FUTURES_TEST_API_KEY")
-        else
-          System.get_env(exchange_testnet_api_key(exchange))
-        end
+  This helper function normalizes the extraction of the testnet flag from
+  auth_credentials, ensuring consistent behavior across all adapters.
 
-      production_key = System.get_env(exchange_api_key(exchange))
-      testnet_key || production_key
-    else
-      System.get_env(exchange_api_key(exchange))
+  ## Parameters
+    * `opts` - Keyword list or map of options containing `:auth_credentials`
+
+  ## Returns
+    * `true` if `auth_credentials.testnet` is `true`
+    * `false` otherwise (including when testnet is missing or invalid)
+
+  ## Examples
+
+      opts = [auth_credentials: %{api_key: "key", testnet: true}]
+      Auth.get_testnet_flag(opts)
+      # => true
+
+      opts = %{auth_credentials: %{api_key: "key", testnet: false}}
+      Auth.get_testnet_flag(opts)
+      # => false
+
+      opts = [auth_credentials: %{api_key: "key"}]
+      Auth.get_testnet_flag(opts)
+      # => false (defaults to production)
+  """
+  @spec get_testnet_flag(keyword() | map()) :: boolean()
+  def get_testnet_flag(opts) when is_list(opts) do
+    case Keyword.get(opts, :auth_credentials) do
+      %{testnet: testnet} when is_boolean(testnet) -> testnet
+      _ -> false
     end
   end
 
-  @spec get_api_secret_from_env(Req.Request.t(), atom()) :: String.t() | nil
-  defp get_api_secret_from_env(request, exchange) do
-    if testnet?(exchange) do
-      # Binance has separate testnet credentials for futures
-      testnet_secret =
-        if exchange == :binance && futures_api_type?(request) do
-          System.get_env("BINANCE_FUTURES_TEST_API_SECRET")
-        else
-          System.get_env(exchange_testnet_api_secret(exchange))
-        end
-
-      production_secret = System.get_env(exchange_api_secret(exchange))
-      testnet_secret || production_secret
-    else
-      System.get_env(exchange_api_secret(exchange))
+  def get_testnet_flag(opts) when is_map(opts) do
+    case Map.get(opts, :auth_credentials) do
+      %{testnet: testnet} when is_boolean(testnet) -> testnet
+      _ -> false
     end
   end
 
-  # Check if the request is for Binance futures API type
-  @spec futures_api_type?(Req.Request.t()) :: boolean()
-  defp futures_api_type?(request) do
-    api_type = get_in(request.private, [:api_type])
-    api_type in [:usdm_futures, :coinm_futures]
-  end
-
-  # Environment variable name helpers
-
-  @spec exchange_testnet_env_key(atom()) :: String.t()
-  defp exchange_testnet_env_key(exchange) do
-    "#{exchange |> to_string() |> String.upcase()}_TESTNET"
-  end
-
-  @spec exchange_api_key(atom()) :: String.t()
-  defp exchange_api_key(exchange) do
-    "#{exchange |> to_string() |> String.upcase()}_API_KEY"
-  end
-
-  @spec exchange_api_secret(atom()) :: String.t()
-  defp exchange_api_secret(exchange) do
-    "#{exchange |> to_string() |> String.upcase()}_API_SECRET"
-  end
-
-  @spec exchange_testnet_api_key(atom()) :: String.t()
-  defp exchange_testnet_api_key(exchange) do
-    "#{exchange |> to_string() |> String.upcase()}_TESTNET_API_KEY"
-  end
-
-  @spec exchange_testnet_api_secret(atom()) :: String.t()
-  defp exchange_testnet_api_secret(exchange) do
-    "#{exchange |> to_string() |> String.upcase()}_TESTNET_API_SECRET"
-  end
+  # Private functions - removed all ENV fallback logic
 end

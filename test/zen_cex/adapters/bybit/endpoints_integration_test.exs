@@ -24,9 +24,14 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
   end
 
   describe "account information endpoints (requires auth)" do
-    test "get_wallet_balance returns testnet account balances" do
+    test "get_wallet_balance returns testnet account balances", %{
+      api_key: api_key,
+      api_secret: api_secret,
+      testnet: testnet
+    } do
       # Bybit unified API requires accountType parameter
-      assert {:ok, response} = Unified.get_wallet_balance(%{accountType: "UNIFIED"})
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
+      assert {:ok, response} = Unified.get_wallet_balance(%{accountType: "UNIFIED"}, opts)
       assert is_map(response)
       Logger.debug("TESTNET get_wallet_balance response: #{inspect(response, limit: 3)}")
     end
@@ -349,16 +354,12 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
   end
 
   describe "environment configuration" do
-    test "current_env returns :test in test environment" do
+    test "base_url returns production URL (testnet enforcement via IntegrationCase)" do
       alias ZenCex.Adapters.Bybit.Endpoints
 
-      assert Endpoints.current_env() == :test
-    end
-
-    test "base_url returns testnet URL in test environment" do
-      alias ZenCex.Adapters.Bybit.Endpoints
-
-      assert Endpoints.base_url() == "https://api-testnet.bybit.com"
+      # base_url() now always returns production
+      # IntegrationCase enforces testnet by injecting auth_credentials with testnet: true
+      assert Endpoints.base_url() == "https://api.bybit.com"
     end
   end
 end

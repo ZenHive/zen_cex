@@ -20,7 +20,9 @@ defmodule ZenCex.Safety.OrderSafetyIntegrationTest do
 
   describe "comprehensive order validation against real Binance testnet" do
     @tag :integration
-    test "validates valid BTCUSDT limit order" do
+    test "validates valid BTCUSDT limit order", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
+
       # Test a realistic order that should pass all validations
       order_params = %{
         symbol: "BTCUSDT",
@@ -32,7 +34,7 @@ defmodule ZenCex.Safety.OrderSafetyIntegrationTest do
         price: "30000.00"
       }
 
-      case OrderSafety.validate_order(:binance, order_params) do
+      case OrderSafety.validate_order(:binance, order_params, opts) do
         {:ok, validated_params} ->
           # Validation passed
           assert Map.has_key?(validated_params, :client_order_id)
@@ -124,7 +126,9 @@ defmodule ZenCex.Safety.OrderSafetyIntegrationTest do
     end
 
     @tag :integration
-    test "validates market orders" do
+    test "validates market orders", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
+
       order_params = %{
         symbol: "BTCUSDT",
         side: :buy,
@@ -133,7 +137,7 @@ defmodule ZenCex.Safety.OrderSafetyIntegrationTest do
         quantity: "0.001"
       }
 
-      case OrderSafety.validate_order(:binance, order_params) do
+      case OrderSafety.validate_order(:binance, order_params, opts) do
         {:ok, validated_params} ->
           assert validated_params.type == :market
           assert Map.has_key?(validated_params, :client_order_id)
@@ -362,9 +366,15 @@ defmodule ZenCex.Safety.OrderSafetyIntegrationTest do
     end
 
     @tag :integration
-    test "fetches real account balances from Binance testnet" do
+    test "fetches real account balances from Binance testnet", %{
+      api_key: api_key,
+      api_secret: api_secret,
+      testnet: testnet
+    } do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
+
       # Test real balance validation against testnet API
-      case OrderSafety.validate_balance(:binance, "USDT", Decimal.new("10.0")) do
+      case OrderSafety.validate_balance(:binance, "USDT", Decimal.new("10.0"), opts) do
         :ok ->
           IO.puts("Balance validation passed - testnet has sufficient USDT")
 

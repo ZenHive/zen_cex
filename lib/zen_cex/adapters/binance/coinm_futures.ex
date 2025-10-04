@@ -62,6 +62,41 @@ defmodule ZenCex.Adapters.Binance.CoinmFutures do
     end
   end)
 
+  # Manual endpoint definitions for connectivity checks (not in Postman collections)
+  @manual_endpoints [
+    %{
+      operation: :get_ping,
+      method: :get,
+      path: "/dapi/v1/ping",
+      api_type: :coinm_futures,
+      requires_auth: false,
+      weight: 1,
+      timeout: 5_000,
+      max_retries: 3,
+      retry_on: [:timeout],
+      response_parser: &Parser.parse_generic/1,
+      error_mapping: &Parser.parse_error/1,
+      doc: "Test connectivity to the COIN-M Futures API"
+    },
+    %{
+      operation: :get_time,
+      method: :get,
+      path: "/dapi/v1/time",
+      api_type: :coinm_futures,
+      requires_auth: false,
+      weight: 1,
+      timeout: 5_000,
+      max_retries: 3,
+      retry_on: [:timeout],
+      response_parser: &Parser.parse_generic/1,
+      error_mapping: &Parser.parse_error/1,
+      doc: "Check server time for COIN-M Futures API"
+    }
+  ]
+
+  # Append manual endpoints to generated ones
+  @endpoints @endpoints ++ @manual_endpoints
+
   # The EndpointRegistry macro automatically generates functions for all endpoints:
   # - get_positions/1, place_order/1, cancel_order/1, etc.
   # - get_endpoint/1 for runtime lookup

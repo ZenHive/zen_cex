@@ -40,59 +40,55 @@ defmodule ZenCex.Adapters.Binance.EndpointsTest do
   end
 
   describe "base_url/0" do
-    test "returns URL based on current environment" do
+    test "returns production URL by default" do
       url = Endpoints.base_url()
       assert is_binary(url)
       assert String.starts_with?(url, "https://")
-
-      # Should match the current environment
-      env = Endpoints.current_env()
-      expected = if env == :test, do: "https://testnet.binance.vision", else: "https://api.binance.com"
-      assert url == expected
+      # base_url/0 always returns production spot URL
+      assert url == "https://api.binance.com"
     end
   end
 
   describe "base_url/1" do
-    test "returns correct URLs for test environment" do
-      assert Endpoints.base_url(:test) == "https://testnet.binance.vision"
-    end
-
-    test "returns correct URLs for prod environment" do
-      assert Endpoints.base_url(:prod) == "https://api.binance.com"
+    test "returns correct URLs with testnet flag" do
+      assert Endpoints.base_url(:spot, testnet: true) == "https://testnet.binance.vision"
+      assert Endpoints.base_url(:spot, testnet: false) == "https://api.binance.com"
+      # defaults to production
+      assert Endpoints.base_url(:spot) == "https://api.binance.com"
     end
   end
 
   describe "base_url/2" do
     test "returns correct testnet URLs for different API types" do
       # Spot and Margin use the same testnet
-      assert Endpoints.base_url(:test, :spot) == "https://testnet.binance.vision"
-      assert Endpoints.base_url(:test, :margin) == "https://testnet.binance.vision"
+      assert Endpoints.base_url(:spot, testnet: true) == "https://testnet.binance.vision"
+      assert Endpoints.base_url(:margin, testnet: true) == "https://testnet.binance.vision"
 
       # Futures APIs use different testnet
-      assert Endpoints.base_url(:test, :usdm_futures) == "https://testnet.binancefuture.com"
-      assert Endpoints.base_url(:test, :coinm_futures) == "https://testnet.binancefuture.com"
+      assert Endpoints.base_url(:usdm_futures, testnet: true) == "https://testnet.binancefuture.com"
+      assert Endpoints.base_url(:coinm_futures, testnet: true) == "https://testnet.binancefuture.com"
 
       # SAPI and Portfolio have no testnet
-      assert Endpoints.base_url(:test, :sapi) == {:error, :no_testnet_for_sapi}
-      assert Endpoints.base_url(:test, :portfolio) == {:error, :no_testnet_for_portfolio_margin}
+      assert Endpoints.base_url(:sapi, testnet: true) == {:error, :no_testnet_for_sapi}
+      assert Endpoints.base_url(:portfolio, testnet: true) == {:error, :no_testnet_for_portfolio_margin}
 
       # Unknown API types default to spot testnet
-      assert Endpoints.base_url(:test, :unknown) == "https://testnet.binance.vision"
+      assert Endpoints.base_url(:unknown, testnet: true) == "https://testnet.binance.vision"
     end
 
     test "returns correct production URLs for different API types" do
       # Spot, Margin, and SAPI use the main API
-      assert Endpoints.base_url(:prod, :spot) == "https://api.binance.com"
-      assert Endpoints.base_url(:prod, :margin) == "https://api.binance.com"
-      assert Endpoints.base_url(:prod, :sapi) == "https://api.binance.com"
+      assert Endpoints.base_url(:spot, testnet: false) == "https://api.binance.com"
+      assert Endpoints.base_url(:margin, testnet: false) == "https://api.binance.com"
+      assert Endpoints.base_url(:sapi, testnet: false) == "https://api.binance.com"
 
       # Futures APIs have their own domains
-      assert Endpoints.base_url(:prod, :usdm_futures) == "https://fapi.binance.com"
-      assert Endpoints.base_url(:prod, :coinm_futures) == "https://dapi.binance.com"
-      assert Endpoints.base_url(:prod, :portfolio) == "https://papi.binance.com"
+      assert Endpoints.base_url(:usdm_futures, testnet: false) == "https://fapi.binance.com"
+      assert Endpoints.base_url(:coinm_futures, testnet: false) == "https://dapi.binance.com"
+      assert Endpoints.base_url(:portfolio, testnet: false) == "https://papi.binance.com"
 
       # Unknown API types default to main API
-      assert Endpoints.base_url(:prod, :unknown) == "https://api.binance.com"
+      assert Endpoints.base_url(:unknown, testnet: false) == "https://api.binance.com"
     end
   end
 

@@ -52,6 +52,39 @@ defmodule ZenCex.Adapters.Binance.UsdmFutures do
     end
   end)
 
+  # Manual endpoint definitions for connectivity checks (not in Postman collections)
+  @manual_endpoints [
+    %{
+      operation: :get_ping,
+      method: :get,
+      path: "/fapi/v1/ping",
+      requires_auth: false,
+      weight: 1,
+      timeout: 5_000,
+      max_retries: 3,
+      retry_on: [:timeout],
+      response_parser: &Parser.parse_generic/1,
+      error_mapping: &Parser.parse_error/1,
+      doc: "Test connectivity to the USD-M Futures API"
+    },
+    %{
+      operation: :get_time,
+      method: :get,
+      path: "/fapi/v1/time",
+      requires_auth: false,
+      weight: 1,
+      timeout: 5_000,
+      max_retries: 3,
+      retry_on: [:timeout],
+      response_parser: &Parser.parse_generic/1,
+      error_mapping: &Parser.parse_error/1,
+      doc: "Check server time for USD-M Futures API"
+    }
+  ]
+
+  # Append manual endpoints to generated ones
+  @endpoints @endpoints ++ @manual_endpoints
+
   # The EndpointRegistry macro automatically generates functions for all endpoints:
   # - get_positions/1, place_order/1, cancel_order/1, etc.
   # - get_endpoint/1 for runtime lookup

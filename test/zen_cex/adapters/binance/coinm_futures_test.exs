@@ -79,7 +79,7 @@ defmodule ZenCex.Adapters.Binance.CoinmFuturesTest do
     test "returns list with multiple COIN-M futures endpoints" do
       endpoints = CoinmFutures.all_endpoints()
       assert is_list(endpoints)
-      assert length(endpoints) == 28
+      assert length(endpoints) == 30
 
       # All should use /dapi/ paths
       for endpoint <- endpoints do

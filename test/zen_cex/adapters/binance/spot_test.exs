@@ -1,5 +1,6 @@
 defmodule ZenCex.Adapters.Binance.SpotTest do
   use ExUnit.Case, async: true
+  use ZenCex.IntegrationCase, exchange: :binance, api_type: :spot
 
   alias ZenCex.Adapters.Binance.Spot
 
@@ -135,7 +136,7 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
 
   describe "complex operations" do
     @tag :integration
-    test "place_oco_order creates OCO order on testnet" do
+    test "place_oco_order creates OCO order on testnet", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
       # Valid OCO order parameters for testnet
       # For a SELL OCO: price (take profit) > current price > stopPrice (stop loss)
       params = %{
@@ -144,14 +145,15 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
         quantity: "0.001",
         # Take profit at $120k (above current ~$100k)
         price: "120000",
-        # Stop loss trigger at $95k  
+        # Stop loss trigger at $95k
         stopPrice: "95000",
         # Stop limit execution at $94.5k
         stopLimitPrice: "94500"
       }
 
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
       # This SHOULD succeed on testnet - if it fails, the implementation is broken
-      {:ok, response} = Spot.place_oco_order(params)
+      {:ok, response} = Spot.place_oco_order(params, opts)
 
       # Verify the OCO order response structure
       assert response["orderListId"]

@@ -130,11 +130,13 @@ defmodule ZenCex.Adapters.Binance.ParameterBuilder do
       iex> result["symbol"]
       "BTCUSDT"
   """
-  @spec ensure_timing_params(map(), api_type()) :: map()
-  def ensure_timing_params(params, api_type) do
+  @spec ensure_timing_params(map(), api_type(), keyword()) :: map()
+  def ensure_timing_params(params, api_type, opts \\ []) do
+    testnet = Keyword.get(opts, :testnet, false)
+
     params
     |> CoreParams.filter_optional_params()
-    |> add_timestamp_if_missing(api_type)
+    |> add_timestamp_if_missing(api_type, testnet)
     |> add_recv_window_if_missing()
     |> validate_timing_parameters()
   end
@@ -169,12 +171,12 @@ defmodule ZenCex.Adapters.Binance.ParameterBuilder do
     Enum.join(["timestamp=#{timing_params["timestamp"]}", "recvWindow=#{timing_params["recvWindow"]}"], "&")
   end
 
-  @spec add_timestamp_if_missing(map(), api_type()) :: map()
-  defp add_timestamp_if_missing(params, api_type) do
+  @spec add_timestamp_if_missing(map(), api_type(), boolean()) :: map()
+  defp add_timestamp_if_missing(params, api_type, testnet) do
     if Map.has_key?(params, "timestamp") do
       params
     else
-      timestamp = get_synchronized_timestamp(api_type)
+      timestamp = get_synchronized_timestamp(api_type, testnet)
       Map.put(params, "timestamp", timestamp)
     end
   end
@@ -213,14 +215,14 @@ defmodule ZenCex.Adapters.Binance.ParameterBuilder do
     end
   end
 
-  @spec get_synchronized_timestamp(api_type()) :: String.t()
-  defp get_synchronized_timestamp(_api_type) do
+  @spec get_synchronized_timestamp(api_type(), boolean()) :: String.t()
+  defp get_synchronized_timestamp(_api_type, testnet) do
     # Use Binance as the exchange identifier for ClockSync
     # All Binance API types use the same timing endpoint
     # Fallback to system time if ClockSync is not available (e.g., during tests)
     timestamp_ms =
       try do
-        ClockSync.now_with_offset(:binance)
+        ClockSync.now_with_offset(:binance, testnet: testnet)
       rescue
         ArgumentError ->
           # ClockSync ETS table doesn't exist, fallback to system time

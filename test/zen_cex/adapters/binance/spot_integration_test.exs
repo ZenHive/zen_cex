@@ -21,8 +21,9 @@ defmodule ZenCex.Adapters.Binance.SpotIntegrationTest do
   end
 
   describe "account information endpoints (requires auth)" do
-    test "get_balances returns testnet account balances" do
-      assert {:ok, response} = Spot.get_balances()
+    test "get_balances returns testnet account balances", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
+      assert {:ok, response} = Spot.get_balances(%{}, opts)
       assert is_list(response) or is_map(response)
       Logger.debug("TESTNET get_balances response: #{inspect(response, limit: 3)}")
     end

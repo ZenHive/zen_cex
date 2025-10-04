@@ -6,20 +6,6 @@ defmodule ZenCex.Adapters.Bybit.AuthTest do
   alias ZenCex.Adapters.Bybit.Auth
 
   describe "apply_auth/1" do
-    test "returns request unchanged when no credentials available" do
-      # Clear any existing credentials
-      with_env [
-        {"BYBIT_API_KEY", nil},
-        {"BYBIT_API_SECRET", nil},
-        {"BYBIT_TESTNET_API_KEY", nil},
-        {"BYBIT_TESTNET_API_SECRET", nil}
-      ] do
-        request = Req.new(url: "/v5/account/wallet-balance")
-        result = Auth.apply_auth(request)
-        assert result == request
-      end
-    end
-
     test "adds authentication headers when credentials are provided" do
       request =
         [url: "/v5/account/wallet-balance"]
@@ -113,20 +99,8 @@ defmodule ZenCex.Adapters.Bybit.AuthTest do
     end
   end
 
-  describe "base_url/0" do
-    test "returns production URL when not in testnet mode" do
-      # Use with_env to safely test without testnet var
-      with_env [{"BYBIT_TESTNET", nil}] do
-        assert Auth.base_url() == "https://api.bybit.com"
-      end
-    end
-
-    test "returns testnet URL when BYBIT_TESTNET is set" do
-      with_env [{"BYBIT_TESTNET", "true"}] do
-        assert Auth.base_url() == "https://api-testnet.bybit.com"
-      end
-    end
-  end
+  # base_url/0 removed - base_url logic moved to Bybit.Endpoints.base_url(opts)
+  # Tests for base_url functionality are in bybit/endpoints_test.exs
 
   describe "generate_signature/5" do
     test "generates consistent signatures for known inputs" do

@@ -131,8 +131,8 @@ defmodule ZenCex.TestUtilities.IntegrationCase do
       """
     end
 
-    # Verify base URL for the specific API type
-    actual_url = get_binance_base_url(api_type)
+    # Verify base URL for the specific API type (with testnet: true)
+    actual_url = get_binance_base_url(api_type, testnet: true)
 
     # Skip validation for portfolio margin (no testnet available)
     if actual_url != :skip_portfolio_testnet_check do
@@ -190,10 +190,10 @@ defmodule ZenCex.TestUtilities.IntegrationCase do
 
     # Test connectivity (skip for portfolio - no testnet)
     if api_type != :portfolio do
-      verify_binance_connectivity!(api_type)
+      verify_binance_connectivity!(api_type, api_key, api_secret)
     end
 
-    {:ok, api_key: api_key, api_secret: api_secret, exchange: :binance}
+    {:ok, api_key: api_key, api_secret: api_secret, testnet: true, exchange: :binance}
   end
 
   # Kraken testnet enforcement
@@ -233,12 +233,13 @@ defmodule ZenCex.TestUtilities.IntegrationCase do
   end
 
   # Helper to get actual Binance base URL
-  defp get_binance_base_url(nil) do
-    ZenCex.Adapters.Binance.Endpoints.base_url()
+  defp get_binance_base_url(nil, opts) do
+    # nil means :spot by default
+    get_binance_base_url(:spot, opts)
   end
 
-  defp get_binance_base_url(api_type) do
-    case ZenCex.Adapters.Binance.Endpoints.base_url(:test, api_type) do
+  defp get_binance_base_url(api_type, opts) do
+    case ZenCex.Adapters.Binance.Endpoints.base_url(api_type, opts) do
       {:error, :no_testnet_for_portfolio_margin} ->
         # Portfolio margin has no testnet, skip URL validation
         :skip_portfolio_testnet_check
@@ -265,8 +266,8 @@ defmodule ZenCex.TestUtilities.IntegrationCase do
       """
     end
 
-    # Verify base URL (Bybit uses unified API)
-    actual_url = Endpoints.base_url()
+    # Verify base URL (Bybit uses unified API) - pass testnet: true
+    actual_url = Endpoints.base_url(testnet: true)
     expected_url = "https://api-testnet.bybit.com"
 
     if actual_url != expected_url do
@@ -294,15 +295,17 @@ defmodule ZenCex.TestUtilities.IntegrationCase do
       """)
 
     # Verify connectivity to Bybit testnet
-    verify_bybit_connectivity!()
+    verify_bybit_connectivity!(api_key, api_secret)
 
-    {:ok, api_key: api_key, api_secret: api_secret, exchange: :bybit}
+    {:ok, api_key: api_key, api_secret: api_secret, testnet: true, exchange: :bybit}
   end
 
-  defp verify_bybit_connectivity! do
+  defp verify_bybit_connectivity!(api_key, api_secret) do
     alias ZenCex.Adapters.Bybit.Common
 
-    case Common.get_server_time() do
+    auth_credentials = %{api_key: api_key, api_secret: api_secret, testnet: true}
+
+    case Common.get_server_time(%{}, auth_credentials: auth_credentials) do
       {:ok, _} ->
         :ok
 
@@ -324,17 +327,24 @@ defmodule ZenCex.TestUtilities.IntegrationCase do
   end
 
   # Verify connectivity to Binance testnet
-  defp verify_binance_connectivity!(api_type) do
+  defp verify_binance_connectivity!(api_type, api_key, api_secret) do
+    auth_credentials = %{api_key: api_key, api_secret: api_secret, testnet: true}
+
     api_type
-    |> get_connectivity_test_result()
+    |> get_connectivity_test_result(auth_credentials)
     |> handle_connectivity_result(api_type)
   end
 
-  defp get_connectivity_test_result(api_type) do
+  defp get_connectivity_test_result(api_type, auth_credentials) do
     cond do
-      api_type in [nil, :spot] -> Spot.get_ping()
-      api_type in [:futures, :usdm_futures, :coinm_futures] -> verify_futures_connectivity()
-      true -> {:ok, :skip_connectivity_check}
+      api_type in [nil, :spot] ->
+        Spot.get_ping(%{}, auth_credentials: auth_credentials)
+
+      api_type in [:futures, :usdm_futures, :coinm_futures] ->
+        verify_futures_connectivity(auth_credentials)
+
+      true ->
+        {:ok, :skip_connectivity_check}
     end
   end
 
@@ -351,21 +361,10 @@ defmodule ZenCex.TestUtilities.IntegrationCase do
     """
   end
 
-  defp verify_futures_connectivity do
+  defp verify_futures_connectivity(auth_credentials) do
     # USD-M Futures connectivity check - try to get positions
-    # Use futures-specific credentials if available, fall back to spot testnet
-    futures_key = System.get_env("BINANCE_FUTURES_TEST_API_KEY")
-    futures_secret = System.get_env("BINANCE_FUTURES_TEST_API_SECRET")
-
-    opts =
-      if futures_key && futures_secret do
-        %{auth_credentials: %{api_key: futures_key, api_secret: futures_secret}}
-      else
-        %{}
-      end
-
     # This may fail if futures isn't activated, which is OK for connectivity test
-    case ZenCex.Adapters.Binance.UsdmFutures.get_positions(%{}, opts) do
+    case ZenCex.Adapters.Binance.UsdmFutures.get_positions(%{}, auth_credentials: auth_credentials) do
       {:ok, _} -> {:ok, :connected}
       {:error, {:binance_error, _code, _msg}} -> {:ok, :connected}
       {:error, {:exchange_error, msg}} when is_binary(msg) -> {:ok, :connected}

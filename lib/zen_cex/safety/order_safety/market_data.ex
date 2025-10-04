@@ -447,7 +447,7 @@ defmodule ZenCex.Safety.OrderSafety.MarketData do
   # Validates auth credentials to prevent credential leakage
   defp validate_auth_credentials(credentials) when is_map(credentials) do
     # Only allow known credential keys to prevent data leakage
-    allowed_keys = [:api_key, :api_secret, :passphrase, :auth_credentials]
+    allowed_keys = [:api_key, :api_secret, :passphrase, :auth_credentials, :testnet]
     credential_keys = Map.keys(credentials)
 
     # Find any unauthorized keys

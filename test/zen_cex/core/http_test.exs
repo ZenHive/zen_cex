@@ -18,8 +18,8 @@ defmodule ZenCex.Core.HTTPTest do
       assert request.options[:skip_auth] == false
       assert request.options[:skip_rate_limit] == false
 
-      # Verify base URL is testnet
-      assert request.options[:base_url] =~ "testnet.binance.vision"
+      # Verify base URL is production (testnet enforcement via IntegrationCase/auth_credentials)
+      assert request.options[:base_url] == "https://api.binance.com"
     end
 
     test "makes real request to Binance testnet ping endpoint" do
@@ -148,16 +148,7 @@ defmodule ZenCex.Core.HTTPTest do
   end
 
   describe "authenticated endpoints" do
-    test "requires credentials for authenticated endpoints" do
-      # Check if testnet credentials are available
-      api_key = System.get_env("BINANCE_TESTNET_API_KEY")
-      api_secret = System.get_env("BINANCE_TESTNET_API_SECRET")
-
-      if is_nil(api_key) or is_nil(api_secret) do
-        # Fail loudly if no credentials for integration test
-        flunk("BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET required for authenticated tests")
-      end
-
+    test "requires credentials for authenticated endpoints", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
       # If we have credentials, test authenticated endpoint
       request =
         :binance
@@ -166,7 +157,8 @@ defmodule ZenCex.Core.HTTPTest do
           url: "/api/v3/account",
           auth_credentials: %{
             api_key: api_key,
-            api_secret: api_secret
+            api_secret: api_secret,
+            testnet: testnet
           }
         )
 

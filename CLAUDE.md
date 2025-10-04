@@ -41,23 +41,31 @@ ZenCex - Elixir library for crypto exchange APIs (REST + WebSocket via zen_webso
 - **Hidden global state**: Violates functional programming principles
 - **Testing complexity**: Hard to test with different configs in parallel
 
-**✅ CORRECT patterns (already used by zen_cex):**
-1. **Explicit function opts**: `get_balances(api_key: key, api_secret: secret)`
-2. **Environment variable fallback**: `System.get_env("BINANCE_API_KEY")` as default
-3. **Adapter-specific config**: `BaseEndpoints` for exchange URLs (not global config)
-4. **Runtime values only**: No compile-time Application config dependencies
+**✅ CORRECT patterns (used by zen_cex):**
+1. **Explicit auth_credentials**: Always pass credentials explicitly via `auth_credentials` option
+2. **No ENV fallback in library**: Library code never reads ENV variables for credentials
+3. **Testnet flag in credentials**: `testnet: true/false` determines which environment to use
+4. **ENV reading only in calling code**: Tests, scripts, and IEx helpers can read ENV, but pass explicitly
 
 **Example:**
 ```elixir
-# ❌ BAD: Centralized config (creates singleton)
-def get_balances() do
-  api_key = Application.get_env(:zen_cex, :api_key)  # Global state!
+# ❌ BAD: ENV fallback in library code
+def get_balances(opts \\ []) do
+  api_key = opts[:api_key] || System.get_env("BINANCE_API_KEY")  # Hidden fallback!
 end
 
-# ✅ GOOD: Explicit with fallback
-def get_balances(opts \\ []) do
-  api_key = opts[:api_key] || System.get_env("BINANCE_API_KEY")
-end
+# ✅ GOOD: Explicit credentials required
+# Calling code (tests, scripts) reads ENV and passes explicitly
+api_key = System.get_env("BINANCE_TESTNET_API_KEY")
+api_secret = System.get_env("BINANCE_TESTNET_API_SECRET")
+
+Binance.Spot.get_balances(%{},
+  auth_credentials: %{
+    api_key: api_key,
+    api_secret: api_secret,
+    testnet: true
+  }
+)
 ```
 
 **Note**: `.iex.exs` helper functions are fine for developer convenience, but they should NOT create library-level abstractions.

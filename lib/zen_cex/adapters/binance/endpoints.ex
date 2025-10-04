@@ -80,73 +80,86 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   @spec parser() :: module()
   def parser, do: Parser
 
-  # Override base_url to support API type-specific URLs
   @doc """
-  Returns the base URL for the current environment.
+  Returns the base URL for spot API (production).
+
+  This 0-arity version defaults to spot API in production.
   """
   @spec base_url() :: String.t()
   def base_url do
-    base_url(current_env())
+    base_url(:spot, [])
   end
 
   @doc """
-  Returns the base URL for the specified environment.
-  """
-  @spec base_url(:test | :prod) :: String.t()
-  def base_url(:test), do: "https://testnet.binance.vision"
-  def base_url(:prod), do: "https://api.binance.com"
+  Returns the base URL based on API type and options.
 
-  @doc """
-  Returns the base URL for the specified environment and API type.
+  ## Parameters
+  - `api_type` - The API type (e.g., :spot, :usdm_futures, :portfolio)
+  - `opts` - Keyword list of options:
+    - `:testnet` - Boolean flag indicating testnet (true) or production (false).
+      Default: false (production)
+
+  ## Examples
+      base_url(:spot, testnet: true)  # => "https://testnet.binance.vision"
+      base_url(:spot, testnet: false) # => "https://api.binance.com"
+      base_url(:spot)                 # => "https://api.binance.com" (production)
   """
-  @spec base_url(:test | :prod, atom()) :: String.t() | {:error, atom()}
-  def base_url(env, api_type)
+  @spec base_url(atom(), keyword()) :: String.t() | {:error, atom()}
+  def base_url(api_type, opts \\ [])
+
+  def base_url(api_type, opts) do
+    testnet = Keyword.get(opts, :testnet, false)
+    base_url_impl(testnet, api_type)
+  end
+
+  @spec base_url_impl(boolean(), atom()) :: String.t() | {:error, atom()}
+  defp base_url_impl(testnet, api_type)
 
   # ============================
   # Testnet Environment
   # ============================
 
   # Spot (and Margin) — only /api/* endpoints (NOT /sapi/*)
-  def base_url(:test, :spot), do: "https://testnet.binance.vision"
-  def base_url(:test, :margin), do: "https://testnet.binance.vision"
+  defp base_url_impl(true, :spot), do: "https://testnet.binance.vision"
+  defp base_url_impl(true, :margin), do: "https://testnet.binance.vision"
 
   # USD-M Futures Testnet
-  def base_url(:test, :usdm_futures), do: "https://testnet.binancefuture.com"
+  defp base_url_impl(true, :usdm_futures), do: "https://testnet.binancefuture.com"
 
   # COIN-M Futures Testnet
-  def base_url(:test, :coinm_futures), do: "https://testnet.binancefuture.com"
+  defp base_url_impl(true, :coinm_futures), do: "https://testnet.binancefuture.com"
 
   # SAPI endpoints are NOT supported on Testnet
-  def base_url(:test, :sapi), do: {:error, :no_testnet_for_sapi}
+  defp base_url_impl(true, :sapi), do: {:error, :no_testnet_for_sapi}
 
   # Portfolio Margin endpoints are NOT supported on Testnet
-  def base_url(:test, :portfolio), do: {:error, :no_testnet_for_portfolio_margin}
+  defp base_url_impl(true, :portfolio), do: {:error, :no_testnet_for_portfolio_margin}
 
   # Default to Spot Testnet
-  def base_url(:test, _), do: "https://testnet.binance.vision"
+  defp base_url_impl(true, _), do: "https://testnet.binance.vision"
 
   # ============================
   # Production Environment
   # ============================
 
   # Spot + Margin
-  def base_url(:prod, :spot), do: "https://api.binance.com"
-  def base_url(:prod, :margin), do: "https://api.binance.com"
+  defp base_url_impl(false, :spot), do: "https://api.binance.com"
+  defp base_url_impl(false, :margin), do: "https://api.binance.com"
 
   # SAPI (sub-account, fiat, etc.)
-  def base_url(:prod, :sapi), do: "https://api.binance.com"
+  defp base_url_impl(false, :sapi), do: "https://api.binance.com"
 
   # USD-M Futures
-  def base_url(:prod, :usdm_futures), do: "https://fapi.binance.com"
+  defp base_url_impl(false, :usdm_futures), do: "https://fapi.binance.com"
 
   # COIN-M Futures
-  def base_url(:prod, :coinm_futures), do: "https://dapi.binance.com"
+  defp base_url_impl(false, :coinm_futures), do: "https://dapi.binance.com"
 
   # Portfolio Margin
-  def base_url(:prod, :portfolio), do: "https://papi.binance.com"
+  defp base_url_impl(false, :portfolio), do: "https://papi.binance.com"
 
   # Default to Spot
-  def base_url(:prod, _), do: "https://api.binance.com"
+  defp base_url_impl(false, _), do: "https://api.binance.com"
 
   # ============================================================================
   # Discovery Functions

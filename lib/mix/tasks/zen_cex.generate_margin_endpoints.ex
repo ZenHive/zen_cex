@@ -69,8 +69,8 @@ defmodule Mix.Tasks.ZenCex.GenerateMarginEndpoints do
     "aggTrades",
     "bookTicker",
     # System operations we already have
-    "ping",
-    "time",
+    # "ping",
+    # "time",
     "exchangeInfo"
   ]
 

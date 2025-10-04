@@ -49,11 +49,14 @@ defmodule ZenCex.Adapters.Binance.Auth do
     has_json_option = opts[:has_json_option] || false
     body_params = opts[:body_params] || %{}
 
+    # Extract testnet flag from auth_credentials
+    testnet = get_in(request.private, [:auth_credentials, :testnet]) || false
+
     # Validate API type
     _base_url = base_url(api_type)
 
-    # Add timing parameters
-    params_with_timing = ParameterBuilder.ensure_timing_params(all_params, api_type)
+    # Add timing parameters with testnet flag
+    params_with_timing = ParameterBuilder.ensure_timing_params(all_params, api_type, testnet: testnet)
 
     # Generate signature
     signature = Signer.create_signature(params_with_timing, api_secret)
@@ -138,16 +141,17 @@ defmodule ZenCex.Adapters.Binance.Auth do
 
     * `params` - Map of existing query parameters
     * `api_type` - The Binance API type (used for exchange-specific clock sync)
+    * `testnet` - Boolean flag for testnet (default: false)
 
   ## Examples
 
       params = %{"symbol" => "BTCUSDT"}
-      enhanced = Auth.ensure_timing_params(params, :spot)
+      enhanced = Auth.ensure_timing_params(params, :spot, testnet: false)
       # Returns map with timestamp and recvWindow added
   """
-  @spec ensure_timing_params(map(), api_type()) :: map()
-  def ensure_timing_params(params, api_type) do
-    ParameterBuilder.ensure_timing_params(params, api_type)
+  @spec ensure_timing_params(map(), api_type(), keyword()) :: map()
+  def ensure_timing_params(params, api_type, opts \\ []) do
+    ParameterBuilder.ensure_timing_params(params, api_type, opts)
   end
 
   @doc """

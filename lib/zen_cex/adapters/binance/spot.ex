@@ -81,7 +81,7 @@ defmodule ZenCex.Adapters.Binance.Spot do
   - BUY side: price < last price < stopPrice
   """
   @spec place_oco_order(map()) :: {:ok, map()} | {:error, term()}
-  def place_oco_order(params) do
+  def place_oco_order(params, opts \\ []) do
     # Validate required parameters
     with :ok <- validate_oco_params(params) do
       # Build OCO order parameters
@@ -102,7 +102,6 @@ defmodule ZenCex.Adapters.Binance.Spot do
       # Execute the OCO order through the endpoint infrastructure
       # Note: Telemetry is handled automatically by Core.HTTP via Req/Finch
       config = build_oco_request_config()
-      opts = []
 
       execute_endpoint_request(config, oco_params, opts, Endpoints)
     end

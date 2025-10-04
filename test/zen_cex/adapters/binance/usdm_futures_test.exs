@@ -38,7 +38,7 @@ defmodule ZenCex.Adapters.Binance.UsdmFuturesTest do
     test "returns list with multiple futures endpoints" do
       endpoints = UsdmFutures.all_endpoints()
       assert is_list(endpoints)
-      assert length(endpoints) == 35
+      assert length(endpoints) == 37
 
       # Check that get_positions endpoint exists
       positions_endpoint = Enum.find(endpoints, fn e -> e.operation == :get_positions end)

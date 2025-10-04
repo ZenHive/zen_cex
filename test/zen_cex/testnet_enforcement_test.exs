@@ -199,27 +199,14 @@ defmodule ZenCex.TestnetEnforcementTest do
              "Tests must run in :test environment"
     end
 
-    test "Binance endpoints use testnet when BINANCE_TESTNET is set" do
-      # Save original value
-      original = System.get_env("BINANCE_TESTNET")
+    test "Binance endpoints always return production URLs (testnet via IntegrationCase)" do
+      alias ZenCex.Adapters.Binance.Endpoints
 
-      try do
-        alias ZenCex.Adapters.Binance.Endpoints
-        # Set testnet mode
-        System.put_env("BINANCE_TESTNET", "true")
-
-        # Verify endpoints module respects it
-        assert Endpoints.current_env() == :test
-        assert Endpoints.base_url() == "https://testnet.binance.vision"
-        assert Endpoints.base_url(:test, :usdm_futures) == "https://testnet.binancefuture.com"
-      after
-        # Restore original
-        if original do
-          System.put_env("BINANCE_TESTNET", original)
-        else
-          System.delete_env("BINANCE_TESTNET")
-        end
-      end
+      # Library doesn't read ENV - always returns production URLs
+      # IntegrationCase enforces testnet by injecting auth_credentials with testnet: true
+      assert Endpoints.base_url() == "https://api.binance.com"
+      assert Endpoints.base_url(:usdm_futures, testnet: false) == "https://fapi.binance.com"
+      assert Endpoints.base_url(:usdm_futures, testnet: true) == "https://testnet.binancefuture.com"
     end
   end
 

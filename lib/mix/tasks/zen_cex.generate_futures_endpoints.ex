@@ -58,9 +58,7 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
     "premiumIndex",
     "openInterest",
     "indexPrice",
-    # System/health operations we already have
-    "ping",
-    "time",
+    # System info we don't need
     "exchangeInfo"
   ]
 
@@ -74,13 +72,23 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
     # Start the application to ensure Req/Finch are available
     Mix.Task.run("app.start")
 
-    {opts, [futures_type | _], _} = OptionParser.parse(args, strict: [output: :string])
+    {opts, positional, _} = OptionParser.parse(args, strict: [output: :string])
 
-    case futures_type do
-      "usdm" -> generate_usdm_endpoints(opts)
-      "coinm" -> generate_coinm_endpoints(opts)
-      "portfolio" -> generate_portfolio_endpoints(opts)
-      _ -> Mix.shell().error("Unsupported futures type: #{futures_type}. Use 'usdm', 'coinm', or 'portfolio'")
+    case positional do
+      [futures_type | _] ->
+        case futures_type do
+          "usdm" -> generate_usdm_endpoints(opts)
+          "coinm" -> generate_coinm_endpoints(opts)
+          "portfolio" -> generate_portfolio_endpoints(opts)
+          _ -> Mix.shell().error("Unsupported futures type: #{futures_type}. Use 'usdm', 'coinm', or 'portfolio'")
+        end
+
+      [] ->
+        # Generate all three types if no specific type provided
+        Mix.shell().info("No futures type specified. Generating all types (usdm, coinm, portfolio)...")
+        generate_usdm_endpoints(opts)
+        generate_coinm_endpoints(opts)
+        generate_portfolio_endpoints(opts)
     end
   end
 

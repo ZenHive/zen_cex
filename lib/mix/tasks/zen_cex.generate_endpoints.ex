@@ -62,11 +62,18 @@ defmodule Mix.Tasks.ZenCex.GenerateEndpoints do
     # Start the application to ensure Req/Finch are available
     Mix.Task.run("app.start")
 
-    {opts, [exchange | _], _} = OptionParser.parse(args, strict: [output: :string])
+    {opts, positional, _} = OptionParser.parse(args, strict: [output: :string])
 
-    case exchange do
-      "binance" -> generate_binance_endpoints(opts)
-      _ -> Mix.shell().error("Unsupported exchange: #{exchange}")
+    case positional do
+      [exchange | _] ->
+        case exchange do
+          "binance" -> generate_binance_endpoints(opts)
+          _ -> Mix.shell().error("Unsupported exchange: #{exchange}")
+        end
+
+      [] ->
+        Mix.shell().info("No exchange specified. Defaulting to 'binance'...")
+        generate_binance_endpoints(opts)
     end
   end
 
@@ -113,18 +120,16 @@ defmodule Mix.Tasks.ZenCex.GenerateEndpoints do
   end
 
   defp parse_yaml(yaml_content) do
-    # Check if YamlElixir module is available
-    if function_exported?(YamlElixir, :read_from_string, 1) do
-      YamlElixir
-      |> apply(:read_from_string, [yaml_content])
-      |> case do
-        {:ok, data} ->
-          data
+    # Use apply/3 to avoid compile-time module existence check
+    case apply(YamlElixir, :read_from_string, [yaml_content]) do
+      {:ok, data} ->
+        data
 
-        {:error, reason} ->
-          Mix.raise("Failed to parse YAML: #{inspect(reason)}")
-      end
-    else
+      {:error, reason} ->
+        Mix.raise("Failed to parse YAML: #{inspect(reason)}")
+    end
+  rescue
+    UndefinedFunctionError ->
       Mix.raise("""
       YamlElixir is not available. Please add it to your dependencies:
 
@@ -136,7 +141,6 @@ defmodule Mix.Tasks.ZenCex.GenerateEndpoints do
 
       This dependency is only needed for generating endpoints from OpenAPI specs.
       """)
-    end
   end
 
   defp filter_trading_endpoints(openapi_spec) do

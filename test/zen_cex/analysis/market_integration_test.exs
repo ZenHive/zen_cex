@@ -24,14 +24,10 @@ defmodule ZenCex.Analysis.MarketIntegrationTest do
 
   describe "Binance funding rate integration" do
     @tag :binance
-    test "fetches real-time funding rate from Binance USDM futures" do
-      api_key = System.get_env("BINANCE_FUTURES_TEST_API_KEY")
-      api_secret = System.get_env("BINANCE_FUTURES_TEST_API_SECRET")
-
-      if is_nil(api_key) || is_nil(api_secret) do
-        flunk("BINANCE_FUTURES_TEST_API_KEY and BINANCE_FUTURES_TEST_API_SECRET must be set")
-      end
-
+    test "fetches real-time funding rate from Binance USDM futures", %{
+      binance_futures_key: api_key,
+      binance_futures_secret: api_secret
+    } do
       config = %{
         api_key: api_key,
         api_secret: api_secret,
@@ -58,14 +54,7 @@ defmodule ZenCex.Analysis.MarketIntegrationTest do
     end
 
     @tag :binance
-    test "fetches funding rate history from Binance" do
-      api_key = System.get_env("BINANCE_FUTURES_TEST_API_KEY")
-      api_secret = System.get_env("BINANCE_FUTURES_TEST_API_SECRET")
-
-      if is_nil(api_key) || is_nil(api_secret) do
-        flunk("BINANCE_FUTURES_TEST_API_KEY and BINANCE_FUTURES_TEST_API_SECRET must be set")
-      end
-
+    test "fetches funding rate history from Binance", %{binance_futures_key: api_key, binance_futures_secret: api_secret} do
       config = %{
         api_key: api_key,
         api_secret: api_secret,
@@ -104,14 +93,7 @@ defmodule ZenCex.Analysis.MarketIntegrationTest do
 
   describe "Bybit funding rate integration" do
     @tag :bybit
-    test "fetches real-time funding rate from Bybit linear futures" do
-      api_key = System.get_env("BYBIT_TESTNET_API_KEY")
-      api_secret = System.get_env("BYBIT_TESTNET_API_SECRET")
-
-      if is_nil(api_key) || is_nil(api_secret) do
-        flunk("BYBIT_TESTNET_API_KEY and BYBIT_TESTNET_API_SECRET must be set")
-      end
-
+    test "fetches real-time funding rate from Bybit linear futures", %{bybit_key: api_key, bybit_secret: api_secret} do
       config = %{
         api_key: api_key,
         api_secret: api_secret,
@@ -138,14 +120,7 @@ defmodule ZenCex.Analysis.MarketIntegrationTest do
     end
 
     @tag :bybit
-    test "fetches funding rate history from Bybit" do
-      api_key = System.get_env("BYBIT_TESTNET_API_KEY")
-      api_secret = System.get_env("BYBIT_TESTNET_API_SECRET")
-
-      if is_nil(api_key) || is_nil(api_secret) do
-        flunk("BYBIT_TESTNET_API_KEY and BYBIT_TESTNET_API_SECRET must be set")
-      end
-
+    test "fetches funding rate history from Bybit", %{bybit_key: api_key, bybit_secret: api_secret} do
       config = %{
         api_key: api_key,
         api_secret: api_secret,
@@ -185,20 +160,12 @@ defmodule ZenCex.Analysis.MarketIntegrationTest do
   describe "Cross-exchange funding comparison" do
     @tag :binance
     @tag :bybit
-    test "compares funding rates across Binance and Bybit" do
-      binance_api_key = System.get_env("BINANCE_FUTURES_TEST_API_KEY")
-      binance_api_secret = System.get_env("BINANCE_FUTURES_TEST_API_SECRET")
-      bybit_api_key = System.get_env("BYBIT_TESTNET_API_KEY")
-      bybit_api_secret = System.get_env("BYBIT_TESTNET_API_SECRET")
-
-      if is_nil(binance_api_key) || is_nil(binance_api_secret) do
-        flunk("BINANCE_FUTURES_TEST_API_KEY and BINANCE_FUTURES_TEST_API_SECRET must be set")
-      end
-
-      if is_nil(bybit_api_key) || is_nil(bybit_api_secret) do
-        flunk("BYBIT_TESTNET_API_KEY and BYBIT_TESTNET_API_SECRET must be set")
-      end
-
+    test "compares funding rates across Binance and Bybit", %{
+      binance_futures_key: binance_api_key,
+      binance_futures_secret: binance_api_secret,
+      bybit_key: bybit_api_key,
+      bybit_secret: bybit_api_secret
+    } do
       exchanges_with_configs = [
         {:binance,
          %{
@@ -239,20 +206,12 @@ defmodule ZenCex.Analysis.MarketIntegrationTest do
 
     @tag :binance
     @tag :bybit
-    test "identifies arbitrage opportunities" do
-      binance_api_key = System.get_env("BINANCE_FUTURES_TEST_API_KEY")
-      binance_api_secret = System.get_env("BINANCE_FUTURES_TEST_API_SECRET")
-      bybit_api_key = System.get_env("BYBIT_TESTNET_API_KEY")
-      bybit_api_secret = System.get_env("BYBIT_TESTNET_API_SECRET")
-
-      if is_nil(binance_api_key) || is_nil(binance_api_secret) do
-        flunk("BINANCE_FUTURES_TEST_API_KEY and BINANCE_FUTURES_TEST_API_SECRET must be set")
-      end
-
-      if is_nil(bybit_api_key) || is_nil(bybit_api_secret) do
-        flunk("BYBIT_TESTNET_API_KEY and BYBIT_TESTNET_API_SECRET must be set")
-      end
-
+    test "identifies arbitrage opportunities", %{
+      binance_futures_key: binance_api_key,
+      binance_futures_secret: binance_api_secret,
+      bybit_key: bybit_api_key,
+      bybit_secret: bybit_api_secret
+    } do
       exchanges_with_configs = [
         {:binance,
          %{

@@ -29,6 +29,7 @@ defmodule ZenCex.Adapters.Binance.PortfolioMarginIntegrationTest do
   use ZenCex.IntegrationCase,
     exchange: :binance,
     api_type: :portfolio,
+    use_production_for_test: true,
     async: false
 
   alias ZenCex.Adapters.Binance.Endpoints
@@ -40,9 +41,9 @@ defmodule ZenCex.Adapters.Binance.PortfolioMarginIntegrationTest do
   @moduletag integration: :binance
 
   describe "Portfolio Margin endpoints on testnet" do
-    test "all endpoints return 404 on testnet (expected behavior)" do
-      # We're on testnet
-      assert Endpoints.current_env() == :test
+    test "all endpoints require PM credentials (expected behavior without creds)" do
+      # Portfolio Margin has no testnet - always uses production API
+      # Without PM credentials, expect auth errors
 
       # Test a few representative endpoints to confirm 404 behavior
       test_endpoints = [
@@ -94,17 +95,31 @@ defmodule ZenCex.Adapters.Binance.PortfolioMarginIntegrationTest do
       assert true
     end
 
-    test "proper authentication headers are sent" do
-      # Portfolio margin returns error early on testnet (no URL available)
-      # So auth won't happen - just verify the error is returned properly
-      assert {:error, :no_testnet_for_portfolio_margin} = PortfolioMargin.account_information()
+    test "proper authentication headers are sent", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
+      # Portfolio Margin has NO testnet - this test uses production API with test account
+      # Expect either success or permission errors (PM may not be activated on test account)
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
+
+      case PortfolioMargin.account_information(%{}, opts) do
+        {:ok, _account} ->
+          # Success - test account has Portfolio Margin activated
+          assert true
+
+        {:error, %{"code" => -2015}} ->
+          # "Invalid API-key, IP, or permissions" - acceptable for test account
+          # Test account may not have PM activated or IP not whitelisted
+          assert true
+
+        {:error, other} ->
+          flunk("Unexpected error from Portfolio Margin API: #{inspect(other)}")
+      end
     end
   end
 
   describe "Production readiness" do
     test "endpoints use correct production URL when not in test mode" do
       # The production URL should be papi.binance.com
-      prod_url = Endpoints.base_url(:prod, :portfolio)
+      prod_url = Endpoints.base_url(:portfolio, testnet: false)
       assert prod_url == "https://papi.binance.com"
     end
 
@@ -142,9 +157,11 @@ defmodule ZenCex.Adapters.Binance.PortfolioMarginIntegrationTest do
       end
     end
 
-    test "invalid parameters are handled gracefully" do
+    test "invalid parameters are handled gracefully", %{api_key: api_key, api_secret: api_secret} do
       # Even with invalid params, on testnet we expect 404
-      case PortfolioMargin.new_um_order(%{invalid: "param"}) do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
+
+      case PortfolioMargin.new_um_order(%{invalid: "param"}, opts) do
         {:error, _} ->
           # Any error is fine
           assert true

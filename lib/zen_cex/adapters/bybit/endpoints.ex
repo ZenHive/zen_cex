@@ -78,23 +78,33 @@ defmodule ZenCex.Adapters.Bybit.Endpoints do
   @spec parser() :: module()
   def parser, do: Parser
 
-  # Override base_url from BaseEndpoints to add support for explicit env parameter
   @doc """
-  Returns the base URL for the current environment.
-  """
-  @spec base_url() :: String.t()
-  def base_url do
-    base_url(current_env())
-  end
-
-  @doc """
-  Returns the base URL for the specified environment.
+  Returns the base URL based on options.
 
   Bybit uses a single unified API URL for all product types.
+
+  ## Parameters
+  - `opts` - Keyword list of options:
+    - `:testnet` - Boolean flag indicating testnet (true) or production (false).
+      Default: false (production)
+
+  ## Examples
+      base_url(testnet: true)  # => "https://api-testnet.bybit.com"
+      base_url(testnet: false) # => "https://api.bybit.com"
+      base_url()               # => "https://api.bybit.com" (production)
   """
-  @spec base_url(:test | :prod) :: String.t()
-  def base_url(:test), do: "https://api-testnet.bybit.com"
-  def base_url(:prod), do: "https://api.bybit.com"
+  @spec base_url(keyword()) :: String.t()
+  def base_url(opts \\ [])
+
+  def base_url(opts) do
+    testnet = Keyword.get(opts, :testnet, false)
+
+    if testnet do
+      "https://api-testnet.bybit.com"
+    else
+      "https://api.bybit.com"
+    end
+  end
 
   # ============================================================================
   # Discovery Functions

@@ -67,12 +67,11 @@ defmodule ZenCex.Adapters.Binance.RequestHelper do
   @spec execute_request_for_api_type(map(), map(), keyword() | map(), atom(), (map() -> atom())) ::
           {:ok, any()} | {:error, term()}
   def execute_request_for_api_type(config, params, opts, api_type, operation_type_resolver) do
+    # Extract testnet flag from auth_credentials
+    testnet = get_testnet_flag(opts)
+
     # Get base URL for the API type
-    base_url =
-      Endpoints.base_url(
-        Endpoints.current_env(),
-        api_type
-      )
+    base_url = Endpoints.base_url(api_type, testnet: testnet)
 
     # Determine operation type using provided resolver
     operation_type = operation_type_resolver.(config)
@@ -229,4 +228,7 @@ defmodule ZenCex.Adapters.Binance.RequestHelper do
   defp maybe_add_option(opts, _key, nil), do: opts
   defp maybe_add_option(opts, _key, %{} = value) when map_size(value) == 0, do: opts
   defp maybe_add_option(opts, key, value), do: Map.put(opts, key, value)
+
+  # Delegate to Core.Auth for consistent testnet flag extraction
+  defdelegate get_testnet_flag(opts), to: ZenCex.Core.Auth
 end

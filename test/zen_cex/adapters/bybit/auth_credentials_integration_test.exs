@@ -9,16 +9,16 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
 
   describe "Spot trading with auth_credentials" do
     @tag :integration
-    test "spot endpoints accept auth_credentials as keyword list" do
-      api_key = System.get_env("BYBIT_TESTNET_API_KEY")
-      api_secret = System.get_env("BYBIT_TESTNET_API_SECRET")
-
-      assert api_key && api_secret, "BYBIT_TESTNET_API_KEY and BYBIT_TESTNET_API_SECRET must be set"
-
+    test "spot endpoints accept auth_credentials as keyword list", %{
+      api_key: api_key,
+      api_secret: api_secret,
+      testnet: testnet
+    } do
       opts = [
         auth_credentials: %{
           api_key: api_key,
-          api_secret: api_secret
+          api_secret: api_secret,
+          testnet: testnet
         }
       ]
 
@@ -27,16 +27,12 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
     end
 
     @tag :integration
-    test "spot endpoints accept auth_credentials as map" do
-      api_key = System.get_env("BYBIT_TESTNET_API_KEY")
-      api_secret = System.get_env("BYBIT_TESTNET_API_SECRET")
-
-      assert api_key && api_secret, "BYBIT_TESTNET_API_KEY and BYBIT_TESTNET_API_SECRET must be set"
-
+    test "spot endpoints accept auth_credentials as map", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
       opts = %{
         auth_credentials: %{
           api_key: api_key,
-          api_secret: api_secret
+          api_secret: api_secret,
+          testnet: testnet
         }
       }
 
@@ -61,16 +57,16 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
 
   describe "Linear futures with auth_credentials" do
     @tag :integration
-    test "linear endpoints accept auth_credentials as keyword list" do
-      api_key = System.get_env("BYBIT_TESTNET_API_KEY")
-      api_secret = System.get_env("BYBIT_TESTNET_API_SECRET")
-
-      assert api_key && api_secret, "BYBIT_TESTNET_API_KEY and BYBIT_TESTNET_API_SECRET must be set"
-
+    test "linear endpoints accept auth_credentials as keyword list", %{
+      api_key: api_key,
+      api_secret: api_secret,
+      testnet: testnet
+    } do
       opts = [
         auth_credentials: %{
           api_key: api_key,
-          api_secret: api_secret
+          api_secret: api_secret,
+          testnet: testnet
         }
       ]
 
@@ -79,16 +75,12 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
     end
 
     @tag :integration
-    test "linear endpoints accept auth_credentials as map" do
-      api_key = System.get_env("BYBIT_TESTNET_API_KEY")
-      api_secret = System.get_env("BYBIT_TESTNET_API_SECRET")
-
-      assert api_key && api_secret, "BYBIT_TESTNET_API_KEY and BYBIT_TESTNET_API_SECRET must be set"
-
+    test "linear endpoints accept auth_credentials as map", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
       opts = %{
         auth_credentials: %{
           api_key: api_key,
-          api_secret: api_secret
+          api_secret: api_secret,
+          testnet: testnet
         }
       }
 
@@ -99,16 +91,16 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
 
   describe "Inverse futures with auth_credentials" do
     @tag :integration
-    test "inverse endpoints accept auth_credentials as keyword list" do
-      api_key = System.get_env("BYBIT_TESTNET_API_KEY")
-      api_secret = System.get_env("BYBIT_TESTNET_API_SECRET")
-
-      assert api_key && api_secret, "BYBIT_TESTNET_API_KEY and BYBIT_TESTNET_API_SECRET must be set"
-
+    test "inverse endpoints accept auth_credentials as keyword list", %{
+      api_key: api_key,
+      api_secret: api_secret,
+      testnet: testnet
+    } do
       opts = [
         auth_credentials: %{
           api_key: api_key,
-          api_secret: api_secret
+          api_secret: api_secret,
+          testnet: testnet
         }
       ]
 
@@ -117,16 +109,12 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
     end
 
     @tag :integration
-    test "inverse endpoints accept auth_credentials as map" do
-      api_key = System.get_env("BYBIT_TESTNET_API_KEY")
-      api_secret = System.get_env("BYBIT_TESTNET_API_SECRET")
-
-      assert api_key && api_secret, "BYBIT_TESTNET_API_KEY and BYBIT_TESTNET_API_SECRET must be set"
-
+    test "inverse endpoints accept auth_credentials as map", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
       opts = %{
         auth_credentials: %{
           api_key: api_key,
-          api_secret: api_secret
+          api_secret: api_secret,
+          testnet: testnet
         }
       }
 
@@ -137,29 +125,29 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
 
   describe "Cross-category operations" do
     @tag :integration
-    test "can use different credentials for different operations" do
-      account1_key = System.get_env("BYBIT_TESTNET_API_KEY")
-      account1_secret = System.get_env("BYBIT_TESTNET_API_SECRET")
-
-      assert account1_key && account1_secret, "BYBIT_TESTNET_API_KEY and BYBIT_TESTNET_API_SECRET must be set"
-
+    test "can use different credentials for different operations", %{
+      api_key: api_key,
+      api_secret: api_secret,
+      testnet: testnet
+    } do
       # In a real scenario, these could be different subaccounts
-      account2_key = account1_key
-      account2_secret = account1_secret
+      # For testing, we use the same credentials in different formats
 
       # Account 1 - keyword list
       account1_opts = [
         auth_credentials: %{
-          api_key: account1_key,
-          api_secret: account1_secret
+          api_key: api_key,
+          api_secret: api_secret,
+          testnet: testnet
         }
       ]
 
       # Account 2 - map
       account2_opts = %{
         auth_credentials: %{
-          api_key: account2_key,
-          api_secret: account2_secret
+          api_key: api_key,
+          api_secret: api_secret,
+          testnet: testnet
         }
       }
 
@@ -171,17 +159,13 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
 
   describe "Order operations with auth_credentials" do
     @tag :integration
-    test "spot_get_open_orders accepts auth_credentials" do
-      api_key = System.get_env("BYBIT_TESTNET_API_KEY")
-      api_secret = System.get_env("BYBIT_TESTNET_API_SECRET")
-
-      assert api_key && api_secret, "BYBIT_TESTNET_API_KEY and BYBIT_TESTNET_API_SECRET must be set"
-
+    test "spot_get_open_orders accepts auth_credentials", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
       # Test with keyword list
       opts_keyword = [
         auth_credentials: %{
           api_key: api_key,
-          api_secret: api_secret
+          api_secret: api_secret,
+          testnet: testnet
         }
       ]
 
@@ -191,7 +175,8 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
       opts_map = %{
         auth_credentials: %{
           api_key: api_key,
-          api_secret: api_secret
+          api_secret: api_secret,
+          testnet: testnet
         }
       }
 
@@ -199,16 +184,12 @@ defmodule ZenCex.Adapters.Bybit.AuthCredentialsIntegrationTest do
     end
 
     @tag :integration
-    test "linear_get_open_orders accepts auth_credentials" do
-      api_key = System.get_env("BYBIT_TESTNET_API_KEY")
-      api_secret = System.get_env("BYBIT_TESTNET_API_SECRET")
-
-      assert api_key && api_secret, "BYBIT_TESTNET_API_KEY and BYBIT_TESTNET_API_SECRET must be set"
-
+    test "linear_get_open_orders accepts auth_credentials", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
       opts = [
         auth_credentials: %{
           api_key: api_key,
-          api_secret: api_secret
+          api_secret: api_secret,
+          testnet: testnet
         }
       ]
 

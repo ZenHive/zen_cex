@@ -1,9 +1,10 @@
 defmodule ZenCex.Safety.OrderSafetyTest do
   use ExUnit.Case, async: false
+  use ZenCex.IntegrationCase, exchange: :binance, api_type: :spot
 
   alias ZenCex.Safety.OrderSafety
 
-  setup do
+  setup context do
     # Start the OrderSafety GenServer for each test
     {:ok, pid} = OrderSafety.start_link(name: :"order_safety_test_#{System.unique_integer()}")
 
@@ -14,7 +15,10 @@ defmodule ZenCex.Safety.OrderSafetyTest do
       if Process.alive?(pid), do: GenServer.stop(pid)
     end)
 
-    {:ok, pid: pid}
+    # Merge context with pid
+    context
+    |> Map.put(:pid, pid)
+    |> then(&{:ok, &1})
   end
 
   describe "check_existing_order/2" do
@@ -263,9 +267,11 @@ defmodule ZenCex.Safety.OrderSafetyTest do
   # === NEW VALIDATION TESTS ===
 
   describe "validate_order/2 - comprehensive validation" do
-    test "validates complete order successfully" do
+    test "validates complete order successfully", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
       # Enable trading first
       OrderSafety.set_kill_switch(:binance, true)
+
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
 
       valid_order = %{
         symbol: "BTCUSDT",
@@ -275,7 +281,7 @@ defmodule ZenCex.Safety.OrderSafetyTest do
         price: "50000.00"
       }
 
-      assert {:ok, validated_params} = OrderSafety.validate_order(:binance, valid_order)
+      assert {:ok, validated_params} = OrderSafety.validate_order(:binance, valid_order, opts)
       assert Map.has_key?(validated_params, :client_order_id)
       assert validated_params.symbol == "BTCUSDT"
     end
@@ -297,8 +303,10 @@ defmodule ZenCex.Safety.OrderSafetyTest do
       assert {:error, %{"code" => -1121, "msg" => _}} = OrderSafety.validate_order(:binance, order)
     end
 
-    test "rejects duplicate order" do
+    test "rejects duplicate order", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
       OrderSafety.set_kill_switch(:binance, true)
+
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
 
       order = %{
         symbol: "BTCUSDT",
@@ -309,7 +317,7 @@ defmodule ZenCex.Safety.OrderSafetyTest do
       }
 
       # First validation should succeed
-      assert {:ok, _} = OrderSafety.validate_order(:binance, order)
+      assert {:ok, _} = OrderSafety.validate_order(:binance, order, opts)
 
       # Record the order
       assert :ok = OrderSafety.record_order(:binance, order.client_order_id)
@@ -365,34 +373,49 @@ defmodule ZenCex.Safety.OrderSafetyTest do
   end
 
   describe "balance validation" do
-    test "validate_balance_for_order/2 validates buy orders" do
-      # Stub returns sufficient balance
+    test "validate_balance_for_order/2 validates buy orders", %{
+      api_key: api_key,
+      api_secret: api_secret,
+      testnet: testnet
+    } do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
       order = %{symbol: "BTCUSDT", side: :buy, quantity: "0.001", price: "50000.00"}
 
-      assert :ok = OrderSafety.validate_balance_for_order(:binance, order)
+      assert :ok = OrderSafety.validate_balance_for_order(:binance, order, opts)
     end
 
-    test "validate_balance_for_order/2 validates sell orders" do
+    test "validate_balance_for_order/2 validates sell orders", %{
+      api_key: api_key,
+      api_secret: api_secret,
+      testnet: testnet
+    } do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
       order = %{symbol: "BTCUSDT", side: :sell, quantity: "0.001"}
 
-      assert :ok = OrderSafety.validate_balance_for_order(:binance, order)
+      assert :ok = OrderSafety.validate_balance_for_order(:binance, order, opts)
     end
 
-    test "validate_balance_for_order/2 rejects invalid side" do
+    test "validate_balance_for_order/2 rejects invalid side", %{
+      api_key: api_key,
+      api_secret: api_secret,
+      testnet: testnet
+    } do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
       order = %{symbol: "BTCUSDT", side: :invalid, quantity: "0.001"}
 
-      assert {:error, {:invalid_side, :invalid}} = OrderSafety.validate_balance_for_order(:binance, order)
+      assert {:error, {:invalid_side, :invalid}} = OrderSafety.validate_balance_for_order(:binance, order, opts)
     end
 
     test "validate_balance_for_order/2 requires all parameters" do
+      # Missing required params should fail before trying to fetch balances
       assert {:error, {:missing_required_params, _}} = OrderSafety.validate_balance_for_order(:binance, %{})
     end
 
-    test "validate_balance/3 with Decimal amounts" do
+    test "validate_balance/3 with Decimal amounts", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
       required_amount = Decimal.new("10.5")
 
-      # Stub returns 1000.0 balance which is sufficient
-      assert :ok = OrderSafety.validate_balance(:binance, "USDT", required_amount)
+      assert :ok = OrderSafety.validate_balance(:binance, "USDT", required_amount, opts)
     end
   end
 

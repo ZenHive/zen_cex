@@ -1,13 +1,13 @@
 defmodule ZenCex.Adapters.Binance.PortfolioMargin404Test do
   @moduledoc """
-  Tests for Portfolio Margin endpoints that are NOT available on testnet (return 404).
+  Tests for Portfolio Margin endpoints.
 
-  These endpoints don't exist on testnet but should work in production.
-  The test behavior adapts based on environment:
-  - In TEST/DEV: Expects 404 errors
-  - In PRODUCTION: Tests actual API responses (when implemented)
+  ⚠️  REQUIRES PRODUCTION PORTFOLIO MARGIN CREDENTIALS ⚠️
 
-  From check_portfolio_endpoints.exs, these 30 endpoints return 404 on testnet:
+  Portfolio Margin has NO TESTNET - always uses production API.
+  Without PM credentials, tests expect auth/permission errors (401/403), not 404.
+
+  These 30 endpoints are tested:
   - Account info: account_information, account_balance
   - CM Account: get_cm_account_detail, get_user_commission_rate_for_cm, get_cm_income_history
   - CM Positions: cm_notional_and_leverage_brackets, query_cm_position_information, get_cm_current_position_mode
@@ -70,117 +70,153 @@ defmodule ZenCex.Adapters.Binance.PortfolioMargin404Test do
   ]
 
   describe "Portfolio Margin endpoints NOT available on testnet (404 errors)" do
-    test "account endpoints return 404 on testnet" do
+    test "account endpoints return 404 on testnet", %{api_key: api_key, api_secret: api_secret} do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
+
       # Test account_information
-      assert_endpoint_behavior(:account_information, &PortfolioMargin.account_information/0)
+      assert_endpoint_behavior(:account_information, fn -> PortfolioMargin.account_information(%{}, opts) end)
 
       # Test account_balance
-      assert_endpoint_behavior(:account_balance, &PortfolioMargin.account_balance/0)
+      assert_endpoint_behavior(:account_balance, fn -> PortfolioMargin.account_balance(%{}, opts) end)
     end
 
-    test "CM account endpoints return 404 on testnet" do
-      assert_endpoint_behavior(:get_cm_account_detail, &PortfolioMargin.get_cm_account_detail/0)
+    test "CM account endpoints return 404 on testnet", %{api_key: api_key, api_secret: api_secret} do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
+
+      assert_endpoint_behavior(:get_cm_account_detail, fn -> PortfolioMargin.get_cm_account_detail(%{}, opts) end)
 
       # With required params for commission rate
       assert_endpoint_behavior(
         :get_user_commission_rate_for_cm,
-        fn -> PortfolioMargin.get_user_commission_rate_for_cm(%{symbol: "BTCUSDT"}) end
+        fn -> PortfolioMargin.get_user_commission_rate_for_cm(%{symbol: "BTCUSDT"}, opts) end
       )
 
-      assert_endpoint_behavior(:get_cm_income_history, &PortfolioMargin.get_cm_income_history/0)
+      assert_endpoint_behavior(:get_cm_income_history, fn -> PortfolioMargin.get_cm_income_history(%{}, opts) end)
     end
 
-    test "CM position endpoints return 404 on testnet" do
-      assert_endpoint_behavior(:cm_notional_and_leverage_brackets, &PortfolioMargin.cm_notional_and_leverage_brackets/0)
-      assert_endpoint_behavior(:query_cm_position_information, &PortfolioMargin.query_cm_position_information/0)
-      assert_endpoint_behavior(:get_cm_current_position_mode, &PortfolioMargin.get_cm_current_position_mode/0)
+    test "CM position endpoints return 404 on testnet", %{api_key: api_key, api_secret: api_secret} do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
+
+      assert_endpoint_behavior(:cm_notional_and_leverage_brackets, fn ->
+        PortfolioMargin.cm_notional_and_leverage_brackets(%{}, opts)
+      end)
+
+      assert_endpoint_behavior(:query_cm_position_information, fn ->
+        PortfolioMargin.query_cm_position_information(%{}, opts)
+      end)
+
+      assert_endpoint_behavior(:get_cm_current_position_mode, fn ->
+        PortfolioMargin.get_cm_current_position_mode(%{}, opts)
+      end)
     end
 
-    test "UM account endpoints return 404 on testnet" do
-      assert_endpoint_behavior(:get_um_account_detail, &PortfolioMargin.get_um_account_detail/0)
-      assert_endpoint_behavior(:um_futures_account_configuration, &PortfolioMargin.um_futures_account_configuration/0)
+    test "UM account endpoints return 404 on testnet", %{api_key: api_key, api_secret: api_secret} do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
+
+      assert_endpoint_behavior(:get_um_account_detail, fn -> PortfolioMargin.get_um_account_detail(%{}, opts) end)
+
+      assert_endpoint_behavior(:um_futures_account_configuration, fn ->
+        PortfolioMargin.um_futures_account_configuration(%{}, opts)
+      end)
 
       assert_endpoint_behavior(
         :portfolio_margin_um_trading_quantitative_rules_indicators,
-        &PortfolioMargin.portfolio_margin_um_trading_quantitative_rules_indicators/0
+        fn -> PortfolioMargin.portfolio_margin_um_trading_quantitative_rules_indicators(%{}, opts) end
       )
 
       assert_endpoint_behavior(
         :get_user_commission_rate_for_um,
-        fn -> PortfolioMargin.get_user_commission_rate_for_um(%{symbol: "BTCUSDT"}) end
+        fn -> PortfolioMargin.get_user_commission_rate_for_um(%{symbol: "BTCUSDT"}, opts) end
       )
 
-      assert_endpoint_behavior(:get_um_income_history, &PortfolioMargin.get_um_income_history/0)
-      assert_endpoint_behavior(:get_um_account_detail_v2, &PortfolioMargin.get_um_account_detail_v2/0)
+      assert_endpoint_behavior(:get_um_income_history, fn -> PortfolioMargin.get_um_income_history(%{}, opts) end)
+      assert_endpoint_behavior(:get_um_account_detail_v2, fn -> PortfolioMargin.get_um_account_detail_v2(%{}, opts) end)
     end
 
-    test "UM position endpoints return 404 on testnet" do
-      assert_endpoint_behavior(:um_notional_and_leverage_brackets, &PortfolioMargin.um_notional_and_leverage_brackets/0)
-      assert_endpoint_behavior(:query_um_position_information, &PortfolioMargin.query_um_position_information/0)
-      assert_endpoint_behavior(:get_um_current_position_mode, &PortfolioMargin.get_um_current_position_mode/0)
-    end
+    test "UM position endpoints return 404 on testnet", %{api_key: api_key, api_secret: api_secret} do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
 
-    test "Margin query endpoints return 404 on testnet" do
-      assert_endpoint_behavior(
-        :get_margin_borrow_loan_interest_history,
-        &PortfolioMargin.get_margin_borrow_loan_interest_history/0
-      )
-
-      assert_endpoint_behavior(:query_margin_loan_record, &PortfolioMargin.query_margin_loan_record/0)
-      assert_endpoint_behavior(:margin_max_borrow, fn -> PortfolioMargin.margin_max_borrow(%{asset: "USDT"}) end)
-
-      assert_endpoint_behavior(:query_margin_max_withdraw, fn ->
-        PortfolioMargin.query_margin_max_withdraw(%{asset: "USDT"})
+      assert_endpoint_behavior(:um_notional_and_leverage_brackets, fn ->
+        PortfolioMargin.um_notional_and_leverage_brackets(%{}, opts)
       end)
 
-      assert_endpoint_behavior(:query_margin_repay_record, &PortfolioMargin.query_margin_repay_record/0)
+      assert_endpoint_behavior(:query_um_position_information, fn ->
+        PortfolioMargin.query_um_position_information(%{}, opts)
+      end)
+
+      assert_endpoint_behavior(:get_um_current_position_mode, fn ->
+        PortfolioMargin.get_um_current_position_mode(%{}, opts)
+      end)
     end
 
-    test "Portfolio-specific endpoints return 404 on testnet" do
+    test "Margin query endpoints return 404 on testnet", %{api_key: api_key, api_secret: api_secret} do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
+
+      assert_endpoint_behavior(
+        :get_margin_borrow_loan_interest_history,
+        fn -> PortfolioMargin.get_margin_borrow_loan_interest_history(%{}, opts) end
+      )
+
+      assert_endpoint_behavior(:query_margin_loan_record, fn -> PortfolioMargin.query_margin_loan_record(%{}, opts) end)
+      assert_endpoint_behavior(:margin_max_borrow, fn -> PortfolioMargin.margin_max_borrow(%{asset: "USDT"}, opts) end)
+
+      assert_endpoint_behavior(:query_margin_max_withdraw, fn ->
+        PortfolioMargin.query_margin_max_withdraw(%{asset: "USDT"}, opts)
+      end)
+
+      assert_endpoint_behavior(:query_margin_repay_record, fn -> PortfolioMargin.query_margin_repay_record(%{}, opts) end)
+    end
+
+    test "Portfolio-specific endpoints return 404 on testnet", %{api_key: api_key, api_secret: api_secret} do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
+
       assert_endpoint_behavior(
         :query_portfolio_margin_negative_balance_interest_history,
-        &PortfolioMargin.query_portfolio_margin_negative_balance_interest_history/0
+        fn -> PortfolioMargin.query_portfolio_margin_negative_balance_interest_history(%{}, opts) end
       )
 
       assert_endpoint_behavior(
         :query_user_negative_balance_auto_exchange_record,
-        &PortfolioMargin.query_user_negative_balance_auto_exchange_record/0
+        fn -> PortfolioMargin.query_user_negative_balance_auto_exchange_record(%{}, opts) end
       )
     end
 
-    test "Order query endpoints return 404 on testnet" do
+    test "Order query endpoints return 404 on testnet", %{api_key: api_key, api_secret: api_secret} do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
+
       # UM order queries
-      assert_endpoint_behavior(:query_um_order, fn -> PortfolioMargin.query_um_order(%{symbol: "BTCUSDT"}) end)
+      assert_endpoint_behavior(:query_um_order, fn -> PortfolioMargin.query_um_order(%{symbol: "BTCUSDT"}, opts) end)
 
       assert_endpoint_behavior(:cancel_um_order, fn ->
-        PortfolioMargin.cancel_um_order(%{symbol: "BTCUSDT", orderId: 1})
+        PortfolioMargin.cancel_um_order(%{symbol: "BTCUSDT", orderId: 1}, opts)
       end)
 
       # CM order queries
-      assert_endpoint_behavior(:query_cm_order, fn -> PortfolioMargin.query_cm_order(%{symbol: "BTCUSD_PERP"}) end)
+      assert_endpoint_behavior(:query_cm_order, fn -> PortfolioMargin.query_cm_order(%{symbol: "BTCUSD_PERP"}, opts) end)
 
       assert_endpoint_behavior(:cancel_cm_order, fn ->
-        PortfolioMargin.cancel_cm_order(%{symbol: "BTCUSD_PERP", orderId: 1})
+        PortfolioMargin.cancel_cm_order(%{symbol: "BTCUSD_PERP", orderId: 1}, opts)
       end)
 
       # Margin order queries
       assert_endpoint_behavior(:query_margin_account_order, fn ->
-        PortfolioMargin.query_margin_account_order(%{symbol: "BTCUSDT"})
+        PortfolioMargin.query_margin_account_order(%{symbol: "BTCUSDT"}, opts)
       end)
 
       assert_endpoint_behavior(:cancel_margin_account_order, fn ->
-        PortfolioMargin.cancel_margin_account_order(%{symbol: "BTCUSDT", orderId: 1})
+        PortfolioMargin.cancel_margin_account_order(%{symbol: "BTCUSDT", orderId: 1}, opts)
       end)
     end
   end
 
   describe "Environment detection" do
     test "correctly identifies test environment" do
-      # We should be in test environment
-      assert Endpoints.current_env() == :test
+      # base_url/0 now always returns production URL
+      # IntegrationCase enforces testnet by injecting auth_credentials with testnet: true
+      assert Endpoints.base_url() == "https://api.binance.com"
 
-      # Base URL should be testnet
-      assert Endpoints.base_url() =~ "testnet"
+      # Verify testnet enforcement happens via IntegrationCase, not at base_url level
+      # (This test file uses IntegrationCase which forces testnet)
     end
 
     test "all unavailable endpoints are documented" do

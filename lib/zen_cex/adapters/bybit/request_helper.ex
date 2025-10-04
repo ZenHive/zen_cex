@@ -48,7 +48,7 @@ defmodule ZenCex.Adapters.Bybit.RequestHelper do
   # Delegate functions for backward compatibility
   defdelegate current_env(), to: Endpoints
   defdelegate base_url(), to: Endpoints
-  defdelegate base_url(env), to: Endpoints
+  defdelegate base_url(opts), to: Endpoints
 
   @doc """
   Executes a request with standard preprocessing for Bybit API modules.
@@ -78,8 +78,11 @@ defmodule ZenCex.Adapters.Bybit.RequestHelper do
   @spec execute_request_for_unified_api(map(), map(), keyword()) ::
           {:ok, any()} | {:error, term()}
   def execute_request_for_unified_api(config, params, opts) do
-    # Get base URL for current environment from Endpoints module
-    base_url = Endpoints.base_url()
+    # Extract testnet flag from auth_credentials
+    testnet = get_testnet_flag(opts)
+
+    # Get base URL with testnet option
+    base_url = Endpoints.base_url(testnet: testnet)
 
     # Determine operation type from config
     operation_type = determine_operation_type(config)
@@ -256,4 +259,7 @@ defmodule ZenCex.Adapters.Bybit.RequestHelper do
 
     base_url <> path
   end
+
+  # Delegate to Core.Auth for consistent testnet flag extraction
+  defdelegate get_testnet_flag(opts), to: ZenCex.Core.Auth
 end

@@ -27,8 +27,11 @@ defmodule ZenCex.Adapters.Bybit.Auth do
     has_json_option = opts[:has_json_option] || false
     body_params = opts[:body_params] || %{}
 
+    # Extract testnet flag from auth_credentials
+    testnet = get_in(request.private, [:auth_credentials, :testnet]) || false
+
     # Add timing parameters using clock-synchronized time
-    params_with_timing = ensure_timing_params(all_params)
+    params_with_timing = ensure_timing_params(all_params, testnet)
 
     # Extract timestamp and recv_window for headers
     timestamp = Map.get(params_with_timing, "timestamp")
@@ -50,13 +53,13 @@ defmodule ZenCex.Adapters.Bybit.Auth do
   end
 
   # Ensures timestamp and recv_window parameters are present
-  @spec ensure_timing_params(map()) :: map()
-  defp ensure_timing_params(params) do
+  @spec ensure_timing_params(map(), boolean()) :: map()
+  defp ensure_timing_params(params, testnet) do
     params_with_timestamp =
       case Map.get(params, "timestamp") do
         nil ->
           # Get clock-synchronized timestamp for Bybit
-          timestamp = ClockSync.now_with_offset(:bybit)
+          timestamp = ClockSync.now_with_offset(:bybit, testnet: testnet)
           Map.put(params, "timestamp", to_string(timestamp))
 
         _ ->
@@ -94,27 +97,6 @@ defmodule ZenCex.Adapters.Bybit.Auth do
       end)
 
     %{request | options: updated_options}
-  end
-
-  @doc """
-  Returns the base URL for Bybit based on testnet mode.
-
-  ## Examples
-
-      iex> Auth.base_url()
-      "https://api.bybit.com"  # Production
-
-      # When BYBIT_TESTNET is set
-      iex> Auth.base_url()
-      "https://api-testnet.bybit.com"  # Testnet
-  """
-  @spec base_url() :: String.t()
-  def base_url do
-    if ZenCex.Core.Auth.testnet?(:bybit) do
-      "https://api-testnet.bybit.com"
-    else
-      "https://api.bybit.com"
-    end
   end
 
   @doc """

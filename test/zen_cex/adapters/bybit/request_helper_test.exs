@@ -4,15 +4,14 @@ defmodule ZenCex.Adapters.Bybit.RequestHelperTest do
   alias ZenCex.Adapters.Bybit.RequestHelper
 
   describe "base_url/1" do
-    test "accepts explicit environment parameter" do
-      assert RequestHelper.base_url(:prod) == "https://api.bybit.com"
-      assert RequestHelper.base_url(:test) == "https://api-testnet.bybit.com"
+    test "accepts testnet flag parameter" do
+      assert RequestHelper.base_url(testnet: false) == "https://api.bybit.com"
+      assert RequestHelper.base_url(testnet: true) == "https://api-testnet.bybit.com"
     end
 
-    test "returns consistent URL based on environment" do
-      # Just verify it returns one of the valid URLs
+    test "returns production URL by default" do
       url = RequestHelper.base_url()
-      assert url in ["https://api.bybit.com", "https://api-testnet.bybit.com"]
+      assert url == "https://api.bybit.com"
     end
   end
 

@@ -128,12 +128,12 @@ defmodule ZenCex.Safety.OrderSafety do
       iex> OrderSafety.validate_order(:binance, %{symbol: "INVALID", side: :buy})
       {:error, {:invalid_symbol, "INVALID"}}
   """
-  @spec validate_order(atom(), map()) :: {:ok, map()} | {:error, term()}
-  def validate_order(exchange, order_params) do
+  @spec validate_order(atom(), map(), keyword()) :: {:ok, map()} | {:error, term()}
+  def validate_order(exchange, order_params, opts \\ []) do
     with :ok <- check_kill_switch(exchange),
          {:ok, :new} <- check_existing_order_with_generated_id(exchange, order_params),
          :ok <- validate_symbol(exchange, order_params[:symbol]),
-         :ok <- validate_balance_for_order(exchange, order_params),
+         :ok <- validate_balance_for_order(exchange, order_params, opts),
          :ok <- validate_notional_for_order(exchange, order_params),
          :ok <- validate_price_and_size(exchange, order_params) do
       # Add generated client_order_id if not provided
@@ -580,14 +580,25 @@ defmodule ZenCex.Safety.OrderSafety do
   - `{:error, reason}` if insufficient
   """
   @spec validate_balance_for_order(atom(), map()) :: :ok | {:error, term()}
-  def validate_balance_for_order(exchange, order_params) do
-    # Fetch balance info from exchange
-    case MarketData.fetch_balances(exchange, order_params) do
-      {:ok, balance_info} ->
-        Validation.validate_balance_requirements(order_params, balance_info)
+  def validate_balance_for_order(exchange, order_params, opts \\ []) do
+    # Early validation: check required parameters before attempting balance fetch
+    required_params = [:side, :symbol]
+    missing_params = Enum.filter(required_params, fn key -> not Map.has_key?(order_params, key) end)
 
-      {:error, _reason} = error ->
-        error
+    if missing_params == [] do
+      # Merge opts into params for MarketData.fetch_balances
+      params_with_opts = Map.put(order_params, :auth_credentials, opts[:auth_credentials])
+
+      # Fetch balance info from exchange
+      case MarketData.fetch_balances(exchange, params_with_opts) do
+        {:ok, balance_info} ->
+          Validation.validate_balance_requirements(order_params, balance_info)
+
+        {:error, _reason} = error ->
+          error
+      end
+    else
+      {:error, {:missing_required_params, missing_params}}
     end
   end
 
@@ -603,10 +614,12 @@ defmodule ZenCex.Safety.OrderSafety do
   - `:ok` if sufficient balance
   - `{:error, reason}` if insufficient
   """
-  @spec validate_balance(atom(), String.t(), Decimal.t()) :: :ok | {:error, term()}
-  def validate_balance(exchange, asset, required_amount) do
+  @spec validate_balance(atom(), String.t(), Decimal.t(), keyword()) :: :ok | {:error, term()}
+  def validate_balance(exchange, asset, required_amount, opts \\ []) do
     # Delegate to Validation module with balance fetching
-    case MarketData.fetch_balances(exchange, %{}) do
+    params_with_opts = %{auth_credentials: opts[:auth_credentials]}
+
+    case MarketData.fetch_balances(exchange, params_with_opts) do
       {:ok, balance_info} ->
         # Extract the specific asset balance
         balances = Map.get(balance_info, :balances, %{})

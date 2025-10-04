@@ -9,9 +9,8 @@ defmodule ZenCex.Adapters.Bybit.CommonIntegrationTest do
 
   describe "get_server_time/0,1" do
     test "successfully fetches server time from Bybit testnet" do
-      # Verify we're using testnet
-      assert Endpoints.current_env() == :test
-      assert Endpoints.base_url() == "https://api-testnet.bybit.com"
+      # base_url() now returns production, testnet enforcement via IntegrationCase
+      assert Endpoints.base_url() == "https://api.bybit.com"
 
       # Call the real Bybit testnet API
       assert {:ok, result} = Common.get_server_time()
@@ -47,9 +46,8 @@ defmodule ZenCex.Adapters.Bybit.CommonIntegrationTest do
 
   describe "get_announcements/0,1,2" do
     test "successfully fetches announcements from Bybit testnet" do
-      # Verify we're using testnet
-      assert Endpoints.current_env() == :test
-      assert Endpoints.base_url() == "https://api-testnet.bybit.com"
+      # base_url() returns production, testnet enforcement via IntegrationCase
+      assert Endpoints.base_url() == "https://api.bybit.com"
 
       # Call the real Bybit testnet API - locale parameter is required
       result = Common.get_announcements(%{locale: "en-US"})

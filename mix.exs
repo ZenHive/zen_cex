@@ -71,7 +71,8 @@ defmodule ZenCex.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:doctor, "~> 0.22.0", only: [:dev, :test]},
-      {:styler, "~> 1.5", only: [:dev, :test], runtime: false}
+      {:styler, "~> 1.5", only: [:dev, :test], runtime: false},
+      {:mox, "~> 1.0", only: :test}
     ]
   end
 

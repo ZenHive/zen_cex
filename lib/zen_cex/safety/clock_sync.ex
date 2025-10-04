@@ -25,25 +25,27 @@ defmodule ZenCex.Safety.ClockSync do
 
       # Get current timestamp with exchange offset applied
       timestamp_ms = ClockSync.now_with_offset(:binance)
+      timestamp_ms = ClockSync.now_with_offset(:binance, testnet: true)
 
       # For specific Binance API types
-      timestamp_ms = ClockSync.now_with_offset(:binance, :usdm_futures)
-      timestamp_ms = ClockSync.now_with_offset(:binance, :coinm_futures)
+      timestamp_ms = ClockSync.now_with_offset(:binance, api_type: :usdm_futures)
+      timestamp_ms = ClockSync.now_with_offset(:binance, testnet: true, api_type: :usdm_futures)
 
       # Force manual sync with specific exchange
-      ClockSync.sync_exchange(:kraken)
+      ClockSync.sync_exchange(:binance)
+      ClockSync.sync_exchange(:binance, testnet: true)
 
       # Sync specific Binance API type
-      ClockSync.sync_exchange(:binance, :usdm_futures)
+      ClockSync.sync_exchange(:binance, api_type: :usdm_futures)
+      ClockSync.sync_exchange(:binance, testnet: true, api_type: :usdm_futures)
 
       # Get current offset for debugging
-      offset_ms = ClockSync.get_offset(:deribit)
-      offset_ms = ClockSync.get_offset(:binance, :usdm_futures)
+      ClockSync.get_offset(:binance)
+      ClockSync.get_offset(:binance, testnet: true, api_type: :usdm_futures)
   """
 
   use GenServer
 
-  alias ZenCex.Core.HTTP
   alias ZenCex.Core.Registry
 
   require Logger
@@ -85,19 +87,24 @@ defmodule ZenCex.Safety.ClockSync do
 
   ## Parameters
   - `exchange` - The exchange atom (e.g., `:binance`)
+  - `opts` - Keyword list of options:
+    - `:testnet` - Boolean flag for testnet (default: false)
+    - `:api_type` - API type atom (e.g., `:spot`, `:usdm_futures`)
 
   ## Returns
   Current timestamp in milliseconds adjusted for exchange clock offset.
 
   ## Examples
 
-      timestamp = ClockSync.now_with_offset(:binance)
+      timestamp = ClockSync.now_with_offset(:binance, testnet: false)
       # Returns: 1640995200000 (adjusted for any clock drift)
+
+      timestamp = ClockSync.now_with_offset(:binance, testnet: true, api_type: :usdm_futures)
+      # Returns: 1640995200000 (adjusted for testnet clock drift)
   """
-  @spec now_with_offset(atom()) :: integer()
-  @spec now_with_offset(atom(), atom() | nil) :: integer()
-  def now_with_offset(exchange, api_type \\ nil) do
-    offset = get_offset(exchange, api_type)
+  @spec now_with_offset(atom(), keyword()) :: integer()
+  def now_with_offset(exchange, opts \\ []) do
+    offset = get_offset(exchange, opts)
     System.system_time(:millisecond) + offset
   end
 
@@ -106,6 +113,9 @@ defmodule ZenCex.Safety.ClockSync do
 
   ## Parameters
   - `exchange` - The exchange atom
+  - `opts` - Keyword list of options:
+    - `:testnet` - Boolean flag for testnet (default: false)
+    - `:api_type` - API type atom (optional)
 
   ## Returns
   Offset in milliseconds (positive = server ahead, negative = server behind).
@@ -113,13 +123,17 @@ defmodule ZenCex.Safety.ClockSync do
 
   ## Examples
 
-      offset = ClockSync.get_offset(:binance)
+      offset = ClockSync.get_offset(:binance, testnet: false)
       # Returns: 150 (server is 150ms ahead of local time)
+
+      offset = ClockSync.get_offset(:binance, testnet: true, api_type: :usdm_futures)
+      # Returns: 150 (testnet server is 150ms ahead of local time)
   """
-  @spec get_offset(atom()) :: integer()
-  @spec get_offset(atom(), atom() | nil) :: integer()
-  def get_offset(exchange, api_type \\ nil) do
-    key = make_key(exchange, api_type)
+  @spec get_offset(atom(), keyword()) :: integer()
+  def get_offset(exchange, opts \\ []) do
+    testnet = Keyword.get(opts, :testnet, false)
+    api_type = Keyword.get(opts, :api_type)
+    key = make_key(exchange, testnet, api_type)
 
     case :ets.lookup(@table_name, key) do
       [{^key, offset}] -> offset
@@ -132,6 +146,9 @@ defmodule ZenCex.Safety.ClockSync do
 
   ## Parameters
   - `exchange` - The exchange atom
+  - `opts` - Keyword list of options:
+    - `:testnet` - Boolean flag for testnet (default: false)
+    - `:api_type` - API type atom (optional)
 
   ## Returns
   - `{:ok, offset_ms}` - Synchronization successful
@@ -139,13 +156,22 @@ defmodule ZenCex.Safety.ClockSync do
 
   ## Examples
 
-      {:ok, offset} = ClockSync.sync_exchange(:binance)
+      {:ok, offset} = ClockSync.sync_exchange(:binance, testnet: false)
+      # Returns: {:ok, 150}
+
+      {:ok, offset} = ClockSync.sync_exchange(:binance, testnet: true, api_type: :usdm_futures)
       # Returns: {:ok, 150}
   """
-  @spec sync_exchange(atom()) :: {:ok, integer()} | {:error, term()}
-  @spec sync_exchange(atom(), atom() | nil) :: {:ok, integer()} | {:error, term()}
-  def sync_exchange(exchange, api_type \\ nil) do
-    GenServer.call(__MODULE__, {:sync_exchange, exchange, api_type}, @sync_timeout_ms + @genserver_timeout_buffer_ms)
+  @spec sync_exchange(atom(), keyword()) :: {:ok, integer()} | {:error, term()}
+  def sync_exchange(exchange, opts \\ []) do
+    testnet = Keyword.get(opts, :testnet, false)
+    api_type = Keyword.get(opts, :api_type)
+
+    GenServer.call(
+      __MODULE__,
+      {:sync_exchange, exchange, testnet, api_type},
+      @sync_timeout_ms + @genserver_timeout_buffer_ms
+    )
   end
 
   @doc """
@@ -279,8 +305,8 @@ defmodule ZenCex.Safety.ClockSync do
   end
 
   @impl true
-  def handle_call({:sync_exchange, exchange, api_type}, _from, state) do
-    result = sync_exchange_internal(exchange, api_type)
+  def handle_call({:sync_exchange, exchange, testnet, api_type}, _from, state) do
+    result = sync_exchange_internal(exchange, testnet, api_type)
     {:reply, result, state}
   end
 
@@ -312,32 +338,30 @@ defmodule ZenCex.Safety.ClockSync do
   defp sync_all_exchanges_internal do
     exchanges = Registry.list_exchanges()
 
-    # Build list of {exchange, api_type} tuples to sync
+    # Build list of {exchange, testnet, api_type} tuples to sync
+    # Sync BOTH production and testnet for each exchange
     sync_targets =
       Enum.flat_map(exchanges, fn exchange ->
         case exchange do
           :binance ->
-            # Sync all Binance API types
-            [
-              # Default/spot
-              {:binance, nil},
-              {:binance, :usdm_futures},
-              {:binance, :coinm_futures},
-              {:binance, :portfolio}
-            ]
+            # Sync all Binance API types for both production and testnet
+            for testnet <- [false, true],
+                api_type <- [nil, :usdm_futures, :coinm_futures, :portfolio] do
+              {:binance, testnet, api_type}
+            end
 
           other ->
-            # Other exchanges just sync once
-            [{other, nil}]
+            # Other exchanges sync both production and testnet
+            [{other, false, nil}, {other, true, nil}]
         end
       end)
 
     # Sync all targets concurrently
     tasks =
-      Enum.map(sync_targets, fn {exchange, api_type} ->
+      Enum.map(sync_targets, fn {exchange, testnet, api_type} ->
         Task.async(fn ->
-          key = make_key(exchange, api_type)
-          {key, sync_exchange_internal(exchange, api_type)}
+          key = make_key(exchange, testnet, api_type)
+          {key, sync_exchange_internal(exchange, testnet, api_type)}
         end)
       end)
 
@@ -350,8 +374,8 @@ defmodule ZenCex.Safety.ClockSync do
     results
   end
 
-  defp sync_exchange_internal(exchange, api_type) do
-    case fetch_server_time(exchange, api_type) do
+  defp sync_exchange_internal(exchange, testnet, api_type) do
+    case fetch_server_time(exchange, testnet, api_type) do
       {:ok, server_time_ms} ->
         local_time_ms = System.system_time(:millisecond)
         offset_ms = server_time_ms - local_time_ms
@@ -372,7 +396,7 @@ defmodule ZenCex.Safety.ClockSync do
         end
 
         # Store the offset
-        key = make_key(exchange, api_type)
+        key = make_key(exchange, testnet, api_type)
         :ets.insert(@table_name, {key, offset_ms})
 
         Logger.debug("ClockSync: Synchronized #{exchange} with offset #{offset_ms}ms")
@@ -396,13 +420,19 @@ defmodule ZenCex.Safety.ClockSync do
     end
   end
 
-  defp fetch_server_time(exchange, api_type) do
-    case get_time_endpoint_url(exchange, api_type) do
+  defp fetch_server_time(exchange, testnet, api_type) do
+    case get_time_endpoint_url(exchange, testnet, api_type) do
       {:ok, url} ->
+        # ClockSync uses custom URLs, so we build a minimal request
+        # without going through HTTP.base_request (which requires base_url)
         request =
-          exchange
-          |> HTTP.health_check_request()
-          |> Req.merge(url: url, receive_timeout: @sync_timeout_ms)
+          Req.new(
+            url: url,
+            receive_timeout: @sync_timeout_ms,
+            finch: ZenCex.Finch,
+            retry: :safe_transient,
+            max_retries: 2
+          )
 
         case Req.request(request) do
           {:ok, %{status: 200, body: body}} ->
@@ -420,62 +450,49 @@ defmodule ZenCex.Safety.ClockSync do
     end
   end
 
-  defp get_time_endpoint_url(:binance, api_type), do: get_binance_time_url(api_type)
-  defp get_time_endpoint_url(:bybit, _), do: get_bybit_time_url()
-  defp get_time_endpoint_url(:kraken, _), do: {:ok, "https://api.kraken.com/0/public/Time"}
+  defp get_time_endpoint_url(:binance, testnet, api_type), do: get_binance_time_url(testnet, api_type)
+  defp get_time_endpoint_url(:bybit, testnet, _), do: get_bybit_time_url(testnet)
+  defp get_time_endpoint_url(:kraken, _testnet, _), do: {:ok, "https://api.kraken.com/0/public/Time"}
+  defp get_time_endpoint_url(unknown, _testnet, _), do: {:error, {:unsupported_exchange, unknown}}
 
-  defp get_time_endpoint_url(:deribit, _) do
-    # Use dynamic host configuration based on environment
-    base_url = get_deribit_base_url()
-    {:ok, "#{base_url}/api/v2/public/get_time"}
-  end
-
-  defp get_time_endpoint_url(unknown, _), do: {:error, {:unsupported_exchange, unknown}}
-
-  defp get_deribit_base_url do
-    # Check if we should use testnet based on environment variables
-    cond do
-      System.get_env("DERIBIT_TESTNET") in ["true", "TRUE", "1"] ->
-        "https://test.deribit.com"
-
-      System.get_env("DERIBIT_TESTNET_API_KEY") != nil ->
-        "https://test.deribit.com"
-
-      true ->
-        "https://www.deribit.com"
-    end
-  end
-
-  defp get_bybit_time_url do
-    if System.get_env("BYBIT_TESTNET") in ["true", "TRUE", "1"] do
+  defp get_bybit_time_url(testnet) do
+    if testnet do
       {:ok, "https://api-testnet.bybit.com/v5/market/time"}
     else
       {:ok, "https://api.bybit.com/v5/market/time"}
     end
   end
 
-  defp get_binance_time_url(api_type) do
+  defp get_binance_time_url(testnet, api_type) do
     case api_type do
-      nil -> {:ok, "https://api.binance.com/api/v3/time"}
-      :spot -> {:ok, "https://api.binance.com/api/v3/time"}
-      :margin -> {:ok, "https://api.binance.com/api/v3/time"}
-      :usdm_futures -> {:ok, get_futures_time_url("fapi")}
-      :coinm_futures -> {:ok, get_futures_time_url("dapi")}
-      :portfolio -> {:ok, get_portfolio_time_url()}
-      _ -> {:ok, "https://api.binance.com/api/v3/time"}
+      nil -> {:ok, get_spot_time_url(testnet)}
+      :spot -> {:ok, get_spot_time_url(testnet)}
+      :margin -> {:ok, get_spot_time_url(testnet)}
+      :usdm_futures -> {:ok, get_futures_time_url(testnet, "fapi")}
+      :coinm_futures -> {:ok, get_futures_time_url(testnet, "dapi")}
+      :portfolio -> {:ok, get_portfolio_time_url(testnet)}
+      _ -> {:ok, get_spot_time_url(testnet)}
     end
   end
 
-  defp get_futures_time_url(api_prefix) do
-    if System.get_env("BINANCE_TESTNET") in ["true", "TRUE", "1"] do
+  defp get_spot_time_url(testnet) do
+    if testnet do
+      "https://testnet.binance.vision/api/v3/time"
+    else
+      "https://api.binance.com/api/v3/time"
+    end
+  end
+
+  defp get_futures_time_url(testnet, api_prefix) do
+    if testnet do
       "https://testnet.binancefuture.com/#{api_prefix}/v1/time"
     else
       "https://#{api_prefix}.binance.com/#{api_prefix}/v1/time"
     end
   end
 
-  defp get_portfolio_time_url do
-    if System.get_env("BINANCE_TESTNET") in ["true", "TRUE", "1"] do
+  defp get_portfolio_time_url(testnet) do
+    if testnet do
       "https://testnet.binance.vision/papi/v1/time"
     else
       "https://papi.binance.com/papi/v1/time"
@@ -596,8 +613,18 @@ defmodule ZenCex.Safety.ClockSync do
   end
 
   # Helper to create ETS table key for exchange/api_type combination
-  defp make_key(exchange, nil), do: exchange
-  defp make_key(exchange, api_type), do: {exchange, api_type}
+  # Convert testnet boolean to environment atom, then build key
+  defp make_key(exchange, testnet, api_type) when is_boolean(testnet) do
+    env = if testnet, do: :testnet, else: :prod
+    make_key_with_env(exchange, env, api_type)
+  end
+
+  # Production environment without API type - simplest key (just exchange atom)
+  defp make_key_with_env(exchange, :prod, nil), do: exchange
+  # Testnet or production with API type
+  defp make_key_with_env(exchange, :testnet, nil), do: {exchange, :testnet}
+  defp make_key_with_env(exchange, :prod, api_type), do: {exchange, api_type}
+  defp make_key_with_env(exchange, :testnet, api_type), do: {exchange, :testnet, api_type}
 
   defp table_exists? do
     case :ets.whereis(@table_name) do
