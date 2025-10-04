@@ -14,6 +14,8 @@ defmodule ZenCex.Adapters.WebSocketReconnectionTest do
 
   require Logger
 
+  @moduletag :websocket
+
   # Test timeout for reconnection scenarios
   @test_timeout 30_000
 

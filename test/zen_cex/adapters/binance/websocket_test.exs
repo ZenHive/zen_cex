@@ -13,6 +13,8 @@ defmodule ZenCex.Adapters.Binance.WebSocketTest do
 
   require Logger
 
+  @moduletag :websocket
+
   # 10 seconds for WebSocket operations
   @test_timeout 10_000
 

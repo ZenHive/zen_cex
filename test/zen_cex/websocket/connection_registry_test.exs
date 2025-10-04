@@ -4,6 +4,8 @@ defmodule ZenCex.Websocket.ConnectionRegistryTest do
   alias ZenCex.Adapters.Binance.WebSocket
   alias ZenCex.Websocket.ConnectionRegistry
 
+  @moduletag :websocket
+
   setup do
     # Ensure ConnectionRegistry is started
     case Process.whereis(ConnectionRegistry) do

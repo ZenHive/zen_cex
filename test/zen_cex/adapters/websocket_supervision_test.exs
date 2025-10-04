@@ -14,6 +14,8 @@ defmodule ZenCex.Adapters.WebSocketSupervisionTest do
 
   require Logger
 
+  @moduletag :websocket
+
   # Test timeout for WebSocket operations
   @test_timeout 15_000
 

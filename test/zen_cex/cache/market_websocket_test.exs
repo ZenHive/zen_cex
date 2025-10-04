@@ -10,6 +10,8 @@ defmodule ZenCex.Cache.MarketWebSocketTest do
 
   alias ZenCex.Cache.Market
 
+  @moduletag :websocket
+
   setup do
     # Ensure cache is initialized
     Application.ensure_all_started(:zen_cex)
