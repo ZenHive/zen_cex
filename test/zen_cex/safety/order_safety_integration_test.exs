@@ -193,7 +193,9 @@ defmodule ZenCex.Safety.OrderSafetyIntegrationTest do
     end
 
     @tag :integration
-    test "rejects orders with invalid prices" do
+    test "rejects orders with invalid prices", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
+
       invalid_orders = [
         # Zero price
         %{symbol: "BTCUSDT", side: :buy, quantity: "0.001", price: "0"},
@@ -206,18 +208,19 @@ defmodule ZenCex.Safety.OrderSafetyIntegrationTest do
       ]
 
       for order_params <- invalid_orders do
-        case OrderSafety.validate_order(:binance, order_params) do
+        case OrderSafety.validate_order(:binance, order_params, opts) do
           {:error, {:invalid_price_format, _}} ->
-            # Expected error
             :ok
 
           {:error, {:invalid_price, _}} ->
-            # Expected error
             :ok
 
-          {:error, _other_reason} ->
-            # Other validation failures are acceptable
+          {:error, {:notional_too_small, _}} ->
+            # Zero or very low price results in notional error (price * quantity)
             :ok
+
+          {:error, other_reason} ->
+            flunk("Expected invalid_price, invalid_price_format, or notional_too_small, got: #{inspect(other_reason)}")
 
           {:ok, _} ->
             flunk("Order with invalid price #{order_params.price} should not validate")
@@ -226,7 +229,9 @@ defmodule ZenCex.Safety.OrderSafetyIntegrationTest do
     end
 
     @tag :integration
-    test "handles notional validation" do
+    test "handles notional validation", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
+
       # Test very small notional value (should fail minimum notional)
       small_order = %{
         symbol: "BTCUSDT",
@@ -238,19 +243,15 @@ defmodule ZenCex.Safety.OrderSafetyIntegrationTest do
         price: "1.00"
       }
 
-      case OrderSafety.validate_order(:binance, small_order) do
+      case OrderSafety.validate_order(:binance, small_order, opts) do
         {:error, {:notional_too_small, _}} ->
-          # Expected - notional too small
           :ok
 
-        {:error, _other_reason} ->
-          # Other validation failures are acceptable for this test
-          :ok
+        {:error, other_reason} ->
+          flunk("Expected notional_too_small error, got: #{inspect(other_reason)}")
 
         {:ok, _} ->
-          # Small orders might still validate depending on exchange rules
-          IO.puts("Small notional order unexpectedly validated - check minimum notional settings")
-          :ok
+          flunk("Small notional order should not validate - check minimum notional settings")
       end
     end
 
@@ -278,7 +279,9 @@ defmodule ZenCex.Safety.OrderSafetyIntegrationTest do
     end
 
     @tag :integration
-    test "validates different trading pairs" do
+    test "validates different trading pairs", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
+
       # Test multiple symbols to verify symbol validation works
       test_symbols = ["BTCUSDT", "ETHUSDT", "ADAUSDT"]
 
@@ -291,18 +294,24 @@ defmodule ZenCex.Safety.OrderSafetyIntegrationTest do
           price: "1000.00"
         }
 
-        case OrderSafety.validate_order(:binance, order_params) do
+        case OrderSafety.validate_order(:binance, order_params, opts) do
           {:ok, _} ->
-            # Symbol validation passed
             :ok
 
           {:error, {:invalid_symbol, _}} ->
-            # Some symbols might not be available on testnet
-            IO.puts("Symbol #{symbol} not available on testnet")
+            # Symbol not available on testnet
+            :ok
+
+          {:error, {:notional_too_small, _}} ->
+            # Price too low for this symbol's minimum notional
+            :ok
+
+          {:error, {:price_out_of_range, _}} ->
+            # Price doesn't match symbol's tick size
+            :ok
 
           {:error, reason} ->
-            # Other validation errors are acceptable
-            IO.puts("Validation failed for #{symbol}: #{inspect(reason)}")
+            flunk("Unexpected validation error for #{symbol}: #{inspect(reason)}")
         end
       end
     end
@@ -310,7 +319,9 @@ defmodule ZenCex.Safety.OrderSafetyIntegrationTest do
 
   describe "performance under load" do
     @tag :integration
-    test "validates multiple orders concurrently" do
+    test "validates multiple orders concurrently", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
+
       # Test concurrent validation to ensure no race conditions
       tasks =
         for i <- 1..20 do
@@ -323,7 +334,7 @@ defmodule ZenCex.Safety.OrderSafetyIntegrationTest do
               client_order_id: "concurrent_test_#{i}_#{System.unique_integer()}"
             }
 
-            result = OrderSafety.validate_order(:binance, order_params)
+            result = OrderSafety.validate_order(:binance, order_params, opts)
 
             case result do
               {:ok, validated_params} ->
@@ -331,9 +342,8 @@ defmodule ZenCex.Safety.OrderSafetyIntegrationTest do
                 OrderSafety.record_order(:binance, validated_params.client_order_id)
                 :success
 
-              {:error, _reason} ->
-                # Validation failures are acceptable in this test
-                :validation_failed
+              {:error, reason} ->
+                flunk("Concurrent validation failed: #{inspect(reason)}")
             end
           end)
         end

@@ -159,13 +159,12 @@ defmodule ZenCex.Adapters.Binance.UsdmFuturesIntegrationTest do
       result = UsdmFutures.get_positions(%{symbol: "INVALID_FUTURES_SYMBOL"})
 
       case result do
-        {:error, reason} ->
-          IO.puts("Expected futures error for invalid symbol: #{inspect(reason)}")
-          assert true
+        {:error, _reason} ->
+          # Expected to fail with invalid symbol
+          :ok
 
         {:ok, _} ->
-          # Shouldn't succeed with invalid symbol
-          assert false, "Expected error for invalid futures symbol"
+          flunk("Expected error for invalid futures symbol")
       end
     end
   end

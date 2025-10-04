@@ -233,8 +233,8 @@ defmodule ZenCex.Safety.OrderSafety.MarketDataTest do
       result = MarketData.ensure_websocket_connection(:binance, "BTCUSDT")
 
       case result do
-        :ok -> assert true
-        {:error, :websocket_not_started} -> assert true
+        :ok -> :ok
+        {:error, :websocket_not_started} -> :ok
         other -> flunk("Unexpected result: #{inspect(other)}")
       end
     end

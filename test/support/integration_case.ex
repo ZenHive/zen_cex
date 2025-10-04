@@ -534,4 +534,101 @@ defmodule ZenCex.IntegrationCase do
       :usdm_futures -> ZenCex.Adapters.Binance.UsdmFutures.get_ping()
     end
   end
+
+  @doc """
+  Asserts that Portfolio Margin API call succeeded or failed with expected credentials/config errors.
+
+  This helper allows Portfolio Margin tests to pass when PM credentials are not configured,
+  while still failing loudly on unexpected errors that indicate actual bugs.
+
+  ## Expected errors (test passes):
+  - `{:error, %{"code" => -2014}}` - API-key format invalid
+  - `{:error, %{"code" => -2015}}` - Invalid API-key, IP, or permissions
+  - `{:error, %{"code" => -11001}}` - Portfolio Margin not enabled on account
+
+  ## Unexpected errors (test fails):
+  - Any other error format or code will cause the test to fail with a descriptive message
+
+  ## TODO
+  Configure Portfolio Margin credentials to enable full test coverage:
+  - Set BINANCE_PM_TEST_API_KEY
+  - Set BINANCE_PM_TEST_API_SECRET
+  - Ensure account has Portfolio Margin enabled
+  - Note: PM has no testnet, must use production API with test account
+
+  ## Examples
+
+      # In a Portfolio Margin test
+      result = PortfolioMargin.change_um_initial_leverage(%{symbol: "BTCUSDT", leverage: 5}, opts)
+      assert_pm_success_or_not_configured(result)
+
+  """
+  def assert_pm_success_or_not_configured(result) do
+    case result do
+      {:ok, response} ->
+        assert is_map(response)
+
+      {:error, %{"code" => -2014}} ->
+        # TODO: Configure PM credentials (BINANCE_PM_TEST_API_KEY/SECRET)
+        # "API-key format invalid"
+        :ok
+
+      {:error, %{"code" => -2015}} ->
+        # TODO: Configure PM credentials (BINANCE_PM_TEST_API_KEY/SECRET)
+        # "Invalid API-key, IP, or permissions for Portfolio Margin"
+        :ok
+
+      {:error, %{"code" => -11_001}} ->
+        # TODO: Configure PM credentials with Portfolio Margin enabled account
+        # "Portfolio Margin account not enabled"
+        :ok
+
+      {:error, other} ->
+        flunk("""
+        Unexpected Portfolio Margin error (not a credential/config issue).
+        This may indicate a bug in the implementation.
+        Error: #{inspect(other)}
+        """)
+    end
+  end
+
+  @doc """
+  Asserts that API call succeeded or failed with one of the expected error codes.
+
+  More generic version of `assert_pm_success_or_not_configured/1` that allows
+  specifying which Binance error codes are acceptable.
+
+  ## Examples
+
+      # Accept specific testnet restriction errors
+      result = Spot.new_order(params, opts)
+      assert_success_or_expected_error(result, [
+        {-4131, "Testnet price restriction"},
+        {-1102, "Mandatory parameter missing"}
+      ])
+
+  """
+  def assert_success_or_expected_error(result, expected_errors) when is_list(expected_errors) do
+    case result do
+      {:ok, response} ->
+        assert is_map(response) or is_list(response)
+
+      {:error, %{"code" => code}} ->
+        if Enum.any?(expected_errors, fn
+             {error_code, _description} -> error_code == code
+             error_code when is_integer(error_code) -> error_code == code
+           end) do
+          :ok
+        else
+          flunk("""
+          Unexpected Binance error code.
+          Got: #{code}
+          Expected one of: #{inspect(expected_errors)}
+          """)
+        end
+
+      {:error, other} ->
+        flunk("Unexpected error format (not a Binance API error): #{inspect(other)}")
+    end
+  end
 end

@@ -137,21 +137,31 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
   describe "complex operations" do
     @tag :integration
     test "place_oco_order creates OCO order on testnet", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
+
+      # First get current price to set valid OCO prices
+      {:ok, ticker} = Spot.get_ticker_price(%{symbol: "BTCUSDT"})
+      current_price = String.to_float(ticker["price"])
+
+      # Round prices to 2 decimals (BTCUSDT tick size)
+      take_profit = Float.round(current_price * 1.20, 2)
+      stop_trigger = Float.round(current_price * 0.95, 2)
+      stop_limit = Float.round(current_price * 0.94, 2)
+
       # Valid OCO order parameters for testnet
-      # For a SELL OCO: price (take profit) > current price > stopPrice (stop loss)
+      # For a SELL OCO: price (take profit) > current price > stopPrice (stop loss trigger) >= stopLimitPrice (execution)
       params = %{
         symbol: "BTCUSDT",
         side: "SELL",
         quantity: "0.001",
-        # Take profit at $120k (above current ~$100k)
-        price: "120000",
-        # Stop loss trigger at $95k
-        stopPrice: "95000",
-        # Stop limit execution at $94.5k
-        stopLimitPrice: "94500"
+        # Take profit 20% above current price
+        price: Float.to_string(take_profit),
+        # Stop loss trigger 5% below current price
+        stopPrice: Float.to_string(stop_trigger),
+        # Stop limit execution 6% below current price (must be <= stopPrice)
+        stopLimitPrice: Float.to_string(stop_limit)
       }
 
-      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
       # This SHOULD succeed on testnet - if it fails, the implementation is broken
       {:ok, response} = Spot.place_oco_order(params, opts)
 
@@ -270,11 +280,24 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
         })
 
       # Should pass validation and attempt API call
+      # Accept any Binance API error (testnet has restrictions) as validation passing
       case result do
-        {:ok, _} -> assert true
-        {:error, {:missing_params, _}} -> flunk("Should not fail validation with string keys")
-        # API error is OK, validation passed
-        {:error, _} -> assert true
+        {:ok, _response} ->
+          :ok
+
+        {:error, {:missing_params, _}} ->
+          flunk("Should not fail validation with string keys")
+
+        {:error, %{"code" => _code}} ->
+          # Binance API error (parsed) - validation passed
+          :ok
+
+        {:error, %Req.Response{body: %{"code" => _code}}} ->
+          # Binance API error (Req.Response) - validation passed
+          :ok
+
+        {:error, other} ->
+          flunk("Unexpected error format: #{inspect(other)}")
       end
     end
 
@@ -294,9 +317,19 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
         {:error, {:missing_params, missing}} ->
           refute :side in missing
 
-        _ ->
-          # If validation passes, that's also OK
-          assert true
+        {:ok, _response} ->
+          :ok
+
+        {:error, %{"code" => _code}} ->
+          # Binance API error (parsed) - testnet restriction, validation passed
+          :ok
+
+        {:error, %Req.Response{body: %{"code" => _code}}} ->
+          # Binance API error (Req.Response) - testnet restriction, validation passed
+          :ok
+
+        {:error, other} ->
+          flunk("Unexpected error format: #{inspect(other)}")
       end
     end
 
@@ -347,8 +380,22 @@ defmodule ZenCex.Adapters.Binance.SpotTest do
       result = Spot.place_oco_order(string_params)
       # Should pass validation with string keys
       case result do
-        {:error, {:missing_params, _}} -> flunk("Should accept string keys")
-        _ -> assert true
+        {:error, {:missing_params, _}} ->
+          flunk("Should accept string keys")
+
+        {:ok, _response} ->
+          :ok
+
+        {:error, %{"code" => _code}} ->
+          # Binance API error (parsed) - validation passed
+          :ok
+
+        {:error, %Req.Response{body: %{"code" => _code}}} ->
+          # Binance API error (Req.Response) - validation passed
+          :ok
+
+        {:error, other} ->
+          flunk("Unexpected error format: #{inspect(other)}")
       end
 
       # Test alternative parameter names (should fail validation as they're not checked)

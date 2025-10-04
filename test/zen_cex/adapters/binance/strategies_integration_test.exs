@@ -45,10 +45,20 @@ defmodule ZenCex.Adapters.Binance.StrategiesIntegrationTest do
           PAXG notional: #{paxg_pos.notional}
           """)
 
+        {:error, :portfolio_margin_not_enabled} ->
+          # Expected when PM credentials not configured
+          :ok
+
+        {:error, {:account_check_failed, _reason}} ->
+          # Expected when PM endpoints unavailable/unauthorized
+          :ok
+
+        {:error, %{"code" => code}} when code in [-1102, -2014, -2015, -11_001] ->
+          # Auth errors: missing signature or invalid API key
+          :ok
+
         {:error, reason} ->
-          # Expected if testnet has no positions or PM not available
-          IO.puts("PAXG hedge calculation error (expected on testnet): #{inspect(reason)}")
-          assert true
+          flunk("Unexpected error in PAXG hedge calculation: #{inspect(reason)}")
       end
     end
 
@@ -71,9 +81,18 @@ defmodule ZenCex.Adapters.Binance.StrategiesIntegrationTest do
           diff = notional |> Decimal.sub(expected_notional) |> Decimal.abs()
           assert Decimal.compare(diff, Decimal.new("0.01")) == :lt
 
-        {:error, _reason} ->
-          # Expected on testnet
-          assert true
+        {:error, :portfolio_margin_not_enabled} ->
+          :ok
+
+        {:error, {:account_check_failed, _reason}} ->
+          :ok
+
+        {:error, %{"code" => code}} when code in [-1102, -2014, -2015, -11_001] ->
+          # Auth errors: missing signature or invalid API key
+          :ok
+
+        {:error, reason} ->
+          flunk("Unexpected error in leverage test: #{inspect(reason)}")
       end
     end
 
@@ -84,13 +103,9 @@ defmodule ZenCex.Adapters.Binance.StrategiesIntegrationTest do
       # This would require mocking or a testnet account with tiny balances
       # For now, we just document the behavior
 
-      IO.puts("""
-      PAXG hedge validates minimum notional:
-      - Minimum trade value: $#{@min_trade_value_usdt}
-      - Orders below this threshold will be rejected
-      """)
-
-      assert true
+      # This test documents minimum notional requirements
+      # No API call needed - just verify constants are defined
+      assert @min_trade_value_usdt > 0
     end
   end
 
@@ -119,14 +134,10 @@ defmodule ZenCex.Adapters.Binance.StrategiesIntegrationTest do
           """)
 
         {:error, :no_paxg_position} ->
-          # Expected - no PAXG position on testnet
-          IO.puts("No PAXG position to rebalance (expected on testnet)")
-          assert true
+          :ok
 
         {:error, :no_long_paxg_position} ->
-          # Expected - no long PAXG position
-          IO.puts("No long PAXG position to rebalance (expected)")
-          assert true
+          :ok
 
         {:error, {:below_profit_threshold, details}} ->
           # Position exists but not profitable enough
@@ -135,10 +146,20 @@ defmodule ZenCex.Adapters.Binance.StrategiesIntegrationTest do
           assert Map.has_key?(details, :current)
           assert Map.has_key?(details, :required)
 
+        {:error, %{"code" => code}} when code in [-2014, -2015, -11_001] ->
+          # PM credentials not configured or invalid
+          :ok
+
+        {:error, {:account_check_failed, _}} ->
+          # PM endpoints unavailable
+          :ok
+
+        {:error, :portfolio_margin_not_enabled} ->
+          # PM not enabled
+          :ok
+
         {:error, reason} ->
-          # Other expected errors on testnet
-          IO.puts("PAXG rebalance error (expected on testnet): #{inspect(reason)}")
-          assert true
+          flunk("Unexpected rebalance error: #{inspect(reason)}")
       end
     end
 
@@ -154,13 +175,30 @@ defmodule ZenCex.Adapters.Binance.StrategiesIntegrationTest do
         )
 
       case result do
-        {:ok, _} ->
-          # Would succeed if position exists and is profitable
-          assert true
+        {:ok, rebalance_result} ->
+          assert is_map(rebalance_result)
 
-        {:error, _} ->
-          # Expected on testnet
-          assert true
+        {:error, :no_paxg_position} ->
+          :ok
+
+        {:error, :no_long_paxg_position} ->
+          :ok
+
+        {:error, {:below_profit_threshold, _}} ->
+          :ok
+
+        {:error, %{"code" => code}} when code in [-2014, -2015, -11_001] ->
+          # PM credentials not configured or invalid
+          :ok
+
+        {:error, {:account_check_failed, _}} ->
+          :ok
+
+        {:error, :portfolio_margin_not_enabled} ->
+          :ok
+
+        {:error, reason} ->
+          flunk("Unexpected error: #{inspect(reason)}")
       end
     end
 
@@ -178,12 +216,29 @@ defmodule ZenCex.Adapters.Binance.StrategiesIntegrationTest do
       case result do
         {:ok, rebalance_result} ->
           # Verify the plan uses the correct ratio
-          # Can't really verify without a position
           assert rebalance_result.dry_run == true
 
-        {:error, _} ->
-          # Expected on testnet
-          assert true
+        {:error, :no_paxg_position} ->
+          :ok
+
+        {:error, :no_long_paxg_position} ->
+          :ok
+
+        {:error, {:below_profit_threshold, _}} ->
+          :ok
+
+        {:error, %{"code" => code}} when code in [-2014, -2015, -11_001] ->
+          # PM credentials not configured or invalid
+          :ok
+
+        {:error, {:account_check_failed, _}} ->
+          :ok
+
+        {:error, :portfolio_margin_not_enabled} ->
+          :ok
+
+        {:error, reason} ->
+          flunk("Unexpected error with rebalance ratio: #{inspect(reason)}")
       end
     end
   end
@@ -212,16 +267,20 @@ defmodule ZenCex.Adapters.Binance.StrategiesIntegrationTest do
       case result do
         {:error, :portfolio_margin_not_enabled} ->
           # Expected on testnet - PM not usually available
-          assert true
+          :ok
 
         {:error, {:account_check_failed, reason}} ->
           # API might not support PM endpoints on testnet
           IO.puts("Testnet PM check failed: #{inspect(reason)}")
-          assert true
+          :ok
 
-        {:ok, _hedge_result} ->
-          # If PM is enabled on testnet, test passes
-          assert true
+        {:ok, hedge_result} ->
+          # If PM is enabled on testnet, verify structure
+          assert is_map(hedge_result)
+          assert Map.has_key?(hedge_result, :hedge_positions)
+
+        {:error, reason} ->
+          flunk("Unexpected error from auto_hedge_spot_positions: #{inspect(reason)}")
       end
     end
 
@@ -252,10 +311,26 @@ defmodule ZenCex.Adapters.Binance.StrategiesIntegrationTest do
           IO.puts("Testnet assets available: #{assets}")
 
         {:error, reason} ->
-          # Document any testnet-specific errors
-          IO.puts("Testnet balance fetch error: #{inspect(reason)}")
-          # Test still passes - we're documenting real behavior
-          assert true
+          # Accept network errors and auth errors (missing signature, etc.)
+          case reason do
+            %{"code" => -1102} ->
+              # Missing/malformed signature - auth not configured properly
+              :ok
+
+            %{"code" => code} when code in [-2014, -2015] ->
+              # Invalid API key format or permissions
+              :ok
+
+            atom when atom in [:timeout, :closed, :econnrefused, :nxdomain] ->
+              # Network errors
+              :ok
+
+            other ->
+              flunk(
+                "Unexpected error from get_balances: #{inspect(other)}. " <>
+                  "Only network/auth errors are acceptable."
+              )
+          end
       end
     end
 
@@ -282,9 +357,30 @@ defmodule ZenCex.Adapters.Binance.StrategiesIntegrationTest do
           end
 
         {:error, reason} ->
-          # Futures might not be available on testnet
-          IO.puts("Testnet futures fetch error: #{inspect(reason)}")
-          assert true
+          # Accept PM credential errors and network errors
+          case reason do
+            %{"code" => code} when code in [-2014, -2015, -11_001] ->
+              # PM credentials not configured or invalid
+              :ok
+
+            atom when atom in [:timeout, :closed, :econnrefused, :nxdomain, :portfolio_margin_not_enabled] ->
+              :ok
+
+            {:invalid_api_key, _} ->
+              :ok
+
+            {:http_error, _} ->
+              :ok
+
+            {:account_check_failed, _} ->
+              :ok
+
+            other ->
+              flunk(
+                "Unexpected error from query_um_position_information: #{inspect(other)}. " <>
+                  "Only network/PM credential errors are acceptable."
+              )
+          end
       end
     end
 
@@ -305,9 +401,30 @@ defmodule ZenCex.Adapters.Binance.StrategiesIntegrationTest do
           end
 
         {:error, reason} ->
-          # Expected on testnet - PM not usually available
-          IO.puts("Testnet PM info not available: #{inspect(reason)}")
-          assert true
+          # Accept PM credential errors and network errors
+          case reason do
+            %{"code" => code} when code in [-2014, -2015, -11_001] ->
+              # PM credentials not configured or invalid
+              :ok
+
+            atom when atom in [:timeout, :closed, :econnrefused, :nxdomain, :portfolio_margin_not_enabled] ->
+              :ok
+
+            {:invalid_api_key, _} ->
+              :ok
+
+            {:http_error, _} ->
+              :ok
+
+            {:account_check_failed, _} ->
+              :ok
+
+            other ->
+              flunk(
+                "Unexpected error from account_information: #{inspect(other)}. " <>
+                  "Only network/PM credential errors are acceptable."
+              )
+          end
       end
     end
 
@@ -345,31 +462,55 @@ defmodule ZenCex.Adapters.Binance.StrategiesIntegrationTest do
       # by calling component functions directly
 
       # Get real balances
-      with {:ok, balances} <- Spot.get_balances(),
-           non_zero_balances = filter_non_zero_balances(balances),
-           true <- length(non_zero_balances) > 0 do
-        # For each non-zero balance, try to get its USDT price
-        first_balance = hd(non_zero_balances)
-        asset = Map.get(first_balance, :asset) || Map.get(first_balance, "asset")
+      case Spot.get_balances() do
+        {:ok, balances} ->
+          non_zero_balances = filter_non_zero_balances(balances)
 
-        if asset not in ["USDT", "USDC", "BUSD"] do
-          symbol = asset <> "USDT"
-          amount = Map.get(first_balance, :free) || Map.get(first_balance, "free")
+          if length(non_zero_balances) > 0 do
+            # For each non-zero balance, try to get its USDT price
+            first_balance = hd(non_zero_balances)
+            asset = Map.get(first_balance, :asset) || Map.get(first_balance, "asset")
 
-          IO.puts("""
-          Testnet hedge calculation would require ticker prices:
-          Asset: #{asset}
-          Amount: #{amount}
-          Symbol: #{symbol}
-          TODO: Implement get_ticker_price in Spot module to enable value calculations
-          """)
-        end
-      else
-        _ ->
-          IO.puts("No suitable balances for hedge calculation on testnet")
+            if asset not in ["USDT", "USDC", "BUSD"] do
+              symbol = asset <> "USDT"
+              amount = Map.get(first_balance, :free) || Map.get(first_balance, "free")
+
+              IO.puts("""
+              Testnet hedge calculation would require ticker prices:
+              Asset: #{asset}
+              Amount: #{amount}
+              Symbol: #{symbol}
+              TODO: Implement get_ticker_price in Spot module to enable value calculations
+              """)
+            end
+
+            # Assert we successfully retrieved and processed balances
+            assert is_list(non_zero_balances)
+          else
+            IO.puts("No suitable balances for hedge calculation on testnet")
+            # Still a valid outcome - testnet might be empty
+            :ok
+          end
+
+        {:error, reason} ->
+          # Accept auth/network errors - can't test dry run without balances
+          case reason do
+            %{"code" => -1102} ->
+              # Missing signature - auth not configured
+              :ok
+
+            %{"code" => code} when code in [-2014, -2015] ->
+              # Invalid API key
+              :ok
+
+            atom when atom in [:timeout, :closed, :econnrefused, :nxdomain] ->
+              # Network errors
+              :ok
+
+            other ->
+              flunk("Failed to get balances for dry run test: #{inspect(other)}")
+          end
       end
-
-      assert true
     end
   end
 

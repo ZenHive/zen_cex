@@ -1,8 +1,6 @@
 defmodule Mix.Tasks.ZenCex.GenerateBybitEndpointsTest do
   use ExUnit.Case, async: false
 
-  import ExUnit.CaptureIO
-
   @test_output_path "test/fixtures/generated_bybit_endpoints.ex"
 
   # Sample Postman collection structure for testing
@@ -136,22 +134,11 @@ defmodule Mix.Tasks.ZenCex.GenerateBybitEndpointsTest do
   end
 
   describe "fetch_postman_collection/0" do
-    @tag :integration
+    @tag :skip
     test "fetches real Postman collection from GitHub" do
-      # Skip in CI unless we have network access
-      if System.get_env("CI") do
-        :ok
-      else
-        # This is private, but we can test the full run instead
-        _output =
-          capture_io(fn ->
-            # We can't easily test private functions, so we'll test indirectly
-            # through the main run function with a mock
-            assert true
-          end)
-
-        assert true
-      end
+      # TODO: This test needs to be implemented properly
+      # Currently it's a placeholder that doesn't test anything
+      # Skipped until we refactor to expose fetch logic for testing
     end
   end
 

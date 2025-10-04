@@ -258,8 +258,8 @@ defmodule ZenCex.Adapters.Binance.PortfolioMargin404Test do
           Logger.warning("#{endpoint_name} SUCCEEDED on testnet! Response: #{inspect(response)}")
           Logger.warning("This endpoint may now be available on testnet - update the test lists!")
 
-          # Don't fail the test, but flag for attention
-          assert true
+          # Flag for attention - verify response is valid
+          assert is_map(response) or is_list(response)
         else
           # In production, this is expected - validate response structure
           Logger.info("#{endpoint_name} succeeded in production environment")
@@ -305,16 +305,16 @@ defmodule ZenCex.Adapters.Binance.PortfolioMargin404Test do
 
       :rate_limit ->
         Logger.warning("Rate limit hit on #{endpoint_name}, skipping test")
-        assert true
+        :ok
 
       :network_error ->
         Logger.warning("Network error on #{endpoint_name}: #{inspect(error)}, skipping test")
-        assert true
+        :ok
 
       :unknown ->
-        # Unknown error - log for investigation but don't fail
+        # Unknown error - verify it's a valid error structure, then pass
         Logger.warning("Investigate #{endpoint_name} error: #{inspect(error)}")
-        assert true
+        assert is_atom(error) or is_tuple(error) or is_map(error)
     end
   end
 

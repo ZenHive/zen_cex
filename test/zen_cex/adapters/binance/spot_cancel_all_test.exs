@@ -5,10 +5,12 @@ defmodule ZenCex.Adapters.Binance.SpotCancelAllTest do
 
   describe "cancel_all_orders/1 (auto-generated from :delete_openOrders)" do
     @tag :integration
-    test "cancels all open orders for a symbol (testnet)" do
+    test "cancels all open orders for a symbol (testnet)", %{api_key: api_key, api_secret: api_secret, testnet: testnet} do
+      opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret, testnet: testnet}]
+
       # Note: This test expects no open orders on testnet for BTCUSDT
       # In a real test scenario, you would first place orders, then cancel them
-      result = Spot.cancel_all_orders(%{symbol: "BTCUSDT"})
+      result = Spot.cancel_all_orders(%{symbol: "BTCUSDT"}, opts)
 
       case result do
         {:ok, canceled_orders} ->
@@ -36,19 +38,16 @@ defmodule ZenCex.Adapters.Binance.SpotCancelAllTest do
           end
 
         {:error, {:binance_error, -2011, _}} ->
-          # Error -2011 means "Order was not found" which is expected if no open orders
+          # Error -2011 means "Unknown order sent" which is expected if no open orders
           # This is a valid response when there are no open orders to cancel
-          assert true
+          :ok
+
+        {:error, %{"code" => -2011, "msg" => _}} ->
+          # Raw error format also accepted - means no orders to cancel
+          :ok
 
         {:error, reason} ->
-          # Log unexpected errors for debugging
-          require Logger
-
-          Logger.warning("Unexpected error in cancel_all_orders test: #{inspect(reason)}")
-
-          # Allow the test to pass but log the issue
-          # In production, you might want to handle specific error codes
-          assert true
+          flunk("Unexpected error in cancel_all_orders test: #{inspect(reason)}")
       end
     end
   end

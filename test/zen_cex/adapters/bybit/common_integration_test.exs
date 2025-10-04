@@ -67,15 +67,10 @@ defmodule ZenCex.Adapters.Bybit.CommonIntegrationTest do
           end
 
         {:error, :not_found} ->
-          # Testnet may not have announcements endpoint
-          # This is acceptable for testnet
-          assert true
+          :ok
 
         {:error, reason} ->
-          # Log the error for debugging but don't fail the test
-          # Testnet endpoints may have different availability
-          IO.puts("Announcements endpoint error (may be normal for testnet): #{inspect(reason)}")
-          assert true
+          flunk("Announcements endpoint failed with unexpected error: #{inspect(reason)}")
       end
     end
 
@@ -88,8 +83,12 @@ defmodule ZenCex.Adapters.Bybit.CommonIntegrationTest do
 
       result = Common.get_announcements(params)
 
-      # Should return either success or an acceptable error
-      assert match?({:ok, _}, result) or match?({:error, _}, result)
+      # Should return success or :not_found
+      case result do
+        {:ok, data} -> assert is_map(data)
+        {:error, :not_found} -> :ok
+        {:error, reason} -> flunk("Unexpected error: #{inspect(reason)}")
+      end
     end
 
     test "handles pagination parameters" do
@@ -102,8 +101,12 @@ defmodule ZenCex.Adapters.Bybit.CommonIntegrationTest do
 
       result = Common.get_announcements(params)
 
-      # Should return either success or an acceptable error
-      assert match?({:ok, _}, result) or match?({:error, _}, result)
+      # Should return success or :not_found
+      case result do
+        {:ok, data} -> assert is_map(data)
+        {:error, :not_found} -> :ok
+        {:error, reason} -> flunk("Unexpected error: #{inspect(reason)}")
+      end
     end
   end
 

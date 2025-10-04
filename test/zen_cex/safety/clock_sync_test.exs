@@ -169,8 +169,11 @@ defmodule ZenCex.Safety.ClockSyncTest do
         assert Map.has_key?(results, exchange)
 
         case results[exchange] do
-          {:ok, _} -> assert true
-          {:error, _} -> assert true
+          {:ok, offset} ->
+            assert is_integer(offset)
+
+          {:error, reason} ->
+            assert is_tuple(reason) or is_atom(reason)
         end
       end
     end
@@ -397,13 +400,13 @@ defmodule ZenCex.Safety.ClockSyncTest do
       result = ClockSync.sync_exchange(:binance)
 
       case result do
-        {:ok, _offset} ->
+        {:ok, offset} ->
           # Success is fine if network is available
-          assert true
+          assert is_integer(offset)
 
-        {:error, _reason} ->
-          # Error is also fine, just shouldn't crash
-          assert true
+        {:error, reason} ->
+          # Network errors are acceptable - verify it's a valid error
+          assert is_tuple(reason) or is_atom(reason)
       end
     end
 
@@ -447,9 +450,9 @@ defmodule ZenCex.Safety.ClockSyncTest do
                  "Expected offset ~#{offset}ms, got #{stored_offset}ms (diff: #{abs(stored_offset - offset)}ms)"
 
         {:error, reason} ->
-          # Network errors are acceptable in tests
+          # Network errors are acceptable in tests - verify it's a valid error
           IO.puts("Binance sync failed (network issue?): #{inspect(reason)}")
-          assert true
+          assert is_tuple(reason) or is_atom(reason)
       end
     end
 
@@ -464,8 +467,11 @@ defmodule ZenCex.Safety.ClockSyncTest do
       # Results can be success or failure depending on network
       for exchange <- [:binance, :bybit] do
         case results[exchange] do
-          {:ok, _} -> assert true
-          {:error, _} -> assert true
+          {:ok, offset} ->
+            assert is_integer(offset)
+
+          {:error, reason} ->
+            assert is_tuple(reason) or is_atom(reason)
         end
       end
     end

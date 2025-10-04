@@ -263,8 +263,6 @@ defmodule ZenCex.TestnetEnforcementTest do
 
       ========================================
       """)
-
-      assert true
     end
   end
 

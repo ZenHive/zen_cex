@@ -14,6 +14,64 @@ Guidance for Claude Code when working with the ZenCex library.
 - **ALWAYS** ask before adding anything not explicitly mentioned
 - **IF UNCLEAR**: Ask "Should I also do X?" before proceeding
 
+## 🚨 CRITICAL: NEVER HIDE TEST FAILURES
+
+**TESTS THAT HIDE ERRORS ARE WORSE THAN NO TESTS AT ALL**
+
+You are writing tests to find bugs, not to make yourself feel good. A test that silently passes on errors is LYING and will cause production bugs.
+
+### ABSOLUTELY FORBIDDEN - NEVER WRITE THESE:
+
+```elixir
+# ❌ MAKES ANY OUTCOME PASS - COMPLETELY WORTHLESS
+case result do
+  {:ok, _} -> assert true
+  {:error, _} -> assert true  # ← This makes ALL failures pass silently!
+end
+
+# ❌ HIDES ALL ERRORS WITH COMMENTS - DANGEROUS
+{:error, _reason} ->
+  # This is acceptable for testnet
+  :ok  # ← NO! This silently passes EVERY error!
+
+# ❌ COMMENTS DON'T VALIDATE BEHAVIOR
+{:error, reason} ->
+  IO.puts("Error may be normal: #{inspect(reason)}")
+  assert true  # ← Still worthless!
+```
+
+### CORRECT PATTERNS - ALWAYS USE THESE:
+
+```elixir
+# ✅ FAILS LOUDLY ON UNEXPECTED ERRORS
+case result do
+  {:ok, data} -> assert is_map(data)
+  {:error, :specific_expected_error} -> :ok
+  {:error, other} -> flunk("Unexpected error: #{inspect(other)}")
+end
+
+# ✅ EXPLICIT ABOUT WHAT'S ACCEPTABLE
+{:error, :insufficient_balance} ->
+  :ok  # This specific error is expected and valid
+{:error, other} ->
+  flunk("Expected :insufficient_balance, got #{inspect(other)}")
+
+# ✅ TEST SPECIFIC BEHAVIOR, NOT OUTCOMES
+test "returns not_found when account doesn't exist" do
+  assert {:error, :not_found} = get_account("invalid_id")
+end
+
+test "returns data when account exists" do
+  assert {:ok, %{balance: _}} = get_account("valid_id")
+end
+```
+
+### THE RULE:
+
+**If you don't know what error to expect, DON'T write the test yet. Use Tidewave to explore the API first, understand the real error cases, THEN write proper assertions.**
+
+A test should FAIL if the code doesn't work as intended. Never write tests that silently pass on failures!
+
 ## Prerequisites
 - **Read AGENTS.md first** - Contains Elixir patterns, testing requirements, and module cooperation patterns
 - **Date Awareness**: Always use current year from `<env>` section for searches (e.g., "Binance API 2025" not "2024")
@@ -453,6 +511,90 @@ end
 6. **Test against reality** - Use Tidewave first to understand behavior. Document actual API responses and edge cases from real testing.
 
 **Philosophy**: Test against reality, not against idealized or mocked scenarios. Failed tests are valuable signals - NEVER suppress them.
+
+### FORBIDDEN Test Patterns (NEVER WRITE THESE!)
+
+**❌ NEVER use `assert true` to hide failures:**
+```elixir
+# ❌ WRONG - Makes ANY outcome pass silently!
+case result do
+  {:ok, _} -> assert true
+  {:error, _} -> assert true  # Failure silently passes!
+end
+
+# ❌ WRONG - Hides errors with comments
+{:error, _} ->
+  # This is acceptable for testnet
+  assert true  # NO! This makes the test ALWAYS PASS!
+
+# ✅ CORRECT - Fail loudly on unexpected errors
+case result do
+  {:ok, data} -> assert is_map(data)
+  {:error, :expected_specific_error} -> :ok
+  {:error, other} -> flunk("Unexpected error: #{inspect(other)}")
+end
+```
+
+**❌ NEVER return `:ok` on errors unless explicitly testing error handling:**
+```elixir
+# ❌ WRONG - Silently passes failures
+{:error, _reason} ->
+  # Other validation failures are acceptable
+  :ok  # NO! This hides real bugs!
+
+# ✅ CORRECT - Only pass on specific expected errors
+{:error, :insufficient_balance} ->
+  :ok  # This specific error is expected and valid
+{:error, other} ->
+  flunk("Expected :insufficient_balance, got #{inspect(other)}")
+```
+
+**❌ NEVER use comments like "acceptable", "okay", "expected to fail":**
+```elixir
+# ❌ WRONG - Comments don't make bad tests acceptable
+{:error, reason} ->
+  # Any error is acceptable on testnet
+  assert true  # Test will ALWAYS pass!
+
+# ❌ WRONG - Comment hiding bad logic
+{:error, _} ->
+  # Expected possible failures on testnet
+  :ok  # Silently swallows all errors!
+
+# ✅ CORRECT - Test specific behavior explicitly
+test "returns not_found when account doesn't exist" do
+  assert {:error, :not_found} = get_account("invalid_id")
+end
+
+test "returns data when account exists" do
+  assert {:ok, %{balance: _}} = get_account("valid_id")
+end
+```
+
+**❌ NEVER use `IO.puts` to document why a test passes:**
+```elixir
+# ❌ WRONG - Logging doesn't validate behavior
+{:error, reason} ->
+  IO.puts("Error may be normal for testnet: #{inspect(reason)}")
+  assert true  # Still wrong!
+
+# ✅ CORRECT - Either skip the test or assert specific behavior
+@tag :skip  # If testnet is unreliable
+test "testnet announcement endpoint" do
+  # Test implementation
+end
+
+# OR test specific expected behavior:
+test "announcement endpoint returns list or not_found" do
+  case get_announcements() do
+    {:ok, list} when is_list(list) -> :ok
+    {:error, :not_found} -> :ok
+    other -> flunk("Unexpected: #{inspect(other)}")
+  end
+end
+```
+
+**When in doubt: A test should FAIL if the code doesn't work as intended. Never write tests that silently pass on failures!**
 
 ```bash
 mix test --exclude integration     # Unit tests only

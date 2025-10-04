@@ -40,63 +40,29 @@ defmodule ZenCex.Adapters.Binance.PortfolioMarginTest do
       # Test expects either success or specific production errors
       opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
 
-      case PortfolioMargin.change_um_initial_leverage(%{symbol: "BTCUSDT", leverage: 1}, opts) do
-        {:ok, response} ->
-          # Success - Portfolio Margin is active
-          Logger.info("Portfolio Margin: change_um_initial_leverage succeeded: #{inspect(response)}")
-          assert is_map(response)
-
-        {:error, reason} ->
-          # Error is expected - could be auth, permissions, or account not enabled
-          Logger.info("Portfolio Margin: change_um_initial_leverage failed (expected): #{inspect(reason)}")
-          # Don't fail test - Portfolio Margin requires special account setup
-          assert true
-      end
+      result = PortfolioMargin.change_um_initial_leverage(%{symbol: "BTCUSDT", leverage: 1}, opts)
+      assert_pm_success_or_not_configured(result)
     end
 
     test "change_cm_initial_leverage requires PM credentials", %{api_key: api_key, api_secret: api_secret} do
       opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
 
-      case PortfolioMargin.change_cm_initial_leverage(%{}, opts) do
-        {:error, reason} ->
-          Logger.info("change_cm_initial_leverage error (expected without PM creds): #{inspect(reason)}")
-          # Without PM credentials, expect auth/permission errors
-          assert true
-
-        {:ok, result} ->
-          # Success if PM credentials are configured
-          Logger.info("Portfolio Margin enabled: #{inspect(result)}")
-          assert is_map(result)
-      end
+      result = PortfolioMargin.change_cm_initial_leverage(%{}, opts)
+      assert_pm_success_or_not_configured(result)
     end
 
     test "change_um_position_mode requires PM credentials", %{api_key: api_key, api_secret: api_secret} do
       opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
 
-      case PortfolioMargin.change_um_position_mode(%{}, opts) do
-        {:error, reason} ->
-          Logger.info("change_um_position_mode error (expected without PM creds): #{inspect(reason)}")
-          assert true
-
-        {:ok, result} ->
-          Logger.info("Portfolio Margin enabled: #{inspect(result)}")
-          assert is_map(result)
-      end
+      result = PortfolioMargin.change_um_position_mode(%{}, opts)
+      assert_pm_success_or_not_configured(result)
     end
 
     test "change_cm_position_mode requires PM credentials", %{api_key: api_key, api_secret: api_secret} do
       opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
 
-      case PortfolioMargin.change_cm_position_mode(%{}, opts) do
-        {:error, reason} ->
-          Logger.info("change_cm_position_mode error: #{inspect(reason)}")
-          # Without PM credentials, expect auth/permission errors
-          assert true
-
-        {:ok, result} ->
-          Logger.info("Portfolio Margin enabled: #{inspect(result)}")
-          assert is_map(result)
-      end
+      result = PortfolioMargin.change_cm_position_mode(%{}, opts)
+      assert_pm_success_or_not_configured(result)
     end
 
     test "new_um_order with safety measures", %{api_key: api_key, api_secret: api_secret} do
@@ -138,9 +104,7 @@ defmodule ZenCex.Adapters.Binance.PortfolioMarginTest do
           assert is_map(order)
 
         {:error, reason} ->
-          # Error is expected - auth, permissions, or account not enabled for PM
-          Logger.info("Portfolio Margin order error (expected): #{inspect(reason)}")
-          assert true
+          assert_pm_success_or_not_configured({:error, reason})
       end
     end
 
@@ -148,77 +112,37 @@ defmodule ZenCex.Adapters.Binance.PortfolioMarginTest do
       params = %{symbol: "INVALID"}
       opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
 
-      case PortfolioMargin.new_cm_order(params, opts) do
-        {:error, reason} ->
-          Logger.info("new_cm_order error: #{inspect(reason)}")
-          # Without PM credentials, expect auth/permission errors
-          assert true
-
-        {:ok, result} ->
-          Logger.info("Portfolio Margin enabled: #{inspect(result)}")
-          assert is_map(result)
-      end
+      result = PortfolioMargin.new_cm_order(params, opts)
+      assert_pm_success_or_not_configured(result)
     end
 
     test "new_margin_order requires PM credentials", %{api_key: api_key, api_secret: api_secret} do
       params = %{symbol: "INVALID"}
       opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
 
-      case PortfolioMargin.new_margin_order(params, opts) do
-        {:error, reason} ->
-          Logger.info("new_margin_order error: #{inspect(reason)}")
-          # Without PM credentials, expect auth/permission errors
-          assert true
-
-        {:ok, result} ->
-          Logger.info("Portfolio Margin enabled: #{inspect(result)}")
-          assert is_map(result)
-      end
+      result = PortfolioMargin.new_margin_order(params, opts)
+      assert_pm_success_or_not_configured(result)
     end
 
     test "margin_account_borrow requires PM credentials", %{api_key: api_key, api_secret: api_secret} do
       opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
 
-      case PortfolioMargin.margin_account_borrow(%{}, opts) do
-        {:error, reason} ->
-          Logger.info("margin_account_borrow error: #{inspect(reason)}")
-          # Without PM credentials, expect auth/permission errors
-          assert true
-
-        {:ok, result} ->
-          Logger.info("Portfolio Margin enabled: #{inspect(result)}")
-          assert is_map(result)
-      end
+      result = PortfolioMargin.margin_account_borrow(%{}, opts)
+      assert_pm_success_or_not_configured(result)
     end
 
     test "margin_account_repay requires PM credentials", %{api_key: api_key, api_secret: api_secret} do
       opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
 
-      case PortfolioMargin.margin_account_repay(%{}, opts) do
-        {:error, reason} ->
-          Logger.info("margin_account_repay error: #{inspect(reason)}")
-          # Without PM credentials, expect auth/permission errors
-          assert true
-
-        {:ok, result} ->
-          Logger.info("Portfolio Margin enabled: #{inspect(result)}")
-          assert is_map(result)
-      end
+      result = PortfolioMargin.margin_account_repay(%{}, opts)
+      assert_pm_success_or_not_configured(result)
     end
 
     test "repay_futures_negative_balance requires PM credentials", %{api_key: api_key, api_secret: api_secret} do
       opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
 
-      case PortfolioMargin.repay_futures_negative_balance(%{}, opts) do
-        {:error, reason} ->
-          Logger.info("repay_futures_negative_balance error: #{inspect(reason)}")
-          # Without PM credentials, expect auth/permission errors
-          assert true
-
-        {:ok, result} ->
-          Logger.info("Portfolio Margin enabled: #{inspect(result)}")
-          assert is_map(result)
-      end
+      result = PortfolioMargin.repay_futures_negative_balance(%{}, opts)
+      assert_pm_success_or_not_configured(result)
     end
   end
 
@@ -228,31 +152,47 @@ defmodule ZenCex.Adapters.Binance.PortfolioMarginTest do
       opts = [auth_credentials: %{api_key: api_key, api_secret: api_secret}]
 
       # Test invalid symbol error
-      case PortfolioMargin.new_um_order(
-             %{
-               symbol: "NONEXISTENT",
-               side: "BUY",
-               type: "LIMIT",
-               quantity: "1",
-               price: "100"
-             },
-             opts
-           ) do
-        {:error, reason} ->
-          Logger.info("Invalid symbol error: #{inspect(reason)}")
-          # Should parse to a known error atom or structured error
-          assert true
+      result =
+        PortfolioMargin.new_um_order(
+          %{
+            symbol: "NONEXISTENT",
+            side: "BUY",
+            type: "LIMIT",
+            quantity: "1",
+            price: "100"
+          },
+          opts
+        )
+
+      # Either PM credentials work (and we get an error about the symbol)
+      # or PM credentials aren't configured
+      case result do
+        {:error, %{"code" => code}} when code not in [-2014, -2015, -11_001] ->
+          # Got an actual API error (like invalid symbol) - good!
+          :ok
+
+        {:error, %{"code" => code}} when code in [-2014, -2015, -11_001] ->
+          # PM credentials not configured - acceptable
+          :ok
 
         {:ok, _} ->
           flunk("Expected error with nonexistent symbol")
+
+        {:error, other} ->
+          flunk("Unexpected error format: #{inspect(other)}")
       end
 
       # Test missing required parameter
       case PortfolioMargin.new_cm_order(%{symbol: "BTCUSDT"}, opts) do
+        {:error, {:missing_params, _}} ->
+          :ok
+
+        {:error, %{"code" => code}} when code in [-2014, -2015, -11_001] ->
+          # PM credentials not configured - can't test missing params validation
+          :ok
+
         {:error, reason} ->
-          Logger.info("Missing parameter error: #{inspect(reason)}")
-          # Should indicate missing parameter
-          assert true
+          flunk("Expected missing_params error, got: #{inspect(reason)}")
 
         {:ok, _} ->
           flunk("Expected error with missing parameters")
