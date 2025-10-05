@@ -93,6 +93,30 @@ defmodule ZenCex.Docs.ReadmeGenerator do
   end
 
   @doc """
+  Generate usage-rules.md content from template.
+
+  Uses the usage-rules.md.eex template to generate AI editor documentation.
+  The template includes static sections for critical warnings and patterns.
+
+  ## Returns
+
+  Complete usage-rules.md content as string.
+  """
+  @spec generate_usage_rules() :: String.t()
+  def generate_usage_rules do
+    template_path = Path.join([File.cwd!(), "priv", "templates", "usage-rules.md.eex"])
+
+    if !File.exists?(template_path) do
+      raise "Template file not found: #{template_path}"
+    end
+
+    template_content = File.read!(template_path)
+
+    # No assigns needed - template is self-contained
+    EEx.eval_string(template_content, assigns: [])
+  end
+
+  @doc """
   Get @moduledoc content from a module.
 
   Returns the raw moduledoc string, or empty string if not defined.

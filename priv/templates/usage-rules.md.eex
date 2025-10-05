@@ -1,7 +1,7 @@
 # ZenCex Usage Rules - How to Use This Library (AI Editor Guide)
 
 **This document is auto-generated from example modules to ensure accuracy.**
-Last generated: 2025-10-05T11:53:37.726063Z
+Last generated: <%= DateTime.utc_now() |> DateTime.to_iso8601() %>
 
 ---
 

@@ -2,10 +2,10 @@ defmodule Mix.Tasks.ZenCex.GenerateReadme do
   @shortdoc "Generate README.md from example module documentation"
 
   @moduledoc """
-  Generates README.md from example module documentation.
+  Generates README.md and usage-rules.md from example module documentation.
 
   This task extracts documentation from all example modules and generates
-  a complete README.md using the EEx template. This ensures the README
+  documentation files using EEx templates. This ensures documentation
   stays in sync with actual working code examples.
 
   ## Usage
@@ -16,22 +16,36 @@ defmodule Mix.Tasks.ZenCex.GenerateReadme do
       # Write to README.md
       mix zen_cex.generate_readme --write
 
+      # Generate usage-rules.md for AI editors
+      mix zen_cex.generate_readme --usage-rules
+
+      # Generate both README and usage-rules
+      mix zen_cex.generate_readme --all
+
       # Write to custom file
       mix zen_cex.generate_readme --output custom_readme.md
 
   ## Options
 
     * `--write` - Write output to README.md
+    * `--usage-rules` - Generate usage-rules.md for AI editors
+    * `--all` - Generate both README.md and usage-rules.md
     * `--output PATH` - Write output to specified file
     * `--preview` - Preview first 50 lines (default when no options)
 
   ## Examples
 
-      # Preview output
+      # Preview README output
       mix zen_cex.generate_readme
 
       # Update README.md
       mix zen_cex.generate_readme --write
+
+      # Update usage-rules.md
+      mix zen_cex.generate_readme --usage-rules
+
+      # Update both
+      mix zen_cex.generate_readme --all
 
       # Create separate file
       mix zen_cex.generate_readme --output GENERATED_README.md
@@ -42,20 +56,49 @@ defmodule Mix.Tasks.ZenCex.GenerateReadme do
   alias ZenCex.Docs.ReadmeGenerator
 
   @default_output_path "README.md"
-  @template_path "priv/templates/README.md.eex"
+  @usage_rules_path "usage-rules.md"
+  @readme_template_path "priv/templates/README.md.eex"
 
   @impl Mix.Task
   def run(args) do
     # Parse arguments
     {opts, _, _} =
       OptionParser.parse(args,
-        switches: [write: :boolean, output: :string, preview: :boolean],
-        aliases: [w: :write, o: :output, p: :preview]
+        switches: [write: :boolean, usage_rules: :boolean, all: :boolean, output: :string, preview: :boolean],
+        aliases: [w: :write, u: :usage_rules, a: :all, o: :output, p: :preview]
       )
 
     # Start the application to ensure modules are loaded
     Mix.Task.run("app.start")
 
+    # Handle output based on options
+    cond do
+      opts[:all] ->
+        generate_both()
+
+      opts[:usage_rules] ->
+        generate_usage_rules()
+
+      opts[:output] ->
+        generate_readme_to_file(opts[:output])
+
+      opts[:write] ->
+        generate_readme_to_file(@default_output_path)
+
+      true ->
+        preview_readme()
+    end
+  end
+
+  # Private Functions
+
+  defp generate_both do
+    Mix.shell().info("Generating both README.md and usage-rules.md...")
+    generate_readme_to_file(@default_output_path)
+    generate_usage_rules()
+  end
+
+  defp generate_readme_to_file(path) do
     # Extract documentation from all example modules
     Mix.shell().info("Extracting documentation from example modules...")
     sections = ReadmeGenerator.extract_all_sections()
@@ -65,19 +108,28 @@ defmodule Mix.Tasks.ZenCex.GenerateReadme do
 
     # Generate README content
     Mix.shell().info("Generating README content...")
-    content = render_template(assigns)
+    content = render_readme_template(assigns)
 
-    # Handle output based on options
-    cond do
-      opts[:output] ->
-        write_to_file(content, opts[:output])
+    write_to_file(content, path)
+  end
 
-      opts[:write] ->
-        write_to_file(content, @default_output_path)
+  defp preview_readme do
+    Mix.shell().info("Extracting documentation from example modules...")
+    sections = ReadmeGenerator.extract_all_sections()
 
-      true ->
-        preview_output(content)
-    end
+    assigns = prepare_assigns(sections)
+
+    Mix.shell().info("Generating README content...")
+    content = render_readme_template(assigns)
+
+    preview_output(content, "README.md")
+  end
+
+  defp generate_usage_rules do
+    Mix.shell().info("Generating usage-rules.md for AI editors...")
+    content = ReadmeGenerator.generate_usage_rules()
+
+    write_to_file(content, @usage_rules_path)
   end
 
   # Private Functions
@@ -123,8 +175,8 @@ defmodule Mix.Tasks.ZenCex.GenerateReadme do
     "#{name_str}/#{arity}"
   end
 
-  defp render_template(assigns) do
-    template_path = Path.join(File.cwd!(), @template_path)
+  defp render_readme_template(assigns) do
+    template_path = Path.join(File.cwd!(), @readme_template_path)
 
     if !File.exists?(template_path) do
       Mix.raise("Template file not found: #{template_path}")
@@ -152,13 +204,13 @@ defmodule Mix.Tasks.ZenCex.GenerateReadme do
     ])
   end
 
-  defp preview_output(content) do
+  defp preview_output(content, filename) do
     lines = String.split(content, "\n")
     preview_lines = Enum.take(lines, 50)
     total_lines = length(lines)
 
     Mix.shell().info("\n" <> String.duplicate("=", 80))
-    Mix.shell().info("PREVIEW (first 50 of #{total_lines} lines):")
+    Mix.shell().info("PREVIEW of #{filename} (first 50 of #{total_lines} lines):")
     Mix.shell().info(String.duplicate("=", 80) <> "\n")
 
     Enum.each(preview_lines, &Mix.shell().info/1)
@@ -167,8 +219,16 @@ defmodule Mix.Tasks.ZenCex.GenerateReadme do
     Mix.shell().info("Showing #{length(preview_lines)} of #{total_lines} lines")
     Mix.shell().info(String.duplicate("=", 80))
 
-    Mix.shell().info("\nTo write to README.md, run:")
-    Mix.shell().info("  mix zen_cex.generate_readme --write")
+    Mix.shell().info("\nTo write to #{filename}, run:")
+
+    if filename == "README.md" do
+      Mix.shell().info("  mix zen_cex.generate_readme --write")
+    else
+      Mix.shell().info("  mix zen_cex.generate_readme --usage-rules")
+    end
+
+    Mix.shell().info("\nTo generate both files, run:")
+    Mix.shell().info("  mix zen_cex.generate_readme --all")
   end
 
   defp format_bytes(bytes) when bytes < 1024, do: "#{bytes} bytes"
