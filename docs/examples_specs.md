@@ -4,13 +4,13 @@ This document tracks remaining tasks for implementing example modules and tests 
 
 ## Status: IN PROGRESS
 
-**Last Updated**: 2025-01-05 (Session 10)
+**Last Updated**: 2025-01-05 (Session 11)
 
 **Current Progress**:
-- ✅ Completed: Tasks 0-10, 11-20 (all modules + all tests completed!)
-- ⏳ Remaining: 3 tasks (2 tests + config/verification)
+- ✅ Completed: Tasks 0-10, 11-20, 21 (all modules + tests + README generator!)
+- ⏳ Remaining: 2 tasks (config/verification)
 
-**Next Task**: Task 21 (documentation_examples_test.exs) - Parse and validate README/docs code examples
+**Next Task**: Task 22 (Update project configuration) - Add examples to formatter and mix.exs docs
 
 ---
 
@@ -20,22 +20,49 @@ This document tracks remaining tasks for implementing example modules and tests 
 ```
 Continue implementing example modules from docs/examples_specs.md.
 
-Current status: Completed Tasks 0-10, 11-20 (all modules + tests completed!). Session 10 implemented endpoint_discovery module with comprehensive introspection examples.
-Next: Task 21 (documentation_examples_test.exs) - Create validation test that parses README.md and usage-rules.md code examples.
+Current status: Completed Tasks 0-21 (all modules + tests + README auto-generator!).
+Session 11 built README generation system - auto-generates README from example modules.
+
+Next: Task 22 (Update project configuration) - Add examples/ to formatter and mix.exs docs config.
 
 Key points:
-- ALWAYS implement both module AND tests in the same session
-- Task 21 is a meta-test that validates documentation code examples
-- Extract all Elixir code blocks from markdown files
-- Verify module references exist and functions are exported
-- Check for outdated patterns (Cache.Market vs MarketData corrections already applied)
-- Use @moduletag :documentation for this test
-- All functions need @spec, @doc, @moduledoc
-- Run tests after creating them
-- Update this file's continuation prompt when done
+- Add lib/examples/**/*.{ex,exs} to .formatter.exs
+- Add test/examples/**/*.exs to .formatter.exs
+- Add docs/examples_specs.md to mix.exs extras
+- Run mix format on all example files
+- Run mix docs to verify examples appear
+- Then proceed to Task 23 (final verification)
 
-Begin: "Continuing from docs/examples_specs.md - implementing Task 21..."
+Begin: "Continuing from docs/examples_specs.md - implementing Task 22..."
 ```
+
+---
+
+## README Auto-Generation
+
+**Task 21 implemented an auto-generation system instead of validation tests:**
+
+The README is now generated from example module documentation, ensuring:
+- Single source of truth (example modules)
+- No drift between docs and code
+- All examples are tested and working
+- Easy maintenance (update module, regenerate)
+
+**Commands:**
+```bash
+# Preview README generation
+mix zen_cex.generate_readme
+
+# Update README.md
+mix zen_cex.generate_readme --write
+```
+
+**How it works:**
+1. Extracts @moduledoc and @doc from all `lib/examples/*.ex` modules
+2. Converts doctest examples (iex>) to code blocks
+3. Uses EEx template (`priv/templates/README.md.eex`) with auto-generated sections
+4. Preserves manual sections (architecture, testing, etc.)
+5. Outputs complete README with examples from working code
 
 ---
 
@@ -202,39 +229,46 @@ def get_endpoint_details(atom(), atom()) :: {:ok, map()} | {:error, :not_found}
 
 ---
 
-#### Task 21: Create documentation validation test
+#### ✅ Task 21: README Auto-Generation System (COMPLETED - Session 11)
 
-**File**: `test/examples/documentation_examples_test.exs`
+**Approach**: Instead of validating that README matches examples, we **auto-generate README from examples** (single source of truth).
 
-**Purpose**: Parse README.md and usage-rules.md to verify all code examples are valid
+**Files Created**:
+- `lib/zen_cex/docs/readme_generator.ex` - Documentation extraction and markdown generation
+- `priv/templates/README.md.eex` - EEx template with manual + auto-generated sections
+- `lib/mix/tasks/zen_cex/generate_readme.ex` - Mix task for README generation
 
-**Requirements**:
-- Extract all Elixir code blocks from markdown
-- Verify all module references exist
-- Verify all function calls exist
-- Flag outdated examples
-- Check corrected patterns (Cache.Market vs MarketData)
+**Implementation Notes**:
+- ✅ Extracts @moduledoc and @doc from all example modules
+- ✅ Handles both code blocks (```elixir) and doctest format (iex>)
+- ✅ Generates markdown sections organized by module
+- ✅ Preserves manual sections (architecture, testing, etc.)
+- ✅ Template-based with auto-generated sections between markers
+- ✅ Generated README: 811 lines, 14 KB
 
-**Test structure**:
-```elixir
-defmodule ZenCex.Examples.DocumentationExamplesTest do
-  use ExUnit.Case
+**Usage**:
+```bash
+# Preview generated README (first 50 lines)
+mix zen_cex.generate_readme
 
-  @moduletag :documentation
+# Write to README.md
+mix zen_cex.generate_readme --write
 
-  describe "README.md examples" do
-    test "all module references are valid"
-    test "all function calls exist"
-    test "WebSocket cache examples use Cache.Market"
-    test "market data examples use MarketData module"
-  end
-
-  describe "usage-rules.md examples" do
-    test "all Quick Reference functions exist"
-    test "Common module only used for server_time"
-  end
-end
+# Write to custom file
+mix zen_cex.generate_readme --output CUSTOM.md
 ```
+
+**Benefits**:
+- ✅ Single source of truth: Example modules contain all documentation
+- ✅ Auto-sync: README is always generated from working code
+- ✅ Tested examples: All code examples have corresponding tests
+- ✅ No manual duplication or drift between docs and code
+- ✅ Easy maintenance: Update module, regenerate README
+
+**Documentation refs**:
+- All example modules in `lib/examples/`
+- Template: `priv/templates/README.md.eex`
+- Generator: `lib/zen_cex/docs/readme_generator.ex`
 
 ---
 

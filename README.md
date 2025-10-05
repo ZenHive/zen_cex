@@ -34,23 +34,77 @@ mix deps.get
 
 ## Configuration
 
-### Environment Variables
+### Authentication
 
-Set your API credentials as environment variables:
+**IMPORTANT**: ZenCex is a **library**, not an application. The library **NEVER** reads environment variables directly. You must always pass credentials explicitly via the `auth_credentials` option.
 
+#### Explicit Credentials (Recommended Pattern)
+
+```elixir
+alias ZenCex.Adapters.Binance.Spot
+
+# Pass credentials directly to each API call
+{:ok, balances} = Spot.get_balances(%{}, [
+  auth_credentials: %{
+    api_key: "your_api_key",
+    api_secret: "your_api_secret",
+    testnet: true  # Optional: use testnet (default: false)
+  }
+])
+
+# Works with any authenticated endpoint
+{:ok, order} = Spot.place_order(%{
+  symbol: "BTCUSDT",
+  side: "BUY",
+  type: "MARKET",
+  quantity: "0.001"
+}, [
+  auth_credentials: %{
+    api_key: "your_api_key",
+    api_secret: "your_api_secret"
+  }
+])
+```
+
+#### Optional: Calling Code Reads Environment Variables
+
+**Your application code** (not the library) can read environment variables and pass them to the library:
+
+```elixir
+# In your application code (NOT in the library)
+defmodule MyApp.Binance do
+  alias ZenCex.Adapters.Binance.Spot
+
+  def get_balances do
+    # Your code reads ENV
+    api_key = System.get_env("BINANCE_API_KEY")
+    api_secret = System.get_env("BINANCE_API_SECRET")
+
+    # Your code passes to library
+    Spot.get_balances(%{}, [
+      auth_credentials: %{
+        api_key: api_key,
+        api_secret: api_secret
+      }
+    ])
+  end
+end
+```
+
+**Environment variables for testing:**
 ```bash
-# Production credentials
-export BINANCE_API_KEY="your_binance_api_key"
-export BINANCE_API_SECRET="your_binance_api_secret"
-export BYBIT_API_KEY="your_bybit_api_key"
-export BYBIT_API_SECRET="your_bybit_api_secret"
-
-# Testnet credentials (required for running tests)
+# These are read by test code and IEx helpers, NOT by the library
 export BINANCE_TESTNET_API_KEY="your_testnet_key"
 export BINANCE_TESTNET_API_SECRET="your_testnet_secret"
 export BYBIT_TESTNET_API_KEY="your_testnet_key"
 export BYBIT_TESTNET_API_SECRET="your_testnet_secret"
 ```
+
+**Why this design?**
+- Multi-account support: Different credentials per request
+- No namespace collisions: Multiple apps can use zen_cex
+- Testnet + production: Can connect to both simultaneously
+- Flexible credential storage: ENV, vault, database, or dynamic generation
 
 ### Application Configuration
 
@@ -80,376 +134,638 @@ config :zen_cex, :circuit_breaker,
   ]
 ```
 
-## Quick Start
+<!-- AUTO-GENERATED SECTIONS START -->
 
-### Basic Usage
 
-```elixir
-# Import the API modules directly
-alias ZenCex.Adapters.Binance.Spot
-alias ZenCex.Adapters.Binance.Common
+## Binance Quick Start
 
-# Check server connectivity
-{:ok, _} = Common.get_server_time()
+Quick start examples for Binance API integration.
 
-# Get account balances (requires API credentials)
-{:ok, balances} = Spot.get_balances()
-```
 
-### Custom Authentication Credentials
+### Check Connectivity/0
 
-You can pass custom API credentials directly to any endpoint instead of using environment variables:
+Check server connectivity by getting server time.
+
 
 ```elixir
-# Pass credentials as keyword list options (second argument)
-opts = [
-  auth_credentials: %{
-    api_key: "your_api_key",
-    api_secret: "your_api_secret"
-  }
-]
-
-{:ok, balances} = Spot.get_balances(%{}, opts)
-
-# Or pass as a map
-opts = %{
-  auth_credentials: %{
-    api_key: "your_api_key",
-    api_secret: "your_api_secret"
-  }
-}
-
-{:ok, order} = Spot.place_order(%{
-  symbol: "BTCUSDT",
-  side: "BUY",
-  type: "MARKET",
-  quantity: "0.001"
-}, opts)
+{:ok, time_data} = ZenCex.Examples.BinanceQuickStart.check_connectivity()
+is_map(time_data)
 ```
 
-This is useful for:
-- Managing multiple accounts or subaccounts
-- Using different credentials per request
-- Testing with different API keys
-- Implementing credential rotation
 
-#### Security Warnings
+### Get Account Balances/1
 
-⚠️ **NEVER commit API keys to version control!** Always use environment variables or secure credential management systems.
+Get account balances using environment variable credentials.
 
-**Security Best Practices:**
-- Store API keys in environment variables or a secure vault (e.g., HashiCorp Vault, AWS Secrets Manager)
-- Use read-only API keys when write access is not needed
-- Restrict API key permissions to only required operations
-- Enable IP whitelisting on exchange APIs when possible
-- Rotate credentials regularly (see example below)
-- Monitor API key usage for suspicious activity
-- Use testnet credentials for development and testing
 
-#### Credential Rotation Pattern
+
+### Get Balances With Credentials/1
+
+Get balances using custom authentication credentials.
+
+
+
+### Place Market Order/2
+
+Place a simple market buy order with custom credentials.
+
+
+
+
+
+## Credential Management
+
+Authentication and credential management patterns for ZenCex.
+
+
+### Manage Multiple Accounts/1
+
+Manage multiple accounts by passing different credentials to each request.
+
+
+
+### Rotate Credentials On Error/2
+
+Implement credential rotation with automatic retry on authorization errors.
+
+
+
+### Use Credentials From Env/0
+
+Calling code reads environment variables, then passes to library.
+
+
+
+### Use Explicit Credentials/3
+
+Pass credentials explicitly to API calls (PRIMARY PATTERN).
+
+
+
+
+
+## Binance Spot Trading
+
+Complete spot trading workflow examples for Binance.
+
+
+### Cancel All Orders/2
+
+Cancel all open orders for a symbol.
+
+
+
+### Cancel Order/3
+
+Cancel an open order.
+
+
+
+### Check Order Status/3
+
+Check the status of an order.
+
+
+
+### Get Current Balances/1
+
+Get current account balances.
+
+
+
+### Get Open Orders/2
+
+Get all open orders for a symbol.
+
+
+
+### Place Limit Buy/4
+
+Place a limit buy order.
+
+
+
+### Place Limit Sell/4
+
+Place a limit sell order.
+
+
+
+### Place Market Buy/3
+
+Place a market buy order.
+
+
+
+
+
+## Binance Futures Trading
+
+Futures trading examples for Binance (USD-M and COIN-M).
+
+
+### Get Coinm Positions/1
+
+Get all COIN-M futures positions.
+
+
+
+### Get Usdm Positions/1
+
+Get all USD-M futures positions.
+
+
+
+### Place Coinm Limit Order/5
+
+Place a COIN-M futures limit order.
+
+
+
+### Place Usdm Market Order/4
+
+Place a USD-M futures market order.
+
+
+
+
+
+## Binance Market Data
+
+Market data fetching examples for Binance.
+
+
+### Get 24hr Stats/1
+
+Get 24-hour ticker statistics.
+
+
+
+### Get Current Price/1
+
+Get current ticker price for a symbol.
+
+
+
+### Get Funding Rate/1
+
+Get funding rate history for USD-M futures.
+
+
+
+### Get Klines/3
+
+Get candlestick/klines data.
+
+
+
+### Get Open Interest/1
+
+Get open interest for USD-M futures.
+
+
+
+### Get Order Book/2
+
+Get order book depth.
+
+
+
+### Get Recent Trades/2
+
+Get recent trades.
+
+
+
+
+
+## Binance Websocket Streams
+
+Example module demonstrating WebSocket streaming functionality with Binance.
+
+
+### Check Connection Health/1
+
+Gets comprehensive health information for a WebSocket connection.
+
+
+
+### Close Connection/1
+
+Closes a WebSocket connection.
+
+
+
+### Connect Multiple Streams/2
+
+Connects to multiple Binance WebSocket streams at once.
+
+
+
+### Connect Single Stream/2
+
+Connects to a single Binance WebSocket stream.
+
+
+
+### Connect Supervised/2
+
+Connects with supervision for production deployments.
+
+
+
+### Connect With Retry/2
+
+Connects with production-ready configuration including automatic reconnection.
+
+
+
+### Get Cached Book Ticker Data/1
+
+Gets cached book ticker data (best bid/ask) for a symbol.
+
+
+
+### Get Cached Orderbook Data/1
+
+Gets cached orderbook data for a symbol.
+
+
+
+### Get Cached Ticker Data/1
+
+Gets cached ticker data for a symbol.
+
+
+
+### Get Cached Trade Data/1
+
+Gets cached trade data for a symbol.
+
+
+
+### Get Connection State/1
+
+Gets the current state of a WebSocket connection.
+
+
+
+### Reconnect Connection/1
+
+Manually triggers a reconnection for the WebSocket client.
+
+
+
+### Run Complete Example/0
+
+Complete example showing the full WebSocket workflow.
+
+
+
+### Run Monitoring Example/0
+
+Example showing connection monitoring and health checks.
+
+
+
+### Run Production Example/0
+
+Production example demonstrating resilient WebSocket connections.
+
+
+
+### Subscribe Additional/2
+
+Subscribes to additional streams on an existing connection.
+
+
+
+
+
+## Bybit Trading
+
+Complete trading workflow examples for Bybit Unified API.
+
+
+### Check Server Connectivity/0
+
+Check server connectivity.
+
+
+
+### Get Positions/2
+
+Get positions for a specific category.
+
+
+
+### Place Inverse Futures Order/6
+
+Place an inverse futures limit order.
+
+
+
+### Place Linear Futures Order/5
+
+Place a linear futures market order.
+
+
+
+### Place Spot Order/5
+
+Place a spot market order.
+
+
+
+
+
+## Binance Strategies
+
+Example module demonstrating high-level trading strategies with Binance.
+
+
+### Auto Hedge Spot Positions/2
+
+Automatically hedge spot positions with futures contracts.
+
+
+
+### Hedge With Paxg Long/1
+
+Opens a PAXGUSDT perpetual long position equal to the total hedged portfolio value.
+
+
+
+### Rebalance Portfolio/2
+
+Rebalance portfolio to target allocation percentages.
+
+
+
+### Run Complete Example/0
+
+Complete example demonstrating the full hedging workflow.
+
+
+
+
+
+## Production Rest Features
+
+Demonstrates zen_cex's production-ready REST features for building resilient trading systems.
+
+
+### Demonstrate Circuit Breaker/0
+
+Demonstrates circuit breaker protection against cascading failures.
+
 
 ```elixir
-defmodule MyApp.CredentialManager do
-  @rotation_interval_ms 24 * 60 * 60 * 1000  # 24 hours
-  
-  def get_current_credentials do
-    # Fetch from secure storage (vault, encrypted DB, etc.)
-    %{
-      api_key: fetch_from_vault("binance_api_key"),
-      api_secret: fetch_from_vault("binance_api_secret")
-    }
-  end
-  
-  def execute_with_rotation(params) do
-    creds = get_current_credentials()
-    opts = [auth_credentials: creds]
-    
-    case ZenCex.Adapters.Binance.Spot.place_order(params, opts) do
-      {:error, :unauthorized} ->
-        # Trigger credential rotation
-        rotate_credentials()
-        # Retry with new credentials
-        new_creds = get_current_credentials()
-        ZenCex.Adapters.Binance.Spot.place_order(params, [auth_credentials: new_creds])
-      
-      result -> result
-    end
-  end
-  
-  defp rotate_credentials do
-    # Implementation depends on your credential management system
-    :ok
-  end
-end
+ProductionRestFeatures.demonstrate_circuit_breaker()
 ```
 
-#### Performance Considerations
 
-When using per-request authentication:
-- Credentials are validated on each request (minimal overhead: ~0.1ms)
-- No credential caching between requests (stateless design)
-- Consider connection pooling for high-frequency operations
-- Rate limits apply per API key, not per request
+### Demonstrate Clock Sync/0
 
-### Spot Trading
+Demonstrates clock synchronization for accurate authentication timestamps.
+
 
 ```elixir
-alias ZenCex.Adapters.Binance.Spot
-
-# Get current balances
-{:ok, balances} = Spot.get_balances()
-
-# Place a market order
-{:ok, order} = Spot.place_order(%{
-  symbol: "BTCUSDT",
-  side: "BUY",
-  type: "MARKET",
-  quantity: "0.001"
-})
-
-# Place a limit order
-{:ok, order} = Spot.place_order(%{
-  symbol: "BTCUSDT",
-  side: "SELL",
-  type: "LIMIT",
-  price: "70000",
-  quantity: "0.001",
-  timeInForce: "GTC"
-})
-
-# Check order status
-{:ok, status} = Spot.get_order(%{
-  symbol: "BTCUSDT",
-  orderId: order["orderId"]
-})
-
-# Cancel an order
-{:ok, _} = Spot.cancel_order(%{
-  symbol: "BTCUSDT",
-  orderId: order["orderId"]
-})
+ProductionRestFeatures.demonstrate_clock_sync()
 ```
 
-### Futures Trading
+
+### Demonstrate Debug Mode/0
+
+Demonstrates debug mode for troubleshooting failed requests.
+
 
 ```elixir
-alias ZenCex.Adapters.Binance.UsdmFutures
-alias ZenCex.Adapters.Binance.CoinmFutures
-
-# USD-M Futures (USDT-margined)
-{:ok, positions} = UsdmFutures.get_positions()
-
-{:ok, order} = UsdmFutures.place_order(%{
-  symbol: "BTCUSDT",
-  side: "BUY",
-  type: "MARKET",
-  quantity: "0.001"
-})
-
-# COIN-M Futures (coin-margined)
-{:ok, positions} = CoinmFutures.get_positions()
-
-{:ok, order} = CoinmFutures.place_order(%{
-  symbol: "BTCUSD_PERP",
-  side: "BUY",
-  type: "LIMIT",
-  price: "70000",
-  quantity: "1"  # Contracts
-})
+ProductionRestFeatures.demonstrate_debug_mode()
 ```
 
-### Market Data
+
+### Demonstrate Operation Timeouts/0
+
+Demonstrates operation-specific timeout optimization.
+
 
 ```elixir
-alias ZenCex.Adapters.Binance.Spot
-alias ZenCex.Adapters.Binance.UsdmFutures
-
-# Get ticker information
-{:ok, ticker} = Spot.get_ticker_24hr(%{symbol: "BTCUSDT"})
-
-# Get order book
-{:ok, book} = Spot.get_order_book(%{symbol: "BTCUSDT", limit: 20})
-
-# Get recent trades
-{:ok, trades} = Spot.get_recent_trades(%{symbol: "BTCUSDT"})
-
-# Get klines/candlestick data
-{:ok, klines} = Spot.get_klines(%{
-  symbol: "BTCUSDT",
-  interval: "1h",
-  limit: 100
-})
-
-# Futures-specific market data
-{:ok, funding} = UsdmFutures.get_funding_rate(%{symbol: "BTCUSDT"})
-{:ok, oi} = UsdmFutures.get_open_interest(%{symbol: "BTCUSDT"})
+ProductionRestFeatures.demonstrate_operation_timeouts()
 ```
 
-### Bybit Exchange
+
+### Demonstrate Rate Limiting/0
+
+Demonstrates automatic rate limit tracking and enforcement.
+
 
 ```elixir
-alias ZenCex.Adapters.Bybit.Unified
-alias ZenCex.Adapters.Bybit.Common
-
-# Check server connectivity
-{:ok, time} = Common.get_server_time()
-
-# Spot trading
-{:ok, order} = Unified.place_order(%{
-  category: "spot",
-  symbol: "BTCUSDT",
-  side: "Buy",
-  orderType: "Market",
-  qty: "0.001"
-})
-
-# Linear futures (USDT perpetual)
-{:ok, positions} = Unified.get_positions(%{category: "linear"})
-
-{:ok, order} = Unified.place_order(%{
-  category: "linear",
-  symbol: "BTCUSDT",
-  side: "Buy",
-  orderType: "Market",
-  qty: "0.001"
-})
-
-# Inverse futures (coin-margined)
-{:ok, order} = Unified.place_order(%{
-  category: "inverse",
-  symbol: "BTCUSD",
-  side: "Buy",
-  orderType: "Limit",
-  price: "70000",
-  qty: "100"  # USD value
-})
+ProductionRestFeatures.demonstrate_rate_limiting()
 ```
 
-### WebSocket Streams
+
+### Demonstrate Telemetry/0
+
+Demonstrates telemetry integration for monitoring.
+
 
 ```elixir
-alias ZenCex.Adapters.Binance.WebSocket
-alias ZenCex.Adapters.Bybit.WebSocket, as: BybitWS
-
-# Binance - Subscribe to order book updates
-{:ok, client} = WebSocket.connect(["btcusdt@depth20"])
-
-# Binance - Subscribe to multiple streams
-{:ok, client} = WebSocket.connect([
-  "btcusdt@depth20",
-  "ethusdt@trade",
-  "bnbusdt@ticker"
-])
-
-# Bybit - Subscribe to order book
-{:ok, client} = BybitWS.connect([
-  "orderbook.50.BTCUSDT"
-])
-
-# Subscribe to additional streams on existing connection
-{:ok, _} = WebSocket.subscribe(client, ["adausdt@ticker"])
-
-# Data is automatically cached in ETS - access via Cache.Market
-alias ZenCex.Cache.Market
-{:ok, ticker} = Market.get_ticker(:binance, "BTCUSDT")
-{:ok, orderbook} = Market.get_orderbook(:binance, "BTCUSDT")
-{:ok, trade} = Market.get_last_trade(:binance, "BTCUSDT")
-
-# Close connection when done
-:ok = WebSocket.close(client)
+ProductionRestFeatures.demonstrate_telemetry()
 ```
 
-## Advanced Features
 
-### High-Level Trading Strategies
+### Run Production Workflow/0
+
+Runs a complete production workflow demonstrating all resilience features.
+
 
 ```elixir
-alias ZenCex.Adapters.Binance.Strategies
-
-# Automatically hedge 50% of spot positions with futures
-{:ok, result} = Strategies.auto_hedge_spot_positions(0.5,
-  hedge_type: :usdt_m,
-  dry_run: false
-)
-
-# Hedge using PAXG (gold-backed token) long positions
-{:ok, result} = Strategies.hedge_with_paxg_long(%{
-  target_hedge_value: Decimal.new("10000"),
-  leverage: Decimal.new("2.0")
-})
-
-# Rebalance portfolio to target allocations
-{:ok, result} = Strategies.rebalance_portfolio(
-  %{"BTC" => 0.5, "ETH" => 0.3, "BNB" => 0.2},
-  tolerance: 0.05
-)
+ProductionRestFeatures.run_production_workflow()
 ```
 
-### Debug Mode
 
-Enable debug mode to troubleshoot API issues:
+
+
+## Debug Troubleshooting
+
+Debug mode and troubleshooting utilities for ZenCex API issues.
+
+
+### Debug Failed Request/1
+
+Make a failing API request to demonstrate debug capture.
+
 
 ```elixir
-# Enable debug mode
-ZenCex.Core.Debug.enable()
+ZenCex.Examples.DebugTroubleshooting.enable_debug_mode()
 
-# Make a request that fails
-{:error, reason} = Spot.place_order(%{invalid: "params"})
+ZenCex.Examples.DebugTroubleshooting.debug_failed_request(%{
 
-# Get the curl command to reproduce
-{:ok, curl_command} = ZenCex.Core.Debug.get_last_curl()
-IO.puts(curl_command)
-# Copy and run in terminal to see exact API response
-
-# Get debug statistics
-ZenCex.Core.Debug.stats()
-
-# Disable when done
-ZenCex.Core.Debug.disable()
+{:ok, curl} = ZenCex.Examples.DebugTroubleshooting.get_last_curl_command()
 ```
 
-### Endpoint Discovery
 
-Explore available endpoints dynamically:
+### Disable Debug Mode/0
+
+Disable debug mode to stop capturing failed requests.
+
 
 ```elixir
-alias ZenCex.Adapters.Binance.Endpoints
-
-# List all available endpoints
-Endpoints.list_available_endpoints()
-
-# List endpoints by API type
-Endpoints.list_available_endpoints(:spot)
-Endpoints.list_available_endpoints(:usdm_futures)
-
-# Get detailed endpoint information
-Endpoints.get_endpoint_info(:place_order, :spot)
-# Returns method, path, auth requirements, rate limits, etc.
+ZenCex.Examples.DebugTroubleshooting.disable_debug_mode()
 ```
 
-### Custom Request Options
 
-Pass additional options to any endpoint:
+### Enable Debug Mode/0
+
+Enable debug mode to capture failed requests.
+
 
 ```elixir
-# Custom timeout for large data requests
-{:ok, data} = Spot.get_klines(
-  %{symbol: "BTCUSDT", interval: "1m", limit: 1000},
-  [timeout: 30_000]
-)
-
-# Skip rate limiting for critical operations
-{:ok, order} = Spot.cancel_order(
-  %{symbol: "BTCUSDT", orderId: "12345"},
-  [skip_rate_limit: true]
-)
-
-# Use specific credentials (bypassing environment variables)
-{:ok, balances} = Spot.get_balances(
-  [],
-  [auth_credentials: %{api_key: "key", api_secret: "secret"}]
-)
+ZenCex.Examples.DebugTroubleshooting.enable_debug_mode()
 ```
+
+
+### Get Debug Stats/0
+
+Get debug statistics and captured request information.
+
+
+```elixir
+stats = ZenCex.Examples.DebugTroubleshooting.get_debug_stats()
+IO.inspect(stats)
+```
+
+
+### Get Last Curl Command/0
+
+Get the last failed request as a curl command.
+
+
+```elixir
+ZenCex.Examples.DebugTroubleshooting.get_last_curl_command()
+
+ZenCex.Examples.DebugTroubleshooting.get_last_curl_command()
+```
+
+
+
+
+## Endpoint Discovery
+
+Demonstrates endpoint introspection and discovery capabilities.
+
+
+### Get Endpoint Details/2
+
+Returns detailed information about a specific endpoint operation.
+
+
+```elixir
+{:ok, info} = ZenCex.Examples.EndpointDiscovery.get_endpoint_details(:get_balances, :spot)
+info[:operation]
+
+info[:requires_auth]
+
+info[:api_type]
+
+{:ok, info} = ZenCex.Examples.EndpointDiscovery.get_endpoint_details(:place_order, :spot)
+info[:method]
+
+info[:requires_auth]
+
+ZenCex.Examples.EndpointDiscovery.get_endpoint_details(:nonexistent, :spot)
+```
+
+
+### List All Endpoints/0
+
+Lists all available endpoint operations across all Binance API types.
+
+
+```elixir
+{:ok, endpoints} = ZenCex.Examples.EndpointDiscovery.list_all_endpoints()
+:get_balances in endpoints
+
+:place_order in endpoints
+
+is_list(endpoints)
+```
+
+
+### List Futures Endpoints/0
+
+Lists all available endpoint operations for USD-M Futures trading API.
+
+
+```elixir
+{:ok, endpoints} = ZenCex.Examples.EndpointDiscovery.list_futures_endpoints()
+:get_positions in endpoints
+
+:place_order in endpoints
+```
+
+
+### List Spot Endpoints/0
+
+Lists all available endpoint operations for Spot trading API.
+
+
+```elixir
+{:ok, endpoints} = ZenCex.Examples.EndpointDiscovery.list_spot_endpoints()
+:get_balances in endpoints
+
+:place_order in endpoints
+```
+
+
+
+<!-- AUTO-GENERATED SECTIONS END -->
+
+## Architecture
+
+### Core Components
+
+- **`Core.HTTP`**: Req-based HTTP client with middleware pipeline
+- **`Core.Registry`**: Exchange registration and routing
+- **`Core.RateLimiter`**: Base rate limiting implementation
+- **`Safety.ClockSync`**: Time synchronization with exchanges
+- **`Safety.OrderSafety`**: Idempotency and order validation
+
+### Exchange Adapters
+
+Each exchange adapter consists of:
+- **API Modules**: Spot, Margin, Futures, etc. (use these directly)
+- **Endpoints**: Registry module (for discovery only)
+- **Auth**: Authentication and request signing
+- **RateLimiter**: Exchange-specific rate limiting
+- **Parser**: Response normalization
+
+### Design Principles
+
+1. **Req-Centric**: Leverages Req for HTTP, no custom client logic
+2. **Stateless Operations**: ETS for rate limiting, no GenServers (except OAuth)
+3. **Compile-Time Configuration**: Endpoint registry with runtime validation
+4. **Real API Testing**: No mocks, only real testnet APIs
+5. **Safety First**: Built-in rate limiting, clock sync, order validation
+
+## API Coverage
+
+### Binance
+- ✅ **Spot Trading**: Complete (orders, balances, OCO)
+- ✅ **Margin Trading**: Cross and isolated margin
+- ✅ **USD-M Futures**: USDT-margined perpetuals
+- ✅ **COIN-M Futures**: Coin-margined contracts
+- ✅ **Portfolio Margin**: Unified account management
+- ✅ **Market Data**: Tickers, order books, klines
+
+### Bybit
+- ✅ **Unified Trading**: All product types via category parameter
+- ✅ **Spot Trading**: Complete order management
+- ✅ **Linear Futures**: USDT perpetuals
+- ✅ **Inverse Futures**: Coin-margined contracts
+- 🚧 **Options**: To be implemented
+- 🚧 **Market Data**: To be implemented
 
 ## Testing
 
@@ -480,52 +796,6 @@ mix coveralls.html
 
 Generate API keys and set them as environment variables with `_TESTNET_` in the name.
 
-## Architecture
-
-### Core Components
-
-- **`Core.HTTP`**: Req-based HTTP client with middleware pipeline
-- **`Core.Registry`**: Exchange registration and routing
-- **`Core.RateLimiter`**: Base rate limiting implementation
-- **`Safety.ClockSync`**: Time synchronization with exchanges
-- **`Safety.OrderSafety`**: Idempotency and order validation
-
-### Exchange Adapters
-
-Each exchange adapter consists of:
-- **API Modules**: Spot, Margin, Futures, etc. (use these directly)
-- **Endpoints**: Registry module (for discovery only)
-- **API Modules**: Spot, Margin, Futures, etc.
-- **Auth**: Authentication and request signing
-- **RateLimiter**: Exchange-specific rate limiting
-- **Parser**: Response normalization
-
-### Design Principles
-
-1. **Req-Centric**: Leverages Req for HTTP, no custom client logic
-2. **Stateless Operations**: ETS for rate limiting, no GenServers (except OAuth)
-3. **Compile-Time Configuration**: Endpoint registry with runtime validation
-4. **Real API Testing**: No mocks, only real testnet APIs
-5. **Safety First**: Built-in rate limiting, clock sync, order validation
-
-## API Coverage
-
-### Binance
-- ✅ **Spot Trading**: Complete (orders, balances, OCO)
-- ✅ **Margin Trading**: Cross and isolated margin
-- ✅ **USD-M Futures**: USDT-margined perpetuals
-- ✅ **COIN-M Futures**: Coin-margined contracts
-- ✅ **Portfolio Margin**: Unified account management
-- 🚧 **Market Data**: Tickers, order books, klines (partial)
-
-### Bybit
-- ✅ **Unified Trading**: All product types via category parameter
-- ✅ **Spot Trading**: Complete order management
-- ✅ **Linear Futures**: USDT perpetuals
-- ✅ **Inverse Futures**: Coin-margined contracts
-- 🚧 **Options**: To be implemented
-- 🚧 **Market Data**: To be implemented
-
 ## Development
 
 ```bash
@@ -552,6 +822,9 @@ mix docs
 
 # Pre-commit checks
 mix precommit
+
+# Generate README from examples
+mix zen_cex.generate_readme
 ```
 
 ### Using Tidewave (Development Tool)
