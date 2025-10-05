@@ -391,20 +391,335 @@ end
 
 ---
 
+## Refactor 3: Extract Shared JSON Decode Helper
+
+### Priority: High (Bundle with Refactor 1)
+**[D:1/B:7 → Priority:7.0] 🎯**
+
+**Impact**: Eliminates 11 instances of duplicated JSON decode logic in Bybit parser
+
+### Problem
+
+**Duplicated pattern**: Bybit parser has **11 instances** of the same JSON decode logic:
+
+```elixir
+# Repeated in 9 different parse_* functions
+def parse_server_time(body) when is_binary(body) do
+  case Jason.decode(body) do
+    {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
+    {:error, _} -> {:error, :invalid_json}
+  end
+end
+
+def parse_announcements(body) when is_binary(body) do
+  case Jason.decode(body) do
+    {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
+    {:error, _} -> {:error, :invalid_json}
+  end
+end
+
+# ... 7 more identical patterns
+```
+
+**Files affected**:
+- `lib/zen_cex/adapters/bybit/parser.ex` (11 occurrences)
+
+### Solution
+
+Add shared helper to `ParserMacros`:
+
+```elixir
+@doc """
+Safely decodes JSON string to Elixir term.
+
+Returns {:ok, decoded} on success or {:error, :invalid_json} on failure.
+"""
+@spec decode_json_body(binary()) :: {:ok, term()} | {:error, :invalid_json}
+def decode_json_body(body) when is_binary(body) do
+  case Jason.decode(body) do
+    {:ok, decoded} -> {:ok, decoded}
+    {:error, _} -> {:error, :invalid_json}
+  end
+end
+```
+
+Update Bybit parser to use it:
+
+```elixir
+def parse_server_time(body) when is_binary(body) do
+  with {:ok, decoded} <- decode_json_body(body) do
+    handle_bybit_response(decoded, 200, %{})
+  end
+end
+```
+
+**Benefits**:
+- Eliminates 11 duplicate code blocks
+- Consistent error handling across all parsers
+- Single place to enhance (e.g., add logging, timeout handling)
+- Reduces parser file size by ~30 lines
+
+**Bundle with Refactor 1**: Only +20 minutes since we're already modifying these files
+
+---
+
+## Refactor 4: Add normalize_enum_value/1 Helper
+
+### Priority: Medium (Bundle with Refactor 1)
+**[D:1/B:6 → Priority:6.0] 🎯**
+
+**Impact**: Eliminates 20+ instances of repeated enum normalization in Binance parser
+
+### Problem
+
+**Duplicated pattern**: Binance parser repeats this pattern 20+ times:
+
+```elixir
+# In parse_order/1 and similar functions
+side: side |> String.downcase() |> String.to_atom()
+type: order_type |> String.downcase() |> String.to_atom()
+status: status |> String.downcase() |> String.to_atom()
+
+# In various helper functions
+defp normalize_income_type(type) when is_binary(type),
+  do: type |> String.downcase() |> String.to_atom()
+```
+
+**Files affected**:
+- `lib/zen_cex/adapters/binance/parser.ex` (20+ occurrences)
+- Future: Bybit, Aster parsers will need the same
+
+### Solution
+
+Add to `ParserMacros`:
+
+```elixir
+@doc """
+Normalizes string enum value to lowercase atom.
+
+Safe for exchange API enums (controlled vocabulary).
+
+## Examples
+
+    iex> normalize_enum_value("BUY")
+    :buy
+
+    iex> normalize_enum_value("PARTIALLY_FILLED")
+    :partially_filled
+
+    iex> normalize_enum_value(nil)
+    nil
+"""
+@spec normalize_enum_value(String.t() | nil) :: atom() | nil
+def normalize_enum_value(value) when is_binary(value) do
+  value |> String.downcase() |> String.to_atom()
+end
+
+def normalize_enum_value(nil), do: nil
+def normalize_enum_value(value) when is_atom(value), do: value
+```
+
+**Benefits**:
+- Single source of truth for enum normalization
+- Handles nil gracefully
+- Consistent across all exchanges
+- Easy to enhance (e.g., add validation)
+
+**Bundle with Refactor 1**: Only +15 minutes
+
+---
+
+## Refactor 5: Enhance ParserMacros Test Coverage
+
+### Priority: High (Bundle with Refactor 1)
+**[D:2/B:8 → Priority:4.0] 🎯**
+
+**Impact**: Prevents regressions when adding new helper functions
+
+### Problem
+
+**Missing test coverage** for new functions:
+- `normalize_keys/1` - no tests yet (new function)
+- `decode_json_body/1` - no tests yet (new function)
+- `normalize_enum_value/1` - no tests yet (new function)
+
+**Current coverage**: Only tests for `safe_decimal_field` and `extract_field`
+
+### Solution
+
+Add comprehensive tests to `test/zen_cex/parser_macros_test.exs`:
+
+```elixir
+describe "normalize_keys/1" do
+  test "converts camelCase to snake_case atoms" do
+    input = %{"orderId" => "123", "clientOrderId" => "abc"}
+    expected = %{order_id: "123", client_order_id: "abc"}
+    assert normalize_keys(input) == expected
+  end
+
+  test "handles nested maps" do
+    input = %{"result" => %{"timeSecond" => "123"}}
+    expected = %{result: %{time_second: "123"}}
+    assert normalize_keys(input) == expected
+  end
+
+  test "handles lists of maps" do
+    input = [%{"symbol" => "BTCUSDT"}, %{"symbol" => "ETHUSDT"}]
+    expected = [%{symbol: "BTCUSDT"}, %{symbol: "ETHUSDT"}]
+    assert normalize_keys(input) == expected
+  end
+
+  test "preserves non-map/list values" do
+    assert normalize_keys("string") == "string"
+    assert normalize_keys(123) == 123
+    assert normalize_keys(nil) == nil
+  end
+end
+
+describe "decode_json_body/1" do
+  test "decodes valid JSON" do
+    json = ~s({"key": "value"})
+    assert {:ok, %{"key" => "value"}} = decode_json_body(json)
+  end
+
+  test "returns error for invalid JSON" do
+    assert {:error, :invalid_json} = decode_json_body("not json")
+  end
+
+  test "handles empty string" do
+    assert {:error, :invalid_json} = decode_json_body("")
+  end
+end
+
+describe "normalize_enum_value/1" do
+  test "converts strings to lowercase atoms" do
+    assert normalize_enum_value("BUY") == :buy
+    assert normalize_enum_value("PARTIALLY_FILLED") == :partially_filled
+  end
+
+  test "handles nil gracefully" do
+    assert normalize_enum_value(nil) == nil
+  end
+
+  test "preserves existing atoms" do
+    assert normalize_enum_value(:buy) == :buy
+  end
+end
+```
+
+**Benefits**:
+- Prevents regressions
+- Documents expected behavior
+- Catches edge cases early
+- ~95% coverage for ParserMacros module
+
+**Bundle with Refactor 1**: Only +30 minutes
+
+---
+
+## Refactor 6: Add @spec to Private Helpers
+
+### Priority: Low (Optional with Refactor 1)
+**[D:1/B:4 → Priority:4.0] 🎯**
+
+**Impact**: Improves Dialyzer accuracy for ParserMacros
+
+### Problem
+
+**Incomplete specs**: ParserMacros has 15 functions but only 7 have @spec annotations
+
+**Missing specs on**:
+- `to_integer/1` (private)
+- Other private helpers
+
+### Solution
+
+Add missing @spec annotations:
+
+```elixir
+@spec to_integer(nil | integer() | binary() | float()) :: integer()
+defp to_integer(nil), do: 0
+defp to_integer(value) when is_integer(value), do: value
+# ... etc
+```
+
+**Benefits**:
+- Better Dialyzer coverage
+- Clearer function contracts
+- Easier to maintain
+
+**Bundle with Refactor 1**: Only +15 minutes
+
+---
+
+## Refactor Bundle: All Together
+
+### Combined Implementation (Do These Together)
+
+**Refactors to bundle**:
+1. ✅ Refactor 1: Extract shared key normalization (primary)
+2. ✅ Refactor 3: Extract JSON decode helper (+20 min)
+3. ✅ Refactor 4: Add enum normalization helper (+15 min)
+4. ✅ Refactor 5: Enhance test coverage (+30 min)
+5. ⚠️ Refactor 6: Add specs to helpers (+15 min, optional)
+
+**Total time**: 3.5-4.5 hours (vs 2-3 hours for Refactor 1 alone)
+
+**Why bundle?**
+- ✅ All changes touch the same files (ParserMacros, Bybit parser)
+- ✅ High synergy - each refactor complements others
+- ✅ No conflicts - all additive changes
+- ✅ Single PR - easier review and rollback
+- ✅ Compound value - complete parser modernization
+
+**Implementation order**:
+1. Add all 3 helpers to ParserMacros (~30 min)
+2. Add all tests for new helpers (~30 min)
+3. Update Bybit parser to use all helpers (~40 min)
+4. Update Bybit tests for atom keys (~45 min)
+5. Update documentation (~15 min)
+6. Verification (mix test, dialyzer, credo) (~15 min)
+
+**Files modified** (6 files total):
+- `lib/zen_cex/parser_macros.ex` (add 3 functions)
+- `lib/zen_cex/adapters/bybit/parser.ex` (use helpers, normalize keys)
+- `test/zen_cex/parser_macros_test.exs` (add ~15 tests)
+- `test/zen_cex/adapters/bybit/parser_test.exs` (update for atom keys)
+- `test/examples/bybit_trading_test.exs` (update for atom keys)
+- `lib/examples/bybit_trading.ex` (remove string key warnings)
+
+**Do NOT bundle** (separate PRs):
+- ❌ Refactor 2: Binance parser simplification (defer until later)
+- ❌ Performance optimizations (needs benchmarking first)
+- ❌ Parser behavior changes (structure changes only)
+
+---
+
 ## Session Notes
 
 ### 2025-01-05: Initial Specification
 
 **Completed**:
-- Documented atom vs string key inconsistency issue
+- Documented atom vs string key inconsistency issue (Refactor 1)
 - Designed shared `normalize_keys/1` solution
 - Created implementation plan with 6 steps
 - Estimated 2-3 hours total implementation time
 - Decision: Use `String.to_atom/1` (safe for exchange APIs)
 
+**Additional Refactors Identified** (can bundle):
+- Refactor 3: Extract JSON decode helper (11 duplications in Bybit)
+- Refactor 4: Add enum normalization helper (20+ duplications in Binance)
+- Refactor 5: Enhance test coverage for new helpers
+- Refactor 6: Add @spec to private helpers (optional)
+
+**Bundle recommendation**:
+- Do Refactors 1, 3, 4, 5 together (3.5-4.5 hours total)
+- High synergy: same files, no conflicts, compound value
+- Single PR: easier review, complete parser modernization
+
 **Next Steps**:
-- Implement Refactor 1 before Aster integration
-- Aster can use shared normalization from day one
+- Implement bundled refactors before Aster integration
+- Aster can use all shared helpers from day one
 - Defer Binance simplification (Refactor 2) until later
 
 ---
