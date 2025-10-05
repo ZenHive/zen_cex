@@ -652,4 +652,86 @@ end
 
 ---
 
+### Session 6: 2025-01-05
+**Completed**:
+- Created `lib/examples/production_rest_features.ex` - NEW comprehensive production features showcase
+- Created `test/examples/production_rest_features_test.exs` - 21 tests, all passing
+
+**CRITICAL DISCOVERY**: zen_cex REST features were NOT demonstrated in existing examples!
+
+**Production Features Now Documented**:
+1. **Circuit Breaker** (`Core.CircuitBreaker`) - Prevents cascading failures
+   - Per-exchange circuit breakers with configurable thresholds
+   - Automatic request rejection when circuit is open
+   - Telemetry events for monitoring
+
+2. **Rate Limiting** (per-exchange `RateLimiter` modules) - Prevents API violations
+   - Automatic tracking via Req middleware
+   - ETS-based counters for high performance
+   - Response header parsing for limit updates
+
+3. **Exponential Backoff** (`Core.HTTP` retry logic) - Handles transient failures
+   - Base backoff: 1s, Max backoff: 60s
+   - Jitter added to prevent thundering herd
+   - Configurable per operation type
+
+4. **Clock Synchronization** (`Safety.ClockSync`) - Accurate timestamps
+   - Proactive sync on startup with all exchanges
+   - Periodic re-sync every 5 minutes
+   - Sub-millisecond offset tracking
+   - Per-exchange and per-API-type offsets
+
+5. **Debug Mode** (`Core.Debug`) - Troubleshooting failed requests
+   - Export failed requests as curl commands
+   - Statistics tracking
+   - Opt-in activation
+
+6. **Telemetry** - Comprehensive observability
+   - `[:zen_cex, :request, :complete]` - successful requests
+   - `[:zen_cex, :request, :error]` - failed requests
+   - `[:zen_cex, :rate_limit, :exceeded]` - rate limit violations
+   - `[:zen_cex, :circuit_breaker, :*]` - circuit breaker events
+
+7. **Operation-Specific Timeouts** - Optimized for use case
+   - `:trading` - 2s (order placement/cancellation)
+   - `:market` - 5s (real-time market data)
+   - `:historical` - 30s (large datasets)
+   - `:health` - 5s (status monitoring)
+   - `:standard` - 30s (default)
+
+**Test Coverage**: 21 tests covering all production features
+- Circuit breaker configuration and behavior
+- Rate limiting with real requests
+- Debug mode curl export
+- Clock synchronization with real exchange
+- Operation timeout demonstrations
+- Telemetry event listings
+- Complete production workflow
+- Real-world usage patterns
+- Error handling with debug mode
+- Monitoring and observability
+
+**Key Implementation Notes**:
+- `ClockSync.sync_exchange/1` returns `{:ok, offset}` not `:ok`
+- `Debug.get_last_curl/0` returns `{:ok, "curl command"}` not a map
+- Common module has `get_server_time/0`, not Spot module
+- Response keys use snake_case (`:server_time`) not camelCase
+
+**Architecture Demonstrated**:
+- Req middleware pattern for composable HTTP features
+- ETS for high-performance state storage
+- GenServer for supervised clock sync
+- Telemetry for monitoring all layers
+- Operation-type-based timeout optimization
+
+**Test Results**: 21 tests, 0 failures (~10s runtime)
+
+**Files Created**:
+- `lib/examples/production_rest_features.ex` (440 lines)
+- `test/examples/production_rest_features_test.exs` (382 lines)
+
+**Next session**: Task 7 (bybit_trading.ex) and Task 17 (bybit_trading_test.exs)
+
+---
+
 _Add new session notes above this line_
