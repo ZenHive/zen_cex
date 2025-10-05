@@ -288,6 +288,84 @@ BYBIT_TESTNET_API_KEY=xxx         # api-testnet.bybit.com
 
 ## Key Implementation Notes
 
+### Parser Pattern (Standard for All Exchanges)
+
+**Philosophy**: Parsers are the transport layer, not business logic. Return raw API values with normalized keys.
+
+**Standard Pattern**:
+```elixir
+def parse_*(response) when is_map(response) do
+  # 1. Normalize all keys (camelCase → snake_case atoms)
+  normalized = normalize_keys(response)
+
+  # 2. Optional: Validate required fields
+  case normalized[:required_field] do
+    nil -> {:error, :invalid_format}
+    _ -> {:ok, normalized}
+  end
+
+  # 3. Optional: Add computed fields (enums only)
+  normalized = Map.put(normalized, :side, normalize_enum_value(response["side"]))
+
+  {:ok, normalized}
+end
+```
+
+**DO** (Minimal Transformation):
+- ✅ Normalize keys with `ParserMacros.normalize_keys/1` (camelCase → snake_case atoms)
+- ✅ Return ALL API fields automatically (not just manually mapped ones)
+- ✅ Validate required fields exist (return `{:error, :invalid_format}` if missing)
+- ✅ Normalize enum values to atoms (e.g., `"BUY"` → `:buy`) using `normalize_enum_value/1`
+- ✅ Keep numeric values as-is (strings, integers, floats from API)
+
+**DON'T** (Business Logic):
+- ❌ Never convert strings to Decimal (that's business logic)
+- ❌ Never compute derived fields (like `total = free + locked`)
+- ❌ Never filter data (like removing zero balances)
+- ❌ Never create fake fields not in the API response
+- ❌ Never wrap raw values in custom structs
+
+**Examples**:
+
+```elixir
+# ✅ GOOD: Normalize keys, return raw values
+def parse_balances(response) do
+  balances = response["balances"] |> Enum.map(&normalize_keys/1)
+  {:ok, %{balances: balances}}
+  # Returns: %{balances: [%{asset: "BTC", free: "0.5", locked: "0.1"}]}
+end
+
+# ❌ BAD: Business logic in parser
+def parse_balances(response) do
+  balances = response["balances"]
+    |> Enum.map(fn b ->
+      %{
+        asset: b["asset"],
+        total: Decimal.add(Decimal.new(b["free"]), Decimal.new(b["locked"]))  # Business logic!
+      }
+    end)
+    |> Enum.reject(&Decimal.equal?(&1.total, Decimal.new("0")))  # Filtering data!
+  {:ok, balances}
+end
+
+# ✅ GOOD: User handles conversions
+{:ok, %{balances: balances}} = parse_balances(response)
+btc = Enum.find(balances, &(&1[:asset] == "BTC"))
+total = Decimal.add(Decimal.new(btc[:free]), Decimal.new(btc[:locked]))
+```
+
+**Why This Matters**:
+- **Consistency**: All exchanges return the same format (atom keys, raw values)
+- **Completeness**: Users get ALL API fields, not just manually mapped ones
+- **Flexibility**: Users choose Decimal/Float/Integer based on their needs
+- **Simplicity**: Less code, fewer bugs, easier maintenance
+- **Testability**: Tests verify raw API responses, not transformed data
+
+**Breaking Changes**: When updating parsers to this pattern, note that:
+- Numeric fields change from `Decimal` → strings/integers/floats
+- Users must convert: `Decimal.new(value)` or `Decimal.div(value, 10000)` for basis points
+- Field names match raw API (e.g., `:position_amt` not `:size`)
+
 ### Endpoint Registry Pattern
 - `@endpoints` definitions → macro-generated functions
 - Direct module usage (no delegation)
