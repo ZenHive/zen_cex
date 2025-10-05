@@ -645,11 +645,15 @@ defmodule ZenCex.Safety.OrderSafety.MarketData do
 
   defp normalize_spot_balances(balances) do
     Map.new(balances, fn b ->
+      # Parser now returns raw strings, convert to Decimal for calculations
+      free = Decimal.new(b.free)
+      locked = Decimal.new(b.locked)
+
       {b.asset,
        %{
-         free: Decimal.to_string(b.free),
-         locked: Decimal.to_string(b.locked),
-         total: Decimal.to_string(Decimal.add(b.free, b.locked))
+         free: Decimal.to_string(free),
+         locked: Decimal.to_string(locked),
+         total: Decimal.to_string(Decimal.add(free, locked))
        }}
     end)
   end

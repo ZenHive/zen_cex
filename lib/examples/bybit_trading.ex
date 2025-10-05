@@ -242,7 +242,7 @@ defmodule ZenCex.Examples.BybitTrading do
 
   ## Returns
 
-  - `{:ok, %{"list" => [position, ...]}}` - List of positions (Bybit uses string keys)
+  - `{:ok, %{list: [position, ...]}}` - List of positions (keys normalized to atoms)
   - `{:error, reason}` - Query failed
   """
   @spec get_positions(String.t(), keyword()) :: {:ok, map()} | {:error, term()}

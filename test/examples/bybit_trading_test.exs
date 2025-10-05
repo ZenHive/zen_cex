@@ -18,8 +18,8 @@ defmodule ZenCex.Examples.BybitTradingTest do
       assert {:ok, response} = BybitTrading.check_server_connectivity()
       assert is_map(response)
 
-      # Verify we got server time (Bybit returns string keys, not atoms)
-      assert Map.has_key?(response, "timeSecond") or Map.has_key?(response, "timeNano")
+      # Verify we got server time (now normalized to atom keys)
+      assert Map.has_key?(response, :time_second) or Map.has_key?(response, :time_nano)
     end
   end
 
@@ -37,9 +37,9 @@ defmodule ZenCex.Examples.BybitTradingTest do
       # Bybit API requires either symbol or settleCoin parameter
       assert {:ok, response} = BybitTrading.get_positions("linear", opts)
       assert is_map(response)
-      # Bybit returns list of positions in "list" key (string key, not atom)
-      assert Map.has_key?(response, "list")
-      assert is_list(response["list"])
+      # Bybit returns list of positions in "list" key (now normalized to :list)
+      assert Map.has_key?(response, :list)
+      assert is_list(response[:list])
     end
 
     test "get_positions/2 with spot category returns expected error", context do
@@ -78,9 +78,9 @@ defmodule ZenCex.Examples.BybitTradingTest do
       # Bybit API requires either symbol or settleCoin parameter
       assert {:ok, response} = BybitTrading.get_positions("inverse", opts)
       assert is_map(response)
-      # Bybit returns string keys, not atoms
-      assert Map.has_key?(response, "list")
-      assert is_list(response["list"])
+      # Keys are now normalized to atoms
+      assert Map.has_key?(response, :list)
+      assert is_list(response[:list])
     end
   end
 
@@ -106,8 +106,8 @@ defmodule ZenCex.Examples.BybitTradingTest do
       case BybitTrading.place_spot_order(symbol, side, order_type, qty, opts) do
         {:ok, order} ->
           assert is_map(order)
-          # Bybit returns string keys, not atoms
-          assert Map.has_key?(order, "orderId") or Map.has_key?(order, "orderLinkId")
+          # Keys are now normalized to atoms
+          assert Map.has_key?(order, :order_id) or Map.has_key?(order, :order_link_id)
 
         {:error, :insufficient_balance} ->
           :ok
@@ -143,8 +143,8 @@ defmodule ZenCex.Examples.BybitTradingTest do
       case BybitTrading.place_linear_futures_order(symbol, side, order_type, qty, opts) do
         {:ok, order} ->
           assert is_map(order)
-          # Bybit returns string keys, not atoms
-          assert Map.has_key?(order, "orderId") or Map.has_key?(order, "orderLinkId")
+          # Keys are now normalized to atoms
+          assert Map.has_key?(order, :order_id) or Map.has_key?(order, :order_link_id)
 
         {:error, :insufficient_balance} ->
           :ok
@@ -181,8 +181,8 @@ defmodule ZenCex.Examples.BybitTradingTest do
       case BybitTrading.place_inverse_futures_order(symbol, side, order_type, price, qty, opts) do
         {:ok, order} ->
           assert is_map(order)
-          # Bybit returns string keys, not atoms
-          assert Map.has_key?(order, "orderId") or Map.has_key?(order, "orderLinkId")
+          # Keys are now normalized to atoms
+          assert Map.has_key?(order, :order_id) or Map.has_key?(order, :order_link_id)
 
         {:error, :insufficient_balance} ->
           :ok

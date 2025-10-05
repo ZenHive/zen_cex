@@ -42,17 +42,19 @@ defmodule ZenCex.Adapters.Binance.UsdmFuturesIntegrationTest do
       assert {:ok, balances} = result
       assert is_list(balances)
 
-      # Each balance should have our normalized structure
+      # Futures V3 API returns different field structure than spot
       Enum.each(balances, fn balance ->
         assert Map.has_key?(balance, :asset)
-        assert Map.has_key?(balance, :free)
-        assert Map.has_key?(balance, :locked)
-        assert Map.has_key?(balance, :total)
+        # Futures API fields (normalized from camelCase)
+        # Total balance
+        assert Map.has_key?(balance, :balance)
+        # Available (free)
+        assert Map.has_key?(balance, :available_balance)
 
         assert is_binary(balance.asset)
-        assert %Decimal{} = balance.free
-        assert %Decimal{} = balance.locked
-        assert %Decimal{} = balance.total
+        # Parser returns raw strings, not Decimals
+        assert is_binary(balance.balance)
+        assert is_binary(balance.available_balance)
       end)
     end
 

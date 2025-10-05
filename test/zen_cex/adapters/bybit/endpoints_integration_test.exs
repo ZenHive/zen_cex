@@ -9,9 +9,9 @@ defmodule ZenCex.Adapters.Bybit.EndpointsIntegrationTest do
   describe "health check endpoints" do
     test "get_server_time returns successful response" do
       assert {:ok, response} = Common.get_server_time()
-      # Bybit returns timeSecond and timeNano fields directly
+      # Bybit returns timeSecond and timeNano fields (now normalized to atom keys)
       assert is_map(response)
-      assert Map.has_key?(response, "timeSecond") or Map.has_key?(response, "time")
+      assert Map.has_key?(response, :time_second) or Map.has_key?(response, :time)
       Logger.debug("TESTNET get_server_time response: #{inspect(response)}")
     end
 

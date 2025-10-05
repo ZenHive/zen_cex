@@ -140,4 +140,98 @@ defmodule ZenCex.ParserMacros do
 
   defp to_integer(value) when is_float(value), do: round(value)
   defp to_integer(_), do: 0
+
+  @doc """
+  Normalizes string keys to atom keys with snake_case conversion.
+
+  Safe for exchange responses because field names are controlled by the exchange,
+  not user input. Uses String.to_atom/1 since we know the field vocabulary is bounded.
+
+  ## Examples
+
+      iex> normalize_keys(%{"orderId" => "123", "clientOrderId" => "abc"})
+      %{order_id: "123", client_order_id: "abc"}
+
+      iex> normalize_keys([%{"symbol" => "BTCUSDT"}])
+      [%{symbol: "BTCUSDT"}]
+
+      iex> normalize_keys(%{"nested" => %{"timeSecond" => "123"}})
+      %{nested: %{time_second: "123"}}
+
+      iex> normalize_keys("string")
+      "string"
+
+      iex> normalize_keys(nil)
+      nil
+  """
+  @spec normalize_keys(map() | list() | term()) :: map() | list() | term()
+  def normalize_keys(data) when is_map(data) do
+    Enum.reduce(data, %{}, fn {key, value}, acc ->
+      normalized_key =
+        key
+        |> to_string()
+        |> Macro.underscore()
+        |> String.to_atom()
+
+      normalized_value = normalize_keys(value)
+      Map.put(acc, normalized_key, normalized_value)
+    end)
+  end
+
+  def normalize_keys(data) when is_list(data) do
+    Enum.map(data, &normalize_keys/1)
+  end
+
+  def normalize_keys(data), do: data
+
+  @doc """
+  Safely decodes JSON string to Elixir term.
+
+  Returns {:ok, decoded} on success or {:error, :invalid_json} on failure.
+
+  ## Examples
+
+      iex> decode_json_body(~s({"key": "value"}))
+      {:ok, %{"key" => "value"}}
+
+      iex> decode_json_body("not json")
+      {:error, :invalid_json}
+
+      iex> decode_json_body("")
+      {:error, :invalid_json}
+  """
+  @spec decode_json_body(binary()) :: {:ok, term()} | {:error, :invalid_json}
+  def decode_json_body(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, decoded} -> {:ok, decoded}
+      {:error, _} -> {:error, :invalid_json}
+    end
+  end
+
+  @doc """
+  Normalizes string enum value to lowercase atom.
+
+  Safe for exchange API enums (controlled vocabulary).
+
+  ## Examples
+
+      iex> normalize_enum_value("BUY")
+      :buy
+
+      iex> normalize_enum_value("PARTIALLY_FILLED")
+      :partially_filled
+
+      iex> normalize_enum_value(nil)
+      nil
+
+      iex> normalize_enum_value(:buy)
+      :buy
+  """
+  @spec normalize_enum_value(String.t() | atom() | nil) :: atom() | nil
+  def normalize_enum_value(value) when is_binary(value) do
+    value |> String.downcase() |> String.to_atom()
+  end
+
+  def normalize_enum_value(nil), do: nil
+  def normalize_enum_value(value) when is_atom(value), do: value
 end

@@ -28,7 +28,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
                  symbol: @test_symbol_spot
                })
 
-      assert %{"category" => "spot", "list" => list} = result
+      assert %{:category => "spot", :list => list} = result
       assert is_list(list)
 
       if length(list) > 0 do
@@ -45,7 +45,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
                  symbol: @test_symbol_linear
                })
 
-      assert %{"category" => "linear", "list" => list} = result
+      assert %{:category => "linear", :list => list} = result
       assert is_list(list)
 
       if length(list) > 0 do
@@ -65,8 +65,8 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
                  limit: 10
                })
 
-      # Bybit returns different structure for order book
-      assert %{"s" => symbol, "b" => bids, "a" => asks} = result
+      # Bybit returns different structure for order book (now with atom keys)
+      assert %{s: symbol, b: bids, a: asks} = result
       assert symbol == @test_symbol_spot
       assert is_list(bids)
       assert is_list(asks)
@@ -90,7 +90,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
                  limit: 5
                })
 
-      assert %{"s" => symbol, "b" => bids, "a" => asks} = result
+      assert %{s: symbol, b: bids, a: asks} = result
       assert symbol == @test_symbol_linear
       assert length(bids) <= 5
       assert length(asks) <= 5
@@ -109,7 +109,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
                  limit: 10
                })
 
-      assert %{"category" => "spot", "symbol" => symbol, "list" => klines} = result
+      assert %{:category => "spot", :symbol => symbol, :list => klines} = result
       assert symbol == @test_symbol_spot
       assert is_list(klines)
       assert length(klines) <= 10
@@ -138,7 +138,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
                  limit: 5
                })
 
-      assert %{"category" => "linear", "list" => klines} = result
+      assert %{:category => "linear", :list => klines} = result
       assert length(klines) <= 5
     end
 
@@ -153,7 +153,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
                  limit: 3
                })
 
-      assert %{"category" => "linear", "list" => klines} = result
+      assert %{:category => "linear", :list => klines} = result
       assert is_list(klines)
     end
   end
@@ -168,7 +168,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
                  limit: 20
                })
 
-      assert %{"category" => "spot", "list" => trades} = result
+      assert %{:category => "spot", :list => trades} = result
       assert is_list(trades)
       assert length(trades) <= 20
 
@@ -187,7 +187,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
                  limit: 10
                })
 
-      assert %{"category" => "linear", "list" => trades} = result
+      assert %{:category => "linear", :list => trades} = result
       assert length(trades) <= 10
     end
   end
@@ -204,12 +204,12 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
                  limit: 5
                })
 
-      assert %{"list" => oi_list} = result
+      assert %{:list => oi_list} = result
       assert is_list(oi_list)
 
       if length(oi_list) > 0 do
         oi = hd(oi_list)
-        assert %{"openInterest" => _, "timestamp" => _} = oi
+        assert %{open_interest: _, timestamp: _} = oi
       end
     end
 
@@ -222,13 +222,13 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
                  limit: 5
                })
 
-      assert %{"category" => "linear", "list" => funding_list} = result
+      assert %{:category => "linear", :list => funding_list} = result
       assert is_list(funding_list)
       assert length(funding_list) <= 5
 
       if length(funding_list) > 0 do
         funding = hd(funding_list)
-        assert %{"fundingRate" => _, "fundingRateTimestamp" => _} = funding
+        assert %{funding_rate: _, funding_rate_timestamp: _} = funding
       end
     end
   end
@@ -242,15 +242,15 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
                  symbol: @test_symbol_spot
                })
 
-      assert %{"category" => "spot", "list" => [instrument]} = result
+      assert %{:category => "spot", :list => [instrument]} = result
 
       assert %{
-               "symbol" => @test_symbol_spot,
-               "baseCoin" => "BTC",
-               "quoteCoin" => "USDT",
-               "status" => status,
-               "lotSizeFilter" => lot_size,
-               "priceFilter" => price_filter
+               symbol: @test_symbol_spot,
+               base_coin: "BTC",
+               quote_coin: "USDT",
+               status: status,
+               lot_size_filter: lot_size,
+               price_filter: price_filter
              } = instrument
 
       assert status in ["Trading", "PreLaunch"]
@@ -265,7 +265,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
                  category: "spot"
                })
 
-      assert %{"category" => "spot", "list" => instruments} = result
+      assert %{:category => "spot", :list => instruments} = result
       assert is_list(instruments)
       assert length(instruments) > 0
     end
@@ -278,7 +278,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
                  symbol: @test_symbol_linear
                })
 
-      assert %{"category" => "linear", "list" => risk_limits} = result
+      assert %{:category => "linear", :list => risk_limits} = result
       assert is_list(risk_limits)
     end
   end
@@ -292,7 +292,7 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
                  baseCoin: "BTC"
                })
 
-      assert %{"category" => "option", "list" => prices} = result
+      assert %{:category => "option", :list => prices} = result
       assert is_list(prices)
 
       # Note: Delivery prices are typically empty unless there are recently expired options
@@ -302,9 +302,9 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
         [first | _] = prices
 
         assert %{
-                 "deliveryPrice" => _,
-                 "deliveryTime" => _,
-                 "symbol" => _
+                 delivery_price: _,
+                 delivery_time: _,
+                 symbol: _
                } = first
       end
     end
@@ -335,9 +335,9 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
       [first | _] = data
 
       assert %{
-               "period" => period,
-               "time" => _,
-               "value" => _
+               period: period,
+               time: _,
+               value: _
              } = first
 
       assert period == 7
@@ -449,20 +449,20 @@ defmodule ZenCex.Adapters.Bybit.MarketDataIntegrationTest do
 
   # Helper assertions
   defp assert_ticker_fields(ticker) do
-    assert Map.has_key?(ticker, "symbol")
-    assert Map.has_key?(ticker, "lastPrice")
-    assert Map.has_key?(ticker, "bid1Price")
-    assert Map.has_key?(ticker, "ask1Price")
-    assert Map.has_key?(ticker, "volume24h")
-    assert Map.has_key?(ticker, "turnover24h")
+    assert Map.has_key?(ticker, :symbol)
+    assert Map.has_key?(ticker, :last_price)
+    assert Map.has_key?(ticker, :bid1_price)
+    assert Map.has_key?(ticker, :ask1_price)
+    assert Map.has_key?(ticker, :volume24h)
+    assert Map.has_key?(ticker, :turnover24h)
   end
 
   defp assert_trade_fields(trade) do
-    assert Map.has_key?(trade, "execId")
-    assert Map.has_key?(trade, "symbol")
-    assert Map.has_key?(trade, "price")
-    assert Map.has_key?(trade, "size")
-    assert Map.has_key?(trade, "side")
-    assert Map.has_key?(trade, "time")
+    assert Map.has_key?(trade, :exec_id)
+    assert Map.has_key?(trade, :symbol)
+    assert Map.has_key?(trade, :price)
+    assert Map.has_key?(trade, :size)
+    assert Map.has_key?(trade, :side)
+    assert Map.has_key?(trade, :time)
   end
 end

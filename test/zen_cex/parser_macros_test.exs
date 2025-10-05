@@ -138,4 +138,178 @@ defmodule ZenCex.ParserMacrosTest do
                nil
     end
   end
+
+  describe "normalize_keys/1" do
+    test "converts camelCase to snake_case atoms" do
+      input = %{"orderId" => "123", "clientOrderId" => "abc"}
+      expected = %{order_id: "123", client_order_id: "abc"}
+      assert ZenCex.ParserMacros.normalize_keys(input) == expected
+    end
+
+    test "handles nested maps" do
+      input = %{"result" => %{"timeSecond" => "123"}}
+      expected = %{result: %{time_second: "123"}}
+      assert ZenCex.ParserMacros.normalize_keys(input) == expected
+    end
+
+    test "handles deeply nested maps" do
+      input = %{
+        "data" => %{
+          "userInfo" => %{
+            "userId" => "123",
+            "accountType" => "SPOT"
+          }
+        }
+      }
+
+      expected = %{
+        data: %{
+          user_info: %{
+            user_id: "123",
+            account_type: "SPOT"
+          }
+        }
+      }
+
+      assert ZenCex.ParserMacros.normalize_keys(input) == expected
+    end
+
+    test "handles lists of maps" do
+      input = [%{"symbol" => "BTCUSDT"}, %{"symbol" => "ETHUSDT"}]
+      expected = [%{symbol: "BTCUSDT"}, %{symbol: "ETHUSDT"}]
+      assert ZenCex.ParserMacros.normalize_keys(input) == expected
+    end
+
+    test "handles nested lists" do
+      input = %{"orders" => [%{"orderId" => "123"}, %{"orderId" => "456"}]}
+      expected = %{orders: [%{order_id: "123"}, %{order_id: "456"}]}
+      assert ZenCex.ParserMacros.normalize_keys(input) == expected
+    end
+
+    test "preserves non-map/list values" do
+      assert ZenCex.ParserMacros.normalize_keys("string") == "string"
+      assert ZenCex.ParserMacros.normalize_keys(123) == 123
+      assert ZenCex.ParserMacros.normalize_keys(nil) == nil
+      assert ZenCex.ParserMacros.normalize_keys(true) == true
+      assert ZenCex.ParserMacros.normalize_keys(12.34) == 12.34
+    end
+
+    test "handles empty collections" do
+      assert ZenCex.ParserMacros.normalize_keys(%{}) == %{}
+      assert ZenCex.ParserMacros.normalize_keys([]) == []
+    end
+
+    test "converts existing atom keys to snake_case" do
+      input = %{orderId: "123", clientOrderId: "abc"}
+      expected = %{order_id: "123", client_order_id: "abc"}
+      assert ZenCex.ParserMacros.normalize_keys(input) == expected
+    end
+
+    test "handles mixed string and atom keys" do
+      input = %{"orderId" => "123", clientOrderId: "abc"}
+      expected = %{order_id: "123", client_order_id: "abc"}
+      assert ZenCex.ParserMacros.normalize_keys(input) == expected
+    end
+
+    test "handles common exchange field names" do
+      input = %{
+        "orderId" => "123",
+        "clientOrderId" => "abc",
+        "serverTime" => 1_234_567_890,
+        "retCode" => 0,
+        "retMsg" => "OK"
+      }
+
+      expected = %{
+        order_id: "123",
+        client_order_id: "abc",
+        server_time: 1_234_567_890,
+        ret_code: 0,
+        ret_msg: "OK"
+      }
+
+      assert ZenCex.ParserMacros.normalize_keys(input) == expected
+    end
+  end
+
+  describe "decode_json_body/1" do
+    test "decodes valid JSON" do
+      json = ~s({"key": "value"})
+      assert {:ok, %{"key" => "value"}} = ZenCex.ParserMacros.decode_json_body(json)
+    end
+
+    test "decodes complex nested JSON" do
+      json = ~s({"result": {"data": [{"id": 1}, {"id": 2}]}})
+
+      assert {:ok, %{"result" => %{"data" => [%{"id" => 1}, %{"id" => 2}]}}} =
+               ZenCex.ParserMacros.decode_json_body(json)
+    end
+
+    test "returns error for invalid JSON" do
+      assert {:error, :invalid_json} = ZenCex.ParserMacros.decode_json_body("not json")
+    end
+
+    test "handles empty string" do
+      assert {:error, :invalid_json} = ZenCex.ParserMacros.decode_json_body("")
+    end
+
+    test "handles malformed JSON" do
+      assert {:error, :invalid_json} = ZenCex.ParserMacros.decode_json_body("{invalid}")
+      assert {:error, :invalid_json} = ZenCex.ParserMacros.decode_json_body(~s({"key": }))
+    end
+
+    test "decodes JSON arrays" do
+      json = ~s([1, 2, 3])
+      assert {:ok, [1, 2, 3]} = ZenCex.ParserMacros.decode_json_body(json)
+    end
+
+    test "decodes JSON with numbers and booleans" do
+      json = ~s({"count": 123, "price": 45.67, "active": true, "empty": null})
+
+      assert {:ok, %{"count" => 123, "price" => 45.67, "active" => true, "empty" => nil}} =
+               ZenCex.ParserMacros.decode_json_body(json)
+    end
+  end
+
+  describe "normalize_enum_value/1" do
+    test "converts strings to lowercase atoms" do
+      assert ZenCex.ParserMacros.normalize_enum_value("BUY") == :buy
+      assert ZenCex.ParserMacros.normalize_enum_value("SELL") == :sell
+      assert ZenCex.ParserMacros.normalize_enum_value("PARTIALLY_FILLED") == :partially_filled
+    end
+
+    test "handles already lowercase strings" do
+      assert ZenCex.ParserMacros.normalize_enum_value("buy") == :buy
+      assert ZenCex.ParserMacros.normalize_enum_value("sell") == :sell
+    end
+
+    test "handles mixed case strings" do
+      assert ZenCex.ParserMacros.normalize_enum_value("Buy") == :buy
+      assert ZenCex.ParserMacros.normalize_enum_value("Sell") == :sell
+    end
+
+    test "handles nil gracefully" do
+      assert ZenCex.ParserMacros.normalize_enum_value(nil) == nil
+    end
+
+    test "preserves existing atoms" do
+      assert ZenCex.ParserMacros.normalize_enum_value(:buy) == :buy
+      assert ZenCex.ParserMacros.normalize_enum_value(:sell) == :sell
+    end
+
+    test "handles common exchange enum values" do
+      assert ZenCex.ParserMacros.normalize_enum_value("NEW") == :new
+      assert ZenCex.ParserMacros.normalize_enum_value("FILLED") == :filled
+      assert ZenCex.ParserMacros.normalize_enum_value("CANCELED") == :canceled
+      assert ZenCex.ParserMacros.normalize_enum_value("REJECTED") == :rejected
+    end
+
+    test "handles enum values with underscores" do
+      assert ZenCex.ParserMacros.normalize_enum_value("LIMIT_MAKER") == :limit_maker
+      assert ZenCex.ParserMacros.normalize_enum_value("STOP_LOSS") == :stop_loss
+
+      assert ZenCex.ParserMacros.normalize_enum_value("STOP_LOSS_LIMIT") ==
+               :stop_loss_limit
+    end
+  end
 end

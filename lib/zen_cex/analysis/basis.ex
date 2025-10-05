@@ -555,10 +555,10 @@ defmodule ZenCex.Analysis.Basis do
 
   defp fetch_spot_price(:bybit, symbol, _config) do
     case Bybit.MarketData.get_tickers(%{category: "spot", symbol: symbol}) do
-      {:ok, %{"list" => [%{"lastPrice" => price} | _]}} ->
+      {:ok, %{list: [%{last_price: price} | _]}} ->
         {:ok, parse_decimal(price)}
 
-      {:ok, %{"list" => []}} ->
+      {:ok, %{list: []}} ->
         {:error, {:symbol_not_found, symbol}}
 
       error ->
@@ -608,10 +608,10 @@ defmodule ZenCex.Analysis.Basis do
       end
 
     case Bybit.MarketData.get_tickers(%{category: category, symbol: symbol}) do
-      {:ok, %{"list" => [%{"lastPrice" => price} | _]}} ->
+      {:ok, %{list: [%{last_price: price} | _]}} ->
         {:ok, parse_decimal(price)}
 
-      {:ok, %{"list" => []}} ->
+      {:ok, %{list: []}} ->
         {:error, {:symbol_not_found, symbol}}
 
       error ->
@@ -639,14 +639,14 @@ defmodule ZenCex.Analysis.Basis do
 
   defp fetch_funding_rate(:bybit, symbol, _config) do
     case Bybit.MarketData.get_tickers(%{category: "linear", symbol: symbol}) do
-      {:ok, %{"list" => [%{"fundingRate" => rate} | _]}} when is_binary(rate) ->
+      {:ok, %{list: [%{funding_rate: rate} | _]}} when is_binary(rate) ->
         {:ok, parse_decimal(rate)}
 
-      {:ok, %{"list" => [_]}} ->
+      {:ok, %{list: [_]}} ->
         # If no funding rate available, default to 0
         {:ok, Decimal.new(0)}
 
-      {:ok, %{"list" => []}} ->
+      {:ok, %{list: []}} ->
         {:error, {:symbol_not_found, symbol}}
 
       error ->
@@ -753,7 +753,7 @@ defmodule ZenCex.Analysis.Basis do
 
   defp fetch_bybit_instruments do
     case Bybit.MarketData.get_instruments_info(%{category: "linear"}) do
-      {:ok, %{"list" => instruments}} ->
+      {:ok, %{list: instruments}} ->
         {:ok, instruments}
 
       {:error, reason} ->
@@ -798,7 +798,7 @@ defmodule ZenCex.Analysis.Basis do
 
         # Fetch current price for this contract
         case Bybit.MarketData.get_tickers(%{category: "linear", symbol: symbol}) do
-          {:ok, %{"list" => [%{"lastPrice" => price} | _]}} ->
+          {:ok, %{list: [%{last_price: price} | _]}} ->
             %{
               symbol: symbol,
               expiry: expiry,

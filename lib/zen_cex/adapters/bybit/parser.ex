@@ -40,6 +40,8 @@ defmodule ZenCex.Adapters.Bybit.Parser do
     - 130006: Rate limit exceeded
   """
 
+  import ZenCex.ParserMacros
+
   alias ZenCex.Core.ResponseParser
 
   require Logger
@@ -116,12 +118,17 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   # Private functions
 
   defp handle_bybit_response(%{"retCode" => 0, "result" => result}, _status, _response) do
-    {:ok, result}
+    # Normalize to atom keys for consistency with Binance
+    normalized = normalize_keys(result)
+    {:ok, normalized}
   end
 
   defp handle_bybit_response(%{"retCode" => 0} = data, _status, _response) do
     # Success but no result field (some endpoints return data at root level)
-    {:ok, Map.drop(data, ["retCode", "retMsg", "time", "retExtInfo"])}
+    data
+    |> Map.drop(["retCode", "retMsg", "time", "retExtInfo"])
+    |> normalize_keys()
+    |> then(&{:ok, &1})
   end
 
   defp handle_bybit_response(%{"retCode" => code} = response, _status, _response) when is_integer(code) and code != 0 do
@@ -186,9 +193,8 @@ defmodule ZenCex.Adapters.Bybit.Parser do
 
   def parse_server_time(body) when is_binary(body) do
     # If still a string, decode it first
-    case Jason.decode(body) do
-      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
-      {:error, _} -> {:error, :invalid_json}
+    with {:ok, decoded} <- decode_json_body(body) do
+      handle_bybit_response(decoded, 200, %{})
     end
   end
 
@@ -213,9 +219,8 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   end
 
   def parse_error(body) when is_binary(body) do
-    case Jason.decode(body) do
-      {:ok, decoded} -> parse_error(decoded)
-      {:error, _} -> {:error, :invalid_json}
+    with {:ok, decoded} <- decode_json_body(body) do
+      parse_error(decoded)
     end
   end
 
@@ -235,9 +240,8 @@ defmodule ZenCex.Adapters.Bybit.Parser do
 
   def parse_announcements(body) when is_binary(body) do
     # If still a string, decode it first
-    case Jason.decode(body) do
-      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
-      {:error, _} -> {:error, :invalid_json}
+    with {:ok, decoded} <- decode_json_body(body) do
+      handle_bybit_response(decoded, 200, %{})
     end
   end
 
@@ -250,9 +254,8 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   end
 
   def parse_wallet_balance(body) when is_binary(body) do
-    case Jason.decode(body) do
-      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
-      {:error, _} -> {:error, :invalid_json}
+    with {:ok, decoded} <- decode_json_body(body) do
+      handle_bybit_response(decoded, 200, %{})
     end
   end
 
@@ -265,9 +268,8 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   end
 
   def parse_order(body) when is_binary(body) do
-    case Jason.decode(body) do
-      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
-      {:error, _} -> {:error, :invalid_json}
+    with {:ok, decoded} <- decode_json_body(body) do
+      handle_bybit_response(decoded, 200, %{})
     end
   end
 
@@ -279,7 +281,8 @@ defmodule ZenCex.Adapters.Bybit.Parser do
     case handle_bybit_response(body, 200, %{}) do
       {:ok, result} when is_map(result) ->
         # Extract list from result (handle both direct list and nested structure)
-        orders = Map.get(result, "list", result)
+        # Now using atom keys after normalization
+        orders = Map.get(result, :list, result)
         {:ok, orders}
 
       {:ok, result} when is_list(result) ->
@@ -291,9 +294,8 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   end
 
   def parse_orders(body) when is_binary(body) do
-    case Jason.decode(body) do
-      {:ok, decoded} -> parse_orders(decoded)
-      {:error, _} -> {:error, :invalid_json}
+    with {:ok, decoded} <- decode_json_body(body) do
+      parse_orders(decoded)
     end
   end
 
@@ -306,9 +308,8 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   end
 
   def parse_batch_cancel(body) when is_binary(body) do
-    case Jason.decode(body) do
-      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
-      {:error, _} -> {:error, :invalid_json}
+    with {:ok, decoded} <- decode_json_body(body) do
+      handle_bybit_response(decoded, 200, %{})
     end
   end
 
@@ -319,8 +320,8 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   def parse_positions(body) when is_map(body) do
     case handle_bybit_response(body, 200, %{}) do
       {:ok, result} when is_map(result) ->
-        # Extract list from result
-        positions = Map.get(result, "list", [])
+        # Extract list from result (now using atom keys after normalization)
+        positions = Map.get(result, :list, [])
         {:ok, positions}
 
       {:ok, result} when is_list(result) ->
@@ -332,9 +333,8 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   end
 
   def parse_positions(body) when is_binary(body) do
-    case Jason.decode(body) do
-      {:ok, decoded} -> parse_positions(decoded)
-      {:error, _} -> {:error, :invalid_json}
+    with {:ok, decoded} <- decode_json_body(body) do
+      parse_positions(decoded)
     end
   end
 
@@ -345,8 +345,8 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   def parse_trades(body) when is_map(body) do
     case handle_bybit_response(body, 200, %{}) do
       {:ok, result} when is_map(result) ->
-        # Extract list from result
-        trades = Map.get(result, "list", [])
+        # Extract list from result (now using atom keys after normalization)
+        trades = Map.get(result, :list, [])
         {:ok, trades}
 
       {:ok, result} when is_list(result) ->
@@ -358,9 +358,8 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   end
 
   def parse_trades(body) when is_binary(body) do
-    case Jason.decode(body) do
-      {:ok, decoded} -> parse_trades(decoded)
-      {:error, _} -> {:error, :invalid_json}
+    with {:ok, decoded} <- decode_json_body(body) do
+      parse_trades(decoded)
     end
   end
 
@@ -373,9 +372,8 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   end
 
   def parse_generic(body) when is_binary(body) do
-    case Jason.decode(body) do
-      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
-      {:error, _} -> {:error, :invalid_json}
+    with {:ok, decoded} <- decode_json_body(body) do
+      handle_bybit_response(decoded, 200, %{})
     end
   end
 
@@ -401,9 +399,8 @@ defmodule ZenCex.Adapters.Bybit.Parser do
   end
 
   def parse_market_data_response(body) when is_binary(body) do
-    case Jason.decode(body) do
-      {:ok, decoded} -> handle_bybit_response(decoded, 200, %{})
-      {:error, _} -> {:error, :invalid_json}
+    with {:ok, decoded} <- decode_json_body(body) do
+      handle_bybit_response(decoded, 200, %{})
     end
   end
 end

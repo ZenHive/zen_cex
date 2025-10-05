@@ -30,14 +30,14 @@ defmodule ZenCex.Adapters.Binance.Parser do
   - **-1102**: Mandatory parameter missing
   - **429**: Rate limit exceeded
 
-  ## Type Conversions
+  ## Response Normalization
 
-  All financial values in SUCCESS responses are converted from strings to `Decimal.t()`:
-  - Prices: `"50000.00"` -> `Decimal.new("50000.00")`
-  - Quantities: `"0.5"` -> `Decimal.new("0.5")`
-  - PnL values: `"125.50"` -> `Decimal.new("125.50")`
+  The parser applies minimal transformation to exchange responses:
+  - **Keys**: Normalized to snake_case atoms (e.g., `"orderId"` → `:order_id`)
+  - **Values**: Kept as-is from API (strings for numbers, integers for IDs, booleans)
+  - **Enums**: Status/side/type values converted to lowercase atoms (e.g., `"BUY"` → `:buy`)
 
-  Null or missing values default to `Decimal.new("0")`.
+  Users are responsible for type conversions (e.g., `Decimal.new(price)` for calculations).
   """
 
   @behaviour ZenCex.Behaviors.Parser
@@ -87,23 +87,16 @@ defmodule ZenCex.Adapters.Binance.Parser do
   """
   @impl true
   def parse_positions(response) when is_map(response) do
-    cond do
-      # Spot account info format
-      Map.has_key?(response, "balances") ->
-        parse_spot_balances_as_positions(extract_field(response, ["balances"], :identity))
-
-      # Single position format (wrapped in list)
-      Map.has_key?(response, "symbol") ->
-        {:ok, [parse_futures_position(response)]}
-
-      true ->
-        {:error, :invalid_format}
-    end
+    # Normalize keys and return all fields as-is
+    # No filtering, no computed fields, no business logic
+    {:ok, normalize_keys(response)}
+  rescue
+    e -> {:error, {:parse_error, Exception.message(e)}}
   end
 
   def parse_positions(response) when is_list(response) do
-    # Futures positions array
-    positions = Enum.map(response, &parse_futures_position/1)
+    # Normalize each position, keep all fields as-is
+    positions = Enum.map(response, &normalize_keys/1)
     {:ok, positions}
   rescue
     e -> {:error, {:parse_error, Exception.message(e)}}
@@ -152,18 +145,8 @@ defmodule ZenCex.Adapters.Binance.Parser do
   @impl true
   def parse_balances(%{"balances" => balances}) when is_list(balances) do
     # Spot/Margin format with "balances" key
-    parsed =
-      Enum.map(balances, fn balance ->
-        free = extract_field(balance, ["free"], :decimal)
-        locked = extract_field(balance, ["locked"], :decimal)
-
-        %{
-          asset: extract_field(balance, ["asset"], :string),
-          free: free,
-          locked: locked,
-          total: Decimal.add(free, locked)
-        }
-      end)
+    # Normalize keys and return all fields as-is (strings for numbers)
+    parsed = Enum.map(balances, &normalize_keys/1)
 
     {:ok, parsed}
   rescue
@@ -187,27 +170,9 @@ defmodule ZenCex.Adapters.Binance.Parser do
   end
 
   defp parse_futures_balances(balances) do
-    parsed =
-      Enum.map(balances, fn balance ->
-        # Validate required fields
-        if !(Map.has_key?(balance, "asset") and Map.has_key?(balance, "balance") and
-               Map.has_key?(balance, "availableBalance")) do
-          raise "Missing required futures balance fields: #{inspect(Map.keys(balance))}"
-        end
-
-        # For futures balances, use availableBalance as free and calculate locked
-        available = extract_field(balance, ["availableBalance"], :decimal)
-        total_balance = extract_field(balance, ["balance"], :decimal)
-        # locked = total_balance - available_balance (futures margin calculation)
-        locked = Decimal.sub(total_balance, available)
-
-        %{
-          asset: extract_field(balance, ["asset"], :string),
-          free: available,
-          locked: locked,
-          total: total_balance
-        }
-      end)
+    # Futures V3 format - normalize keys and return all fields as-is
+    # Users can calculate locked = balance - availableBalance if needed
+    parsed = Enum.map(balances, &normalize_keys/1)
 
     {:ok, parsed}
   rescue
@@ -240,18 +205,16 @@ defmodule ZenCex.Adapters.Binance.Parser do
          order_type when is_binary(order_type) and order_type != "" <- response["type"],
          status when is_binary(status) and status != "" <- response["status"] do
       try do
-        order = %{
-          order_id: extract_field(response, ["orderId", "id"], :string),
-          client_order_id: extract_field(response, ["clientOrderId"], :string),
-          symbol: symbol,
-          side: side |> String.downcase() |> String.to_atom(),
-          type: order_type |> String.downcase() |> String.to_atom(),
-          price: extract_field(response, ["price"], :decimal),
-          quantity: extract_field(response, ["origQty", "quantity"], :decimal),
-          filled_quantity: extract_field(response, ["executedQty"], :decimal),
-          status: normalize_order_status(status),
-          timestamp: extract_field(response, ["transactTime", "time", "updateTime"], :identity)
-        }
+        # Normalize all keys to atoms, then add computed enum fields
+        # Keep numeric values as strings (user converts to Decimal/Float as needed)
+        order =
+          response
+          |> normalize_keys()
+          |> Map.merge(%{
+            side: normalize_enum_value(side),
+            type: normalize_enum_value(order_type),
+            status: normalize_order_status(status)
+          })
 
         {:ok, order}
       rescue
@@ -500,22 +463,8 @@ defmodule ZenCex.Adapters.Binance.Parser do
   """
   @spec parse_trades(list() | term()) :: {:ok, list()} | {:error, atom()}
   def parse_trades(response) when is_list(response) do
-    trades =
-      Enum.map(response, fn trade ->
-        %{
-          trade_id: extract_field(trade, ["id", "tradeId"], :string),
-          order_id: extract_field(trade, ["orderId"], :string),
-          symbol: extract_field(trade, ["symbol"], :string),
-          price: extract_field(trade, ["price"], :decimal),
-          quantity: extract_field(trade, ["qty", "quantity"], :decimal),
-          quote_quantity: extract_field(trade, ["quoteQty"], :decimal),
-          commission: extract_field(trade, ["commission"], :decimal),
-          commission_asset: extract_field(trade, ["commissionAsset"], :string),
-          timestamp: extract_field(trade, ["time", "timestamp"], :identity),
-          is_buyer: extract_field(trade, ["isBuyer"], fn val -> val || false end),
-          is_maker: extract_field(trade, ["isMaker"], fn val -> val || false end)
-        }
-      end)
+    # Normalize keys and return all fields as-is (strings for numbers)
+    trades = Enum.map(response, &normalize_keys/1)
 
     {:ok, trades}
   rescue
@@ -571,72 +520,12 @@ defmodule ZenCex.Adapters.Binance.Parser do
   """
   @spec parse_account(map() | term()) :: {:ok, map()} | {:error, atom()}
   def parse_account(response) when is_map(response) do
-    account = %{
-      fee_tier: extract_field(response, ["feeTier"], :integer),
-      can_trade: extract_field(response, ["canTrade"], :identity),
-      can_deposit: extract_field(response, ["canDeposit"], :identity),
-      can_withdraw: extract_field(response, ["canWithdraw"], :identity),
-      update_time: extract_field(response, ["updateTime"], :integer),
-      total_initial_margin: extract_field(response, ["totalInitialMargin"], :decimal),
-      total_maint_margin: extract_field(response, ["totalMaintMargin"], :decimal),
-      total_wallet_balance: extract_field(response, ["totalWalletBalance"], :decimal),
-      total_unrealized_profit: extract_field(response, ["totalUnrealizedProfit"], :decimal),
-      total_margin_balance: extract_field(response, ["totalMarginBalance"], :decimal),
-      total_position_initial_margin: extract_field(response, ["totalPositionInitialMargin"], :decimal),
-      total_open_order_initial_margin: extract_field(response, ["totalOpenOrderInitialMargin"], :decimal),
-      total_cross_wallet_balance: extract_field(response, ["totalCrossWalletBalance"], :decimal),
-      total_cross_un_pnl: extract_field(response, ["totalCrossUnPnl"], :decimal),
-      available_balance: extract_field(response, ["availableBalance"], :decimal),
-      max_withdraw_amount: extract_field(response, ["maxWithdrawAmount"], :decimal)
-    }
-
-    # Add assets if present
-    account =
-      case extract_field(response, ["assets"], :identity) do
-        assets when is_list(assets) ->
-          parsed_assets =
-            Enum.map(assets, fn asset ->
-              %{
-                asset: extract_field(asset, ["asset"], :string),
-                wallet_balance: extract_field(asset, ["walletBalance"], :decimal),
-                unrealized_profit: extract_field(asset, ["unrealizedProfit"], :decimal),
-                margin_balance: extract_field(asset, ["marginBalance"], :decimal),
-                maint_margin: extract_field(asset, ["maintMargin"], :decimal),
-                initial_margin: extract_field(asset, ["initialMargin"], :decimal),
-                position_initial_margin: extract_field(asset, ["positionInitialMargin"], :decimal),
-                open_order_initial_margin: extract_field(asset, ["openOrderInitialMargin"], :decimal),
-                max_withdraw_amount: extract_field(asset, ["maxWithdrawAmount"], :decimal),
-                cross_wallet_balance: extract_field(asset, ["crossWalletBalance"], :decimal),
-                cross_un_pnl: extract_field(asset, ["crossUnPnl"], :decimal),
-                available_balance: extract_field(asset, ["availableBalance"], :decimal)
-              }
-            end)
-
-          Map.put(account, :assets, parsed_assets)
-
-        _ ->
-          account
-      end
-
-    # Add positions if present
-    account =
-      case extract_field(response, ["positions"], :identity) do
-        positions when is_list(positions) ->
-          parsed_positions =
-            Enum.map(positions, fn pos ->
-              parse_futures_position(pos)
-            end)
-
-          Map.put(account, :positions, parsed_positions)
-
-        _ ->
-          account
-      end
+    # Normalize all keys recursively, keep values as-is (strings for numbers)
+    # Nested structures (assets, positions) will also be normalized
+    account = normalize_keys(response)
 
     {:ok, account}
   rescue
-    ArgumentError -> {:error, :invalid_decimal_format}
-    KeyError -> {:error, :missing_required_field}
     e -> {:error, {:parse_error, Exception.message(e)}}
   end
 
@@ -676,24 +565,16 @@ defmodule ZenCex.Adapters.Binance.Parser do
   """
   @spec parse_income(list() | term()) :: {:ok, list()} | {:error, atom()}
   def parse_income(response) when is_list(response) do
+    # Normalize keys, convert income_type enum, keep rest as-is
     income_records =
       Enum.map(response, fn record ->
-        %{
-          symbol: extract_field(record, ["symbol"], :string),
-          income_type: normalize_income_type(extract_field(record, ["incomeType"], :string)),
-          income: extract_field(record, ["income"], :decimal),
-          asset: extract_field(record, ["asset"], :string),
-          timestamp: extract_field(record, ["time"], :identity),
-          info: extract_field(record, ["info"], :string),
-          transaction_id: extract_field(record, ["tranId"], :integer),
-          trade_id: extract_field(record, ["tradeId"], :string)
-        }
+        record
+        |> normalize_keys()
+        |> Map.update(:income_type, nil, &normalize_income_type/1)
       end)
 
     {:ok, income_records}
   rescue
-    ArgumentError -> {:error, :invalid_decimal_format}
-    KeyError -> {:error, :missing_required_field}
     e -> {:error, {:parse_error, Exception.message(e)}}
   end
 
@@ -767,58 +648,6 @@ defmodule ZenCex.Adapters.Binance.Parser do
   def parse_fees(_), do: {:error, :invalid_format}
 
   # Private helper functions
-
-  defp parse_spot_balances_as_positions(balances) when is_list(balances) do
-    positions =
-      balances
-      |> Enum.filter(fn balance ->
-        # Only include assets with non-zero balances
-        free = extract_field(balance, ["free"], :decimal)
-        locked = extract_field(balance, ["locked"], :decimal)
-
-        not (Decimal.equal?(free, Decimal.new("0")) and Decimal.equal?(locked, Decimal.new("0")))
-      end)
-      |> Enum.map(&convert_balance_to_position/1)
-
-    {:ok, positions}
-  rescue
-    e -> {:error, {:parse_error, Exception.message(e)}}
-  end
-
-  defp convert_balance_to_position(balance) do
-    free = extract_field(balance, ["free"], :decimal)
-    locked = extract_field(balance, ["locked"], :decimal)
-    total = Decimal.add(free, locked)
-
-    %{
-      symbol: extract_field(balance, ["asset"], :string),
-      side: :long,
-      size: total,
-      entry_price: Decimal.new("0"),
-      mark_price: Decimal.new("0"),
-      pnl: Decimal.new("0"),
-      margin: locked,
-      timestamp: System.system_time(:millisecond)
-    }
-  end
-
-  defp parse_futures_position(position) do
-    %{
-      symbol: extract_field(position, ["symbol"], :string),
-      side: normalize_position_side(extract_field(position, ["positionSide"], :string)),
-      size: extract_field(position, ["positionAmt"], :decimal),
-      entry_price: extract_field(position, ["entryPrice"], :decimal),
-      mark_price: extract_field(position, ["markPrice"], :decimal),
-      pnl: extract_field(position, ["unRealizedProfit"], :decimal),
-      margin: extract_field(position, ["isolatedMargin", "initialMargin"], :decimal),
-      timestamp: extract_field(position, ["updateTime"], fn val -> val || System.system_time(:millisecond) end)
-    }
-  end
-
-  defp normalize_position_side("LONG"), do: :long
-  defp normalize_position_side("SHORT"), do: :short
-  defp normalize_position_side("BOTH"), do: :long
-  defp normalize_position_side(_), do: :long
 
   defp normalize_order_status("NEW"), do: :new
   defp normalize_order_status("PARTIALLY_FILLED"), do: :partially_filled

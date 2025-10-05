@@ -15,22 +15,22 @@ defmodule ZenCex.Adapters.Bybit.CommonIntegrationTest do
       # Call the real Bybit testnet API
       assert {:ok, result} = Common.get_server_time()
 
-      # Bybit returns timeSecond and timeNano fields
+      # Bybit returns timeSecond and timeNano fields (now normalized to atom keys)
       assert is_map(result)
-      assert Map.has_key?(result, "timeSecond") or Map.has_key?(result, "time")
+      assert Map.has_key?(result, :time_second) or Map.has_key?(result, :time)
 
-      # If timeSecond exists, it should be a string timestamp
-      if Map.has_key?(result, "timeSecond") do
-        assert is_binary(result["timeSecond"])
+      # If time_second exists, it should be a string timestamp
+      if Map.has_key?(result, :time_second) do
+        assert is_binary(result[:time_second])
         # Should be a valid Unix timestamp (10 digits as string)
-        assert String.length(result["timeSecond"]) == 10
+        assert String.length(result[:time_second]) == 10
       end
 
       # If time exists (millisecond timestamp), it should be an integer
-      if Map.has_key?(result, "time") do
-        assert is_integer(result["time"])
+      if Map.has_key?(result, :time) do
+        assert is_integer(result[:time])
         # Should be a reasonable timestamp (13 digits for milliseconds)
-        assert result["time"] > 1_600_000_000_000
+        assert result[:time] > 1_600_000_000_000
       end
     end
 
@@ -56,14 +56,14 @@ defmodule ZenCex.Adapters.Bybit.CommonIntegrationTest do
         {:ok, data} ->
           # Announcements response should have a list structure
           assert is_map(data)
-          # May have "list" key with announcements array
-          if Map.has_key?(data, "list") do
-            assert is_list(data["list"])
+          # May have :list key with announcements array (now normalized to atom)
+          if Map.has_key?(data, :list) do
+            assert is_list(data[:list])
           end
 
-          # May have "total" key with count
-          if Map.has_key?(data, "total") do
-            assert is_integer(data["total"]) or is_binary(data["total"])
+          # May have :total key with count (now normalized to atom)
+          if Map.has_key?(data, :total) do
+            assert is_integer(data[:total]) or is_binary(data[:total])
           end
 
         {:error, :not_found} ->

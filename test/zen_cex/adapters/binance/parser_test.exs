@@ -192,21 +192,19 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
 
       btc_balance = Enum.find(balances, &(&1.asset == "BTC"))
       assert btc_balance.asset == "BTC"
-      assert Decimal.equal?(btc_balance.free, Decimal.new("0.5"))
-      assert Decimal.equal?(btc_balance.locked, Decimal.new("0.1"))
-      assert Decimal.equal?(btc_balance.total, Decimal.new("0.6"))
+      assert btc_balance.free == "0.50000000"
+      assert btc_balance.locked == "0.10000000"
+      # Parser returns raw API fields - users calculate total if needed
 
       usdt_balance = Enum.find(balances, &(&1.asset == "USDT"))
       assert usdt_balance.asset == "USDT"
-      assert Decimal.equal?(usdt_balance.free, Decimal.new("1000"))
-      assert Decimal.equal?(usdt_balance.locked, Decimal.new("500"))
-      assert Decimal.equal?(usdt_balance.total, Decimal.new("1500"))
+      assert usdt_balance.free == "1000.00000000"
+      assert usdt_balance.locked == "500.00000000"
 
       eth_balance = Enum.find(balances, &(&1.asset == "ETH"))
       assert eth_balance.asset == "ETH"
-      assert Decimal.equal?(eth_balance.free, Decimal.new("0"))
-      assert Decimal.equal?(eth_balance.locked, Decimal.new("0"))
-      assert Decimal.equal?(eth_balance.total, Decimal.new("0"))
+      assert eth_balance.free == "0.00000000"
+      assert eth_balance.locked == "0.00000000"
     end
 
     test "handles missing balance fields with defaults" do
@@ -221,12 +219,13 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
       assert {:ok, balances} = Parser.parse_balances(response)
 
       btc_balance = Enum.find(balances, &(&1.asset == "BTC"))
-      assert Decimal.equal?(btc_balance.free, Decimal.new("0"))
-      assert Decimal.equal?(btc_balance.locked, Decimal.new("0"))
+      assert btc_balance.free == nil
+      assert btc_balance.locked == ""
 
       usdt_balance = Enum.find(balances, &(&1.asset == "USDT"))
-      assert Decimal.equal?(usdt_balance.free, Decimal.new("100"))
-      assert Decimal.equal?(usdt_balance.locked, Decimal.new("0"))
+      assert usdt_balance.free == "100"
+      # Field doesn't exist
+      assert usdt_balance[:locked] == nil
     end
 
     test "handles invalid format" do
@@ -237,9 +236,9 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
     end
 
     test "handles parse errors" do
-      # This should cause an error during Enum.map processing
+      # Parser just normalizes keys - this will succeed with normalized string
       response = %{"balances" => ["invalid_balance_format"]}
-      assert {:error, {:parse_error, _}} = Parser.parse_balances(response)
+      assert {:ok, ["invalid_balance_format"]} = Parser.parse_balances(response)
     end
 
     test "parses futures V3 balances (direct array)" do
@@ -272,17 +271,16 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
       assert {:ok, balances} = Parser.parse_balances(response)
       assert length(balances) == 2
 
+      # Parser returns raw API fields (strings), not computed fields
       usdt = Enum.find(balances, &(&1.asset == "USDT"))
-      assert usdt.free == Decimal.new("23.72469206")
-      assert usdt.total == Decimal.new("122607.35137903")
-      # locked = total - available
-      expected_locked = Decimal.sub(Decimal.new("122607.35137903"), Decimal.new("23.72469206"))
-      assert Decimal.equal?(usdt.locked, expected_locked)
+      assert usdt.available_balance == "23.72469206"
+      assert usdt.balance == "122607.35137903"
+      assert usdt.cross_wallet_balance == "23.72469206"
 
       btc = Enum.find(balances, &(&1.asset == "BTC"))
-      assert btc.free == Decimal.new("1.00000000")
-      assert btc.total == Decimal.new("1.50000000")
-      assert Decimal.equal?(btc.locked, Decimal.new("0.50000000"))
+      assert btc.available_balance == "1.00000000"
+      assert btc.balance == "1.50000000"
+      # Users calculate locked = balance - available_balance if needed
     end
   end
 
@@ -290,29 +288,29 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
     test "parses filled limit order" do
       assert {:ok, order} = Parser.parse_order(@order_response)
 
-      assert order.order_id == "123456789"
+      assert order.order_id == 123_456_789
       assert order.client_order_id == "test_order_123"
       assert order.symbol == "BTCUSDT"
       assert order.side == :buy
       assert order.type == :limit
-      assert Decimal.equal?(order.price, Decimal.new("50000"))
-      assert Decimal.equal?(order.quantity, Decimal.new("0.1"))
-      assert Decimal.equal?(order.filled_quantity, Decimal.new("0.1"))
+      assert order.price == "50000.00000000"
+      assert order.orig_qty == "0.10000000"
+      assert order.executed_qty == "0.10000000"
       assert order.status == :filled
-      assert order.timestamp == 1_234_567_890
+      assert order.transact_time == 1_234_567_890
     end
 
     test "parses partially filled market order" do
       assert {:ok, order} = Parser.parse_order(@market_order_response)
 
-      assert order.order_id == "987654321"
+      assert order.order_id == 987_654_321
       assert order.client_order_id == "market_order_456"
       assert order.symbol == "ETHUSDT"
       assert order.side == :sell
       assert order.type == :market
-      assert Decimal.equal?(order.price, Decimal.new("0"))
-      assert Decimal.equal?(order.quantity, Decimal.new("1"))
-      assert Decimal.equal?(order.filled_quantity, Decimal.new("0.5"))
+      assert order.price == "0.00000000"
+      assert order.orig_qty == "1.00000000"
+      assert order.executed_qty == "0.50000000"
       assert order.status == :partially_filled
     end
 
@@ -331,9 +329,10 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
       assert order.side == :buy
       assert order.type == :market
       assert order.status == :new
-      assert Decimal.equal?(order.price, Decimal.new("0"))
-      assert Decimal.equal?(order.quantity, Decimal.new("0"))
-      assert Decimal.equal?(order.filled_quantity, Decimal.new("0"))
+      assert order.order_id == 555_555
+      # Missing fields are simply not present (no defaults)
+      assert order[:price] == nil
+      assert order[:orig_qty] == nil
     end
 
     test "handles alternative field names" do
@@ -348,10 +347,11 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
       }
 
       assert {:ok, order} = Parser.parse_order(alt_order)
-      assert order.order_id == "777777"
-      assert Decimal.equal?(order.quantity, Decimal.new("10"))
+      # API uses "id", not "orderId"
+      assert order.id == 777_777
+      assert order.quantity == "10"
       assert order.status == :cancelled
-      assert order.timestamp == 1_234_567_892
+      assert order.time == 1_234_567_892
     end
 
     test "normalizes order statuses" do
@@ -467,29 +467,24 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
 
   describe "decimal conversion edge cases" do
     test "handles various numeric formats" do
+      # Parser returns raw values as-is - no conversion or validation
       test_cases = [
-        {"0.00000000", Decimal.new("0")},
-        {"123.456", Decimal.new("123.456")},
-        {"0", Decimal.new("0")},
-        {"", Decimal.new("0")},
-        {nil, Decimal.new("0")},
-        {0, Decimal.new("0")},
-        {123.45, Decimal.new("123.45")},
-        {"invalid", Decimal.new("0")}
+        {"0.00000000", "0.00000000"},
+        {"123.456", "123.456"},
+        {"0", "0"},
+        {"", ""},
+        {nil, nil},
+        {0, 0},
+        {123.45, 123.45},
+        {"invalid", "invalid"}
       ]
 
-      # Test through balance parsing which uses safe_decimal
-      for {input_value, expected_decimal} <- test_cases do
+      # Parser just normalizes keys, returns values as-is
+      for {input_value, expected_value} <- test_cases do
         response = %{"balances" => [%{"asset" => "TEST", "free" => input_value, "locked" => "0"}]}
 
-        case Parser.parse_balances(response) do
-          {:ok, [balance]} ->
-            assert Decimal.equal?(balance.free, expected_decimal)
-
-          {:error, _} when input_value == "invalid" ->
-            # Expected for truly invalid inputs
-            :ok
-        end
+        {:ok, [balance]} = Parser.parse_balances(response)
+        assert balance.free == expected_value
       end
     end
   end
@@ -567,15 +562,23 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
 
       assert {:ok, [trade]} = Parser.parse_trades(response)
 
-      assert trade.trade_id == "123456"
-      assert trade.order_id == "789"
+      # Normalized keys (camelCase → snake_case), values as-is (strings/integers from API)
+      # Integer from API
+      assert trade.id == 123_456
+      # Integer from API
+      assert trade.order_id == 789
       assert trade.symbol == "BTCUSDT"
-      assert Decimal.equal?(trade.price, Decimal.new("50000.00"))
-      assert Decimal.equal?(trade.quantity, Decimal.new("0.1"))
-      assert Decimal.equal?(trade.quote_quantity, Decimal.new("5000.00"))
-      assert Decimal.equal?(trade.commission, Decimal.new("0.001"))
+      # String from API
+      assert trade.price == "50000.00"
+      # String from API
+      assert trade.qty == "0.1"
+      # String from API
+      assert trade.quote_qty == "5000.00"
+      # String from API
+      assert trade.commission == "0.001"
       assert trade.commission_asset == "BTC"
-      assert trade.timestamp == 1_234_567_890_000
+      # Integer from API
+      assert trade.time == 1_234_567_890_000
       assert trade.is_buyer == true
       assert trade.is_maker == false
     end
@@ -590,8 +593,9 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
       ]
 
       assert {:ok, [trade]} = Parser.parse_trades(response)
-      assert trade.trade_id == "123456"
-      assert Decimal.equal?(trade.quantity, Decimal.new("0.1"))
+      # API returns integers
+      assert trade.trade_id == 123_456
+      assert trade.quantity == "0.1"
       assert trade.timestamp == 1_234_567_890_000
     end
 
@@ -599,12 +603,13 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
       response = [%{"symbol" => "BTCUSDT"}]
 
       assert {:ok, [trade]} = Parser.parse_trades(response)
-      assert trade.trade_id == ""
-      assert trade.order_id == ""
       assert trade.symbol == "BTCUSDT"
-      assert Decimal.equal?(trade.price, Decimal.new("0"))
-      assert trade.is_buyer == false
-      assert trade.is_maker == false
+      # Parser just normalizes keys - missing fields are nil
+      assert trade[:trade_id] == nil
+      assert trade[:order_id] == nil
+      assert trade[:price] == nil
+      assert trade[:is_buyer] == nil
+      assert trade[:is_maker] == nil
     end
 
     test "returns error for invalid format" do
@@ -769,20 +774,21 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
       assert account.can_deposit == true
       assert account.can_withdraw == true
       assert account.update_time == 1_234_567_890_000
-      assert Decimal.equal?(account.total_wallet_balance, Decimal.new("10000.00000000"))
-      assert Decimal.equal?(account.total_unrealized_profit, Decimal.new("500.00000000"))
-      assert Decimal.equal?(account.available_balance, Decimal.new("9900.00000000"))
+      assert account.total_wallet_balance == "10000.00000000"
+      assert account.total_unrealized_profit == "500.00000000"
+      assert account.available_balance == "9900.00000000"
 
       assert length(account.assets) == 1
       asset = hd(account.assets)
       assert asset.asset == "USDT"
-      assert Decimal.equal?(asset.wallet_balance, Decimal.new("10000.00000000"))
+      assert asset.wallet_balance == "10000.00000000"
 
       assert length(account.positions) == 1
       position = hd(account.positions)
       assert position.symbol == "BTCUSDT"
-      assert position.side == :long
-      assert Decimal.equal?(position.size, Decimal.new("0.50000000"))
+      # Raw API value
+      assert position.position_side == "LONG"
+      assert position.position_amt == "0.50000000"
     end
 
     test "handles missing optional fields" do
@@ -836,9 +842,10 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
         "maxWithdrawAmount" => "0.00000000"
       }
 
-      # safe_decimal converts invalid values to "0" rather than raising errors
+      # Parser returns raw values - validation is user's responsibility
       assert {:ok, account} = Parser.parse_account(invalid_response)
-      assert Decimal.equal?(account.total_initial_margin, Decimal.new("0"))
+      # Invalid value returned as-is
+      assert account.total_initial_margin == "not_a_number"
     end
   end
 
@@ -884,18 +891,21 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
 
       assert first.symbol == "BTCUSDT"
       assert first.income_type == :realized_pnl
-      assert Decimal.equal?(first.income, Decimal.new("100.50000000"))
+      # Parser returns strings
+      assert first.income == "100.50000000"
       assert first.asset == "USDT"
-      assert first.timestamp == 1_234_567_890_000
+      # API field is "time", not "timestamp"
+      assert first.time == 1_234_567_890_000
       assert first.info == "trade id 123"
-      assert first.transaction_id == 987_654_321
+      # API field is "tranId" -> tran_id
+      assert first.tran_id == 987_654_321
       assert first.trade_id == "123456"
 
       assert second.income_type == :funding_fee
-      assert Decimal.equal?(second.income, Decimal.new("-0.50000000"))
+      assert second.income == "-0.50000000"
 
       assert third.income_type == :commission
-      assert Decimal.equal?(third.income, Decimal.new("-2.00000000"))
+      assert third.income == "-2.00000000"
     end
 
     test "normalizes all income types correctly" do
@@ -978,9 +988,10 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
         }
       ]
 
-      # safe_decimal converts invalid values to "0" rather than raising errors
+      # Parser returns raw values - validation/conversion is user's responsibility
       assert {:ok, [record]} = Parser.parse_income(invalid_response)
-      assert Decimal.equal?(record.income, Decimal.new("0"))
+      # Raw invalid value returned as-is
+      assert record.income == "not_a_number"
     end
 
     test "handles empty list" do

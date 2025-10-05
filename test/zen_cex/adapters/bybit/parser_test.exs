@@ -10,7 +10,7 @@ defmodule ZenCex.Adapters.Bybit.ParserTest do
         body: ~s({"retCode":0,"retMsg":"OK","result":{"symbol":"BTCUSDT","price":"50000"}})
       }
 
-      assert {:ok, %{"symbol" => "BTCUSDT", "price" => "50000"}} = Parser.parse(response)
+      assert {:ok, %{symbol: "BTCUSDT", price: "50000"}} = Parser.parse(response)
     end
 
     test "parses successful response without result field" do
@@ -19,7 +19,7 @@ defmodule ZenCex.Adapters.Bybit.ParserTest do
         body: ~s({"retCode":0,"retMsg":"OK","serverTime":1672211736359,"data":"value"})
       }
 
-      assert {:ok, %{"serverTime" => 1_672_211_736_359, "data" => "value"}} = Parser.parse(response)
+      assert {:ok, %{server_time: 1_672_211_736_359, data: "value"}} = Parser.parse(response)
     end
 
     test "parses rate limit error - returns raw response" do
@@ -133,7 +133,7 @@ defmodule ZenCex.Adapters.Bybit.ParserTest do
         body: ~s({"unexpected":"format","no":"retCode"})
       }
 
-      # Should normalize through Core.ResponseParser
+      # Should normalize through Core.ResponseParser (keys not normalized for non-Bybit format)
       assert {:ok, %{"unexpected" => "format", "no" => "retCode"}} = Parser.parse(response)
     end
   end
