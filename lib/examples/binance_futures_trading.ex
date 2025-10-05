@@ -132,7 +132,8 @@ defmodule ZenCex.Examples.BinanceFuturesTrading do
         side: side,
         type: "LIMIT",
         price: price,
-        quantity: quantity
+        quantity: quantity,
+        timeInForce: "GTC"
       },
       opts
     )

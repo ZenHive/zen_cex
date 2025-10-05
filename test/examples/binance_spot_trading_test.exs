@@ -61,27 +61,32 @@ defmodule ZenCex.Examples.BinanceSpotTradingTest do
     @tag :write_operation
     @tag :skip
     test "place_market_buy/2 creates market buy order", context do
-      api_key = context[:api_key]
-      api_secret = context[:api_secret]
-
-      if is_nil(api_key) or is_nil(api_secret) do
-        flunk("Testnet credentials required for this test")
-      end
+      opts = [
+        auth_credentials: %{
+          api_key: context[:api_key],
+          api_secret: context[:api_secret],
+          testnet: context[:testnet]
+        }
+      ]
 
       # Note: This test is skipped to avoid creating actual orders
-      # To run: mix test --include write_operation
+      # To run: mix test --include write_operation --include skip
       symbol = "BTCUSDT"
       quantity = "0.001"
 
-      case BinanceSpotTrading.place_market_buy(symbol, quantity) do
+      case BinanceSpotTrading.place_market_buy(symbol, quantity, opts) do
         {:ok, order} ->
-          assert Map.has_key?(order, "orderId")
-          assert Map.has_key?(order, "status")
-          assert order["symbol"] == symbol
-          assert order["side"] == "BUY"
-          assert order["type"] == "MARKET"
+          # Binance parser returns atom keys
+          assert Map.has_key?(order, :order_id)
+          assert Map.has_key?(order, :status)
+          assert order[:symbol] == symbol
+          assert order[:side] == :buy
+          assert order[:type] == :market
 
         {:error, :insufficient_balance} ->
+          :ok
+
+        {:error, {:insufficient_balance, _}} ->
           :ok
 
         {:error, other} ->

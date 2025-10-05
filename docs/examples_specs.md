@@ -1,154 +1,49 @@
 # Example Modules & Tests Implementation Tickets
 
-This document contains numbered tasks for implementing example modules and tests to verify all documentation claims in README.md, usage-rules.md, and CHANGELOG.md.
+This document tracks remaining tasks for implementing example modules and tests to verify all documentation claims in README.md, usage-rules.md, and CHANGELOG.md.
 
 ## Status: IN PROGRESS
 
+**Last Updated**: 2025-01-05 (Session 8)
+
+**Current Progress**:
+- ✅ Completed: Tasks 0-7, 11-17 (all Binance modules + Bybit trading + all tests)
+- ⏳ Remaining: 8 tasks (3 modules + 4 tests + config/verification)
+
+**Next Task**: Task 8 (credential_management.ex) and Task 18 (credential_management_test.exs)
+
 ---
 
-## 🔄 CONTINUATION PROMPT (Update at end of each session)
-
-**Last Updated**: 2025-01-05 (Session 5)
+## 🔄 CONTINUATION PROMPT
 
 **For next session, start with**:
 ```
 Continue implementing example modules from docs/examples_specs.md.
 
-Current status: Completed Tasks 0-6, 11-16 (all Binance modules + all tests).
-Next: Task 7 (bybit_trading.ex) and Task 17 (bybit_trading_test.exs).
+Current status: Completed Tasks 0-7, 11-17 (all Binance modules + Bybit trading + all tests). Session 8 fixed all test failures.
+Next: Task 8 (credential_management.ex) and Task 18 (credential_management_test.exs).
 
 Key points:
 - ALWAYS implement both module AND tests in the same session
+- Bybit returns STRING keys, Binance returns ATOM keys (inconsistency documented)
 - Use Cache.Market.get_ticker(:binance, symbol) for WebSocket cached data
 - Use MarketData module for REST market data endpoints
 - All functions need @spec, @doc, @moduledoc
 - Run tests after creating them
 - Update this file's continuation prompt when done
+- ALWAYS pass auth_credentials in opts for authenticated operations
+- Handle exchange-specific error codes (Binance: -2019, -4013; Bybit: 110101, 170140)
 
-Begin: "Continuing from docs/examples_specs.md - implementing Task 7..."
+Begin: "Continuing from docs/examples_specs.md - implementing Task 8..."
 ```
 
-**What to update at end of each session**:
-1. Update "Last Updated" date and session number
-2. Update "Current status" with completed tasks
-3. Update "Next" with the next task number and name
-4. If all tasks done, change Status to "COMPLETED" and note final verification needed
-
-**Implementation Strategy**:
-- Always implement example module AND its test suite in the same session
-- Run tests immediately after creating them to verify correctness
-- Fix any issues before moving to next task
-
 ---
 
-### Completed ✅
+## Remaining Tasks
 
-**Example Modules:**
-- [x] Task 0: Fix documentation errors (README.md, usage-rules.md)
-- [x] Task 1: Create binance_quick_start.ex
-- [x] Task 2: Create binance_spot_trading.ex
-- [x] Task 3: Create binance_futures_trading.ex
-- [x] Task 4: Create binance_market_data.ex
-- [x] Task 5: Create binance_websocket_streams.ex
-- [x] Task 6: Create binance_strategies.ex
+### Example Modules (lib/examples/)
 
-**Test Suites:**
-- [x] Task 11: Create test suite for binance_quick_start
-- [x] Task 12: Create test suite for binance_spot_trading
-- [x] Task 13: Create test suite for binance_futures_trading
-- [x] Task 14: Create test suite for binance_market_data
-- [x] Task 15: Create test suite for binance_websocket_streams
-- [x] Task 16: Create test suite for binance_strategies
-
-### Remaining Tasks
-
----
-
-## Task 5: Create binance_websocket_streams.ex
-
-**File**: `lib/examples/binance_websocket_streams.ex`
-
-**Purpose**: Demonstrate WebSocket usage from README.md:328-360
-
-**Requirements**:
-- Connect to single stream
-- Connect to multiple streams
-- Subscribe to additional streams
-- **CRITICAL**: Access cached data using `ZenCex.Cache.Market.get_ticker(:binance, "BTCUSDT")`
-  - NOT `MarketData.get_cached_ticker/1` (doesn't exist)
-- Close connection
-- Show both Binance and Bybit WebSocket patterns
-
-**Functions to implement**:
-```elixir
-def connect_single_stream(stream)
-def connect_multiple_streams(streams)
-def subscribe_additional(client, new_streams)
-def get_cached_ticker_data(symbol)
-def get_cached_orderbook_data(symbol)
-def get_cached_trade_data(symbol)
-def close_connection(client)
-```
-
-**Documentation refs**:
-- README.md:328-360
-- lib/zen_cex/adapters/binance/websocket.ex:101-107
-
----
-
-## Task 6: Create binance_strategies.ex
-
-**File**: `lib/examples/binance_strategies.ex`
-
-**Purpose**: Demonstrate high-level trading strategies from README.md:362-384
-
-**Requirements**:
-- Auto-hedge spot positions
-- PAXG hedging strategy
-- Portfolio rebalancing
-
-**Functions to implement**:
-```elixir
-def auto_hedge_spot_positions(hedge_percentage, opts)
-def hedge_with_paxg_long(params)
-def rebalance_portfolio(target_allocations, opts)
-```
-
-**Documentation refs**:
-- README.md:362-384
-- lib/zen_cex/adapters/binance/strategies.ex
-
----
-
-## Task 7: Create bybit_trading.ex
-
-**File**: `lib/examples/bybit_trading.ex`
-
-**Purpose**: Demonstrate Bybit Unified API from README.md:288-326
-
-**Requirements**:
-- Server connectivity check
-- Spot trading (category: "spot")
-- Linear futures (category: "linear")
-- Inverse futures (category: "inverse")
-- Show category parameter pattern
-
-**Functions to implement**:
-```elixir
-def check_server_connectivity()
-def place_spot_order(symbol, side, order_type, qty)
-def place_linear_futures_order(symbol, side, order_type, qty)
-def place_inverse_futures_order(symbol, side, order_type, price, qty)
-def get_positions(category)
-```
-
-**Documentation refs**:
-- README.md:288-326
-- usage-rules.md (Bybit sections)
-
----
-
-## Task 8: Create credential_management.ex
+#### Task 8: Create credential_management.ex
 
 **File**: `lib/examples/credential_management.ex`
 
@@ -175,7 +70,7 @@ def rotate_credentials_on_error(params, get_credentials_fn)
 
 ---
 
-## Task 9: Create debug_troubleshooting.ex
+#### Task 9: Create debug_troubleshooting.ex
 
 **File**: `lib/examples/debug_troubleshooting.ex`
 
@@ -203,7 +98,7 @@ def debug_failed_request(params)
 
 ---
 
-## Task 10: Create endpoint_discovery.ex
+#### Task 10: Create endpoint_discovery.ex
 
 **File**: `lib/examples/endpoint_discovery.ex`
 
@@ -229,161 +124,9 @@ def get_endpoint_details(operation, api_type)
 
 ---
 
-## Task 11: Create test suite for binance_quick_start
+### Test Suites (test/examples/)
 
-**File**: `test/examples/binance_quick_start_test.exs`
-
-**Purpose**: Verify quick start examples work with real testnet
-
-**Requirements**:
-- Use `@moduletag :example`
-- Test `check_connectivity/0` (no auth)
-- Test `get_account_balances/0` (requires testnet creds)
-- Test `get_balances_with_credentials/1`
-- Use `ZenCex.IntegrationCase`
-
-**Test structure**:
-```elixir
-defmodule ZenCex.Examples.BinanceQuickStartTest do
-  use ZenCex.IntegrationCase, exchange: :binance, api_type: :spot
-
-  @moduletag :example
-
-  describe "connectivity" do
-    test "check_connectivity/0 returns server time"
-  end
-
-  describe "authenticated operations" do
-    test "get_account_balances/0 with env credentials"
-    test "get_balances_with_credentials/1 with custom creds"
-  end
-end
-```
-
----
-
-## Task 12: Create test suite for binance_spot_trading
-
-**File**: `test/examples/binance_spot_trading_test.exs`
-
-**Purpose**: Verify spot trading examples
-
-**Requirements**:
-- Test read-only operations (balances, open orders)
-- Tag write operations with `@tag :write_operation`
-- Verify data structures match documentation
-- Test error scenarios
-
-**Tests needed**:
-- `get_current_balances/0`
-- `get_open_orders/1`
-- `place_market_buy/2` (skip or write_operation tag)
-- `check_order_status/2` (skip or write_operation tag)
-- `cancel_order/2` (skip or write_operation tag)
-
----
-
-## Task 13: Create test suite for binance_futures_trading
-
-**File**: `test/examples/binance_futures_trading_test.exs`
-
-**Purpose**: Verify futures examples
-
-**Requirements**:
-- Test position queries (read-only)
-- Tag order placement with `@tag :write_operation`
-- Test both USD-M and COIN-M
-
-**Tests needed**:
-- `get_usdm_positions/0`
-- `get_coinm_positions/0`
-- `place_usdm_market_order/3` (skip/write tag)
-- `place_coinm_limit_order/4` (skip/write tag)
-
----
-
-## Task 14: Create test suite for binance_market_data
-
-**File**: `test/examples/binance_market_data_test.exs`
-
-**Purpose**: Verify market data examples (all public, no auth)
-
-**Requirements**:
-- All tests should run without auth
-- Verify response structures
-- Test error handling (invalid symbols)
-
-**Tests needed**:
-- `get_current_price/1`
-- `get_24hr_stats/1`
-- `get_order_book/2`
-- `get_recent_trades/2`
-- `get_klines/3`
-- `get_funding_rate/1`
-- `get_open_interest/1`
-
----
-
-## Task 15: Create test suite for binance_websocket_streams
-
-**File**: `test/examples/binance_websocket_streams_test.exs`
-
-**Purpose**: Verify WebSocket examples
-
-**Requirements**:
-- Use `@tag :websocket`
-- Test connection lifecycle
-- Verify cache access patterns
-- Test both Binance and Bybit
-
-**Tests needed**:
-- `connect_single_stream/1`
-- `connect_multiple_streams/1`
-- `subscribe_additional/2`
-- `get_cached_ticker_data/1` (verify uses Cache.Market)
-- `close_connection/1`
-
----
-
-## Task 16: Create test suite for binance_strategies
-
-**File**: `test/examples/binance_strategies_test.exs`
-
-**Purpose**: Verify high-level strategy examples
-
-**Requirements**:
-- Use `@tag :strategy` and `@tag :write_operation`
-- Test with dry_run: true when possible
-- Verify parameter validation
-
-**Tests needed**:
-- `auto_hedge_spot_positions/2` (dry_run)
-- `hedge_with_paxg_long/1` (dry_run)
-- `rebalance_portfolio/2` (dry_run)
-
----
-
-## Task 17: Create test suite for bybit_trading
-
-**File**: `test/examples/bybit_trading_test.exs`
-
-**Purpose**: Verify Bybit examples
-
-**Requirements**:
-- Use Bybit testnet credentials
-- Test category parameter pattern
-- Tag write operations
-
-**Tests needed**:
-- `check_server_connectivity/0`
-- `get_positions/1`
-- `place_spot_order/4` (skip/write tag)
-- `place_linear_futures_order/4` (skip/write tag)
-- `place_inverse_futures_order/5` (skip/write tag)
-
----
-
-## Task 18: Create test suite for credential_management
+#### Task 18: Create test suite for credential_management
 
 **File**: `test/examples/credential_management_test.exs`
 
@@ -403,7 +146,7 @@ end
 
 ---
 
-## Task 19: Create test suite for debug_troubleshooting
+#### Task 19: Create test suite for debug_troubleshooting
 
 **File**: `test/examples/debug_troubleshooting_test.exs`
 
@@ -423,7 +166,7 @@ end
 
 ---
 
-## Task 20: Create test suite for endpoint_discovery
+#### Task 20: Create test suite for endpoint_discovery
 
 **File**: `test/examples/endpoint_discovery_test.exs`
 
@@ -442,7 +185,7 @@ end
 
 ---
 
-## Task 21: Create documentation validation test
+#### Task 21: Create documentation validation test
 
 **File**: `test/examples/documentation_examples_test.exs`
 
@@ -478,7 +221,9 @@ end
 
 ---
 
-## Task 22: Update project configuration
+### Configuration & Verification
+
+#### Task 22: Update project configuration
 
 **File**: Mix and formatter updates
 
@@ -513,7 +258,7 @@ end
 
 ---
 
-## Task 23: Final verification
+#### Task 23: Final verification
 
 **Actions**:
 1. Run `mix test test/examples/` - all should pass
@@ -524,14 +269,6 @@ end
 6. Verify all README.md code blocks have corresponding example functions
 
 ---
-
-## Usage Notes
-
-- Each task is designed to fit in one Claude Code session
-- Tasks 1-10 create example modules (lib/examples/)
-- Tasks 11-21 create test suites (test/examples/)
-- Task 22 updates configuration
-- Task 23 final verification
 
 ## Critical Corrections Applied
 
@@ -549,189 +286,42 @@ end
 
 ---
 
-## 📝 Session Notes (Append after each session)
+## Testing Guidelines
 
-### Session 1: 2025-01-04
-**Completed**:
-- Task 0: Fixed README.md:354 (WebSocket cache), usage-rules.md (Common→MarketData)
-- Task 1: Created binance_quick_start.ex
-- Task 2: Created binance_spot_trading.ex
-- Task 3: Created binance_futures_trading.ex
-- Task 4: Created binance_market_data.ex
+### CRITICAL: NEVER HIDE TEST FAILURES
 
-**Next session**: Task 5 (binance_websocket_streams.ex)
+**TESTS THAT HIDE ERRORS ARE WORSE THAN NO TESTS AT ALL**
 
-**Notes**:
-- All example modules include proper @spec, @doc, @moduledoc
-- Following library design principles (explicit credentials, no global config)
-- Using testnet patterns throughout
+```elixir
+# ❌ FORBIDDEN - Makes ANY outcome pass
+case result do
+  {:ok, _} -> assert true
+  {:error, _} -> assert true  # Hides all failures!
+end
 
----
+# ✅ CORRECT - Fail loudly on unexpected errors
+case result do
+  {:ok, data} -> assert is_map(data)
+  {:error, :specific_expected_error} -> :ok
+  {:error, other} -> flunk("Unexpected error: #{inspect(other)}")
+end
+```
 
-### Session 2: 2025-01-04
-**Completed**:
-- Task 5: Created binance_websocket_streams.ex
+### Key Testing Rules
 
-**Next session**: Task 6 (binance_strategies.ex)
-
-**Notes**:
-- WebSocket example uses Cache.Market for accessing cached data (get_ticker, get_orderbook, get_last_trade, get_book_ticker)
-- Includes complete run_complete_example/0 function demonstrating full workflow
-- All functions have proper @spec and @doc with examples
-
----
-
-### Session 3: 2025-01-04
-**Completed**:
-- Task 6: Created binance_strategies.ex
-- Task 16: Created test suite for binance_strategies
-
-**Next session**: Task 7 (bybit_trading.ex) and Task 17 (tests)
+1. **Tests should be deterministic** - A test either passes or fails, period
+2. **No mocks for external APIs initially** - Test against REAL testnet/production APIs first
+3. **Integration tests use real credentials** - Use actual testnet or read-only production API keys
+4. **Test the actual response structure** - Assert on real data structures, not mocked ones
+5. **ALWAYS pass auth_credentials in opts** for authenticated operations
+6. **Match response key format to exchange parser** - Binance uses atoms, Bybit uses strings
 
 ---
 
-### Session 4: 2025-01-05
-**Completed**:
-- Verified all existing tests pass (Tasks 11-14, 16)
-- Updated specs documentation to reflect actual completion status
+## Implementation History
 
-**Status Check**:
-- ✅ All Binance example modules complete (Tasks 1-6)
-- ✅ All Binance tests complete except WebSocket (Tasks 11-14, 16)
-- ⏳ Task 15 (binance_websocket_streams_test.exs) - deferred for later
-- ⏳ Bybit examples and tests (Tasks 7, 17) - ready to start
-
-**Test Results**: 28 tests, 0 failures, 9 skipped (all write_operation and strategy tests)
-
-**Next session**: Task 15 (WebSocket tests) or Task 7 (bybit_trading.ex)
-
----
-
-### Session 5: 2025-01-05
-**Completed**:
-- Task 15: Created binance_websocket_streams_test.exs (initial + enhancements)
-- Enhanced binance_websocket_streams.ex with production features
-
-**Initial Implementation (17 tests)**:
-- Comprehensive WebSocket test suite
-- Tests connection lifecycle (connect, subscribe, close)
-- Tests all cache access patterns (ticker, orderbook, trade, book_ticker)
-- Verifies Cache.Market integration
-- Tests both single and multiple stream connections
-- Full integration workflow test
-- Proper timeout handling (@wait_for_data_ms = 3000)
-
-**Production Enhancements (9 additional tests = 26 total)**:
-- Added `connect_with_retry/2` - automatic retry with exponential backoff
-- Added `connect_supervised/2` - supervised connections for production
-- Added `check_connection_health/1` - comprehensive health monitoring
-- Added `reconnect_connection/1` - manual reconnection trigger
-- Added `run_production_example/0` - full production workflow demo
-- Added `run_monitoring_example/0` - health monitoring demo
-- Enhanced @moduledoc with Gun ownership architecture explanation
-- Tests for all new production features
-
-**Key Architecture Documented**:
-- Gun ownership through Client GenServer (not external reconnection)
-- Automatic reconnection maintaining same GenServer process
-- Message routing continuity through reconnections
-- Client struct remains valid throughout reconnections
-- Superior to external reconnection (no ownership transfer issues)
-
-**Test Results**: 26 tests, 0 failures (all passed with real WebSocket connections in ~80s)
-
-**Notes**:
-- WebSocket tests tagged with `@websocket` and `@example`
-- Production example tests tagged with `@slow`
-- Tests connect to real Binance WebSocket endpoints
-- Some tests accept {:error, :not_found} or {:error, :expired} due to timing
-- Fixed pattern matching syntax (match?/2 instead of match/2)
-- Demonstrates zen_websocket's sophisticated reconnection architecture
-
-**Next session**: Task 7 (bybit_trading.ex) and Task 17 (bybit_trading_test.exs)
-
----
-
-### Session 6: 2025-01-05
-**Completed**:
-- Created `lib/examples/production_rest_features.ex` - NEW comprehensive production features showcase
-- Created `test/examples/production_rest_features_test.exs` - 21 tests, all passing
-
-**CRITICAL DISCOVERY**: zen_cex REST features were NOT demonstrated in existing examples!
-
-**Production Features Now Documented**:
-1. **Circuit Breaker** (`Core.CircuitBreaker`) - Prevents cascading failures
-   - Per-exchange circuit breakers with configurable thresholds
-   - Automatic request rejection when circuit is open
-   - Telemetry events for monitoring
-
-2. **Rate Limiting** (per-exchange `RateLimiter` modules) - Prevents API violations
-   - Automatic tracking via Req middleware
-   - ETS-based counters for high performance
-   - Response header parsing for limit updates
-
-3. **Exponential Backoff** (`Core.HTTP` retry logic) - Handles transient failures
-   - Base backoff: 1s, Max backoff: 60s
-   - Jitter added to prevent thundering herd
-   - Configurable per operation type
-
-4. **Clock Synchronization** (`Safety.ClockSync`) - Accurate timestamps
-   - Proactive sync on startup with all exchanges
-   - Periodic re-sync every 5 minutes
-   - Sub-millisecond offset tracking
-   - Per-exchange and per-API-type offsets
-
-5. **Debug Mode** (`Core.Debug`) - Troubleshooting failed requests
-   - Export failed requests as curl commands
-   - Statistics tracking
-   - Opt-in activation
-
-6. **Telemetry** - Comprehensive observability
-   - `[:zen_cex, :request, :complete]` - successful requests
-   - `[:zen_cex, :request, :error]` - failed requests
-   - `[:zen_cex, :rate_limit, :exceeded]` - rate limit violations
-   - `[:zen_cex, :circuit_breaker, :*]` - circuit breaker events
-
-7. **Operation-Specific Timeouts** - Optimized for use case
-   - `:trading` - 2s (order placement/cancellation)
-   - `:market` - 5s (real-time market data)
-   - `:historical` - 30s (large datasets)
-   - `:health` - 5s (status monitoring)
-   - `:standard` - 30s (default)
-
-**Test Coverage**: 21 tests covering all production features
-- Circuit breaker configuration and behavior
-- Rate limiting with real requests
-- Debug mode curl export
-- Clock synchronization with real exchange
-- Operation timeout demonstrations
-- Telemetry event listings
-- Complete production workflow
-- Real-world usage patterns
-- Error handling with debug mode
-- Monitoring and observability
-
-**Key Implementation Notes**:
-- `ClockSync.sync_exchange/1` returns `{:ok, offset}` not `:ok`
-- `Debug.get_last_curl/0` returns `{:ok, "curl command"}` not a map
-- Common module has `get_server_time/0`, not Spot module
-- Response keys use snake_case (`:server_time`) not camelCase
-
-**Architecture Demonstrated**:
-- Req middleware pattern for composable HTTP features
-- ETS for high-performance state storage
-- GenServer for supervised clock sync
-- Telemetry for monitoring all layers
-- Operation-type-based timeout optimization
-
-**Test Results**: 21 tests, 0 failures (~10s runtime)
-
-**Files Created**:
-- `lib/examples/production_rest_features.ex` (440 lines)
-- `test/examples/production_rest_features_test.exs` (382 lines)
-
-**Next session**: Task 7 (bybit_trading.ex) and Task 17 (bybit_trading_test.exs)
-
----
-
-_Add new session notes above this line_
+See [examples_implementation_log.md](./examples_implementation_log.md) for:
+- Completed task details
+- Session-by-session notes
+- Implementation discoveries
+- Architecture decisions
