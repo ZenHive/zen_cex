@@ -1,7 +1,7 @@
 # ZenCex Usage Rules - How to Use This Library (AI Editor Guide)
 
 **This document is auto-generated from example modules to ensure accuracy.**
-Last generated: 2025-10-05T11:53:37.726063Z
+Last generated: 2025-10-05T12:08:03.691965Z
 
 ---
 
@@ -296,6 +296,47 @@ case Spot.place_order(params, opts) do
     IO.puts("Error: #{inspect(reason)}")
 end
 ```
+
+---
+
+## Response Data Format
+
+All exchanges return standardized response formats:
+
+### Keys
+- **Always atom keys**: `%{symbol: "BTCUSDT", price: "45000.00"}`
+- **snake_case format**: `orderId` becomes `:order_id`, `positionAmt` becomes `:position_amt`
+
+### Values
+- **Numeric values are strings, integers, or floats** - NOT Decimal
+- **You must convert** for calculations: `Decimal.new(balance[:free])`
+- **Enums are atoms**: `side: :buy`, `status: :filled`
+
+### Examples
+
+```elixir
+# API returns strings for precision
+{:ok, %{balances: balances}} = Spot.get_balances(%{}, [auth_credentials: creds])
+btc = Enum.find(balances, &(&1[:asset] == "BTC"))
+
+# Values are strings - must convert for math
+btc[:free]    # => "0.50000000" (string)
+btc[:locked]  # => "0.10000000" (string)
+
+# Convert to Decimal for calculations
+free = Decimal.new(btc[:free])      # => #Decimal<0.50000000>
+locked = Decimal.new(btc[:locked])  # => #Decimal<0.10000000>
+total = Decimal.add(free, locked)   # => #Decimal<0.60000000>
+```
+
+### Why Strings?
+
+Exchanges return numeric values as strings to preserve precision:
+- Avoid floating point errors
+- Maintain exact decimal places
+- Support very large and very small numbers
+
+**Your responsibility**: Choose appropriate type (Decimal, Float, Integer) based on your use case.
 
 ---
 
