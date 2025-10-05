@@ -6,6 +6,8 @@ defmodule ZenCex.Examples.BinanceWebsocketStreams do
   - Connect to single or multiple WebSocket streams
   - Subscribe to additional streams on an existing connection
   - Access cached market data from WebSocket streams
+  - Monitor connection health and handle errors
+  - Use production-ready patterns (retry, reconnection, supervision)
   - Close WebSocket connections properly
 
   ## Prerequisites
@@ -21,11 +23,11 @@ defmodule ZenCex.Examples.BinanceWebsocketStreams do
   - Mini ticker: `{symbol}@miniTicker`
   - Book ticker: `{symbol}@bookTicker`
 
-  ## Usage
+  ## Basic Usage
 
       alias ZenCex.Examples.BinanceWebsocketStreams
 
-      # Connect to a single stream
+      # Simple connection
       {:ok, client} = BinanceWebsocketStreams.connect_single_stream("btcusdt@ticker")
 
       # Wait for data to arrive, then access cached data
@@ -34,6 +36,32 @@ defmodule ZenCex.Examples.BinanceWebsocketStreams do
 
       # Close when done
       :ok = BinanceWebsocketStreams.close_connection(client)
+
+  ## Production Usage
+
+      # Connect with automatic retry and exponential backoff
+      {:ok, client} = BinanceWebsocketStreams.connect_with_retry(
+        ["btcusdt@ticker"],
+        retry_count: 5,
+        max_backoff: 30_000
+      )
+
+      # Monitor connection health
+      health = BinanceWebsocketStreams.check_connection_health(client)
+
+      # The client struct remains valid through automatic reconnections
+      # zen_websocket's Client GenServer maintains Gun ownership
+
+  ## Key Architecture: Gun Ownership & Reconnection
+
+  zen_websocket's Client GenServer owns the Gun connection. On network errors:
+  1. The SAME GenServer process reconnects (not a new process)
+  2. Gun messages continue routing to the correct GenServer
+  3. Your client struct remains valid throughout
+  4. No need to track new client structs or handle message routing failures
+
+  This is superior to external reconnection because Gun ownership never
+  transfers to the wrong process, ensuring message routing continuity.
   """
 
   alias ZenCex.Adapters.Binance.WebSocket, as: BinanceWS
@@ -291,6 +319,169 @@ defmodule ZenCex.Examples.BinanceWebsocketStreams do
   end
 
   @doc """
+  Connects with production-ready configuration including automatic reconnection.
+
+  This demonstrates connecting with retry logic and exponential backoff.
+  The zen_websocket Client GenServer maintains Gun ownership through reconnections,
+  so the same client struct continues to work even after reconnections.
+
+  ## Parameters
+    * `streams` - List of streams to subscribe to
+    * `opts` - Additional options (merged with production defaults)
+
+  ## Options
+    * `:retry_count` - Number of reconnection attempts (default: 5)
+    * `:retry_delay` - Initial retry delay in ms (default: 1000)
+    * `:max_backoff` - Maximum backoff delay in ms (default: 30_000)
+    * `:reconnect_on_error` - Enable automatic reconnection (default: true)
+
+  ## Examples
+
+      # Production connection with automatic retry
+      {:ok, client} = connect_with_retry(["btcusdt@ticker"])
+
+      # Custom retry configuration
+      {:ok, client} = connect_with_retry(
+        ["btcusdt@ticker"],
+        retry_count: 10,
+        max_backoff: 60_000
+      )
+  """
+  @spec connect_with_retry(list(String.t()), keyword()) ::
+          {:ok, ZenWebsocket.Client.t()} | {:error, term()}
+  def connect_with_retry(streams, opts \\ []) do
+    # Production-ready defaults
+    production_opts =
+      Keyword.merge(
+        [
+          retry_count: 5,
+          retry_delay: 1000,
+          max_backoff: 30_000,
+          reconnect_on_error: true
+        ],
+        opts
+      )
+
+    BinanceWS.connect(streams, production_opts)
+  end
+
+  @doc """
+  Connects with supervision for production deployments.
+
+  In supervised mode, the Client GenServer runs under ClientSupervisor
+  and will be restarted on crashes. The supervisor must be started
+  in your application supervision tree.
+
+  ## Key Architecture Points
+
+  - **Gun Ownership**: The Client GenServer owns the Gun connection
+  - **Reconnection**: On network errors, the SAME GenServer reconnects
+  - **Supervision**: On GenServer crashes, supervisor restarts it
+  - **Message Routing**: Gun always sends messages to the GenServer owner
+
+  This ensures robust production operation with automatic recovery.
+
+  ## Parameters
+    * `streams` - List of streams to subscribe to
+    * `opts` - Additional options
+
+  ## Examples
+
+      # In your application.ex
+      children = [
+        ZenWebsocket.ClientSupervisor,
+        # ... other children
+      ]
+
+      # In your code - supervised connection
+      {:ok, client} = connect_supervised(["btcusdt@ticker", "ethusdt@trade"])
+
+      # The client will be automatically restarted on crashes
+  """
+  @spec connect_supervised(list(String.t()), keyword()) ::
+          {:ok, ZenWebsocket.Client.t()} | {:error, term()}
+  def connect_supervised(streams, opts \\ []) do
+    supervised_opts =
+      Keyword.merge(
+        [
+          supervised: true,
+          retry_count: 5,
+          max_backoff: 30_000,
+          reconnect_on_error: true
+        ],
+        opts
+      )
+
+    BinanceWS.connect(streams, supervised_opts)
+  end
+
+  @doc """
+  Gets comprehensive health information for a WebSocket connection.
+
+  Returns detailed metrics including connection state, heartbeat status,
+  and performance information.
+
+  ## Returns
+  A map containing:
+    * `:state` - Connection state (:connected, :connecting, :disconnected)
+    * `:heartbeat` - Heartbeat health information (if enabled)
+    * `:metrics` - Connection performance metrics
+    * `:adapter` - Adapter name (:binance)
+
+  ## Examples
+
+      {:ok, client} = connect_single_stream("btcusdt@ticker")
+
+      # Get health information
+      health = check_connection_health(client)
+
+      # Example health map:
+      # %{
+      #   state: {:ok, :connected},
+      #   heartbeat: %{
+      #     last_heartbeat_at: 1234567890,
+      #     heartbeat_failures: 0,
+      #     active_heartbeats: MapSet.new()
+      #   },
+      #   metrics: %{
+      #     subscriptions_count: 1,
+      #     pending_requests_count: 0,
+      #     memory_bytes: 12345
+      #   },
+      #   adapter: :binance
+      # }
+  """
+  @spec check_connection_health(ZenWebsocket.Client.t()) :: map()
+  def check_connection_health(client) do
+    BinanceWS.check_health(client)
+  end
+
+  @doc """
+  Manually triggers a reconnection for the WebSocket client.
+
+  This closes the current connection and establishes a new one.
+  Useful for handling degraded connections or forcing a fresh start.
+
+  Note: With automatic reconnection enabled, this is rarely needed
+  as zen_websocket handles reconnection automatically.
+
+  ## Parameters
+    * `client` - WebSocket client to reconnect
+
+  ## Examples
+
+      {:ok, client} = connect_single_stream("btcusdt@ticker")
+
+      # Force reconnection if needed
+      {:ok, new_client} = reconnect_connection(client)
+  """
+  @spec reconnect_connection(ZenWebsocket.Client.t()) ::
+          {:ok, ZenWebsocket.Client.t()} | {:error, term()}
+  def reconnect_connection(client) do
+    BinanceWS.reconnect(client)
+  end
+
+  @doc """
   Complete example showing the full WebSocket workflow.
 
   This function demonstrates:
@@ -375,6 +566,149 @@ defmodule ZenCex.Examples.BinanceWebsocketStreams do
     :ok = close_connection(client)
     IO.puts("✓ Connection closed\n")
 
+    IO.puts("=== Example Complete ===")
+    :ok
+  end
+
+  @doc """
+  Production example demonstrating resilient WebSocket connections.
+
+  This example shows:
+  1. Connection with automatic retry and exponential backoff
+  2. Health monitoring
+  3. Connection state tracking
+  4. Graceful error handling
+
+  ## Key Architecture Features Demonstrated
+
+  ### Gun Ownership & Reconnection
+  - Client GenServer owns the Gun connection
+  - On network errors, the SAME GenServer process reconnects
+  - Gun messages continue routing to the correct process
+  - Your client struct remains valid through reconnections
+
+  ### Automatic Reconnection Flow
+  1. Network error occurs (gun_down, gun_error, process DOWN)
+  2. Client GenServer detects error via Gun messages
+  3. GenServer cleans up old Gun connection
+  4. GenServer opens NEW Gun connection (same process!)
+  5. Gun messages route to same GenServer
+  6. Your code continues using same client struct
+
+  This is superior to external reconnection because:
+  - No need to track new client structs
+  - No message routing failures during reconnection
+  - Gun ownership never transfers to wrong process
+
+  ## Examples
+
+      # Run production example
+      run_production_example()
+  """
+  @spec run_production_example() :: :ok
+  def run_production_example do
+    IO.puts("=== Production WebSocket Example ===\n")
+
+    # Step 1: Connect with production-ready configuration
+    IO.puts("Step 1: Connecting with automatic retry and backoff...")
+
+    {:ok, client} =
+      connect_with_retry(["btcusdt@ticker", "ethusdt@trade"],
+        retry_count: 5,
+        retry_delay: 1000,
+        max_backoff: 30_000
+      )
+
+    IO.puts("✓ Connected with production configuration\n")
+
+    # Step 2: Check initial connection health
+    IO.puts("Step 2: Checking connection health...")
+    health = check_connection_health(client)
+    IO.puts("✓ Connection health:")
+    IO.puts("  State: #{inspect(health.state)}")
+    IO.puts("  Adapter: #{health.adapter}\n")
+
+    # Step 3: Monitor connection state
+    IO.puts("Step 3: Monitoring connection state...")
+    {:ok, state} = get_connection_state(client)
+    IO.puts("✓ Connection state: #{state}\n")
+
+    # Step 4: Wait for data
+    IO.puts("Step 4: Waiting for market data (3 seconds)...")
+    Process.sleep(3000)
+
+    # Step 5: Access cached data with error handling
+    IO.puts("Step 5: Accessing cached data with error handling...")
+
+    case get_cached_ticker_data("BTCUSDT") do
+      {:ok, ticker} ->
+        IO.puts("✓ BTC Ticker received:")
+        IO.puts("  Price: #{ticker.last_price}")
+        IO.puts("  Volume: #{ticker.volume}")
+
+      {:error, :not_found} ->
+        IO.puts("⚠ Data not yet available (cache miss)")
+
+      {:error, :expired} ->
+        IO.puts("⚠ Cached data expired")
+
+      {:error, reason} ->
+        IO.puts("✗ Error: #{inspect(reason)}")
+    end
+
+    IO.puts("")
+
+    # Step 6: Get final health check
+    IO.puts("Step 6: Final health check before closing...")
+    final_health = check_connection_health(client)
+    IO.puts("✓ Final state: #{inspect(final_health.state)}\n")
+
+    # Step 7: Clean shutdown
+    IO.puts("Step 7: Closing connection...")
+    :ok = close_connection(client)
+    IO.puts("✓ Connection closed gracefully\n")
+
+    IO.puts("=== Production Example Complete ===")
+    IO.puts("")
+    IO.puts("Note: In production, the client would automatically reconnect")
+    IO.puts("on network errors, maintaining the same client struct throughout.")
+    IO.puts("The Client GenServer owns Gun and handles all reconnections internally.")
+    :ok
+  end
+
+  @doc """
+  Example showing connection monitoring and health checks.
+
+  Demonstrates how to monitor connection health in a long-running process.
+
+  ## Examples
+
+      run_monitoring_example()
+  """
+  @spec run_monitoring_example() :: :ok
+  def run_monitoring_example do
+    IO.puts("=== WebSocket Monitoring Example ===\n")
+
+    {:ok, client} = connect_with_retry(["btcusdt@ticker"])
+
+    IO.puts("Monitoring connection for 10 seconds...")
+    IO.puts("(Client GenServer maintains Gun ownership through any reconnections)\n")
+
+    # Monitor for 10 seconds
+    Enum.each(1..5, fn i ->
+      Process.sleep(2000)
+
+      health = check_connection_health(client)
+      {:ok, state} = get_connection_state(client)
+
+      IO.puts("Check #{i}/5:")
+      IO.puts("  State: #{state}")
+      IO.puts("  Health: #{inspect(health.state)}")
+    end)
+
+    close_connection(client)
+
+    IO.puts("\n✓ Monitoring complete")
     IO.puts("=== Example Complete ===")
     :ok
   end
