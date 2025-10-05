@@ -4,13 +4,13 @@ This document tracks remaining tasks for implementing example modules and tests 
 
 ## Status: IN PROGRESS
 
-**Last Updated**: 2025-01-05 (Session 8)
+**Last Updated**: 2025-01-05 (Session 9)
 
 **Current Progress**:
-- ✅ Completed: Tasks 0-7, 11-17 (all Binance modules + Bybit trading + all tests)
-- ⏳ Remaining: 8 tasks (3 modules + 4 tests + config/verification)
+- ✅ Completed: Tasks 0-9, 11-19 (all modules + all tests completed!)
+- ⏳ Remaining: 4 tasks (1 module + 2 tests + config/verification)
 
-**Next Task**: Task 8 (credential_management.ex) and Task 18 (credential_management_test.exs)
+**Next Task**: Task 10 (endpoint_discovery.ex) and Task 20 (endpoint_discovery_test.exs)
 
 ---
 
@@ -20,11 +20,13 @@ This document tracks remaining tasks for implementing example modules and tests 
 ```
 Continue implementing example modules from docs/examples_specs.md.
 
-Current status: Completed Tasks 0-7, 11-17 (all Binance modules + Bybit trading + all tests). Session 8 fixed all test failures.
-Next: Task 8 (credential_management.ex) and Task 18 (credential_management_test.exs).
+Current status: Completed Tasks 0-9, 11-19 (all modules + tests completed!). Session 9 implemented debug_troubleshooting module with comprehensive debug workflow examples.
+Next: Task 10 (endpoint_discovery.ex) and Task 20 (endpoint_discovery_test.exs).
 
 Key points:
 - ALWAYS implement both module AND tests in the same session
+- Library NEVER reads ENV - only accepts auth_credentials option
+- Calling code (tests, scripts) reads ENV and passes explicitly
 - Bybit returns STRING keys, Binance returns ATOM keys (inconsistency documented)
 - Use Cache.Market.get_ticker(:binance, symbol) for WebSocket cached data
 - Use MarketData module for REST market data endpoints
@@ -34,7 +36,7 @@ Key points:
 - ALWAYS pass auth_credentials in opts for authenticated operations
 - Handle exchange-specific error codes (Binance: -2019, -4013; Bybit: 110101, 170140)
 
-Begin: "Continuing from docs/examples_specs.md - implementing Task 8..."
+Begin: "Continuing from docs/examples_specs.md - implementing Task 10..."
 ```
 
 ---
@@ -43,23 +45,25 @@ Begin: "Continuing from docs/examples_specs.md - implementing Task 8..."
 
 ### Example Modules (lib/examples/)
 
-#### Task 8: Create credential_management.ex
+#### ✅ Task 8: Create credential_management.ex (COMPLETED - Session 9)
 
 **File**: `lib/examples/credential_management.ex`
 
 **Purpose**: Demonstrate authentication patterns from README.md:99-184
 
-**Requirements**:
-- Environment variable pattern
-- Per-request credentials
-- Multi-account management
-- Credential rotation pattern
-- Show both keyword list and map options
+**Implementation Notes**:
+- ✅ Created 4 functions with full @spec, @doc, @moduledoc
+- ✅ CRITICAL: Made clear library NEVER reads ENV - only calling code does
+- ✅ Shows explicit credential passing (PRIMARY pattern)
+- ✅ Shows calling code reading ENV then passing to library
+- ✅ Multi-account management with explicit credentials
+- ✅ Credential rotation pattern with get_credentials function
+- ✅ All tests pass (12 tests, 0 failures)
 
-**Functions to implement**:
+**Functions implemented**:
 ```elixir
-def use_environment_credentials()
-def use_custom_credentials(api_key, api_secret)
+def use_explicit_credentials(api_key, api_secret, opts \\ [])
+def use_credentials_from_env()
 def manage_multiple_accounts(account_credentials_list)
 def rotate_credentials_on_error(params, get_credentials_fn)
 ```
@@ -70,26 +74,26 @@ def rotate_credentials_on_error(params, get_credentials_fn)
 
 ---
 
-#### Task 9: Create debug_troubleshooting.ex
+#### ✅ Task 9: Create debug_troubleshooting.ex (COMPLETED - Session 9)
 
 **File**: `lib/examples/debug_troubleshooting.ex`
 
 **Purpose**: Demonstrate debug mode from README.md:386-407
 
-**Requirements**:
-- Enable debug mode
-- Make failing request
-- Get curl command
-- Get debug statistics
-- Disable debug mode
+**Implementation Notes**:
+- ✅ Created 5 functions with full @spec, @doc, @moduledoc
+- ✅ Comprehensive workflow: enable → fail → get curl → stats → disable
+- ✅ Integration with ZenCex.Core.Debug module
+- ✅ Security warnings about production usage
+- ✅ All tests pass (16 tests, 0 failures)
 
-**Functions to implement**:
+**Functions implemented**:
 ```elixir
-def enable_debug_mode()
-def get_last_curl_command()
-def get_debug_stats()
-def disable_debug_mode()
-def debug_failed_request(params)
+def enable_debug_mode() :: :ok
+def disable_debug_mode() :: :ok
+def get_last_curl_command() :: {:ok, String.t()} | {:error, :not_found}
+def get_debug_stats() :: map()
+def debug_failed_request(params :: map()) :: {:error, term()}
 ```
 
 **Documentation refs**:
@@ -126,43 +130,52 @@ def get_endpoint_details(operation, api_type)
 
 ### Test Suites (test/examples/)
 
-#### Task 18: Create test suite for credential_management
+#### ✅ Task 18: Create test suite for credential_management (COMPLETED - Session 9)
 
 **File**: `test/examples/credential_management_test.exs`
 
 **Purpose**: Verify authentication patterns
 
-**Requirements**:
-- Test env variable pattern
-- Test custom credentials
-- Test multi-account workflow
-- Mock credential rotation
+**Implementation Notes**:
+- ✅ Created comprehensive test suite with 12 tests
+- ✅ All tests pass (12 tests, 0 failures)
+- ✅ Tests verify ENV reading happens in calling code, not library
+- ✅ Tests verify explicit credential passing
+- ✅ Tests verify multi-account management
+- ✅ Tests verify credential rotation logic
+- ✅ Uses IntegrationCase for real testnet API calls
+- ✅ Properly handles Binance atom key responses
 
-**Tests needed**:
-- `use_environment_credentials/0`
-- `use_custom_credentials/2`
-- `manage_multiple_accounts/1`
-- `rotate_credentials_on_error/2`
+**Tests implemented**:
+- `use_explicit_credentials/3` (3 tests)
+- `use_credentials_from_env/0` (2 tests)
+- `manage_multiple_accounts/1` (4 tests)
+- `rotate_credentials_on_error/2` (2 tests)
+- Integration patterns (1 test)
 
 ---
 
-#### Task 19: Create test suite for debug_troubleshooting
+#### ✅ Task 19: Create test suite for debug_troubleshooting (COMPLETED - Session 9)
 
 **File**: `test/examples/debug_troubleshooting_test.exs`
 
 **Purpose**: Verify debug mode examples
 
-**Requirements**:
-- Test debug enable/disable
-- Verify curl export
-- Check stats collection
+**Implementation Notes**:
+- ✅ Created comprehensive test suite with 16 tests
+- ✅ All tests pass (16 tests, 0 failures)
+- ✅ Tests verify enable/disable, curl export, stats collection
+- ✅ Integration tests verify actual debug capture workflow
+- ✅ Proper setup/teardown to clear debug state between tests
+- ✅ Uses ExUnit.Case (no auth needed for debug module)
 
-**Tests needed**:
-- `enable_debug_mode/0`
-- `get_last_curl_command/0`
-- `get_debug_stats/0`
-- `disable_debug_mode/0`
-- `debug_failed_request/1`
+**Tests implemented**:
+- `enable_debug_mode/0` (2 tests)
+- `disable_debug_mode/0` (3 tests)
+- `get_last_curl_command/0` (3 tests)
+- `get_debug_stats/0` (4 tests)
+- `debug_failed_request/1` (3 tests)
+- Full workflow integration (1 test)
 
 ---
 
