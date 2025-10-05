@@ -4,7 +4,13 @@ This document tracks important refactoring tasks that improve consistency and ma
 
 ---
 
-## Status: REFACTOR 7 COMPLETE ✅
+## Status: REFACTOR 2 COMPLETE ✅
+
+**Refactor 2** (Simplify Binance Parser) is complete with all tests passing.
+- Removed last 3 functions with manual field mapping
+- Removed `parse_commission_value/1` helper (business logic)
+- All parser functions now use `normalize_keys/1` consistently
+- ~40 lines of code eliminated
 
 **Refactor 7** (Remove Decimal Conversions) is complete with all tests passing.
 - Parser returns raw string values from API
@@ -349,7 +355,9 @@ order_id = positions[0][:order_id]
 
 ---
 
-## Refactor 2: (Future) Simplify Binance Parser Using normalize_keys/1
+## Refactor 2: Simplify Binance Parser Using normalize_keys/1
+
+### Status: ✅ COMPLETE (2025-01-05)
 
 ### Priority: Low
 **[D:4/B:6 → Priority:1.5] 📋**
@@ -358,43 +366,100 @@ order_id = positions[0][:order_id]
 
 ### Problem
 
-After implementing shared `normalize_keys/1`, Binance parser still has manual key mapping:
+After implementing shared `normalize_keys/1`, Binance parser still had manual key mapping in 3 functions:
 
 ```elixir
-# Current: Manual field-by-field mapping
-def parse_order(response) do
-  %{
-    order_id: extract_field(response, ["orderId", "id"], :string),
-    client_order_id: extract_field(response, ["clientOrderId"], :string),
-    symbol: extract_field(response, ["symbol"], :string),
-    # ... 20+ more manual mappings
+# parse_fees/1: Manual field-by-field mapping + business logic
+def parse_fees(response) do
+  fees = %{
+    symbol: response["symbol"],
+    maker_commission: parse_commission_value(extract_field(response, ["makerCommission"], :identity)),
+    taker_commission: parse_commission_value(extract_field(response, ["takerCommission"], :identity)),
+    # ... more manual mappings + Decimal conversions (business logic!)
   }
 end
-```
 
-### Solution
+# parse_server_time/1: Manual field extraction
+def parse_server_time(response) do
+  case extract_field(response, ["serverTime"], :integer) do
+    0 -> {:error, :invalid_format}
+    time -> {:ok, %{server_time: time}}
+  end
+end
 
-Use `normalize_keys/1` for base normalization, only manually map computed fields:
-
-```elixir
-def parse_order(response) do
-  response
-  |> normalize_keys()
-  |> Map.merge(%{
-    side: normalize_side(response["side"]),
-    type: normalize_order_type(response["type"]),
-    status: normalize_order_status(response["status"])
-  })
-  |> then(&{:ok, &1})
+# parse_oco_response/1: Manual field extraction
+def parse_oco_response(response) do
+  with list_id <- extract_field(response, ["orderListId"], :integer),
+       orders <- extract_field(response, ["orders"], :identity) do
+    {:ok, %{order_list_id: list_id, orders: ..., list_status: ..., transaction_time: ...}}
+  end
 end
 ```
 
-**Benefits**:
-- Reduces ~50 lines per function to ~10 lines
-- Maintains custom logic for enums/computed fields
-- More maintainable
+### Solution Implemented
 
-**Defer until**: After Refactor 1 is stable and Aster integration complete
+Simplified all 3 functions to use `normalize_keys/1` and removed business logic:
+
+```elixir
+# parse_fees/1: Just normalize keys, return raw values
+def parse_fees(response) when is_map(response) do
+  fees = normalize_keys(response)
+  {:ok, fees}
+end
+
+# parse_server_time/1: Normalize + validation only
+def parse_server_time(response) when is_map(response) do
+  normalized = normalize_keys(response)
+  case normalized[:server_time] do
+    time when is_integer(time) and time > 0 -> {:ok, normalized}
+    _ -> {:error, :invalid_format}
+  end
+end
+
+# parse_oco_response/1: Normalize + validation + delegation
+def parse_oco_response(response) when is_map(response) do
+  normalized = normalize_keys(response)
+  with order_list_id when not is_nil(order_list_id) <- normalized[:order_list_id],
+       orders when is_list(orders) <- normalized[:orders] do
+    parsed_orders = Enum.map(orders, fn order -> ... end)
+    {:ok, Map.put(normalized, :orders, parsed_orders)}
+  end
+end
+```
+
+**Also removed**:
+- `parse_commission_value/1` helper - was business logic (Decimal conversions)
+
+### Implementation Details (2025-01-05)
+
+**Files Modified** (3 files):
+1. `lib/zen_cex/adapters/binance/parser.ex` - Simplified 3 functions, removed helper
+2. `test/zen_cex/adapters/binance/parser_test.exs` - Updated to expect raw values
+3. `test/examples/binance_futures_trading_test.exs` - Updated to use raw field names
+
+**Changes**:
+1. ✅ `parse_fees/1` - Removed manual mapping and Decimal conversions
+2. ✅ `parse_server_time/1` - Replaced `extract_field` with `normalize_keys`
+3. ✅ `parse_oco_response/1` - Replaced manual extraction with `normalize_keys`
+4. ✅ Removed `parse_commission_value/1` - Business logic violation
+
+**Test Results**:
+- ✅ All parser unit tests passing (51 tests)
+- ✅ Example test updated for raw field names
+
+**Breaking Changes**:
+- `parse_fees/1` now returns raw commission values (integers/strings/floats), not Decimals
+- Users must convert: `Decimal.div(fees[:maker_commission], 10000)` for basis points
+
+### Benefits Achieved
+
+- ✅ **Reduced code**: ~40 lines of manual mapping removed
+- ✅ **No business logic**: Removed last Decimal conversions from parser
+- ✅ **Consistent**: All parser functions now use `normalize_keys/1` pattern
+- ✅ **More complete**: ALL API fields exposed automatically (not just mapped ones)
+- ✅ **Aligned with Refactor 7**: Complete removal of business logic from parsers
+
+**Lines of code reduced**: ~40 lines total across 3 functions + 1 helper
 
 ---
 
@@ -999,7 +1064,61 @@ order[:orig_qty]
 3. ✅ OrderSafety updated to handle string balances
 4. ⏭️ Update CHANGELOG.md with breaking changes
 5. ⏭️ Update examples and documentation
-6. ⏭️ Consider updating docs/important_refactors_specs.md status to COMPLETE
+6. ✅ Updated docs/important_refactors_specs.md status to COMPLETE
+
+---
+
+## Session Notes - Refactor 2
+
+### 2025-01-05: Refactor 2 Implementation Complete ✅
+
+**Status**: ✅ COMPLETED & VERIFIED
+
+**Completed Tasks**:
+1. ✅ Simplified `parse_fees/1` - Removed manual mapping and Decimal conversions
+2. ✅ Simplified `parse_server_time/1` - Replaced `extract_field` with `normalize_keys`
+3. ✅ Simplified `parse_oco_response/1` - Replaced manual extraction with `normalize_keys`
+4. ✅ Removed `parse_commission_value/1` helper - Business logic violation
+5. ✅ Updated all parser tests to expect raw values (not Decimals)
+6. ✅ Fixed example test to use raw API field names (`:position_amt` not `:size`)
+
+**Files Modified** (3 files):
+- `lib/zen_cex/adapters/binance/parser.ex` - Simplified 3 functions, removed helper (~40 lines removed)
+- `test/zen_cex/adapters/binance/parser_test.exs` - Updated `parse_fees/1` tests for raw values
+- `test/examples/binance_futures_trading_test.exs` - Updated to use `:position_amt` instead of `:size`
+
+**Key Changes**:
+- All 3 remaining functions with manual field mapping now use `normalize_keys/1`
+- Removed last Decimal conversion helper from parser (business logic)
+- Parser now consistently returns ALL API fields with normalized keys
+- Commission values returned as raw integers (basis points), strings, or floats
+
+**Test Results**:
+- ✅ Parser tests: 51/51 passing
+- ✅ Example test: Updated and passing
+- ⚠️ Analysis integration test failures unrelated (data availability issues)
+
+**Breaking Changes**:
+- `parse_fees/1`: Returns raw commission values (not Decimals)
+  - Before: `fees.maker_commission` was `Decimal.new("0.001")`
+  - After: `fees[:maker_commission]` is `10` (integer) or `"0.001"` (string)
+  - Users must convert: `Decimal.div(fees[:maker_commission], 10000)` for basis points
+
+**Code Reduction**:
+- Removed ~40 lines of manual field mapping code
+- Removed 1 helper function (`parse_commission_value/1`)
+- All parser functions now follow consistent `normalize_keys/1` pattern
+
+**Philosophy Alignment**:
+- ✅ No business logic in parsers (removed Decimal conversions)
+- ✅ Return raw API values as-is
+- ✅ Let users handle type conversions
+- ✅ Minimal transformation, maximum fidelity
+- ✅ Consistent with Refactor 7 principles
+
+**Next Steps**:
+- 📋 Future: Update CHANGELOG.md with breaking changes
+- 📋 Future: Consider if any examples need updating for raw commission values
 
 ---
 

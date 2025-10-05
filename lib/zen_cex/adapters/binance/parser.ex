@@ -318,9 +318,13 @@ defmodule ZenCex.Adapters.Binance.Parser do
   """
   @spec parse_server_time(map() | term()) :: {:ok, map()} | {:error, atom()}
   def parse_server_time(response) when is_map(response) do
-    case extract_field(response, ["serverTime"], :integer) do
-      0 -> {:error, :invalid_format}
-      time -> {:ok, %{server_time: time}}
+    # Normalize keys and return all fields as-is
+    normalized = normalize_keys(response)
+
+    # Validate server_time exists and is non-zero
+    case normalized[:server_time] do
+      time when is_integer(time) and time > 0 -> {:ok, normalized}
+      _ -> {:error, :invalid_format}
     end
   end
 
@@ -344,22 +348,23 @@ defmodule ZenCex.Adapters.Binance.Parser do
   """
   @spec parse_oco_response(map() | term()) :: {:ok, map()} | {:error, atom()}
   def parse_oco_response(response) when is_map(response) do
-    with list_id when not is_nil(list_id) <- extract_field(response, ["orderListId"], :integer),
-         orders when is_list(orders) <- extract_field(response, ["orders"], :identity) do
-      {:ok,
-       %{
-         order_list_id: list_id,
-         orders:
-           Enum.map(orders, fn order ->
-             case parse_order(order) do
-               {:ok, parsed} -> parsed
-               # Fallback to raw if parsing fails
-               _ -> order
-             end
-           end),
-         list_status: extract_field(response, ["listOrderStatus"], :string),
-         transaction_time: extract_field(response, ["transactionTime"], :integer)
-       }}
+    # Normalize all keys, then parse nested orders
+    normalized = normalize_keys(response)
+
+    # Validate required fields exist
+    with order_list_id when not is_nil(order_list_id) <- normalized[:order_list_id],
+         orders when is_list(orders) <- normalized[:orders] do
+      # Parse each nested order
+      parsed_orders =
+        Enum.map(orders, fn order ->
+          case parse_order(order) do
+            {:ok, parsed} -> parsed
+            # Fallback to raw if parsing fails
+            _ -> order
+          end
+        end)
+
+      {:ok, Map.put(normalized, :orders, parsed_orders)}
     else
       _ -> {:error, :invalid_oco_format}
     end
@@ -632,13 +637,9 @@ defmodule ZenCex.Adapters.Binance.Parser do
   """
   @spec parse_fees(map() | term()) :: {:ok, map()} | {:error, atom()}
   def parse_fees(response) when is_map(response) do
-    fees = %{
-      symbol: response["symbol"],
-      maker_commission: parse_commission_value(extract_field(response, ["makerCommission"], :identity)),
-      taker_commission: parse_commission_value(extract_field(response, ["takerCommission"], :identity)),
-      buyer_commission: parse_commission_value(extract_field(response, ["buyerCommission"], :identity)),
-      seller_commission: parse_commission_value(extract_field(response, ["sellerCommission"], :identity))
-    }
+    # Normalize keys and return all fields as-is (integers for basis points)
+    # Users calculate commission rates: Decimal.div(value, 10000) if needed
+    fees = normalize_keys(response)
 
     {:ok, fees}
   rescue
@@ -656,18 +657,6 @@ defmodule ZenCex.Adapters.Binance.Parser do
   defp normalize_order_status("REJECTED"), do: :rejected
   defp normalize_order_status("EXPIRED"), do: :expired
   defp normalize_order_status(_), do: :unknown
-
-  # Helper for commission values that can be integers (basis points) or strings (decimals)
-  defp parse_commission_value(value) when is_integer(value) do
-    safe_decimal_field(value, basis_points: true)
-  end
-
-  defp parse_commission_value(value) do
-    safe_decimal_field(value)
-  end
-
-  # The safe_decimal functionality is now provided by the safe_decimal_field macro
-  # imported from ZenCex.ParserMacros at the top of the module
 
   @doc """
   Parses market data API responses.

@@ -48,11 +48,12 @@ defmodule ZenCex.Examples.BinanceFuturesTradingTest do
       assert {:ok, positions} = BinanceFuturesTrading.get_coinm_positions(opts)
       assert is_list(positions)
 
-      # If we have positions, verify structure
+      # If we have positions, verify structure (raw API fields)
       if length(positions) > 0 do
         position = hd(positions)
         assert Map.has_key?(position, :symbol)
-        assert Map.has_key?(position, :size)
+        # Raw API field names (not computed :size)
+        assert Map.has_key?(position, :position_amt)
       end
     end
   end

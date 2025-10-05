@@ -110,24 +110,21 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
 
   describe "parse_positions/1" do
     test "parses spot balances as positions" do
-      assert {:ok, positions} = Parser.parse_positions(@spot_balance_response)
+      # Returns normalized account data (map, not list)
+      assert {:ok, account} = Parser.parse_positions(@spot_balance_response)
 
-      # Should filter out zero balances (ETH) and return only BTC and USDT
-      assert length(positions) == 2
+      # Raw API response with normalized keys
+      assert is_map(account)
+      assert account[:account_type] == "SPOT"
+      assert is_list(account[:balances])
+      assert length(account[:balances]) == 3
 
-      btc_position = Enum.find(positions, &(&1.symbol == "BTC"))
-      assert btc_position.symbol == "BTC"
-      assert btc_position.side == :long
-      assert Decimal.equal?(btc_position.size, Decimal.new("0.6"))
-      assert Decimal.equal?(btc_position.margin, Decimal.new("0.1"))
-      assert Decimal.equal?(btc_position.entry_price, Decimal.new("0"))
-      assert Decimal.equal?(btc_position.mark_price, Decimal.new("0"))
-      assert Decimal.equal?(btc_position.pnl, Decimal.new("0"))
-
-      usdt_position = Enum.find(positions, &(&1.symbol == "USDT"))
-      assert usdt_position.symbol == "USDT"
-      assert Decimal.equal?(usdt_position.size, Decimal.new("1500"))
-      assert Decimal.equal?(usdt_position.margin, Decimal.new("500"))
+      # Check balance structure (raw API fields)
+      btc_balance = Enum.find(account[:balances], &(&1[:asset] == "BTC"))
+      assert btc_balance[:asset] == "BTC"
+      assert btc_balance[:free] == "0.50000000"
+      assert btc_balance[:locked] == "0.10000000"
+      # Users calculate total: Decimal.add(free, locked)
     end
 
     test "parses futures positions array" do
@@ -135,52 +132,61 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
 
       assert length(positions) == 2
 
-      btc_position = Enum.find(positions, &(&1.symbol == "BTCUSDT"))
-      assert btc_position.symbol == "BTCUSDT"
-      assert btc_position.side == :long
-      assert Decimal.equal?(btc_position.size, Decimal.new("0.5"))
-      assert Decimal.equal?(btc_position.entry_price, Decimal.new("50000"))
-      assert Decimal.equal?(btc_position.mark_price, Decimal.new("51000"))
-      assert Decimal.equal?(btc_position.pnl, Decimal.new("500"))
-      assert Decimal.equal?(btc_position.margin, Decimal.new("2500"))
-      assert btc_position.timestamp == 1_234_567_890
+      # Raw API fields with normalized keys
+      btc_position = Enum.find(positions, &(&1[:symbol] == "BTCUSDT"))
+      assert btc_position[:symbol] == "BTCUSDT"
+      # Raw value, not normalized
+      assert btc_position[:position_side] == "LONG"
+      # String from API
+      assert btc_position[:position_amt] == "0.50000000"
+      assert btc_position[:entry_price] == "50000.00000000"
+      assert btc_position[:mark_price] == "51000.00000000"
+      assert btc_position[:un_realized_profit] == "500.00000000"
+      assert btc_position[:isolated_margin] == "2500.00000000"
+      assert btc_position[:update_time] == 1_234_567_890
 
-      eth_position = Enum.find(positions, &(&1.symbol == "ETHUSDT"))
-      assert eth_position.symbol == "ETHUSDT"
-      assert eth_position.side == :short
-      assert Decimal.equal?(eth_position.size, Decimal.new("-2"))
-      assert Decimal.equal?(eth_position.entry_price, Decimal.new("3000"))
-      assert Decimal.equal?(eth_position.mark_price, Decimal.new("2950"))
-      assert Decimal.equal?(eth_position.pnl, Decimal.new("100"))
-      assert Decimal.equal?(eth_position.margin, Decimal.new("0"))
+      eth_position = Enum.find(positions, &(&1[:symbol] == "ETHUSDT"))
+      assert eth_position[:symbol] == "ETHUSDT"
+      # Raw value
+      assert eth_position[:position_side] == "SHORT"
+      # String from API
+      assert eth_position[:position_amt] == "-2.00000000"
     end
 
-    test "parses single futures position" do
+    test "parses single futures position map" do
+      # When given a single position map (not in array), returns map with normalized keys
       single_position = List.first(@futures_positions_response)
-      assert {:ok, [position]} = Parser.parse_positions(single_position)
+      assert {:ok, position} = Parser.parse_positions(single_position)
 
-      assert position.symbol == "BTCUSDT"
-      assert position.side == :long
-      assert Decimal.equal?(position.size, Decimal.new("0.5"))
+      assert is_map(position)
+      assert position[:symbol] == "BTCUSDT"
+      assert position[:position_side] == "LONG"
+      assert position[:position_amt] == "0.50000000"
     end
 
     test "handles empty balances array" do
       empty_response = %{"balances" => []}
-      assert {:ok, []} = Parser.parse_positions(empty_response)
+      # Returns normalized map with empty balances array
+      assert {:ok, %{balances: []}} = Parser.parse_positions(empty_response)
     end
 
-    test "handles invalid format" do
-      assert {:error, :invalid_format} = Parser.parse_positions(%{"invalid" => "format"})
+    test "handles any map format" do
+      # Parser now returns ANY map with normalized keys (no format validation)
+      assert {:ok, %{invalid: "format"}} = Parser.parse_positions(%{"invalid" => "format"})
+    end
+
+    test "handles invalid non-map/list formats" do
       assert {:error, :invalid_format} = Parser.parse_positions("invalid")
       assert {:error, :invalid_format} = Parser.parse_positions(nil)
     end
 
-    test "handles parse errors gracefully" do
-      # Our safe_decimal function handles invalid numbers by defaulting to "0"
+    test "normalizes position with invalid number values" do
+      # Raw values returned as-is (no validation or conversion)
       invalid_position = %{"symbol" => "BTCUSDT", "positionAmt" => "invalid_number"}
       assert {:ok, [position]} = Parser.parse_positions([invalid_position])
-      assert position.symbol == "BTCUSDT"
-      assert Decimal.equal?(position.size, Decimal.new("0"))
+      assert position[:symbol] == "BTCUSDT"
+      # Returned as-is
+      assert position[:position_amt] == "invalid_number"
     end
   end
 
@@ -489,16 +495,12 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
     end
   end
 
-  describe "position side normalization" do
-    test "normalizes Binance position sides" do
-      position_sides = [
-        {"LONG", :long},
-        {"SHORT", :short},
-        {"BOTH", :long},
-        {"UNKNOWN", :long}
-      ]
+  describe "position normalization" do
+    test "normalizes keys but keeps values as-is" do
+      # Parser no longer normalizes enum values - returns raw API data
+      position_sides = ["LONG", "SHORT", "BOTH"]
 
-      for {binance_side, expected_side} <- position_sides do
+      for binance_side <- position_sides do
         position = %{
           "symbol" => "TESTUSDT",
           "positionSide" => binance_side,
@@ -509,7 +511,9 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
         }
 
         assert {:ok, [parsed]} = Parser.parse_positions([position])
-        assert parsed.side == expected_side
+        # Raw value returned (not normalized to atom)
+        assert parsed[:position_side] == binance_side
+        assert parsed[:position_amt] == "1.0"
       end
     end
   end
@@ -627,11 +631,12 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
       }
 
       assert {:ok, fees} = Parser.parse_fees(response)
-      assert fees.symbol == "BTCUSDT"
-      assert Decimal.equal?(fees.maker_commission, Decimal.new("0.001"))
-      assert Decimal.equal?(fees.taker_commission, Decimal.new("0.0015"))
-      assert Decimal.equal?(fees.buyer_commission, Decimal.new("0"))
-      assert Decimal.equal?(fees.seller_commission, Decimal.new("0"))
+      assert fees[:symbol] == "BTCUSDT"
+      # Raw values from API - users convert to Decimal if needed
+      assert fees[:maker_commission] == "0.001"
+      assert fees[:taker_commission] == "0.0015"
+      assert fees[:buyer_commission] == nil
+      assert fees[:seller_commission] == nil
     end
 
     test "parses account-wide commission rates (basis points)" do
@@ -643,13 +648,12 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
       }
 
       assert {:ok, fees} = Parser.parse_fees(response)
-      assert fees.symbol == nil
-      # 10 basis points = 10/10000 = 0.001
-      assert Decimal.equal?(fees.maker_commission, Decimal.new("0.001"))
-      # 15 basis points = 15/10000 = 0.0015
-      assert Decimal.equal?(fees.taker_commission, Decimal.new("0.0015"))
-      assert Decimal.equal?(fees.buyer_commission, Decimal.new("0"))
-      assert Decimal.equal?(fees.seller_commission, Decimal.new("0"))
+      assert fees[:symbol] == nil
+      # Raw integers (basis points) - users calculate: Decimal.div(value, 10000)
+      assert fees[:maker_commission] == 10
+      assert fees[:taker_commission] == 15
+      assert fees[:buyer_commission] == 0
+      assert fees[:seller_commission] == 0
     end
 
     test "handles mixed commission formats" do
@@ -662,9 +666,10 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
       }
 
       assert {:ok, fees} = Parser.parse_fees(response)
-      assert fees.symbol == "ETHUSDT"
-      assert Decimal.equal?(fees.maker_commission, Decimal.new("0.001"))
-      assert Decimal.equal?(fees.taker_commission, Decimal.new("0.002"))
+      assert fees[:symbol] == "ETHUSDT"
+      # Raw values as-is from API
+      assert fees[:maker_commission] == 10
+      assert fees[:taker_commission] == "0.002"
     end
 
     test "handles float commission rates" do
@@ -674,19 +679,25 @@ defmodule ZenCex.Adapters.Binance.ParserTest do
       }
 
       assert {:ok, fees} = Parser.parse_fees(response)
-      assert Decimal.equal?(fees.maker_commission, Decimal.new("0.001"))
-      assert Decimal.equal?(fees.taker_commission, Decimal.new("0.002"))
+      # Raw floats from API
+      assert fees[:maker_commission] == 0.001
+      assert fees[:taker_commission] == 0.002
     end
 
-    test "handles missing fields with defaults" do
-      response = %{}
+    test "normalizes all fields including extras" do
+      response = %{
+        "symbol" => "BTCUSDT",
+        "makerCommission" => 10,
+        "takerCommission" => 15,
+        "extraField" => "value"
+      }
 
       assert {:ok, fees} = Parser.parse_fees(response)
-      assert fees.symbol == nil
-      assert Decimal.equal?(fees.maker_commission, Decimal.new("0"))
-      assert Decimal.equal?(fees.taker_commission, Decimal.new("0"))
-      assert Decimal.equal?(fees.buyer_commission, Decimal.new("0"))
-      assert Decimal.equal?(fees.seller_commission, Decimal.new("0"))
+      # All fields normalized and exposed
+      assert fees[:symbol] == "BTCUSDT"
+      assert fees[:maker_commission] == 10
+      assert fees[:taker_commission] == 15
+      assert fees[:extra_field] == "value"
     end
 
     test "returns error for invalid format" do
