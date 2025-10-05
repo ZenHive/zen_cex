@@ -430,7 +430,7 @@ defmodule ZenCex.Examples.BinanceWebsocketStreamsTest do
       {:ok, client} = BinanceWebsocketStreams.connect_single_stream("btcusdt@ticker")
 
       # May start as connecting
-      {:ok, initial_state} = BinanceWebsocketStreams.get_connection_state(client)
+      {:ok, _initial_state} = BinanceWebsocketStreams.get_connection_state(client)
 
       # Wait for connection to establish
       Process.sleep(2000)

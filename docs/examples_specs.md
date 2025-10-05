@@ -4,13 +4,13 @@ This document tracks remaining tasks for implementing example modules and tests 
 
 ## Status: IN PROGRESS
 
-**Last Updated**: 2025-01-05 (Session 9)
+**Last Updated**: 2025-01-05 (Session 10)
 
 **Current Progress**:
-- ✅ Completed: Tasks 0-9, 11-19 (all modules + all tests completed!)
-- ⏳ Remaining: 4 tasks (1 module + 2 tests + config/verification)
+- ✅ Completed: Tasks 0-10, 11-20 (all modules + all tests completed!)
+- ⏳ Remaining: 3 tasks (2 tests + config/verification)
 
-**Next Task**: Task 10 (endpoint_discovery.ex) and Task 20 (endpoint_discovery_test.exs)
+**Next Task**: Task 21 (documentation_examples_test.exs) - Parse and validate README/docs code examples
 
 ---
 
@@ -20,23 +20,21 @@ This document tracks remaining tasks for implementing example modules and tests 
 ```
 Continue implementing example modules from docs/examples_specs.md.
 
-Current status: Completed Tasks 0-9, 11-19 (all modules + tests completed!). Session 9 implemented debug_troubleshooting module with comprehensive debug workflow examples.
-Next: Task 10 (endpoint_discovery.ex) and Task 20 (endpoint_discovery_test.exs).
+Current status: Completed Tasks 0-10, 11-20 (all modules + tests completed!). Session 10 implemented endpoint_discovery module with comprehensive introspection examples.
+Next: Task 21 (documentation_examples_test.exs) - Create validation test that parses README.md and usage-rules.md code examples.
 
 Key points:
 - ALWAYS implement both module AND tests in the same session
-- Library NEVER reads ENV - only accepts auth_credentials option
-- Calling code (tests, scripts) reads ENV and passes explicitly
-- Bybit returns STRING keys, Binance returns ATOM keys (inconsistency documented)
-- Use Cache.Market.get_ticker(:binance, symbol) for WebSocket cached data
-- Use MarketData module for REST market data endpoints
+- Task 21 is a meta-test that validates documentation code examples
+- Extract all Elixir code blocks from markdown files
+- Verify module references exist and functions are exported
+- Check for outdated patterns (Cache.Market vs MarketData corrections already applied)
+- Use @moduletag :documentation for this test
 - All functions need @spec, @doc, @moduledoc
 - Run tests after creating them
 - Update this file's continuation prompt when done
-- ALWAYS pass auth_credentials in opts for authenticated operations
-- Handle exchange-specific error codes (Binance: -2019, -4013; Bybit: 110101, 170140)
 
-Begin: "Continuing from docs/examples_specs.md - implementing Task 10..."
+Begin: "Continuing from docs/examples_specs.md - implementing Task 21..."
 ```
 
 ---
@@ -102,24 +100,25 @@ def debug_failed_request(params :: map()) :: {:error, term()}
 
 ---
 
-#### Task 10: Create endpoint_discovery.ex
+#### ✅ Task 10: Create endpoint_discovery.ex (COMPLETED - Session 10)
 
 **File**: `lib/examples/endpoint_discovery.ex`
 
 **Purpose**: Demonstrate endpoint introspection from README.md:409-426
 
-**Requirements**:
-- List all endpoints
-- List by API type
-- Get endpoint details
-- Show runtime discovery
+**Implementation Notes**:
+- ✅ Created 4 functions with full @spec, @doc, @moduledoc
+- ✅ Demonstrates runtime endpoint discovery across all API types
+- ✅ Shows listing endpoints (all, spot, futures)
+- ✅ Shows getting detailed endpoint information
+- ✅ All tests pass (23 tests, 0 failures)
 
-**Functions to implement**:
+**Functions implemented**:
 ```elixir
-def list_all_endpoints()
-def list_spot_endpoints()
-def list_futures_endpoints()
-def get_endpoint_details(operation, api_type)
+def list_all_endpoints() :: {:ok, [atom()]}
+def list_spot_endpoints() :: {:ok, [atom()]}
+def list_futures_endpoints() :: {:ok, [atom()]}
+def get_endpoint_details(atom(), atom()) :: {:ok, map()} | {:error, :not_found}
 ```
 
 **Documentation refs**:
@@ -179,22 +178,27 @@ def get_endpoint_details(operation, api_type)
 
 ---
 
-#### Task 20: Create test suite for endpoint_discovery
+#### ✅ Task 20: Create test suite for endpoint_discovery (COMPLETED - Session 10)
 
 **File**: `test/examples/endpoint_discovery_test.exs`
 
 **Purpose**: Verify endpoint introspection
 
-**Requirements**:
-- Test endpoint listing
-- Verify endpoint details structure
-- No auth required
+**Implementation Notes**:
+- ✅ Created comprehensive test suite with 23 tests
+- ✅ All tests pass (23 tests, 0 failures)
+- ✅ Tests verify endpoint listing (all, spot, futures)
+- ✅ Tests verify endpoint details structure and metadata
+- ✅ Tests verify sorting, uniqueness, and subset relationships
+- ✅ Integration tests verify cross-API type comparison
+- ✅ Uses ExUnit.Case (no auth needed for discovery operations)
 
-**Tests needed**:
-- `list_all_endpoints/0`
-- `list_spot_endpoints/0`
-- `list_futures_endpoints/0`
-- `get_endpoint_details/2`
+**Tests implemented**:
+- `list_all_endpoints/0` (4 tests)
+- `list_spot_endpoints/0` (4 tests)
+- `list_futures_endpoints/0` (5 tests)
+- `get_endpoint_details/2` (8 tests)
+- Integration examples (2 tests)
 
 ---
 
