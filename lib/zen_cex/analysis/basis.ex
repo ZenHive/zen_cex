@@ -768,10 +768,10 @@ defmodule ZenCex.Analysis.Basis do
     # Bybit uses formats like "BTC-26DEC25" or "BTCUSDT-03OCT25"
     filtered =
       Enum.filter(instruments, fn inst ->
-        symbol = Map.get(inst, "symbol", "")
-        base_coin = Map.get(inst, "baseCoin", "")
-        status = Map.get(inst, "status", "")
-        contract_type = Map.get(inst, "contractType", "")
+        symbol = Map.get(inst, :symbol, "")
+        base_coin = Map.get(inst, :base_coin, "")
+        status = Map.get(inst, :status, "")
+        contract_type = Map.get(inst, :contract_type, "")
         # Check if it's a delivery future (not perpetual) for our base asset
         base_coin == base_asset &&
           status == "Trading" &&
@@ -786,8 +786,8 @@ defmodule ZenCex.Analysis.Basis do
     with_prices =
       contracts
       |> Enum.map(fn contract ->
-        symbol = Map.get(contract, "symbol", "")
-        delivery_time = Map.get(contract, "deliveryTime", "0")
+        symbol = Map.get(contract, :symbol, "")
+        delivery_time = Map.get(contract, :delivery_time, "0")
 
         # Extract expiry from symbol (e.g., "BTC-26DEC25" -> "26-DEC-25")
         expiry =

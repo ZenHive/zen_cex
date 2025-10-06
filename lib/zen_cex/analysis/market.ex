@@ -455,10 +455,10 @@ defmodule ZenCex.Analysis.Market do
       end
 
     case Bybit.MarketData.get_tickers(%{category: category, symbol: symbol}) do
-      {:ok, %{"list" => [ticker | _]}} ->
+      {:ok, %{list: [ticker | _]}} ->
         {:ok, normalize_funding_data(ticker, :bybit)}
 
-      {:ok, %{"list" => []}} ->
+      {:ok, %{list: []}} ->
         {:error, {:symbol_not_found, symbol}}
 
       error ->
@@ -520,7 +520,7 @@ defmodule ZenCex.Analysis.Market do
       end
 
     case Bybit.MarketData.get_funding_history(%{category: category, symbol: symbol, limit: limit}) do
-      {:ok, %{"list" => data}} when is_list(data) ->
+      {:ok, %{list: data}} when is_list(data) ->
         {:ok, Enum.map(data, &normalize_funding_data(&1, :bybit_history))}
 
       error ->
