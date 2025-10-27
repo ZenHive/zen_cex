@@ -17,7 +17,21 @@
 
 - Only the data of the latest 90 days is available
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      token_name: "String.t()",
+      id: "integer()",
+      start_time: "integer()",
+      end_time: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{amount: String.t(), fee: String.t(), id: integer(), nav: String.t(), timestamp: integer(), token_name: String.t(), total_charge: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/blvt/subscribe/record\"(map(), keyword()) :: {:ok, %{amount: String.t(), fee: String.t(), id: integer(), nav: String.t(), timestamp: integer(), token_name: String.t(), total_charge: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/algo/spot/historical_orders",
@@ -34,7 +48,22 @@ Weight(IP): 1"
 
 Get all historical SPOT TWAP orders
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      symbol: "String.t()",
+      side: ":sell | :buy",
+      start_time: "integer()",
+      end_time: "integer()",
+      page: "integer()",
+      page_size: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{orders: list(%{algo_id: integer(), algo_status: String.t(), algo_type: String.t(), avg_price: String.t(), book_time: integer(), client_algo_id: String.t(), end_time: integer(), executed_amt: String.t(), executed_qty: String.t(), side: String.t(), symbol: String.t(), total_qty: String.t(), urgency: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/algo/spot/historical_orders\"(map(), keyword()) :: {:ok, %{orders: list(%{algo_id: integer(), algo_status: String.t(), algo_type: String.t(), avg_price: String.t(), book_time: integer(), client_algo_id: String.t(), end_time: integer(), executed_amt: String.t(), executed_qty: String.t(), side: String.t(), symbol: String.t(), total_qty: String.t(), urgency: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/loan/vip/repay",
@@ -51,7 +80,18 @@ Weight(IP): 1"
 
 VIP loan is available for VIP users only.
 
-Weight(UID): 6000"
+Weight(UID): 6000",
+    param_types: [
+      order_id: "integer()",
+      amount: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{collateral_coin: String.t(), current_ltv: String.t(), loan_coin: String.t(), remaining_interest: String.t(), remaining_principal: String.t(), repay_amount: String.t(), repay_status: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/loan/vip/repay\"(map(), keyword()) :: {:ok, %{collateral_coin: String.t(), current_ltv: String.t(), loan_coin: String.t(), remaining_interest: String.t(), remaining_principal: String.t(), repay_amount: String.t(), repay_status: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/simple-earn/locked/set_auto_subscribe",
@@ -66,7 +106,17 @@ Weight(UID): 6000"
     error_mapping: &Parser.parse_error/1,
     doc: "Set Locked Auto Subscribe (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      position_id: "String.t()",
+      auto_subscribe: "boolean()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{success: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/simple-earn/locked/set_auto_subscribe\"(map(), keyword()) :: {:ok, %{success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/c2c/order_match/list_user_order_history",
@@ -84,7 +134,21 @@ Weight(IP): 150"
 - If startTimestamp and endTimestamp are not sent, the recent 30-day data will be returned.
 - The max interval between startTimestamp and endTimestamp is 30 days.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      trade_type: ":buy | :sell",
+      start_timestamp: "integer()",
+      end_timestamp: "integer()",
+      page: "integer()",
+      rows: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{code: String.t(), data: list(%{adv_no: String.t(), advertisement_role: String.t(), amount: String.t(), asset: String.t(), commission: String.t(), counter_part_nick_name: String.t(), create_time: integer(), fiat: String.t(), fiat_symbol: String.t(), order_number: String.t(), order_status: String.t(), total_price: String.t(), trade_type: String.t(), unit_price: String.t()}), message: String.t(), success: boolean(), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/c2c/order_match/list_user_order_history\"(map(), keyword()) :: {:ok, %{code: String.t(), data: list(%{adv_no: String.t(), advertisement_role: String.t(), amount: String.t(), asset: String.t(), commission: String.t(), counter_part_nick_name: String.t(), create_time: integer(), fiat: String.t(), fiat_symbol: String.t(), order_number: String.t(), order_status: String.t(), total_price: String.t(), trade_type: String.t(), unit_price: String.t()}), message: String.t(), success: boolean(), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/sub-account/margin/enable",
@@ -99,7 +163,11 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Enable Margin for Sub-account (For Master Account)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [email: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{email: String.t(), is_margin_enabled: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/sub-account/margin/enable\"(map(), keyword()) :: {:ok, %{email: String.t(), is_margin_enabled: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/trade_coeff",
@@ -116,7 +184,12 @@ Weight(IP): 1"
 
 Get personal margin level information
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [email: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{optional(:force_liquidation_bar) => String.t(), optional(:margin_call_bar) => String.t(), optional(:normal_bar) => String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/trade_coeff\"(map(), keyword()) :: {:ok, %{optional(:force_liquidation_bar) => String.t(), optional(:margin_call_bar) => String.t(), optional(:normal_bar) => String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/lending/auto-invest/plan/list",
@@ -133,7 +206,12 @@ Weight(IP): 10"
 
 Query plan lists
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [plan_type: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{plan: list(%{creation_date_time: integer(), edit_allowed: String.t(), first_execution_date_time: integer(), flexible_allowed_to_use: String.t(), last_updated_date_time: integer(), next_execution_date_time: integer(), plan_id: integer(), plan_type: String.t(), plan_value_in_usd: String.t(), pnl_in_usd: String.t(), roi: String.t(), source_asset: String.t(), source_wallet: String.t(), status: String.t(), subscription_amount: String.t(), subscription_cycle: String.t(), subscription_start_day: String.t(), subscription_start_time: String.t(), subscription_start_weekday: String.t(), target_asset: String.t(), total_invested_in_usd: String.t(), total_target_amount: String.t()}), plan_value_in_btc: String.t(), plan_value_in_usd: String.t(), pnl_in_usd: String.t(), roi: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/lending/auto-invest/plan/list\"(map(), keyword()) :: {:ok, %{plan: list(%{creation_date_time: integer(), edit_allowed: String.t(), first_execution_date_time: integer(), flexible_allowed_to_use: String.t(), last_updated_date_time: integer(), next_execution_date_time: integer(), plan_id: integer(), plan_type: String.t(), plan_value_in_usd: String.t(), pnl_in_usd: String.t(), roi: String.t(), source_asset: String.t(), source_wallet: String.t(), status: String.t(), subscription_amount: String.t(), subscription_cycle: String.t(), subscription_start_day: String.t(), subscription_start_time: String.t(), subscription_start_weekday: String.t(), target_asset: String.t(), total_invested_in_usd: String.t(), total_target_amount: String.t()}), plan_value_in_btc: String.t(), plan_value_in_usd: String.t(), pnl_in_usd: String.t(), roi: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/loan/borrow",
@@ -148,7 +226,21 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Crypto Loan Borrow (TRADE)
 
-Weight(UID): 6000"
+Weight(UID): 6000",
+    param_types: [
+      loan_coin: "String.t()",
+      loan_amount: "float()",
+      collateral_coin: "String.t()",
+      collateral_amount: "float()",
+      loan_term: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{collateral_amount: String.t(), collateral_coin: String.t(), hourly_interest_rate: String.t(), loan_amount: String.t(), loan_coin: String.t(), order_id: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/loan/borrow\"(map(), keyword()) :: {:ok, %{collateral_amount: String.t(), collateral_coin: String.t(), hourly_interest_rate: String.t(), loan_amount: String.t(), loan_coin: String.t(), order_id: String.t()}} | {:error, term()}"
   },
   %{
     operation: :get_trades,
@@ -165,7 +257,12 @@ Weight(UID): 6000"
 
 Get recent trades.
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [symbol: "String.t()", limit: "integer()"],
+    response_type:
+      "list(%{id: integer(), is_best_match: boolean(), is_buyer_maker: boolean(), price: String.t(), qty: String.t(), quote_qty: String.t(), time: integer()})",
+    spec:
+      "@spec get_trades(map(), keyword()) :: {:ok, list(%{id: integer(), is_best_match: boolean(), is_buyer_maker: boolean(), price: String.t(), qty: String.t(), quote_qty: String.t(), time: integer()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/asset/asset_dividend",
@@ -182,7 +279,20 @@ Weight(IP): 10"
 
 Query asset Dividend Record
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [
+      asset: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{amount: String.t(), asset: String.t(), div_time: integer(), en_info: String.t(), id: integer(), tran_id: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/asset/asset_dividend\"(map(), keyword()) :: {:ok, %{rows: list(%{amount: String.t(), asset: String.t(), div_time: integer(), en_info: String.t(), id: integer(), tran_id: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"place_/sapi/v1/margin/order/otoco",
@@ -205,7 +315,45 @@ Post a new `OTOCO` order for margin account:
   - The rules of the pending above and pending below follow the same rules as the Order List `OCO`.
 - OTOCOs add 3 orders to the unfilled order count, `EXCHANGE_MAX_NUM_ORDERS` filter and `MAX_NUM_ORDERS` filter.
 
-Weight(UID): 6"
+Weight(UID): 6",
+    param_types: [
+      symbol: "String.t()",
+      is_isolated: ":true | :false",
+      side_effect_type: ":no_side_effect | :margin_buy",
+      auto_repay_at_cancel: "boolean()",
+      list_client_order_id: "String.t()",
+      new_order_resp_type: ":ack | :result | :full",
+      self_trade_prevention_mode: ":expire_taker | :expire_maker | :expire_both | :none",
+      working_type: ":limit | :limit_maker",
+      working_side: ":buy | :sell",
+      working_client_order_id: "String.t()",
+      working_price: "float()",
+      working_quantity: "float()",
+      working_iceberg_qty: "float()",
+      working_time_in_force: ":gtc | :ioc | :fok",
+      pending_side: ":buy | :sell",
+      pending_quantity: "float()",
+      pending_above_type: ":limit_maker | :stop_loss | :stop_loss_limit",
+      pending_above_client_order_id: "String.t()",
+      pending_above_price: "float()",
+      pending_above_stop_price: "float()",
+      pending_above_trailing_delta: "float()",
+      pending_above_iceberg_qty: "float()",
+      pending_above_time_in_force: ":gtc | :ioc | :fok",
+      pending_below_type: ":limit_maker | :stop_loss | :stop_loss_limit",
+      pending_below_client_order_id: "String.t()",
+      pending_below_price: "float()",
+      pending_below_stop_price: "float()",
+      pending_below_trailing_delta: "float()",
+      pending_below_iceberg_qty: "float()",
+      pending_below_time_in_force: ":gtc | :ioc | :fok",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{contingency_type: String.t(), is_isolated: boolean(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), order_reports: list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t()}), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}",
+    spec:
+      "@spec :\"place_/sapi/v1/margin/order/otoco\"(map(), keyword()) :: {:ok, %{contingency_type: String.t(), is_isolated: boolean(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), order_reports: list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t()}), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/simple-earn/account",
@@ -220,7 +368,12 @@ Weight(UID): 6"
     error_mapping: &Parser.parse_error/1,
     doc: "Simple Account (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{total_amount_in_btc: String.t(), total_amount_in_usdt: String.t(), total_flexible_amount_in_btc: String.t(), total_flexible_amount_in_usdt: String.t(), total_locked_in_btc: String.t(), total_locked_in_usdt: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/simple-earn/account\"(map(), keyword()) :: {:ok, %{total_amount_in_btc: String.t(), total_amount_in_usdt: String.t(), total_flexible_amount_in_btc: String.t(), total_flexible_amount_in_usdt: String.t(), total_locked_in_btc: String.t(), total_locked_in_usdt: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/lending/auto-invest/plan/edit",
@@ -237,7 +390,24 @@ Weight(IP): 150"
 
 Query Source Asset to be used for investment
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      plan_id: "integer()",
+      subscription_amount: "float()",
+      subscription_cycle: ":h1 | :h4 | :h8 | :h12 | :weekly | :daily | :monthly | :bi_weekly",
+      subscription_start_day: "integer()",
+      subscription_start_weekday: ":mon | :tue | :wed | :thu | :fri | :sat | :sun",
+      subscription_start_time: "integer()",
+      source_asset: "String.t()",
+      flexible_allowed_to_use: "boolean()",
+      details: "list(%{optional(:percentage) => integer(), optional(:target_asset) => String.t()})",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{next_execution_date_time: integer(), plan_id: integer()}",
+    spec:
+      "@spec :\"create_/sapi/v1/lending/auto-invest/plan/edit\"(map(), keyword()) :: {:ok, %{next_execution_date_time: integer(), plan_id: integer()}} | {:error, term()}"
   },
   %{
     operation: :"cancel_/sapi/v1/margin/order_list",
@@ -257,7 +427,21 @@ Cancel an entire Order List for a margin account
 - Canceling an individual leg will cancel the entire OCO
 - Either `orderListId` or `listClientOrderId` must be provided
 
-Weight(UID): 1"
+Weight(UID): 1",
+    param_types: [
+      symbol: "String.t()",
+      is_isolated: ":true | :false",
+      order_list_id: "integer()",
+      list_client_order_id: "String.t()",
+      new_client_order_id: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{contingency_type: String.t(), is_isolated: boolean(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), order_reports: list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_client_order_id: String.t(), orig_qty: String.t(), price: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time_in_force: String.t(), type: String.t()}), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}",
+    spec:
+      "@spec :\"cancel_/sapi/v1/margin/order_list\"(map(), keyword()) :: {:ok, %{contingency_type: String.t(), is_isolated: boolean(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), order_reports: list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_client_order_id: String.t(), orig_qty: String.t(), price: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time_in_force: String.t(), type: String.t()}), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/order_list",
@@ -276,7 +460,20 @@ Retrieves a specific OCO based on provided optional parameters
 
 - Either `orderListId` or `origClientOrderId` must be provided
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [
+      is_isolated: ":true | :false",
+      symbol: "String.t()",
+      order_list_id: "integer()",
+      orig_client_order_id: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{contingency_type: String.t(), is_isolated: boolean(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/order_list\"(map(), keyword()) :: {:ok, %{contingency_type: String.t(), is_isolated: boolean(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/loan/vip/collateral/data",
@@ -293,7 +490,17 @@ Weight(IP): 10"
 
 Get collateral asset data.
 
-Weight(IP): 400"
+Weight(IP): 400",
+    param_types: [
+      collateral_coin: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{_1st_collateral_range: String.t(), _1st_collateral_ratio: String.t(), _2nd_collateral_range: String.t(), _2nd_collateral_ratio: String.t(), _3rd_collateral_range: String.t(), _3rd_collateral_ratio: String.t(), _4th_collateral_range: String.t(), _4th_collateral_ratio: String.t(), collateral_coin: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/loan/vip/collateral/data\"(map(), keyword()) :: {:ok, %{rows: list(%{_1st_collateral_range: String.t(), _1st_collateral_ratio: String.t(), _2nd_collateral_range: String.t(), _2nd_collateral_ratio: String.t(), _3rd_collateral_range: String.t(), _3rd_collateral_ratio: String.t(), _4th_collateral_range: String.t(), _4th_collateral_ratio: String.t(), collateral_coin: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v2/loan/flexible/ltv/adjustment/history",
@@ -311,7 +518,22 @@ Weight(IP): 400"
 - If startTime and endTime are not sent, the recent 90-day data will be returned.
 - The max interval between startTime and endTime is 180 days.
 
-Weight(IP): 400"
+Weight(IP): 400",
+    param_types: [
+      loan_coin: "String.t()",
+      collateral_coin: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{adjust_time: integer(), after_ltv: String.t(), collateral_amount: String.t(), collateral_coin: String.t(), direction: String.t(), loan_coin: String.t(), pre_ltv: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v2/loan/flexible/ltv/adjustment/history\"(map(), keyword()) :: {:ok, %{rows: list(%{adjust_time: integer(), after_ltv: String.t(), collateral_amount: String.t(), collateral_coin: String.t(), direction: String.t(), loan_coin: String.t(), pre_ltv: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/simple-earn/flexible/personal_left_quota",
@@ -326,7 +548,11 @@ Weight(IP): 400"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Flexible Personal Left Quota (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [product_id: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{left_personal_quota: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/simple-earn/flexible/personal_left_quota\"(map(), keyword()) :: {:ok, %{left_personal_quota: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v2/sub-account/futures/account_summary",
@@ -341,7 +567,18 @@ Weight(IP): 150"
     error_mapping: &Parser.parse_error/1,
     doc: "Summary of Sub-account's Futures Account V2 (For Master Account)
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [
+      futures_type: "integer()",
+      page: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "term()",
+    spec:
+      "@spec :\"get_/sapi/v2/sub-account/futures/account_summary\"(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/account_snapshot",
@@ -360,7 +597,18 @@ Weight(IP): 10"
 - Support query within the last one month only
 - If startTimeand endTime not sent, return records of the last 7 days by default
 
-Weight(IP): 2400"
+Weight(IP): 2400",
+    param_types: [
+      type: ":spot | :margin | :futures",
+      start_time: "integer()",
+      end_time: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "term()",
+    spec: "@spec :\"get_/sapi/v1/account_snapshot\"(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/managed-subaccount/margin_asset",
@@ -375,7 +623,12 @@ Weight(IP): 2400"
     error_mapping: &Parser.parse_error/1,
     doc: "Query Managed Sub-account Margin Asset Details (For Investor Master Account)
 
-Investor can use this api to query managed sub account margin asset details"
+Investor can use this api to query managed sub account margin asset details",
+    param_types: [email: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{margin_level: String.t(), total_asset_of_btc: String.t(), total_liability_of_btc: String.t(), total_net_asset_of_btc: String.t(), user_assets: list(%{asset: String.t(), borrowed: String.t(), free: String.t(), interest: String.t(), locked: String.t(), net_asset: String.t()})}",
+    spec:
+      "@spec :\"get_/sapi/v1/managed-subaccount/margin_asset\"(map(), keyword()) :: {:ok, %{margin_level: String.t(), total_asset_of_btc: String.t(), total_liability_of_btc: String.t(), total_net_asset_of_btc: String.t(), user_assets: list(%{asset: String.t(), borrowed: String.t(), free: String.t(), interest: String.t(), locked: String.t(), net_asset: String.t()})}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/algo/spot/sub_orders",
@@ -392,7 +645,19 @@ Investor can use this api to query managed sub account margin asset details"
 
 Get respective sub orders for a specified algoId
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      algo_id: "integer()",
+      page: "integer()",
+      page_size: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{executed_amt: String.t(), executed_qty: String.t(), sub_orders: list(%{algo_id: integer(), avg_price: String.t(), book_time: integer(), executed_amt: String.t(), executed_qty: String.t(), fee_amt: String.t(), fee_asset: String.t(), order_id: integer(), order_status: String.t(), orig_qty: String.t(), side: String.t(), sub_id: integer(), symbol: String.t(), time_in_force: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/algo/spot/sub_orders\"(map(), keyword()) :: {:ok, %{executed_amt: String.t(), executed_qty: String.t(), sub_orders: list(%{algo_id: integer(), avg_price: String.t(), book_time: integer(), executed_amt: String.t(), executed_qty: String.t(), fee_amt: String.t(), fee_asset: String.t(), order_id: integer(), order_status: String.t(), orig_qty: String.t(), side: String.t(), sub_id: integer(), symbol: String.t(), time_in_force: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/eth-staking/eth/history/redemption_history",
@@ -412,7 +677,20 @@ Weight(IP): 1"
 - If startTime is sent but endTime is not sent, the next 30 days' data beginning from startTime will be returned.
 - If endTime is sent but startTime is not sent, the 30 days' data before endTime will be returned.
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{amount: String.t(), arrival_time: integer(), asset: String.t(), conversion_ratio: String.t(), distribute_amount: String.t(), distribute_asset: String.t(), status: String.t(), time: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/eth-staking/eth/history/redemption_history\"(map(), keyword()) :: {:ok, %{rows: list(%{amount: String.t(), arrival_time: integer(), asset: String.t(), conversion_ratio: String.t(), distribute_amount: String.t(), distribute_asset: String.t(), status: String.t(), time: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/simple-earn/flexible/history/rate_history",
@@ -427,7 +705,21 @@ Weight(IP): 150"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Rate History (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      product_id: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{annual_percentage_rate: String.t(), asset: String.t(), product_id: String.t(), time: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/simple-earn/flexible/history/rate_history\"(map(), keyword()) :: {:ok, %{rows: list(%{annual_percentage_rate: String.t(), asset: String.t(), product_id: String.t(), time: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/loan/borrow/history",
@@ -445,7 +737,23 @@ Weight(IP): 150"
 - If startTime and endTime are not sent, the recent 90-day data will be returned.
 - The max interval between startTime and endTime is 180 days.
 
-Weight(IP): 400"
+Weight(IP): 400",
+    param_types: [
+      order_id: "integer()",
+      loan_coin: "String.t()",
+      collateral_coin: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{borrow_time: integer(), collateral_coin: String.t(), hourly_interest_rate: String.t(), initial_collateral_amount: String.t(), initial_loan_amount: String.t(), loan_coin: String.t(), loan_term: String.t(), order_id: integer(), status: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/loan/borrow/history\"(map(), keyword()) :: {:ok, %{rows: list(%{borrow_time: integer(), collateral_coin: String.t(), hourly_interest_rate: String.t(), initial_collateral_amount: String.t(), initial_loan_amount: String.t(), loan_coin: String.t(), loan_term: String.t(), order_id: integer(), status: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_ticker/price",
@@ -466,7 +774,10 @@ Latest price for a symbol or symbols.
 
 Weight(IP):
 - `2` for a single symbol;
-- `4` when the symbol parameter is omitted;"
+- `4` when the symbol parameter is omitted;",
+    param_types: [symbol: "String.t()", symbols: "String.t()"],
+    response_type: "term()",
+    spec: "@spec :\"get_ticker/price\"(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/managed-subaccount/asset",
@@ -481,7 +792,12 @@ Weight(IP):
     error_mapping: &Parser.parse_error/1,
     doc: "Managed sub-account asset details(For Investor Master Account)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [email: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "list(%{available_balance: String.t(), btc_value: String.t(), coin: String.t(), in_order: String.t(), name: String.t(), total_balance: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/managed-subaccount/asset\"(map(), keyword()) :: {:ok, list(%{available_balance: String.t(), btc_value: String.t(), coin: String.t(), in_order: String.t(), name: String.t(), total_balance: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/lending/auto-invest/all/asset",
@@ -498,7 +814,11 @@ Weight(IP): 1"
 
 Query all source assets and target assets
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{source_assets: list(String.t()), target_assets: list(String.t())}",
+    spec:
+      "@spec :\"get_/sapi/v1/lending/auto-invest/all/asset\"(map(), keyword()) :: {:ok, %{source_assets: list(String.t()), target_assets: list(String.t())}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/margin/max-leverage",
@@ -515,7 +835,11 @@ Weight(IP): 1"
 
 Adjust cross margin max leverage
 
-Weight(UID): 3000"
+Weight(UID): 3000",
+    param_types: [max_leverage: "integer()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{success: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/margin/max-leverage\"(map(), keyword()) :: {:ok, %{success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/loan/vip/collateral/account",
@@ -532,7 +856,18 @@ Weight(UID): 3000"
 
 VIP loan is available for VIP users only.
 
-Weight(IP): 6000"
+Weight(IP): 6000",
+    param_types: [
+      order_id: "integer()",
+      collateral_account_id: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{collateral_account_id: String.t(), collateral_coin: String.t(), collateral_value: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/loan/vip/collateral/account\"(map(), keyword()) :: {:ok, %{rows: list(%{collateral_account_id: String.t(), collateral_coin: String.t(), collateral_value: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :get_open_order_list,
@@ -547,7 +882,12 @@ Weight(IP): 6000"
     error_mapping: &Parser.parse_error/1,
     doc: "Query Open OCO (USER_DATA)
 
-Weight(IP): 6"
+Weight(IP): 6",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "list(%{contingency_type: String.t(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()})",
+    spec:
+      "@spec get_open_order_list(map(), keyword()) :: {:ok, list(%{contingency_type: String.t(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/all_order_list",
@@ -564,7 +904,22 @@ Weight(IP): 6"
 
 Retrieves all OCO for a specific margin account based on provided optional parameters
 
-Weight(IP): 200"
+Weight(IP): 200",
+    param_types: [
+      is_isolated: ":true | :false",
+      symbol: "String.t()",
+      from_id: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{contingency_type: String.t(), is_isolated: boolean(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/all_order_list\"(map(), keyword()) :: {:ok, list(%{contingency_type: String.t(), is_isolated: boolean(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/giftcard/buy_code/token-limit",
@@ -581,7 +936,12 @@ Weight(IP): 200"
 
 This API is to help you verify which tokens are available for you to purchase fixed-value gift cards as mentioned in section 2 and it's limitation.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [base_token: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{code: String.t(), data: %{optional(:coin) => String.t(), optional(:from_max) => String.t(), optional(:from_min) => String.t()}, message: String.t(), success: boolean()}",
+    spec:
+      "@spec :\"get_/sapi/v1/giftcard/buy_code/token-limit\"(map(), keyword()) :: {:ok, %{code: String.t(), data: %{optional(:coin) => String.t(), optional(:from_max) => String.t(), optional(:from_min) => String.t()}, message: String.t(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/algo/spot/open_orders",
@@ -598,7 +958,12 @@ Weight(IP): 1"
 
 Get all open SPOT TWAP orders
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{orders: list(%{algo_id: integer(), algo_status: String.t(), algo_type: String.t(), avg_price: String.t(), book_time: integer(), client_algo_id: String.t(), end_time: integer(), executed_amt: String.t(), executed_qty: String.t(), side: String.t(), symbol: String.t(), total_qty: String.t(), urgency: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/algo/spot/open_orders\"(map(), keyword()) :: {:ok, %{orders: list(%{algo_id: integer(), algo_status: String.t(), algo_type: String.t(), avg_price: String.t(), book_time: integer(), client_algo_id: String.t(), end_time: integer(), executed_amt: String.t(), executed_qty: String.t(), side: String.t(), symbol: String.t(), total_qty: String.t(), urgency: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/sub-account/transfer/sub_user_history",
@@ -616,7 +981,21 @@ Weight(IP): 1"
 - If `type` is not sent, the records of type 2: transfer out will be returned by default.
 - If `startTime` and `endTime` are not sent, the recent 30-day data will be returned.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      asset: "String.t()",
+      type: "integer()",
+      start_time: "integer()",
+      end_time: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{asset: String.t(), counter_party: String.t(), email: String.t(), from_account_type: String.t(), qty: String.t(), status: String.t(), time: integer(), to_account_type: String.t(), tran_id: integer(), type: integer()})",
+    spec:
+      "@spec :\"get_/sapi/v1/sub-account/transfer/sub_user_history\"(map(), keyword()) :: {:ok, list(%{asset: String.t(), counter_party: String.t(), email: String.t(), from_account_type: String.t(), qty: String.t(), status: String.t(), time: integer(), to_account_type: String.t(), tran_id: integer(), type: integer()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/simple-earn/locked/list",
@@ -631,7 +1010,19 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Simple Earn Locked Product List (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      asset: "String.t()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{detail: %{apr: String.t(), asset: String.t(), duration: integer(), extra_reward_apr: String.t(), extra_reward_asset: String.t(), is_sold_out: boolean(), renewable: boolean(), reward_asset: String.t(), status: String.t(), subscription_start_time: String.t()}, project_id: String.t(), quota: %{minimum: String.t(), total_personal_quota: String.t()}}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/simple-earn/locked/list\"(map(), keyword()) :: {:ok, %{rows: list(%{detail: %{apr: String.t(), asset: String.t(), duration: integer(), extra_reward_apr: String.t(), extra_reward_asset: String.t(), is_sold_out: boolean(), renewable: boolean(), reward_asset: String.t(), status: String.t(), subscription_start_time: String.t()}, project_id: String.t(), quota: %{minimum: String.t(), total_personal_quota: String.t()}}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v4/sub-account/assets",
@@ -648,7 +1039,11 @@ Weight(IP): 150"
 
 Fetch sub-account assets
 
-Weight(UID): 60"
+Weight(UID): 60",
+    param_types: [email: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{balances: list(%{asset: String.t(), free: String.t(), locked: String.t()})}",
+    spec:
+      "@spec :\"get_/sapi/v4/sub-account/assets\"(map(), keyword()) :: {:ok, %{balances: list(%{asset: String.t(), free: String.t(), locked: String.t()})}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/sub-account/virtual_sub_account",
@@ -666,7 +1061,16 @@ Weight(UID): 60"
 - This request will generate a virtual sub account under your master account.
 - You need to enable \"trade\" option for the api key which requests this endpoint.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      sub_account_string: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{email: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/sub-account/virtual_sub_account\"(map(), keyword()) :: {:ok, %{email: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/portfolio/auto-collection",
@@ -683,7 +1087,11 @@ Weight(IP): 1"
 
 Transfers all assets from Futures Account to Margin account
 
-Weight(IP): 1500"
+Weight(IP): 1500",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{msg: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/portfolio/auto-collection\"(map(), keyword()) :: {:ok, %{msg: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/simple-earn/flexible/history/collateral_record",
@@ -698,7 +1106,21 @@ Weight(IP): 1500"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Collateral Record (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      product_id: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{amount: String.t(), asset: String.t(), create_time: integer(), order_id: integer(), product_id: String.t(), product_name: String.t(), type: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/simple-earn/flexible/history/collateral_record\"(map(), keyword()) :: {:ok, %{rows: list(%{amount: String.t(), asset: String.t(), create_time: integer(), order_id: integer(), product_id: String.t(), product_name: String.t(), type: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :cancel_order_list,
@@ -717,7 +1139,20 @@ Cancel an entire Order List
 
 Canceling an individual leg will cancel the entire OCO
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      symbol: "String.t()",
+      order_list_id: "integer()",
+      list_client_order_id: "String.t()",
+      new_client_order_id: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{contingency_type: String.t(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), order_reports: list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_client_order_id: String.t(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t()}), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}",
+    spec:
+      "@spec cancel_order_list(map(), keyword()) :: {:ok, %{contingency_type: String.t(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), order_reports: list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_client_order_id: String.t(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t()}), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :get_order_list,
@@ -734,7 +1169,18 @@ Weight(IP): 1"
 
 Retrieves a specific OCO based on provided optional parameters
 
-Weight(IP): 4"
+Weight(IP): 4",
+    param_types: [
+      order_list_id: "integer()",
+      orig_client_order_id: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{contingency_type: String.t(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}",
+    spec:
+      "@spec get_order_list(map(), keyword()) :: {:ok, %{contingency_type: String.t(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :get_account,
@@ -751,7 +1197,12 @@ Weight(IP): 4"
 
 Get current account information.
 
-Weight(IP): 20"
+Weight(IP): 20",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{account_type: String.t(), balances: list(%{asset: String.t(), free: String.t(), locked: String.t()}), brokered: boolean(), buyer_commission: integer(), can_deposit: boolean(), can_trade: boolean(), can_withdraw: boolean(), commission_rates: %{buyer: String.t(), maker: String.t(), seller: String.t(), taker: String.t()}, maker_commission: integer(), permissions: list(String.t()), prevent_sor: boolean(), require_self_trade_prevention: boolean(), seller_commission: integer(), taker_commission: integer(), uid: integer(), update_time: integer()}",
+    spec:
+      "@spec get_account(map(), keyword()) :: {:ok, %{account_type: String.t(), balances: list(%{asset: String.t(), free: String.t(), locked: String.t()}), brokered: boolean(), buyer_commission: integer(), can_deposit: boolean(), can_trade: boolean(), can_withdraw: boolean(), commission_rates: %{buyer: String.t(), maker: String.t(), seller: String.t(), taker: String.t()}, maker_commission: integer(), permissions: list(String.t()), prevent_sor: boolean(), require_self_trade_prevention: boolean(), seller_commission: integer(), taker_commission: integer(), uid: integer(), update_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :"place_/sapi/v1/margin/order/oco",
@@ -777,7 +1228,32 @@ Send in a new OCO for a margin account
 - Order Rate Limit
   - OCO counts as 2 orders against the order rate limit.
 
-Weight(UID): 6"
+Weight(UID): 6",
+    param_types: [
+      symbol: "String.t()",
+      is_isolated: ":true | :false",
+      list_client_order_id: "String.t()",
+      side: ":sell | :buy",
+      quantity: "float()",
+      limit_client_order_id: "String.t()",
+      price: "float()",
+      limit_iceberg_qty: "float()",
+      stop_client_order_id: "String.t()",
+      stop_price: "float()",
+      stop_limit_price: "float()",
+      stop_iceberg_qty: "float()",
+      stop_limit_time_in_force: ":gtc | :fok | :ioc",
+      new_order_resp_type: ":ack | :result | :full",
+      side_effect_type: ":no_side_effect | :margin_buy | :auto_repay",
+      self_trade_prevention_mode: ":expire_taker | :expire_maker | :expire_both | :none",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{contingency_type: String.t(), is_isolated: boolean(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), margin_buy_borrow_amount: String.t(), margin_buy_borrow_asset: String.t(), order_list_id: integer(), order_reports: list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), price: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t()}), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}",
+    spec:
+      "@spec :\"place_/sapi/v1/margin/order/oco\"(map(), keyword()) :: {:ok, %{contingency_type: String.t(), is_isolated: boolean(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), margin_buy_borrow_amount: String.t(), margin_buy_borrow_asset: String.t(), order_list_id: integer(), order_reports: list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), price: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t()}), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/loan/loanable/data",
@@ -794,7 +1270,18 @@ Weight(UID): 6"
 
 Get interest rate and borrow limit of loanable assets. The borrow limit is shown in USD value.
 
-Weight(IP): 400"
+Weight(IP): 400",
+    param_types: [
+      loan_coin: "String.t()",
+      vip_level: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{_14d_daily_interest_rate: String.t(), _14d_hourly_interest_rate: String.t(), _180d_daily_interest_rate: String.t(), _180d_hourly_interest_rate: String.t(), _30d_daily_interest_rate: String.t(), _30d_hourly_interest_rate: String.t(), _7d_daily_interest_rate: String.t(), _7d_hourly_interest_rate: String.t(), _90d_daily_interest_rate: String.t(), _90d_hourly_interest_rate: String.t(), loan_coin: String.t(), max_limit: String.t(), min_limit: String.t(), vip_level: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/loan/loanable/data\"(map(), keyword()) :: {:ok, %{rows: list(%{_14d_daily_interest_rate: String.t(), _14d_hourly_interest_rate: String.t(), _180d_daily_interest_rate: String.t(), _180d_hourly_interest_rate: String.t(), _30d_daily_interest_rate: String.t(), _30d_hourly_interest_rate: String.t(), _7d_daily_interest_rate: String.t(), _7d_hourly_interest_rate: String.t(), _90d_daily_interest_rate: String.t(), _90d_hourly_interest_rate: String.t(), loan_coin: String.t(), max_limit: String.t(), min_limit: String.t(), vip_level: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/simple-earn/locked/subscription_preview",
@@ -809,7 +1296,19 @@ Weight(IP): 400"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Locked Subscription Preview (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      project_id: "String.t()",
+      amount: "float()",
+      auto_subscribe: "boolean()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{deliver_date: String.t(), est_total_extra_reward_amt: String.t(), extra_reward_asset: String.t(), next_pay: String.t(), next_pay_date: String.t(), next_subscription_date: String.t(), reward_asset: String.t(), rewards_end_date: String.t(), total_reward_amt: String.t(), value_date: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/simple-earn/locked/subscription_preview\"(map(), keyword()) :: {:ok, list(%{deliver_date: String.t(), est_total_extra_reward_amt: String.t(), extra_reward_asset: String.t(), next_pay: String.t(), next_pay_date: String.t(), next_subscription_date: String.t(), reward_asset: String.t(), rewards_end_date: String.t(), total_reward_amt: String.t(), value_date: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/managed-subaccount/fetch-future-asset",
@@ -824,7 +1323,12 @@ Weight(IP): 150"
     error_mapping: &Parser.parse_error/1,
     doc: "Query Managed Sub-account Futures Asset Details (For Investor Master Account)
 
-Investor can use this api to query managed sub account futures asset details"
+Investor can use this api to query managed sub account futures asset details",
+    param_types: [email: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{code: integer(), message: String.t(), snapshot_vos: list(%{data: %{assets: list(%{asset: String.t(), margin_balance: float(), wallet_balance: float()}), position: list(%{entry_price: float(), mark_price: float(), position_amt: float(), symbol: String.t()})}, type: String.t(), update_time: integer()})}",
+    spec:
+      "@spec :\"get_/sapi/v1/managed-subaccount/fetch-future-asset\"(map(), keyword()) :: {:ok, %{code: integer(), message: String.t(), snapshot_vos: list(%{data: %{assets: list(%{asset: String.t(), margin_balance: float(), wallet_balance: float()}), position: list(%{entry_price: float(), mark_price: float(), position_amt: float(), symbol: String.t()})}, type: String.t(), update_time: integer()})}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v2/loan/flexible/borrow",
@@ -841,7 +1345,20 @@ Investor can use this api to query managed sub account futures asset details"
 
 - Only available for master account
 
-Weight(UID): 6000"
+Weight(UID): 6000",
+    param_types: [
+      loan_coin: "String.t()",
+      loan_amount: "float()",
+      collateral_coin: "String.t()",
+      collateral_amount: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{collateral_amount: String.t(), optional(:collateral_coin) => String.t(), loan_amount: String.t(), loan_coin: String.t(), status: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v2/loan/flexible/borrow\"(map(), keyword()) :: {:ok, %{collateral_amount: String.t(), optional(:collateral_coin) => String.t(), loan_amount: String.t(), loan_coin: String.t(), status: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"place_/sapi/v1/margin/order/oto",
@@ -864,7 +1381,38 @@ Post a new `OTO` order for margin account:
 - When the order list is placed, if the working order gets immediately fully filled, the placement response will show the working order as `FILLED` but the pending order will still appear as `PENDING_NEW`. You need to query the status of the pending order again to see its updated status.
 - OTOs add 2 orders to the unfilled order count, `EXCHANGE_MAX_NUM_ORDERS` filter and `MAX_NUM_ORDERS` filter.
 
-Weight(UID): 6"
+Weight(UID): 6",
+    param_types: [
+      symbol: "String.t()",
+      is_isolated: ":true | :false",
+      list_client_order_id: "String.t()",
+      new_order_resp_type: ":ack | :result | :full",
+      side_effect_type: ":no_side_effect | :margin_buy",
+      self_trade_prevention_mode: ":expire_taker | :expire_maker | :expire_both | :none",
+      auto_repay_at_cancel: "boolean()",
+      working_type: ":limit | :limit_maker",
+      working_side: ":buy | :sell",
+      working_client_order_id: "String.t()",
+      working_price: "float()",
+      working_quantity: "float()",
+      working_iceberg_qty: "float()",
+      working_time_in_force: ":gtc | :ioc | :fok",
+      pending_type: ":limit | :market | :stop_loss | :stop_loss_limit | :take_profit | :take_profit_limit | :limit_maker",
+      pending_side: ":buy | :sell",
+      pending_client_order_id: "String.t()",
+      pending_price: "float()",
+      pending_stop_price: "float()",
+      pending_trailing_delta: "float()",
+      pending_quantity: "float()",
+      pending_iceberg_qty: "float()",
+      pending_time_in_force: ":gtc | :ioc | :fok",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{contingency_type: String.t(), is_isolated: boolean(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), order_reports: list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t()}), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}",
+    spec:
+      "@spec :\"place_/sapi/v1/margin/order/oto\"(map(), keyword()) :: {:ok, %{contingency_type: String.t(), is_isolated: boolean(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), order_reports: list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t()}), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :get_all_order_list,
@@ -881,7 +1429,20 @@ Weight(UID): 6"
 
 Retrieves all OCO based on provided optional parameters
 
-Weight(IP): 20"
+Weight(IP): 20",
+    param_types: [
+      from_id: "integer()",
+      start_time: "integer()",
+      end_time: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{contingency_type: String.t(), is_isolated: boolean(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()})",
+    spec:
+      "@spec get_all_order_list(map(), keyword()) :: {:ok, list(%{contingency_type: String.t(), is_isolated: boolean(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()})} | {:error, term()}"
   },
   %{
     operation: :"delete_/sapi/v1/margin/open_orders",
@@ -900,7 +1461,16 @@ Weight(IP): 20"
 - This includes OCO orders.
 
 Weight(IP): 1
-"
+",
+    param_types: [
+      symbol: "String.t()",
+      is_isolated: ":true | :false",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "list(term())",
+    spec: "@spec :\"delete_/sapi/v1/margin/open_orders\"(map(), keyword()) :: {:ok, list(term())} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/open_orders",
@@ -919,7 +1489,18 @@ Weight(IP): 1
 - When all symbols are returned, the number of requests counted against the rate limiter is equal to the number of symbols currently trading on the exchange
 - If isIsolated =\"TRUE\", symbol must be sent.
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [
+      symbol: "String.t()",
+      is_isolated: ":true | :false",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), iceberg_qty: String.t(), is_isolated: boolean(), is_working: boolean(), order_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time: integer(), time_in_force: String.t(), type: String.t(), update_time: integer()})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/open_orders\"(map(), keyword()) :: {:ok, list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), iceberg_qty: String.t(), is_isolated: boolean(), is_working: boolean(), order_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time: integer(), time_in_force: String.t(), type: String.t(), update_time: integer()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/algo/futures/open_orders",
@@ -937,7 +1518,12 @@ Weight(IP): 10"
 - You need to enable Futures Trading Permission for the api key which requests this endpoint.
 - Base URL: https://api.binance.com
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{optional(:orders) => list(%{algo_id: integer(), algo_status: String.t(), algo_type: String.t(), avg_price: String.t(), book_time: integer(), client_algo_id: String.t(), end_time: integer(), executed_amt: String.t(), executed_qty: String.t(), position_side: String.t(), side: String.t(), symbol: String.t(), total_qty: String.t(), urgency: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/algo/futures/open_orders\"(map(), keyword()) :: {:ok, %{optional(:orders) => list(%{algo_id: integer(), algo_status: String.t(), algo_type: String.t(), avg_price: String.t(), book_time: integer(), client_algo_id: String.t(), end_time: integer(), executed_amt: String.t(), executed_qty: String.t(), position_side: String.t(), side: String.t(), symbol: String.t(), total_qty: String.t(), urgency: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :get_avg_price,
@@ -954,7 +1540,11 @@ Weight(IP): 1"
 
 Current average price for a symbol.
 
-Weight(IP): 2"
+Weight(IP): 2",
+    param_types: [symbol: "String.t()"],
+    response_type: "%{close_time: integer(), mins: integer(), price: String.t()}",
+    spec:
+      "@spec get_avg_price(map(), keyword()) :: {:ok, %{close_time: integer(), mins: integer(), price: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/asset/transfer",
@@ -974,7 +1564,24 @@ Weight(IP): 2"
 - Support query within the last 6 months only
 - If `startTime` and `endTime` not sent, return records of the last 7 days by default
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      type:
+        ":main_c2c | :main_umfuture | :main_cmfuture | :main_margin | :main_mining | :c2c_main | :c2c_umfuture | :c2c_mining | :c2c_margin | :umfuture_main | :umfuture_c2c | :umfuture_margin | :cmfuture_main | :cmfuture_margin | :margin_main | :margin_umfuture | :margin_cmfuture | :margin_mining | :margin_c2c | :mining_main | :mining_umfuture | :mining_c2c | :mining_margin | :main_pay | :pay_main | :isolatedmargin_margin | :margin_isolatedmargin | :isolatedmargin_isolatedmargin",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      from_symbol: "String.t()",
+      to_symbol: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{amount: String.t(), asset: String.t(), status: String.t(), timestamp: integer(), tran_id: integer(), type: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/asset/transfer\"(map(), keyword()) :: {:ok, %{rows: list(%{amount: String.t(), asset: String.t(), status: String.t(), timestamp: integer(), tran_id: integer(), type: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/asset/transfer",
@@ -1029,7 +1636,20 @@ ENUM of transfer types:
   - MAIN_ISOLATED_MARGIN Spot account transfer to Isolated margin account
   - ISOLATED_MARGIN_MAIN Isolated margin account transfer to Spot account
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      type:
+        ":main_c2c | :main_umfuture | :main_cmfuture | :main_margin | :main_mining | :c2c_main | :c2c_umfuture | :c2c_mining | :c2c_margin | :umfuture_main | :umfuture_c2c | :umfuture_margin | :cmfuture_main | :cmfuture_margin | :margin_main | :margin_umfuture | :margin_cmfuture | :margin_mining | :margin_c2c | :mining_main | :mining_umfuture | :mining_c2c | :mining_margin | :main_pay | :pay_main | :isolatedmargin_margin | :margin_isolatedmargin | :isolatedmargin_isolatedmargin",
+      asset: "String.t()",
+      amount: "float()",
+      from_symbol: "String.t()",
+      to_symbol: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{tran_id: integer()}",
+    spec: "@spec :\"create_/sapi/v1/asset/transfer\"(map(), keyword()) :: {:ok, %{tran_id: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/copy_trading/futures/user_status",
@@ -1046,7 +1666,12 @@ Weight(IP): 1"
 
 Get Futures Lead Trader Status
 
-Weight(UID): 20"
+Weight(UID): 20",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{code: String.t(), data: %{is_lead_trader: boolean(), time: integer()}, message: String.t(), success: boolean()}",
+    spec:
+      "@spec :\"get_/sapi/v1/copy_trading/futures/user_status\"(map(), keyword()) :: {:ok, %{code: String.t(), data: %{is_lead_trader: boolean(), time: integer()}, message: String.t(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/account/api_trading_status",
@@ -1063,7 +1688,12 @@ Weight(UID): 20"
 
 Fetch account API trading status with details.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{data: %{indicators: %{btcusdt: list(%{c: integer(), i: String.t(), t: float(), v: float()})}, is_locked: boolean(), planned_recover_time: integer(), trigger_condition: %{gcr: integer(), ifer: integer(), ufr: integer()}, update_time: integer()}}",
+    spec:
+      "@spec :\"get_/sapi/v1/account/api_trading_status\"(map(), keyword()) :: {:ok, %{data: %{indicators: %{btcusdt: list(%{c: integer(), i: String.t(), t: float(), v: float()})}, is_locked: boolean(), planned_recover_time: integer(), trigger_condition: %{gcr: integer(), ifer: integer(), ufr: integer()}, update_time: integer()}}} | {:error, term()}"
   },
   %{
     operation: :"place_order_list/oto",
@@ -1086,7 +1716,39 @@ Places an `OTO`.
 - When the order list is placed, if the working order gets immediately fully filled, the placement response will show the working order as `FILLED` but the pending order will still appear as `PENDING_NEW`. You need to query the status of the pending order again to see its updated status.
 - OTOs add 2 orders to the unfilled order count, `EXCHANGE_MAX_NUM_ORDERS` filter and `MAX_NUM_ORDERS` filter.
 
-Weight: 1"
+Weight: 1",
+    param_types: [
+      symbol: "String.t()",
+      list_client_order_id: "String.t()",
+      new_order_resp_type: ":ack | :result | :full",
+      self_trade_prevention_mode: ":expire_taker | :expire_maker | :expire_both | :none",
+      working_type: ":limit | :limit_maker",
+      working_side: ":buy | :sell",
+      working_client_order_id: "String.t()",
+      working_price: "float()",
+      working_quantity: "float()",
+      working_iceberg_qty: "float()",
+      working_time_in_force: ":gtc | :ioc | :fok",
+      working_strategy_id: "float()",
+      working_strategy_type: "integer()",
+      pending_type: ":limit | :market | :stop_loss | :stop_loss_limit | :take_profit | :take_profit_limit | :limit_maker",
+      pending_side: ":buy | :sell",
+      pending_client_order_id: "String.t()",
+      pending_price: "float()",
+      pending_stop_price: "float()",
+      pending_trailing_delta: "float()",
+      pending_quantity: "float()",
+      pending_iceberg_qty: "float()",
+      pending_time_in_force: ":gtc | :ioc | :fok",
+      pending_strategy_id: "float()",
+      pending_strategy_type: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{contingency_type: String.t(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), order_reports: list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t(), working_time: integer()}), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}",
+    spec:
+      "@spec :\"place_order_list/oto\"(map(), keyword()) :: {:ok, %{contingency_type: String.t(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), order_reports: list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t(), working_time: integer()}), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/blvt/token_info",
@@ -1101,7 +1763,12 @@ Weight: 1"
     error_mapping: &Parser.parse_error/1,
     doc: "BLVT Info (MARKET_DATA)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [token_name: "String.t()"],
+    response_type:
+      "list(%{basket: String.t(), current_baskets: list(%{amount: String.t(), notional_value: String.t(), symbol: String.t()}), daily_management_fee: String.t(), daily_purchase_limit: String.t(), daily_redeem_limit: String.t(), description: String.t(), funding_rate: String.t(), nav: String.t(), purchase_fee_pct: String.t(), real_leverage: String.t(), redeem_fee_pct: String.t(), timestamp: integer(), token_issued: String.t(), token_name: String.t(), underlying: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/blvt/token_info\"(map(), keyword()) :: {:ok, list(%{basket: String.t(), current_baskets: list(%{amount: String.t(), notional_value: String.t(), symbol: String.t()}), daily_management_fee: String.t(), daily_purchase_limit: String.t(), daily_redeem_limit: String.t(), description: String.t(), funding_rate: String.t(), nav: String.t(), purchase_fee_pct: String.t(), real_leverage: String.t(), redeem_fee_pct: String.t(), timestamp: integer(), token_issued: String.t(), token_name: String.t(), underlying: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/sub-account/futures/transfer",
@@ -1116,7 +1783,19 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Transfer for Sub-account (For Master Account)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      email: "String.t()",
+      asset: "String.t()",
+      amount: "float()",
+      type: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{txn_id: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/sub-account/futures/transfer\"(map(), keyword()) :: {:ok, %{txn_id: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/delist-schedule",
@@ -1133,7 +1812,12 @@ Weight(IP): 1"
 
 Get tokens or symbols delist schedule for cross margin and isolated margin
 
-Weight(IP): 100"
+Weight(IP): 100",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "list(%{optional(:cross_margin_assets) => list(String.t()), optional(:delist_time) => integer(), optional(:isolated_margin_symbols) => list(String.t())})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/delist-schedule\"(map(), keyword()) :: {:ok, list(%{optional(:cross_margin_assets) => list(String.t()), optional(:delist_time) => integer(), optional(:isolated_margin_symbols) => list(String.t())})} | {:error, term()}"
   },
   %{
     operation: :"place_sor/order",
@@ -1148,7 +1832,28 @@ Weight(IP): 100"
     error_mapping: &Parser.parse_error/1,
     doc: "New order using SOR (TRADE)
 
-Weight(IP): 6"
+Weight(IP): 6",
+    param_types: [
+      symbol: "String.t()",
+      side: ":sell | :buy",
+      type: ":limit | :market | :stop_loss | :stop_loss_limit | :take_profit | :take_profit_limit | :limit_maker",
+      time_in_force: ":gtc | :ioc | :fok",
+      quantity: "float()",
+      price: "float()",
+      new_client_order_id: "String.t()",
+      strategy_id: "integer()",
+      strategy_type: "integer()",
+      iceberg_qty: "float()",
+      new_order_resp_type: ":ack | :result | :full",
+      self_trade_prevention_mode: ":expire_taker | :expire_maker | :expire_both | :none",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), fills: list(%{alloc_id: integer(), commission: String.t(), commission_asset: String.t(), match_type: String.t(), price: String.t(), qty: String.t(), trade_id: integer()}), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t(), used_sor: boolean(), working_floor: String.t(), working_time: integer()}",
+    spec:
+      "@spec :\"place_sor/order\"(map(), keyword()) :: {:ok, %{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), fills: list(%{alloc_id: integer(), commission: String.t(), commission_asset: String.t(), match_type: String.t(), price: String.t(), qty: String.t(), trade_id: integer()}), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t(), used_sor: boolean(), working_floor: String.t(), working_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v2/loan/flexible/collateral/data",
@@ -1165,7 +1870,17 @@ Weight(IP): 6"
 
 Get LTV information and collateral limit of flexible loan's collateral assets. The collateral limit is shown in USD value.
 
-Weight(IP): 400"
+Weight(IP): 400",
+    param_types: [
+      collateral_coin: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{collateral_coin: String.t(), initial_ltv: String.t(), liquidation_ltv: String.t(), margin_call_ltv: String.t(), max_limit: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v2/loan/flexible/collateral/data\"(map(), keyword()) :: {:ok, %{rows: list(%{collateral_coin: String.t(), initial_ltv: String.t(), liquidation_ltv: String.t(), margin_call_ltv: String.t(), max_limit: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/futures/transfer",
@@ -1180,7 +1895,21 @@ Weight(IP): 400"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Future Account Transaction History List (USER_DATA)
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [
+      asset: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{amount: String.t(), asset: String.t(), status: String.t(), timestamp: integer(), tran_id: integer(), type: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/futures/transfer\"(map(), keyword()) :: {:ok, %{rows: list(%{amount: String.t(), asset: String.t(), status: String.t(), timestamp: integer(), tran_id: integer(), type: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/futures/transfer",
@@ -1197,7 +1926,18 @@ Weight(IP): 10"
 
 Execute transfer between spot account and futures account.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      asset: "String.t()",
+      amount: "float()",
+      type: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{tran_id: integer()}",
+    spec:
+      "@spec :\"create_/sapi/v1/futures/transfer\"(map(), keyword()) :: {:ok, %{tran_id: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/open_order_list",
@@ -1212,7 +1952,18 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Query Margin Account's Open OCO (USER_DATA)
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [
+      is_isolated: ":true | :false",
+      symbol: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{contingency_type: String.t(), is_isolated: boolean(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/open_order_list\"(map(), keyword()) :: {:ok, list(%{contingency_type: String.t(), is_isolated: boolean(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/mining/worker/list",
@@ -1227,7 +1978,22 @@ Weight(IP): 10"
     error_mapping: &Parser.parse_error/1,
     doc: "Request for Miner List (USER_DATA)
 
-Weight(IP): 5"
+Weight(IP): 5",
+    param_types: [
+      algo: "String.t()",
+      user_name: "String.t()",
+      page_index: "integer()",
+      sort: "integer()",
+      sort_column: "integer()",
+      worker_status: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{code: integer(), data: %{page_size: integer(), total_num: integer(), worker_datas: list(%{day_hash_rate: integer(), hash_rate: integer(), last_share_time: integer(), reject_rate: integer(), status: integer(), worker_id: String.t(), worker_name: String.t()})}, msg: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/mining/worker/list\"(map(), keyword()) :: {:ok, %{code: integer(), data: %{page_size: integer(), total_num: integer(), worker_datas: list(%{day_hash_rate: integer(), hash_rate: integer(), last_share_time: integer(), reject_rate: integer(), status: integer(), worker_id: String.t(), worker_name: String.t()})}, msg: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/loan/vip/borrow",
@@ -1244,7 +2010,23 @@ Weight(IP): 5"
 
 VIP loan is available for VIP users only.
 
-Weight(UID): 6000"
+Weight(UID): 6000",
+    param_types: [
+      loan_account_id: "integer()",
+      loan_coin: "String.t()",
+      loan_amount: "float()",
+      collateral_account_id: "String.t()",
+      collateral_coin: "String.t()",
+      is_flexible_rate: ":true | :false",
+      loan_term: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{collateral_account_id: String.t(), collateral_coin: String.t(), is_flexible_rate: String.t(), loan_account_id: String.t(), loan_amount: String.t(), loan_coin: String.t(), optional(:loan_term) => String.t(), request_id: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/loan/vip/borrow\"(map(), keyword()) :: {:ok, %{collateral_account_id: String.t(), collateral_coin: String.t(), is_flexible_rate: String.t(), loan_account_id: String.t(), loan_amount: String.t(), loan_coin: String.t(), optional(:loan_term) => String.t(), request_id: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v2/loan/flexible/borrow/history",
@@ -1262,7 +2044,22 @@ Weight(UID): 6000"
 - If startTime and endTime are not sent, the recent 90-day data will be returned.
 - The max interval between startTime and endTime is 180 days.
 
-Weight(IP): 400"
+Weight(IP): 400",
+    param_types: [
+      loan_coin: "String.t()",
+      collateral_coin: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{borrow_time: integer(), collateral_coin: String.t(), initial_collateral_amount: String.t(), initial_loan_amount: String.t(), loan_coin: String.t(), status: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v2/loan/flexible/borrow/history\"(map(), keyword()) :: {:ok, %{rows: list(%{borrow_time: integer(), collateral_coin: String.t(), initial_collateral_amount: String.t(), initial_loan_amount: String.t(), loan_coin: String.t(), status: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/algo/futures/new_order_vp",
@@ -1286,7 +2083,23 @@ Send in a VP new order. Only support on USDⓈ-M Contracts.
 - Leverage of symbols and position mode will be the same as your futures account settings. You can set up through the trading page or fapi.
 - Receiving "success": true does not mean that your order will be executed. Please use the query order endpoints(GET sapi/v1/algo/futures/openOrders or GET sapi/v1/algo/futures/historicalOrders) to check the order status. For example: Your futures balance is insufficient, or open position with reduce only or position side is inconsistent with your own setting. In these cases you will receive "success": true, but the order status will be expired after we check it.
 
-Weight(UID): 3000}
+Weight(UID): 3000},
+    param_types: [
+      symbol: "String.t()",
+      side: ":sell | :buy",
+      position_side: ":both | :long | :short",
+      quantity: "float()",
+      urgency: ":low | :medium | :high",
+      client_algo_id: "String.t()",
+      reduce_only: "boolean()",
+      limit_price: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{client_algo_id: String.t(), code: integer(), msg: String.t(), success: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/algo/futures/new_order_vp\"(map(), keyword()) :: {:ok, %{client_algo_id: String.t(), code: integer(), msg: String.t(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/dci/product/positions",
@@ -1303,7 +2116,19 @@ Weight(UID): 3000}
 
 Get Dual Investment positions (batch)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      status: ":pending | :purchase_success | :settled | :purchase_fail | :refunding | :refund_success | :settling",
+      page_size: "String.t()",
+      page_index: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{list: list(%{apr: String.t(), auto_compound_plan: String.t(), duration: integer(), exercised_coin: String.t(), id: String.t(), invest_coin: String.t(), option_type: String.t(), order_id: integer(), purchase_end_time: integer(), purchase_status: String.t(), settle_date: integer(), strike_price: String.t(), subscription_amount: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/dci/product/positions\"(map(), keyword()) :: {:ok, %{list: list(%{apr: String.t(), auto_compound_plan: String.t(), duration: integer(), exercised_coin: String.t(), id: String.t(), invest_coin: String.t(), option_type: String.t(), order_id: integer(), purchase_end_time: integer(), purchase_status: String.t(), settle_date: integer(), strike_price: String.t(), subscription_amount: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/sub-account/list",
@@ -1318,7 +2143,20 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Query Sub-account List (For Master Account)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      email: "String.t()",
+      is_freeze: ":true | :false",
+      page: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{sub_accounts: list(%{create_time: integer(), email: String.t(), is_asset_management_sub_account: boolean(), is_freeze: boolean(), is_managed_sub_account: boolean()})}",
+    spec:
+      "@spec :\"get_/sapi/v1/sub-account/list\"(map(), keyword()) :: {:ok, %{sub_accounts: list(%{create_time: integer(), email: String.t(), is_asset_management_sub_account: boolean(), is_freeze: boolean(), is_managed_sub_account: boolean()})}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/portfolio/repay-futures-negative-balance",
@@ -1335,7 +2173,11 @@ Weight(IP): 1"
 
 Repay futures Negative Balance
 
-Weight(IP): 1500"
+Weight(IP): 1500",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{msg: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/portfolio/repay-futures-negative-balance\"(map(), keyword()) :: {:ok, %{msg: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/eth-staking/eth/history/staking_history",
@@ -1355,7 +2197,20 @@ Weight(IP): 1500"
 - If startTime is sent but endTime is not sent, the next 30 days' data beginning from startTime will be returned.
 - If endTime is sent but startTime is not sent, the 30 days' data before endTime will be returned.
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{amount: String.t(), asset: String.t(), conversion_ratio: String.t(), distribute_amount: String.t(), status: String.t(), time: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/eth-staking/eth/history/staking_history\"(map(), keyword()) :: {:ok, %{rows: list(%{amount: String.t(), asset: String.t(), conversion_ratio: String.t(), distribute_amount: String.t(), status: String.t(), time: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v2/loan/flexible/loanable/data",
@@ -1372,7 +2227,12 @@ Weight(IP): 150"
 
 Get interest rate and borrow limit of flexible loanable assets. The borrow limit is shown in USD value.
 
-Weight(IP): 400"
+Weight(IP): 400",
+    param_types: [loan_coin: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{rows: list(%{flexible_interest_rate: String.t(), flexible_max_limit: String.t(), flexible_min_limit: String.t(), loan_coin: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v2/loan/flexible/loanable/data\"(map(), keyword()) :: {:ok, %{rows: list(%{flexible_interest_rate: String.t(), flexible_max_limit: String.t(), flexible_min_limit: String.t(), loan_coin: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/nft/history/withdraw",
@@ -1390,7 +2250,20 @@ Weight(IP): 400"
 - The max interval between startTime and endTime is 90 days.
 - If startTime and endTime are not sent, the recent 7 days' data will be returned.
 
-Weight(UID): 3000"
+Weight(UID): 3000",
+    param_types: [
+      start_time: "integer()",
+      end_time: "integer()",
+      limit: "integer()",
+      page: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{list: list(%{contract_adrress: String.t(), fee: float(), fee_asset: String.t(), network: String.t(), timestamp: integer(), token_id: String.t(), tx_id: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/nft/history/withdraw\"(map(), keyword()) :: {:ok, %{list: list(%{contract_adrress: String.t(), fee: float(), fee_asset: String.t(), network: String.t(), timestamp: integer(), token_id: String.t(), tx_id: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/managed-subaccount/query_trans_log_for_trade_parent",
@@ -1407,7 +2280,23 @@ Weight(UID): 3000"
 
 Trading team can use this api to query managed sub account transfer log. This endpoint is available for trading team of Managed Sub-Account. A Managed Sub-Account is an account type for investors who value flexibility in asset allocation and account application, while delegating trades to a professional trading team
 
-Weight(IP): 60"
+Weight(IP): 60",
+    param_types: [
+      email: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      page: "integer()",
+      limit: "integer()",
+      transfers: "String.t()",
+      transfer_function_account_type: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{count: integer(), manager_sub_transfer_history_vos: list(%{amount: String.t(), asset: String.t(), create_time: integer(), from_account_type: String.t(), from_email: String.t(), scheduled_data: integer(), status: String.t(), to_account_type: String.t(), to_email: String.t(), tran_id: integer()})}",
+    spec:
+      "@spec :\"get_/sapi/v1/managed-subaccount/query_trans_log_for_trade_parent\"(map(), keyword()) :: {:ok, %{count: integer(), manager_sub_transfer_history_vos: list(%{amount: String.t(), asset: String.t(), create_time: integer(), from_account_type: String.t(), from_email: String.t(), scheduled_data: integer(), status: String.t(), to_account_type: String.t(), to_email: String.t(), tran_id: integer()})}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/asset/convert-transfer",
@@ -1425,7 +2314,19 @@ Weight(IP): 60"
 Convert transfer, convert between BUSD and stablecoins.
 If the clientId has been used before, will not do the convert transfer, the original transfer will be returned.
 
-Weight(UID): 5"
+Weight(UID): 5",
+    param_types: [
+      client_tran_id: "String.t()",
+      asset: "String.t()",
+      amount: "float()",
+      target_asset: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{status: String.t(), tran_id: integer()}",
+    spec:
+      "@spec :\"create_/sapi/v1/asset/convert-transfer\"(map(), keyword()) :: {:ok, %{status: String.t(), tran_id: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/simple-earn/flexible/set_auto_subscribe",
@@ -1440,7 +2341,17 @@ Weight(UID): 5"
     error_mapping: &Parser.parse_error/1,
     doc: "Set Flexible Auto Subscribe (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      product_id: "String.t()",
+      auto_subscribe: "boolean()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{success: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/simple-earn/flexible/set_auto_subscribe\"(map(), keyword()) :: {:ok, %{success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/mining/statistics/user/list",
@@ -1455,7 +2366,18 @@ Weight(IP): 150"
     error_mapping: &Parser.parse_error/1,
     doc: "Account List (USER_DATA)
 
-Weight(IP): 5"
+Weight(IP): 5",
+    param_types: [
+      algo: "String.t()",
+      user_name: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{code: integer(), data: list(%{list: list(%{hashrate: String.t(), reject: String.t(), time: integer()}), type: String.t(), user_name: String.t()}), msg: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/mining/statistics/user/list\"(map(), keyword()) :: {:ok, %{code: integer(), data: list(%{list: list(%{hashrate: String.t(), reject: String.t(), time: integer()}), type: String.t(), user_name: String.t()}), msg: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/lending/auto-invest/rebalance/history",
@@ -1475,7 +2397,20 @@ Get the history of Index Linked Plan Redemption transactions
 Max 30 day difference between startTime and endTime
 If no startTime and endTime, default to show past 30 day records
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{index_id: integer(), index_name: String.t(), rebalance_fee: String.t(), rebalance_fee_unit: String.t(), rebalance_id: integer(), status: String.t(), transaction_details: list(%{asset: String.t(), rebalance_amount: String.t(), rebalance_direction: String.t(), transaction_date_time: integer()})})",
+    spec:
+      "@spec :\"get_/sapi/v1/lending/auto-invest/rebalance/history\"(map(), keyword()) :: {:ok, list(%{index_id: integer(), index_name: String.t(), rebalance_fee: String.t(), rebalance_fee_unit: String.t(), rebalance_id: integer(), status: String.t(), transaction_details: list(%{asset: String.t(), rebalance_amount: String.t(), rebalance_direction: String.t(), transaction_date_time: integer()})})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/lending/auto-invest/index/user-summary",
@@ -1492,7 +2427,12 @@ Weight(IP): 1"
 
 Details on users Index-Linked plan position details
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [index_id: "integer()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{asset_allocation: list(%{allocation: String.t(), target_asset: String.t()}), current_invested_in_usd: String.t(), details: list(%{asset_value_in_usd: String.t(), available_amount: String.t(), average_price_in_usd: String.t(), current_invested_in_usd: String.t(), percentage: String.t(), pnl_in_usd: String.t(), purchased_amount: String.t(), redeemed_amount: String.t(), roi: String.t(), target_asset: String.t(), total_invested_in_usd: String.t()}), index_id: integer(), pnl_in_usd: String.t(), roi: String.t(), total_invested_in_usd: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/lending/auto-invest/index/user-summary\"(map(), keyword()) :: {:ok, %{asset_allocation: list(%{allocation: String.t(), target_asset: String.t()}), current_invested_in_usd: String.t(), details: list(%{asset_value_in_usd: String.t(), available_amount: String.t(), average_price_in_usd: String.t(), current_invested_in_usd: String.t(), percentage: String.t(), pnl_in_usd: String.t(), purchased_amount: String.t(), redeemed_amount: String.t(), roi: String.t(), target_asset: String.t(), total_invested_in_usd: String.t()}), index_id: integer(), pnl_in_usd: String.t(), roi: String.t(), total_invested_in_usd: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/capital/withdraw/apply",
@@ -1512,7 +2452,24 @@ Submit a withdraw request.
 - If `network` not send, return with default network of the coin.
 - You can get `network` and `isDefault` in `networkList` of a coin in the response of `Get /sapi/v1/capital/config/getall (HMAC SHA256)`.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      coin: "String.t()",
+      withdraw_order_id: "String.t()",
+      network: "String.t()",
+      address: "String.t()",
+      address_tag: "String.t()",
+      amount: "float()",
+      transaction_fee_flag: "boolean()",
+      name: "String.t()",
+      wallet_type: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{id: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/capital/withdraw/apply\"(map(), keyword()) :: {:ok, %{id: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/my_trades",
@@ -1529,7 +2486,22 @@ Weight(IP): 1"
 
 - If `fromId` is set, it will get orders >= that `fromId`. Otherwise most recent trades are returned.
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [
+      symbol: "String.t()",
+      is_isolated: ":true | :false",
+      start_time: "integer()",
+      end_time: "integer()",
+      from_id: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{commission: String.t(), commission_asset: String.t(), id: integer(), is_best_match: boolean(), is_buyer: boolean(), is_isolated: boolean(), is_maker: boolean(), order_id: integer(), price: String.t(), qty: String.t(), symbol: String.t(), time: integer()})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/my_trades\"(map(), keyword()) :: {:ok, list(%{commission: String.t(), commission_asset: String.t(), id: integer(), is_best_match: boolean(), is_buyer: boolean(), is_isolated: boolean(), is_maker: boolean(), order_id: integer(), price: String.t(), qty: String.t(), symbol: String.t(), time: integer()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/loan/repay/history",
@@ -1547,7 +2519,23 @@ Weight(IP): 10"
 If startTime and endTime are not sent, the recent 90-day data will be returned.
 The max interval between startTime and endTime is 180 days.
 
-Weight(IP): 400"
+Weight(IP): 400",
+    param_types: [
+      order_id: "integer()",
+      loan_coin: "String.t()",
+      collateral_coin: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{collateral_coin: String.t(), collateral_return: String.t(), collateral_used: String.t(), loan_coin: String.t(), order_id: integer(), repay_amount: String.t(), repay_status: String.t(), repay_time: integer(), repay_type: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/loan/repay/history\"(map(), keyword()) :: {:ok, %{rows: list(%{collateral_coin: String.t(), collateral_return: String.t(), collateral_used: String.t(), loan_coin: String.t(), order_id: integer(), repay_amount: String.t(), repay_status: String.t(), repay_time: integer(), repay_type: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/asset/asset_detail",
@@ -1566,7 +2554,12 @@ Fetch details of assets supported on Binance.
 
 - Please get network and other deposit or withdraw details from `GET /sapi/v1/capital/config/getall`.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [asset: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{ctr: %{deposit_status: boolean(), deposit_tip: String.t(), min_withdraw_amount: String.t(), withdraw_fee: integer(), withdraw_status: boolean()}}",
+    spec:
+      "@spec :\"get_/sapi/v1/asset/asset_detail\"(map(), keyword()) :: {:ok, %{ctr: %{deposit_status: boolean(), deposit_tip: String.t(), min_withdraw_amount: String.t(), withdraw_fee: integer(), withdraw_status: boolean()}}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/eth-staking/eth/redeem",
@@ -1585,7 +2578,17 @@ Redeem WBETH or BETH and get ETH
 
 - You need to open Enable Spot & Margin Trading permission for the API Key which requests this endpoint.
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      asset: "String.t()",
+      amount: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{arrival_time: integer(), conversion_ratio: String.t(), eth_amount: String.t(), success: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/eth-staking/eth/redeem\"(map(), keyword()) :: {:ok, %{arrival_time: integer(), conversion_ratio: String.t(), eth_amount: String.t(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/convert/exchange_info",
@@ -1602,7 +2605,12 @@ Weight(IP): 150"
 
 Query for all convertible token pairs and the tokens’ respective upper/lower limits
 
-Weight(IP): 3000"
+Weight(IP): 3000",
+    param_types: [from_asset: "String.t()", to_asset: "String.t()"],
+    response_type:
+      "list(%{from_asset: String.t(), from_asset_max_amount: String.t(), from_asset_min_amount: String.t(), to_asset: String.t(), to_asset_max_amount: String.t(), to_asset_min_amount: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/convert/exchange_info\"(map(), keyword()) :: {:ok, list(%{from_asset: String.t(), from_asset_max_amount: String.t(), from_asset_min_amount: String.t(), to_asset: String.t(), to_asset_max_amount: String.t(), to_asset_min_amount: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/futures/hist_data_link",
@@ -1617,7 +2625,19 @@ Weight(IP): 3000"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Future TickLevel Orderbook Historical Data Download Link (USER_DATA)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      symbol: "String.t()",
+      data_type: ":t_depth | :s_depth",
+      start_time: "integer()",
+      end_time: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{data: list(%{day: String.t(), url: String.t()})}",
+    spec:
+      "@spec :\"get_/sapi/v1/futures/hist_data_link\"(map(), keyword()) :: {:ok, %{data: list(%{day: String.t(), url: String.t()})}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/blvt/redeem/record",
@@ -1634,7 +2654,21 @@ Weight(IP): 1"
 
 - Only the data of the latest 90 days is available
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      token_name: "String.t()",
+      id: "integer()",
+      start_time: "integer()",
+      end_time: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{amount: String.t(), fee: String.t(), id: integer(), nav: String.t(), net_proceed: String.t(), timestamp: integer(), token_name: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/blvt/redeem/record\"(map(), keyword()) :: {:ok, list(%{amount: String.t(), fee: String.t(), id: integer(), nav: String.t(), net_proceed: String.t(), timestamp: integer(), token_name: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/borrow-repay",
@@ -1656,7 +2690,24 @@ Query borrow/repay records in Margin account
 - If neither startTime nor endTime is sent, the recent 7-day data will be returned.
 - startTime set as endTime - 7 days by default, endTime set as current time by default
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [
+      asset: "String.t()",
+      isolated_symbol: "String.t()",
+      tx_id: "integer()",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      type: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{optional(:amount) => String.t(), asset: String.t(), optional(:interest) => String.t(), optional(:isolated_symbol) => String.t(), principal: String.t(), status: String.t(), timestamp: integer(), tx_id: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/borrow-repay\"(map(), keyword()) :: {:ok, %{rows: list(%{optional(:amount) => String.t(), asset: String.t(), optional(:interest) => String.t(), optional(:isolated_symbol) => String.t(), principal: String.t(), status: String.t(), timestamp: integer(), tx_id: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/margin/borrow-repay",
@@ -1673,7 +2724,20 @@ Weight(IP): 10"
 
 Margin account borrow/repay(MARGIN)
 
-Weight(UID): 3000"
+Weight(UID): 3000",
+    param_types: [
+      asset: "String.t()",
+      is_isolated: "String.t()",
+      symbol: "String.t()",
+      amount: "float()",
+      type: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{tran_id: integer()}",
+    spec:
+      "@spec :\"create_/sapi/v1/margin/borrow-repay\"(map(), keyword()) :: {:ok, %{tran_id: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/eth-staking/eth/history/rate_history",
@@ -1693,7 +2757,20 @@ Weight(UID): 3000"
 - If startTime is sent but endTime is not sent, the next 30 days' data beginning from startTime will be returned.
 - If endTime is sent but startTime is not sent, the 30 days' data before endTime will be returned.
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{annual_percentage_rate: String.t(), exchange_rate: String.t(), time: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/eth-staking/eth/history/rate_history\"(map(), keyword()) :: {:ok, %{rows: list(%{annual_percentage_rate: String.t(), exchange_rate: String.t(), time: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/loan/repay/collateral/rate",
@@ -1710,7 +2787,18 @@ Weight(IP): 150"
 
 Get the the rate of collateral coin / loan coin when using collateral repay, the rate will be valid within 8 second.
 
-Weight(IP): 6000"
+Weight(IP): 6000",
+    param_types: [
+      loan_coin: "String.t()",
+      collateral_coin: "String.t()",
+      repay_amount: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{collateral_coin: String.t(), loan_coin: String.t(), rate: String.t(), repay_amount: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/loan/repay/collateral/rate\"(map(), keyword()) :: {:ok, %{collateral_coin: String.t(), loan_coin: String.t(), rate: String.t(), repay_amount: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/sub-account/eoptions/enable",
@@ -1727,7 +2815,11 @@ Weight(IP): 6000"
 
 Enable Options for Sub-account (For Master Account).
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [email: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{email: String.t(), is_e_options_enabled: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/sub-account/eoptions/enable\"(map(), keyword()) :: {:ok, %{email: String.t(), is_e_options_enabled: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/loan/ltv/adjustment/history",
@@ -1745,7 +2837,23 @@ Weight(IP): 1"
 If startTime and endTime are not sent, the recent 90-day data will be returned.
 The max interval between startTime and endTime is 180 days.
 
-Weight(IP): 400"
+Weight(IP): 400",
+    param_types: [
+      order_id: "integer()",
+      loan_coin: "String.t()",
+      collateral_coin: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{adjust_time: integer(), after_ltv: String.t(), amount: String.t(), collateral_coin: String.t(), direction: String.t(), loan_coin: String.t(), order_id: integer(), pre_ltv: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/loan/ltv/adjustment/history\"(map(), keyword()) :: {:ok, %{rows: list(%{adjust_time: integer(), after_ltv: String.t(), amount: String.t(), collateral_coin: String.t(), direction: String.t(), loan_coin: String.t(), order_id: integer(), pre_ltv: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/lending/auto-invest/target-asset/list",
@@ -1760,7 +2868,19 @@ Weight(IP): 400"
     error_mapping: &Parser.parse_error/1,
     doc: "Get target asset list (USER_DATA)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      target_asset: "String.t()",
+      size: "integer()",
+      current: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{optional(:auto_invest_asset_list) => list(%{roi_and_dimension_type_list: list(%{dimension_unit: String.t(), dimension_value: String.t(), simulate_roi: String.t()}), target_asset: String.t()}), optional(:target_assets) => String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/lending/auto-invest/target-asset/list\"(map(), keyword()) :: {:ok, %{optional(:auto_invest_asset_list) => list(%{roi_and_dimension_type_list: list(%{dimension_unit: String.t(), dimension_value: String.t(), simulate_roi: String.t()}), target_asset: String.t()}), optional(:target_assets) => String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/lending/auto-invest/plan/edit-status",
@@ -1777,7 +2897,17 @@ Weight(IP): 1"
 
 Change Plan Status
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      plan_id: "integer()",
+      status: ":ongoing | :paused | :removed",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{next_execution_date_time: integer(), plan_id: integer(), status: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/lending/auto-invest/plan/edit-status\"(map(), keyword()) :: {:ok, %{next_execution_date_time: integer(), plan_id: integer(), status: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/loan/vip/ongoing/orders",
@@ -1794,7 +2924,22 @@ Weight(IP): 1"
 
 VIP loan is available for VIP users only.
 
-Weight(IP): 400"
+Weight(IP): 400",
+    param_types: [
+      order_id: "integer()",
+      collateral_account_id: "integer()",
+      loan_coin: "String.t()",
+      collateral_coin: "String.t()",
+      current: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{collateral_account_id: String.t(), collateral_coin: String.t(), collateral_value: String.t(), current_ltv: String.t(), expiration_time: integer(), loan_coin: String.t(), loan_date: String.t(), loan_rate: String.t(), loan_term: String.t(), optional(:locked_collateral_value) => String.t(), order_id: integer(), residual_interest: String.t(), optional(:total_collateral_value_after_haircut) => String.t(), total_debt: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/loan/vip/ongoing/orders\"(map(), keyword()) :: {:ok, %{rows: list(%{collateral_account_id: String.t(), collateral_coin: String.t(), collateral_value: String.t(), current_ltv: String.t(), expiration_time: integer(), loan_coin: String.t(), loan_date: String.t(), loan_rate: String.t(), loan_term: String.t(), optional(:locked_collateral_value) => String.t(), order_id: integer(), residual_interest: String.t(), optional(:total_collateral_value_after_haircut) => String.t(), total_debt: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/loan/adjust/ltv",
@@ -1809,7 +2954,19 @@ Weight(IP): 400"
     error_mapping: &Parser.parse_error/1,
     doc: "Crypto Loan Adjust LTV (TRADE)
 
-Weight(UID): 6000"
+Weight(UID): 6000",
+    param_types: [
+      order_id: "integer()",
+      amount: "float()",
+      direction: ":additional | :reduced",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{amount: String.t(), collateral_coin: String.t(), current_ltv: String.t(), direction: String.t(), loan_coin: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/loan/adjust/ltv\"(map(), keyword()) :: {:ok, %{amount: String.t(), collateral_coin: String.t(), current_ltv: String.t(), direction: String.t(), loan_coin: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/dci/product/subscribe",
@@ -1829,7 +2986,20 @@ Subscribe Dual Investment products
 - `Products are not available.` means that the APR changes to lower value, or the orders are not available.
 - `Failed` is a system or network errors.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      id: "String.t()",
+      order_id: "String.t()",
+      deposit_amount: "float()",
+      auto_compound_plan: ":none | :standard | :advance",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{apr: String.t(), auto_compound_plan: String.t(), duration: integer(), exercised_coin: String.t(), invest_coin: String.t(), optional(:option_type\") => String.t(), order_id: integer(), position_id: integer(), purchase_status: String.t(), purchase_time: integer(), settle_date: integer(), strike_price: String.t(), subscription_amount: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/dci/product/subscribe\"(map(), keyword()) :: {:ok, %{apr: String.t(), auto_compound_plan: String.t(), duration: integer(), exercised_coin: String.t(), invest_coin: String.t(), optional(:option_type\") => String.t(), order_id: integer(), position_id: integer(), purchase_status: String.t(), purchase_time: integer(), settle_date: integer(), strike_price: String.t(), subscription_amount: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/simple-earn/flexible/list",
@@ -1846,7 +3016,19 @@ Weight(IP): 1"
 
 Get available Simple Earn flexible product list
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      asset: "String.t()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{air_drop_percentage_rate: String.t(), asset: String.t(), can_purchase: boolean(), can_redeem: boolean(), hot: boolean(), is_sold_out: boolean(), latest_annual_percentage_rate: String.t(), min_purchase_amount: String.t(), product_id: String.t(), status: String.t(), subscription_start_time: String.t(), tier_annual_percentage_rate: %{0-5_btc: float(), 5-10_btc: float()}}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/simple-earn/flexible/list\"(map(), keyword()) :: {:ok, %{rows: list(%{air_drop_percentage_rate: String.t(), asset: String.t(), can_purchase: boolean(), can_redeem: boolean(), hot: boolean(), is_sold_out: boolean(), latest_annual_percentage_rate: String.t(), min_purchase_amount: String.t(), product_id: String.t(), status: String.t(), subscription_start_time: String.t(), tier_annual_percentage_rate: %{0-5_btc: float(), 5-10_btc: float()}}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/lending/customized_fixed/purchase",
@@ -1861,7 +3043,17 @@ Weight(IP): 150"
     error_mapping: &Parser.parse_error/1,
     doc: "Purchase Fixed/Activity Project (USER_DATA)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      project_id: "String.t()",
+      lot: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{purchase_id: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/lending/customized_fixed/purchase\"(map(), keyword()) :: {:ok, %{purchase_id: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/fiat/payments",
@@ -1878,7 +3070,21 @@ Weight(IP): 1"
 
 - If beginTime and endTime are not sent, the recent 30-day data will be returned.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      transaction_type: "integer()",
+      begin_time: "integer()",
+      end_time: "integer()",
+      page: "integer()",
+      rows: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{code: String.t(), data: list(%{create_time: integer(), crypto_currency: String.t(), fiat_currency: String.t(), obtain_amount: String.t(), order_no: String.t(), price: String.t(), source_amount: String.t(), status: String.t(), total_fee: String.t(), update_time: integer()}), message: String.t(), success: boolean(), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/fiat/payments\"(map(), keyword()) :: {:ok, %{code: String.t(), data: list(%{create_time: integer(), crypto_currency: String.t(), fiat_currency: String.t(), obtain_amount: String.t(), order_no: String.t(), price: String.t(), source_amount: String.t(), status: String.t(), total_fee: String.t(), update_time: integer()}), message: String.t(), success: boolean(), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/loan/customize/margin_call",
@@ -1895,7 +3101,19 @@ Weight(IP): 1"
 
 Customize margin call for ongoing orders only.
 
-Weight(UID): 6000"
+Weight(UID): 6000",
+    param_types: [
+      order_id: "integer()",
+      collateral_coin: "String.t()",
+      margin_call: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{after_margin_call: String.t(), collateral_coin: String.t(), customize_time: integer(), order_id: String.t(), pre_margin_call: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"create_/sapi/v1/loan/customize/margin_call\"(map(), keyword()) :: {:ok, %{rows: list(%{after_margin_call: String.t(), collateral_coin: String.t(), customize_time: integer(), order_id: String.t(), pre_margin_call: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v2/portfolio/collateral_rate",
@@ -1912,7 +3130,12 @@ Weight(UID): 6000"
 
 Portfolio Margin PRO Tiered Collateral Rate
 
-Weight(IP): 50"
+Weight(IP): 50",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "list(%{asset: String.t(), collateral_info: list(%{collateral_rate: String.t(), tier_cap: String.t(), tier_floor: String.t()})})",
+    spec:
+      "@spec :\"get_/sapi/v2/portfolio/collateral_rate\"(map(), keyword()) :: {:ok, list(%{asset: String.t(), collateral_info: list(%{collateral_rate: String.t(), tier_cap: String.t(), tier_floor: String.t()})})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/managed-subaccount/account_snapshot",
@@ -1931,7 +3154,21 @@ Weight(IP): 50"
 - Support query within the last one month only
 - If `startTime` and `endTime` not sent, return records of the last 7 days by default
 
-Weight(IP): 2400"
+Weight(IP): 2400",
+    param_types: [
+      email: "String.t()",
+      type: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{code: integer(), msg: String.t(), snapshot_vos: list(%{data: %{balances: list(%{asset: String.t(), free: String.t(), locked: String.t()}), total_asset_of_btc: String.t()}, type: String.t(), update_time: integer()})}",
+    spec:
+      "@spec :\"get_/sapi/v1/managed-subaccount/account_snapshot\"(map(), keyword()) :: {:ok, %{code: integer(), msg: String.t(), snapshot_vos: list(%{data: %{balances: list(%{asset: String.t(), free: String.t(), locked: String.t()}), total_asset_of_btc: String.t()}, type: String.t(), update_time: integer()})}} | {:error, term()}"
   },
   %{
     operation: :get_klines,
@@ -1951,7 +3188,17 @@ Klines are uniquely identified by their open time.
 
 - If `startTime` and `endTime` are not sent, the most recent klines are returned.
 
-Weight(IP): 2"
+Weight(IP): 2",
+    param_types: [
+      symbol: "String.t()",
+      interval: ":1s | :1m | :3m | :5m | :15m | :30m | :1h | :2h | :4h | :6h | :8h | :12h | :1d | :3d | :1w | :1m",
+      start_time: "integer()",
+      end_time: "integer()",
+      time_zone: "String.t()",
+      limit: "integer()"
+    ],
+    response_type: "list(list(term()))",
+    spec: "@spec get_klines(map(), keyword()) :: {:ok, list(list(term()))} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/eth-staking/wbeth/history/unwrap_history",
@@ -1971,7 +3218,20 @@ Weight(IP): 2"
 - If startTime is sent but endTime is not sent, the next 30 days' data beginning from startTime will be returned.
 - If endTime is sent but startTime is not sent, the 30 days' data before endTime will be returned.
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{exchange_rate: String.t(), from_amount: String.t(), from_asset: String.t(), status: String.t(), time: integer(), to_amount: String.t(), to_asset: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/eth-staking/wbeth/history/unwrap_history\"(map(), keyword()) :: {:ok, %{rows: list(%{exchange_rate: String.t(), from_amount: String.t(), from_asset: String.t(), status: String.t(), time: integer(), to_amount: String.t(), to_asset: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v2/loan/flexible/adjust/ltv",
@@ -1988,7 +3248,20 @@ Weight(IP): 150"
 
 - API Key needs Spot & Margin Trading permission for this endpoint
 
-Weight(UID): 6000"
+Weight(UID): 6000",
+    param_types: [
+      loan_coin: "String.t()",
+      collateral_coin: "String.t()",
+      adjustment_amount: "float()",
+      direction: ":additional | :reduced",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{adjustment_amount: String.t(), collateral_coin: String.t(), current_ltv: String.t(), direction: String.t(), loan_coin: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v2/loan/flexible/adjust/ltv\"(map(), keyword()) :: {:ok, %{adjustment_amount: String.t(), collateral_coin: String.t(), current_ltv: String.t(), direction: String.t(), loan_coin: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/simple-earn/flexible/history/rewards_record",
@@ -2003,7 +3276,18 @@ Weight(UID): 6000"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Flexible Rewards History (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      product_id: "String.t()",
+      asset: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      type: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{asset: String.t(), project_id: String.t(), rewards: String.t(), time: integer(), type: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/simple-earn/flexible/history/rewards_record\"(map(), keyword()) :: {:ok, %{rows: list(%{asset: String.t(), project_id: String.t(), rewards: String.t(), time: integer(), type: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/max_transferable",
@@ -2020,7 +3304,17 @@ Weight(IP): 150"
 
 - If `isolatedSymbol` is not sent, crossed margin data will be sent.
 
-Weight(IP): 50"
+Weight(IP): 50",
+    param_types: [
+      asset: "String.t()",
+      isolated_symbol: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{amount: String.t(), borrow_limit: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/max_transferable\"(map(), keyword()) :: {:ok, %{amount: String.t(), borrow_limit: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/force_liquidation_rec",
@@ -2037,7 +3331,21 @@ Weight(IP): 50"
 
 - Response in descending order
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      start_time: "integer()",
+      end_time: "integer()",
+      isolated_symbol: "String.t()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{avg_price: String.t(), executed_qty: String.t(), is_isolated: boolean(), order_id: integer(), price: String.t(), qty: String.t(), side: String.t(), symbol: String.t(), time_in_force: String.t(), updated_time: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/force_liquidation_rec\"(map(), keyword()) :: {:ok, %{rows: list(%{avg_price: String.t(), executed_qty: String.t(), is_isolated: boolean(), order_id: integer(), price: String.t(), qty: String.t(), side: String.t(), symbol: String.t(), time_in_force: String.t(), updated_time: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :delete_user_data_stream,
@@ -2054,7 +3362,10 @@ Weight(IP): 1"
 
 Close out a user data stream.
 
-Weight: 2"
+Weight: 2",
+    param_types: [listen_key: "String.t()"],
+    response_type: "map()",
+    spec: "@spec delete_user_data_stream(map(), keyword()) :: {:ok, map()} | {:error, term()}"
   },
   %{
     operation: :create_user_data_stream,
@@ -2072,7 +3383,10 @@ Weight: 2"
 Start a new user data stream.
 The stream will close after 60 minutes unless a keepalive is sent. If the account has an active `listenKey`, that `listenKey` will be returned and its validity will be extended for 60 minutes.
 
-Weight: 2"
+Weight: 2",
+    param_types: [],
+    response_type: "%{listen_key: String.t()}",
+    spec: "@spec create_user_data_stream(map(), keyword()) :: {:ok, %{listen_key: String.t()}} | {:error, term()}"
   },
   %{
     operation: :update_user_data_stream,
@@ -2089,7 +3403,10 @@ Weight: 2"
 
 Keepalive a user data stream to prevent a time out. User data streams will close after 60 minutes. It's recommended to send a ping about every 30 minutes.
 
-Weight: 2"
+Weight: 2",
+    param_types: [listen_key: "String.t()"],
+    response_type: "map()",
+    spec: "@spec update_user_data_stream(map(), keyword()) :: {:ok, map()} | {:error, term()}"
   },
   %{
     operation: :"cancel_/sapi/v1/margin/order",
@@ -2108,7 +3425,21 @@ Cancel an active order for margin account.
 
 Either `orderId` or `origClientOrderId` must be sent.
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [
+      symbol: "String.t()",
+      is_isolated: ":true | :false",
+      order_id: "integer()",
+      orig_client_order_id: "String.t()",
+      new_client_order_id: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), orig_client_order_id: String.t(), orig_qty: String.t(), price: String.t(), side: String.t(), status: String.t(), symbol: String.t(), time_in_force: String.t(), type: String.t()}",
+    spec:
+      "@spec :\"cancel_/sapi/v1/margin/order\"(map(), keyword()) :: {:ok, %{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), orig_client_order_id: String.t(), orig_qty: String.t(), price: String.t(), side: String.t(), status: String.t(), symbol: String.t(), time_in_force: String.t(), type: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/order",
@@ -2126,7 +3457,20 @@ Weight(IP): 10"
 - Either `orderId` or `origClientOrderId` must be sent.
 - For some historical orders `cummulativeQuoteQty` will be < 0, meaning the data is not available at this time.
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [
+      symbol: "String.t()",
+      is_isolated: ":true | :false",
+      order_id: "integer()",
+      orig_client_order_id: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), iceberg_qty: String.t(), is_isolated: boolean(), is_working: boolean(), order_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time: integer(), time_in_force: String.t(), type: String.t(), update_time: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/order\"(map(), keyword()) :: {:ok, %{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), iceberg_qty: String.t(), is_isolated: boolean(), is_working: boolean(), order_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time: integer(), time_in_force: String.t(), type: String.t(), update_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :"place_/sapi/v1/margin/order",
@@ -2143,7 +3487,29 @@ Weight(IP): 10"
 
 Post a new order for margin account.
 
-Weight(UID): 6"
+Weight(UID): 6",
+    param_types: [
+      symbol: "String.t()",
+      is_isolated: ":true | :false",
+      side: ":sell | :buy",
+      type: ":limit | :market | :stop_loss | :stop_loss_limit | :take_profit | :take_profit_limit | :limit_maker",
+      quantity: "float()",
+      quote_order_qty: "float()",
+      price: "float()",
+      stop_price: "float()",
+      new_client_order_id: "String.t()",
+      iceberg_qty: "float()",
+      new_order_resp_type: ":ack | :result | :full",
+      side_effect_type: ":no_side_effect | :margin_buy | :auto_repay",
+      time_in_force: ":gtc | :ioc | :fok",
+      auto_repay_at_cancel: "boolean()",
+      self_trade_prevention_mode: ":expire_taker | :expire_maker | :expire_both | :none",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "term()",
+    spec: "@spec :\"place_/sapi/v1/margin/order\"(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/lending/auto-invest/redeem",
@@ -2160,7 +3526,18 @@ Weight(UID): 6"
 
 To redeem index-Linked plan holdings
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      index_id: "integer()",
+      request_id: "String.t()",
+      redemption_percentage: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{redemption_id: integer()}",
+    spec:
+      "@spec :\"create_/sapi/v1/lending/auto-invest/redeem\"(map(), keyword()) :: {:ok, %{redemption_id: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/system/status",
@@ -2177,7 +3554,11 @@ Weight(IP): 1"
 
 Fetch system status.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [],
+    response_type: "%{msg: String.t(), status: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/system/status\"(map(), keyword()) :: {:ok, %{msg: String.t(), status: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/simple-earn/locked/history/subscription_record",
@@ -2192,7 +3573,22 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Locked Subscription Record (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      purchase_id: "String.t()",
+      asset: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{amount: String.t(), amt_from_funding: String.t(), amt_from_spot: String.t(), asset: String.t(), lock_period: String.t(), position_id: String.t(), project_id: String.t(), purchase_id: integer(), source_account: String.t(), status: String.t(), time: integer(), type: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/simple-earn/locked/history/subscription_record\"(map(), keyword()) :: {:ok, %{rows: list(%{amount: String.t(), amt_from_funding: String.t(), amt_from_spot: String.t(), asset: String.t(), lock_period: String.t(), position_id: String.t(), project_id: String.t(), purchase_id: integer(), source_account: String.t(), status: String.t(), time: integer(), type: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/sub-account/margin/account_summary",
@@ -2207,7 +3603,12 @@ Weight(IP): 150"
     error_mapping: &Parser.parse_error/1,
     doc: "Summary of Sub-account's Margin Account (For Master Account)
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{sub_account_list: list(%{email: String.t(), total_asset_of_btc: String.t(), total_liability_of_btc: String.t(), total_net_asset_of_btc: String.t()}), total_asset_of_btc: String.t(), total_liability_of_btc: String.t(), total_net_asset_of_btc: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/sub-account/margin/account_summary\"(map(), keyword()) :: {:ok, %{sub_account_list: list(%{email: String.t(), total_asset_of_btc: String.t(), total_liability_of_btc: String.t(), total_net_asset_of_btc: String.t()}), total_asset_of_btc: String.t(), total_liability_of_btc: String.t(), total_net_asset_of_btc: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v2/eth-staking/eth/stake",
@@ -2226,7 +3627,11 @@ Stake ETH to get WBETH
 
 - You need to open Enable Spot & Margin Trading permission for the API Key which requests this endpoint.
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [amount: "float()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{conversion_ratio: String.t(), success: boolean(), wbeth_amount: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v2/eth-staking/eth/stake\"(map(), keyword()) :: {:ok, %{conversion_ratio: String.t(), success: boolean(), wbeth_amount: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/capital-flow",
@@ -2243,7 +3648,24 @@ Weight(IP): 150"
 
 Get cross or isolated margin capital flow
 
-Weight(IP): 100"
+Weight(IP): 100",
+    param_types: [
+      asset: "String.t()",
+      symbol: "String.t()",
+      type:
+        ":transfer | :borrow | :repay | :buy_income | :buy_expense | :sell_income | :sell_expense | :trading_commission | :buy_liquidation | :sell_liquidation | :repay_liquidation | :other_liquidation | :liquidation_fee | :small_balance_convert | :commission_return | :small_convert",
+      start_time: "integer()",
+      end_time: "integer()",
+      from_id: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{amount: String.t(), asset: String.t(), id: integer(), symbol: String.t(), timestamp: integer(), tran_id: integer(), type: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/capital-flow\"(map(), keyword()) :: {:ok, list(%{amount: String.t(), asset: String.t(), id: integer(), symbol: String.t(), timestamp: integer(), tran_id: integer(), type: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/sub-account/futures/account_summary",
@@ -2258,7 +3680,12 @@ Weight(IP): 100"
     error_mapping: &Parser.parse_error/1,
     doc: "Summary of Sub-account's Futures Account (For Master Account)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{asset: String.t(), sub_account_list: list(%{asset: String.t(), email: String.t(), total_initial_margin: String.t(), total_maintenance_margin: String.t(), total_margin_balance: String.t(), total_open_order_initial_margin: String.t(), total_position_initial_margin: String.t(), total_unrealized_profit: String.t(), total_wallet_balance: String.t()}), total_initial_margin: String.t(), total_maintenance_margin: String.t(), total_margin_balance: String.t(), total_open_order_initial_margin: String.t(), total_position_initial_margin: String.t(), total_unrealized_profit: String.t(), total_wallet_balance: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/sub-account/futures/account_summary\"(map(), keyword()) :: {:ok, %{asset: String.t(), sub_account_list: list(%{asset: String.t(), email: String.t(), total_initial_margin: String.t(), total_maintenance_margin: String.t(), total_margin_balance: String.t(), total_open_order_initial_margin: String.t(), total_position_initial_margin: String.t(), total_unrealized_profit: String.t(), total_wallet_balance: String.t()}), total_initial_margin: String.t(), total_maintenance_margin: String.t(), total_margin_balance: String.t(), total_open_order_initial_margin: String.t(), total_position_initial_margin: String.t(), total_unrealized_profit: String.t(), total_wallet_balance: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/mining/pub/algo_list",
@@ -2273,7 +3700,12 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Acquiring Algorithm (MARKET_DATA)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [],
+    response_type:
+      "%{code: integer(), data: list(%{algo_id: integer(), algo_name: String.t(), pool_index: integer(), unit: String.t()}), msg: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/mining/pub/algo_list\"(map(), keyword()) :: {:ok, %{code: integer(), data: list(%{algo_id: integer(), algo_name: String.t(), pool_index: integer(), unit: String.t()}), msg: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/asset/convert-transfer/query_by_page",
@@ -2288,7 +3720,23 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Query Convert Transfer (USER_DATA)
 
-Weight(UID): 5"
+Weight(UID): 5",
+    param_types: [
+      tran_id: "integer()",
+      asset: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      account_type: ":main | :card",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{account_type: String.t(), deducted_amount: String.t(), deducted_asset: String.t(), status: String.t(), target_amount: String.t(), target_asset: String.t(), time: integer(), tran_id: integer(), type: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/asset/convert-transfer/query_by_page\"(map(), keyword()) :: {:ok, %{rows: list(%{account_type: String.t(), deducted_amount: String.t(), deducted_asset: String.t(), status: String.t(), target_amount: String.t(), target_asset: String.t(), time: integer(), tran_id: integer(), type: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/lending/auto-invest/history/list",
@@ -2305,7 +3753,23 @@ Weight(UID): 5"
 
 Query subscription transaction history of a plan
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      plan_id: "integer()",
+      start_time: "integer()",
+      end_time: "integer()",
+      target_asset: "float()",
+      plan_type: ":single | :portfolio | :index | :all",
+      size: "integer()",
+      current: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{execution_price: String.t(), execution_type: String.t(), failed_type: String.t(), flexible_used: String.t(), id: integer(), plan_id: integer(), plan_name: String.t(), plan_type: String.t(), source_asset: String.t(), source_asset_amount: String.t(), source_wallet: String.t(), subscription_cycle: String.t(), target_asset: String.t(), target_asset_amount: String.t(), transaction_date_time: integer(), transaction_fee: String.t(), transaction_fee_unit: String.t(), transaction_status: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/lending/auto-invest/history/list\"(map(), keyword()) :: {:ok, list(%{execution_price: String.t(), execution_type: String.t(), failed_type: String.t(), flexible_used: String.t(), id: integer(), plan_id: integer(), plan_name: String.t(), plan_type: String.t(), source_asset: String.t(), source_asset_amount: String.t(), source_wallet: String.t(), subscription_cycle: String.t(), target_asset: String.t(), target_asset_amount: String.t(), transaction_date_time: integer(), transaction_fee: String.t(), transaction_fee_unit: String.t(), transaction_status: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/simple-earn/flexible/history/redemption_record",
@@ -2320,7 +3784,20 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Flexible Redemption Record (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      product_id: "String.t()",
+      redeem_id: "String.t()",
+      asset: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()"
+    ],
+    response_type:
+      "%{rows: list(%{amount: String.t(), asset: String.t(), dest_account: String.t(), project_id: String.t(), redeem_id: integer(), status: String.t(), time: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/simple-earn/flexible/history/redemption_record\"(map(), keyword()) :: {:ok, %{rows: list(%{amount: String.t(), asset: String.t(), dest_account: String.t(), project_id: String.t(), redeem_id: integer(), status: String.t(), time: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v2/loan/flexible/repay",
@@ -2337,7 +3814,21 @@ Weight(IP): 150"
 
 - repayAmount is mandatory even fullRepayment = FALSE
 
-Weight(IP): 6000"
+Weight(IP): 6000",
+    param_types: [
+      loan_coin: "String.t()",
+      collateral_coin: "String.t()",
+      repay_amount: "float()",
+      collateral_return: "boolean()",
+      full_repayment: "boolean()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{collateral_coin: String.t(), current_ltv: String.t(), full_repayment: boolean(), loan_coin: String.t(), remaining_collateral: String.t(), remaining_debt: String.t(), repay_status: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v2/loan/flexible/repay\"(map(), keyword()) :: {:ok, %{collateral_coin: String.t(), current_ltv: String.t(), full_repayment: boolean(), loan_coin: String.t(), remaining_collateral: String.t(), remaining_debt: String.t(), repay_status: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_rate_limit/order",
@@ -2354,7 +3845,12 @@ Weight(IP): 6000"
 
 Displays the user's current order count usage for all intervals.
 
-Weight(IP): 40"
+Weight(IP): 40",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "list(%{optional(:count) => integer(), interval: String.t(), interval_num: integer(), limit: integer(), rate_limit_type: String.t()})",
+    spec:
+      "@spec :\"get_rate_limit/order\"(map(), keyword()) :: {:ok, list(%{optional(:count) => integer(), interval: String.t(), interval_num: integer(), limit: integer(), rate_limit_type: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/asset/get-funding-asset",
@@ -2371,7 +3867,18 @@ Weight(IP): 40"
 
 - Currently supports querying the following business assets：Binance Pay, Binance Card, Binance Gift Card, Stock Token
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      asset: "String.t()",
+      need_btc_valuation: ":true | :false",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{asset: String.t(), btc_valuation: String.t(), free: String.t(), freeze: String.t(), locked: String.t(), withdrawing: String.t()})",
+    spec:
+      "@spec :\"create_/sapi/v1/asset/get-funding-asset\"(map(), keyword()) :: {:ok, list(%{asset: String.t(), btc_valuation: String.t(), free: String.t(), freeze: String.t(), locked: String.t(), withdrawing: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/convert/asset_info",
@@ -2388,7 +3895,11 @@ Weight(IP): 1"
 
 Query for supported asset precision information
 
-Weight(IP): 100"
+Weight(IP): 100",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "list(%{asset: String.t(), fraction: integer()})",
+    spec:
+      "@spec :\"get_/sapi/v1/convert/asset_info\"(map(), keyword()) :: {:ok, list(%{asset: String.t(), fraction: integer()})} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/simple-earn/locked/subscribe",
@@ -2405,7 +3916,20 @@ Weight(IP): 100"
 
 Weight(IP): 1
 
-Rate Limit: 1/3s per account"
+Rate Limit: 1/3s per account",
+    param_types: [
+      project_id: "String.t()",
+      amount: "float()",
+      auto_subscribe: "boolean()",
+      source_account: "String.t()",
+      redeem_to: ":spot | :flexible",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{position_id: String.t(), purchase_id: integer(), success: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/simple-earn/locked/subscribe\"(map(), keyword()) :: {:ok, %{position_id: String.t(), purchase_id: integer(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/capital/deposit/hisrec",
@@ -2425,7 +3949,22 @@ Fetch deposit history.
 - Please notice the default `startTime` and `endTime` to make sure that time interval is within 0-90 days.
 - If both `startTime` and `endTime` are sent, time between `startTime` and `endTime` must be less than 90 days.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      coin: "String.t()",
+      status: "integer()",
+      start_time: "integer()",
+      end_time: "integer()",
+      offset: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{address: String.t(), address_tag: String.t(), amount: String.t(), coin: String.t(), confirm_times: String.t(), insert_time: integer(), network: String.t(), status: integer(), transfer_type: integer(), tx_id: String.t(), unlock_confirm: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/capital/deposit/hisrec\"(map(), keyword()) :: {:ok, list(%{address: String.t(), address_tag: String.t(), amount: String.t(), coin: String.t(), confirm_times: String.t(), insert_time: integer(), network: String.t(), status: integer(), transfer_type: integer(), tx_id: String.t(), unlock_confirm: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/isolated_margin_data",
@@ -2442,7 +3981,18 @@ Weight(IP): 1"
 
 Get isolated margin fee data collection with any vip level or user's current specific data as https://www.binance.com/en/margin-fee
 
-Weight(IP): 1 when a single is specified; 10 when the symbol parameter is omitted"
+Weight(IP): 1 when a single is specified; 10 when the symbol parameter is omitted",
+    param_types: [
+      vip_level: "integer()",
+      symbol: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{optional(:data) => list(%{optional(:borrow_limit) => String.t(), optional(:coin) => String.t(), optional(:daily_interest) => String.t()}), optional(:leverage) => String.t(), optional(:symbol) => String.t(), optional(:vip_level) => integer()})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/isolated_margin_data\"(map(), keyword()) :: {:ok, list(%{optional(:data) => list(%{optional(:borrow_limit) => String.t(), optional(:coin) => String.t(), optional(:daily_interest) => String.t()}), optional(:leverage) => String.t(), optional(:symbol) => String.t(), optional(:vip_level) => integer()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/mining/statistics/user/status",
@@ -2457,7 +4007,18 @@ Weight(IP): 1 when a single is specified; 10 when the symbol parameter is omitte
     error_mapping: &Parser.parse_error/1,
     doc: "Statistic List (USER_DATA)
 
-Weight(IP): 5"
+Weight(IP): 5",
+    param_types: [
+      algo: "String.t()",
+      user_name: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{code: integer(), data: %{algo: String.t(), day_hash_rate: String.t(), fifteen_min_hash_rate: String.t(), invalid_num: integer(), profit_today: %{bch: String.t(), bsv: String.t(), btc: String.t()}, profit_yesterday: %{bch: String.t(), bsv: String.t(), btc: String.t()}, unit: String.t(), user_name: String.t(), valid_num: integer()}, msg: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/mining/statistics/user/status\"(map(), keyword()) :: {:ok, %{code: integer(), data: %{algo: String.t(), day_hash_rate: String.t(), fifteen_min_hash_rate: String.t(), invalid_num: integer(), profit_today: %{bch: String.t(), bsv: String.t(), btc: String.t()}, profit_yesterday: %{bch: String.t(), bsv: String.t(), btc: String.t()}, unit: String.t(), user_name: String.t(), valid_num: integer()}, msg: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_ticker/24hr",
@@ -2478,7 +4039,10 @@ Weight(IP): 5"
 
 Weight(IP):
 - `2` for a single symbol;
-- `80` when the symbol parameter is omitted;"
+- `80` when the symbol parameter is omitted;",
+    param_types: [symbol: "String.t()", symbols: "String.t()", type: ":full | :mini"],
+    response_type: "term()",
+    spec: "@spec :\"get_ticker/24hr\"(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/available-inventory",
@@ -2495,7 +4059,12 @@ Weight(IP):
 
 Margin available Inventory query
 
-Weight(UID): 50"
+Weight(UID): 50",
+    param_types: [type: ":margin | :isolated", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{assets: %{matic: String.t(), shib: String.t(), stpt: String.t(), tvk: String.t()}, update_time: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/available-inventory\"(map(), keyword()) :: {:ok, %{assets: %{matic: String.t(), shib: String.t(), stpt: String.t(), tvk: String.t()}, update_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/managed-subaccount/info",
@@ -2512,7 +4081,19 @@ Weight(UID): 50"
 
 Get investor's managed sub-account list.
 
-Weight(UID): 60"
+Weight(UID): 60",
+    param_types: [
+      email: "String.t()",
+      page: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{manager_sub_user_info_vo_list: list(%{bind_parent_email: String.t(), bind_parent_user_id: integer(), optional(:email) => String.t(), insert_time_stamp: integer(), is_future_enabled: boolean(), is_margin_enabled: boolean(), is_signed_lvt_risk_agreement: boolean(), is_sub_user_enabled: boolean(), is_user_active: boolean(), managersub_user_id: integer(), root_user_id: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/managed-subaccount/info\"(map(), keyword()) :: {:ok, %{manager_sub_user_info_vo_list: list(%{bind_parent_email: String.t(), bind_parent_user_id: integer(), optional(:email) => String.t(), insert_time_stamp: integer(), is_future_enabled: boolean(), is_margin_enabled: boolean(), is_signed_lvt_risk_agreement: boolean(), is_sub_user_enabled: boolean(), is_user_active: boolean(), managersub_user_id: integer(), root_user_id: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/simple-earn/locked/personal_left_quota",
@@ -2527,7 +4108,11 @@ Weight(UID): 60"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Locked Personal Left Quota (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [project_id: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{left_personal_quota: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/simple-earn/locked/personal_left_quota\"(map(), keyword()) :: {:ok, %{left_personal_quota: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/mining/payment/other",
@@ -2542,7 +4127,23 @@ Weight(IP): 150"
     error_mapping: &Parser.parse_error/1,
     doc: "Extra Bonus List (USER_DATA)
 
-Weight(IP): 5"
+Weight(IP): 5",
+    param_types: [
+      algo: "String.t()",
+      user_name: "String.t()",
+      coin: "String.t()",
+      start_date: "String.t()",
+      end_date: "String.t()",
+      page_index: "integer()",
+      page_size: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{code: integer(), data: %{other_profits: list(%{coin_name: String.t(), profit_amount: float(), status: integer(), time: integer(), type: integer()}), page_size: integer(), total_num: integer()}, msg: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/mining/payment/other\"(map(), keyword()) :: {:ok, %{code: integer(), data: %{other_profits: list(%{coin_name: String.t(), profit_amount: float(), status: integer(), time: integer(), type: integer()}), page_size: integer(), total_num: integer()}, msg: String.t()}} | {:error, term()}"
   },
   %{
     operation: :get_ticker,
@@ -2565,7 +4166,12 @@ E.g. If the closeTime is 1641287867099 (January 04, 2022 09:17:47:099 UTC) , and
 
 Weight(IP): 4 for each requested symbol regardless of windowSize.
 
-The weight for this request will cap at 200 once the number of symbols in the request is more than 50."
+The weight for this request will cap at 200 once the number of symbols in the request is more than 50.",
+    param_types: [symbol: "String.t()", symbols: "String.t()", window_size: "String.t()", type: "String.t()"],
+    response_type:
+      "%{close_time: integer(), count: integer(), first_id: integer(), high_price: String.t(), last_id: integer(), last_price: String.t(), low_price: String.t(), open_price: String.t(), open_time: integer(), price_change: String.t(), price_change_percent: String.t(), quote_volume: String.t(), symbol: String.t(), volume: String.t(), weighted_avg_price: String.t()}",
+    spec:
+      "@spec get_ticker(map(), keyword()) :: {:ok, %{close_time: integer(), count: integer(), first_id: integer(), high_price: String.t(), last_id: integer(), last_price: String.t(), low_price: String.t(), open_price: String.t(), open_time: integer(), price_change: String.t(), price_change_percent: String.t(), quote_volume: String.t(), symbol: String.t(), volume: String.t(), weighted_avg_price: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/convert/limit/query_open_orders",
@@ -2582,7 +4188,12 @@ The weight for this request will cap at 200 once the number of symbols in the re
 
 Enable users to query for all existing limit orders
 
-Weight(UID): 3000"
+Weight(UID): 3000",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{list: list(%{create_time: integer(), expired_timestamp: integer(), from_amount: String.t(), from_asset: String.t(), inverse_ratio: String.t(), order_id: integer(), order_status: String.t(), quote_id: String.t(), ratio: String.t(), to_amount: String.t(), to_asset: String.t()})}",
+    spec:
+      "@spec :\"get_/sapi/v1/convert/limit/query_open_orders\"(map(), keyword()) :: {:ok, %{list: list(%{create_time: integer(), expired_timestamp: integer(), from_amount: String.t(), from_asset: String.t(), inverse_ratio: String.t(), order_id: integer(), order_status: String.t(), quote_id: String.t(), ratio: String.t(), to_amount: String.t(), to_asset: String.t()})}} | {:error, term()}"
   },
   %{
     operation: :get_my_trades,
@@ -2618,7 +4229,22 @@ These are the supported combinations of all parameters:
 
   symbol+ orderId + fromId
 
-Weight(IP): 20"
+Weight(IP): 20",
+    param_types: [
+      symbol: "String.t()",
+      order_id: "integer()",
+      start_time: "integer()",
+      end_time: "integer()",
+      from_id: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{commission: String.t(), commission_asset: String.t(), id: integer(), is_best_match: boolean(), is_buyer: boolean(), is_maker: boolean(), order_id: integer(), order_list_id: integer(), price: String.t(), qty: String.t(), quote_qty: String.t(), symbol: String.t(), time: integer()})",
+    spec:
+      "@spec get_my_trades(map(), keyword()) :: {:ok, list(%{commission: String.t(), commission_asset: String.t(), id: integer(), is_best_match: boolean(), is_buyer: boolean(), is_maker: boolean(), order_id: integer(), order_list_id: integer(), price: String.t(), qty: String.t(), quote_qty: String.t(), symbol: String.t(), time: integer()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/account/info",
@@ -2635,7 +4261,11 @@ Weight(IP): 20"
 
 Fetch account info detail.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{is_future_enabled: boolean(), is_margin_enabled: boolean(), vip_level: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/account/info\"(map(), keyword()) :: {:ok, %{is_future_enabled: boolean(), is_margin_enabled: boolean(), vip_level: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/portfolio/asset-index-price",
@@ -2654,7 +4284,11 @@ Query Portfolio Margin Asset Index Price
 
 Weight(IP):
 - 1 if send asset
-- 50 if not send asset"
+- 50 if not send asset",
+    param_types: [asset: "String.t()"],
+    response_type: "list(%{asset: String.t(), asset_index_price: String.t(), time: integer()})",
+    spec:
+      "@spec :\"get_/sapi/v1/portfolio/asset-index-price\"(map(), keyword()) :: {:ok, list(%{asset: String.t(), asset_index_price: String.t(), time: integer()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/asset/ledger-transfer/cloud-mining/query_by_page",
@@ -2671,7 +4305,23 @@ Weight(IP):
 
 The query of Cloud-Mining payment and refund history
 
-Weight(UID): 600"
+Weight(UID): 600",
+    param_types: [
+      tran_id: "integer()",
+      client_tran_id: "String.t()",
+      asset: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{amount: String.t(), asset: String.t(), create_time: integer(), status: String.t(), tran_id: integer(), type: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/asset/ledger-transfer/cloud-mining/query_by_page\"(map(), keyword()) :: {:ok, %{rows: list(%{amount: String.t(), asset: String.t(), create_time: integer(), status: String.t(), tran_id: integer(), type: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/eth-staking/eth/quota",
@@ -2686,7 +4336,11 @@ Weight(UID): 600"
     error_mapping: &Parser.parse_error/1,
     doc: "Get current ETH staking quota (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{left_redemption_personal_quota: String.t(), left_staking_personal_quota: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/eth-staking/eth/quota\"(map(), keyword()) :: {:ok, %{left_redemption_personal_quota: String.t(), left_staking_personal_quota: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/loan/vip/request/interest_rate",
@@ -2703,7 +4357,12 @@ Weight(IP): 150"
 
 Get borrow interest rate.
 
-Weight(UID): 400"
+Weight(UID): 400",
+    param_types: [loan_coin: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "list(%{asset: String.t(), flexible_daily_interest_rate: String.t(), flexible_yearly_interest_rate: String.t(), time: integer()})",
+    spec:
+      "@spec :\"get_/sapi/v1/loan/vip/request/interest_rate\"(map(), keyword()) :: {:ok, list(%{asset: String.t(), flexible_daily_interest_rate: String.t(), flexible_yearly_interest_rate: String.t(), time: integer()})} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/portfolio/asset-collection",
@@ -2720,7 +4379,11 @@ Weight(UID): 400"
 
 Transfers specific asset from Futures Account to Margin account
 
-Weight(IP): 60"
+Weight(IP): 60",
+    param_types: [asset: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{msg: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/portfolio/asset-collection\"(map(), keyword()) :: {:ok, %{msg: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/sub-account/spot_summary",
@@ -2737,7 +4400,19 @@ Weight(IP): 60"
 
 Get BTC valued asset summary of subaccounts.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      email: "String.t()",
+      page: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{master_account_total_asset: String.t(), spot_sub_user_asset_btc_vo_list: list(%{email: String.t(), total_asset: String.t()}), total_count: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/sub-account/spot_summary\"(map(), keyword()) :: {:ok, %{master_account_total_asset: String.t(), spot_sub_user_asset_btc_vo_list: list(%{email: String.t(), total_asset: String.t()}), total_count: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/sub-account/futures/position_risk",
@@ -2752,7 +4427,12 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Futures Position-Risk of Sub-account (For Master Account)
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [email: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "list(%{entry_price: String.t(), leverage: String.t(), liquidation_price: String.t(), mark_price: String.t(), max_notional: String.t(), position_amount: String.t(), symbol: String.t(), unrealized_profit: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/sub-account/futures/position_risk\"(map(), keyword()) :: {:ok, list(%{entry_price: String.t(), leverage: String.t(), liquidation_price: String.t(), mark_price: String.t(), max_notional: String.t(), position_amount: String.t(), symbol: String.t(), unrealized_profit: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/isolated_margin_tier",
@@ -2769,7 +4449,18 @@ Weight(IP): 10"
 
 Get isolated margin tier data collection with any tier as https://www.binance.com/en/margin-data
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      symbol: "String.t()",
+      tier: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{optional(:base_asset_max_borrowable) => String.t(), optional(:effective_multiple) => String.t(), optional(:initial_risk_ratio) => String.t(), optional(:liquidation_risk_ratio) => String.t(), optional(:quote_asset_max_borrowable) => String.t(), optional(:symbol) => String.t(), optional(:tier) => integer()})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/isolated_margin_tier\"(map(), keyword()) :: {:ok, list(%{optional(:base_asset_max_borrowable) => String.t(), optional(:effective_multiple) => String.t(), optional(:initial_risk_ratio) => String.t(), optional(:liquidation_risk_ratio) => String.t(), optional(:quote_asset_max_borrowable) => String.t(), optional(:symbol) => String.t(), optional(:tier) => integer()})} | {:error, term()}"
   },
   %{
     operation: :get_agg_trades,
@@ -2796,7 +4487,18 @@ Get compressed, aggregate trades. Trades that fill at the time, from the same or
 
   l = -1 // last_trade_id
 
-Weight(IP): 2"
+Weight(IP): 2",
+    param_types: [
+      symbol: "String.t()",
+      from_id: "integer()",
+      start_time: "integer()",
+      end_time: "integer()",
+      limit: "integer()"
+    ],
+    response_type:
+      "list(%{m: boolean(), t: boolean(), a: integer(), f: integer(), l: integer(), m: boolean(), p: String.t(), q: String.t()})",
+    spec:
+      "@spec get_agg_trades(map(), keyword()) :: {:ok, list(%{m: boolean(), t: boolean(), a: integer(), f: integer(), l: integer(), m: boolean(), p: String.t(), q: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/convert/order_status",
@@ -2813,7 +4515,18 @@ Weight(IP): 2"
 
 Query order status by order ID.
 
-Weight(UID): 100"
+Weight(UID): 100",
+    param_types: [
+      order_id: "String.t()",
+      quote_id: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{create_time: integer(), from_amount: String.t(), from_asset: String.t(), inverse_ratio: String.t(), order_id: integer(), order_status: String.t(), ratio: String.t(), to_amount: String.t(), to_asset: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/convert/order_status\"(map(), keyword()) :: {:ok, %{create_time: integer(), from_amount: String.t(), from_asset: String.t(), inverse_ratio: String.t(), order_id: integer(), order_status: String.t(), ratio: String.t(), to_amount: String.t(), to_asset: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/margin/manual-liquidation",
@@ -2830,7 +4543,12 @@ Weight(UID): 100"
 
 Margin manual liquidation
 
-Weight(UID): 3000"
+Weight(UID): 3000",
+    param_types: [type: ":margin | :isolated", symbol: "String.t()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "list(%{asset: String.t(), interest: String.t(), liability_asset: String.t(), liability_qty: float(), principal: String.t()})",
+    spec:
+      "@spec :\"create_/sapi/v1/margin/manual-liquidation\"(map(), keyword()) :: {:ok, list(%{asset: String.t(), interest: String.t(), liability_asset: String.t(), liability_qty: float(), principal: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/lending/auto-invest/plan/id",
@@ -2847,7 +4565,18 @@ Weight(UID): 3000"
 
 Query holding details of the plan
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      plan_id: "integer()",
+      request_id: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{optional(:plan) => list(%{creation_date_time: integer(), details: list(%{asset_status: String.t(), asset_value_in_usd: String.t(), available_amount: String.t(), available_amount_unit: String.t(), average_price_in_usd: String.t(), percentage: String.t(), pnl_in_usd: String.t(), purchased_amount: String.t(), purchased_amount_unit: String.t(), redeemed_amout: String.t(), redeemed_amout_unit: String.t(), roi: String.t(), target_asset: String.t(), total_invested_in_usd: String.t()}), edit_allowed: String.t(), first_execution_date_time: integer(), flexible_allowed_to_use: String.t(), next_execution_date_time: integer(), plan_id: integer(), plan_type: String.t(), plan_value_in_usd: String.t(), pnl_in_usd: String.t(), roi: String.t(), source_asset: String.t(), status: String.t(), target_asset: String.t(), total_invested_in_usd: String.t()}), optional(:plan_value_in_btc) => String.t(), optional(:plan_value_in_usd) => String.t(), optional(:pnl_in_usd) => String.t(), optional(:roi) => String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/lending/auto-invest/plan/id\"(map(), keyword()) :: {:ok, %{optional(:plan) => list(%{creation_date_time: integer(), details: list(%{asset_status: String.t(), asset_value_in_usd: String.t(), available_amount: String.t(), available_amount_unit: String.t(), average_price_in_usd: String.t(), percentage: String.t(), pnl_in_usd: String.t(), purchased_amount: String.t(), purchased_amount_unit: String.t(), redeemed_amout: String.t(), redeemed_amout_unit: String.t(), roi: String.t(), target_asset: String.t(), total_invested_in_usd: String.t()}), edit_allowed: String.t(), first_execution_date_time: integer(), flexible_allowed_to_use: String.t(), next_execution_date_time: integer(), plan_id: integer(), plan_type: String.t(), plan_value_in_usd: String.t(), pnl_in_usd: String.t(), roi: String.t(), source_asset: String.t(), status: String.t(), target_asset: String.t(), total_invested_in_usd: String.t()}), optional(:plan_value_in_btc) => String.t(), optional(:plan_value_in_usd) => String.t(), optional(:pnl_in_usd) => String.t(), optional(:roi) => String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v2/sub-account/sub_account_api/ip_restriction",
@@ -2864,7 +4593,19 @@ Weight(IP): 1"
 
 Update IP Restriction for Sub-Account API key
 
-Weight(UID): 3000"
+Weight(UID): 3000",
+    param_types: [
+      email: "String.t()",
+      sub_account_api_key: "String.t()",
+      status: "String.t()",
+      third_party_name: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{api_key: String.t(), ip_list: list(String.t()), status: String.t(), update_time: integer()}",
+    spec:
+      "@spec :\"create_/sapi/v2/sub-account/sub_account_api/ip_restriction\"(map(), keyword()) :: {:ok, %{api_key: String.t(), ip_list: list(String.t()), status: String.t(), update_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/sub-account/blvt/enable",
@@ -2879,7 +4620,17 @@ Weight(UID): 3000"
     error_mapping: &Parser.parse_error/1,
     doc: "Enable Leverage Token for Sub-account (For Master Account)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      email: "String.t()",
+      enable_blvt: "boolean()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{email: String.t(), enable_blvt: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/sub-account/blvt/enable\"(map(), keyword()) :: {:ok, %{email: String.t(), enable_blvt: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/portfolio/repay-futures-switch",
@@ -2896,7 +4647,11 @@ Weight(IP): 1"
 
 Query Auto-repay-futures Status
 
-Weight(IP): 30"
+Weight(IP): 30",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{auto_repay: boolean()}",
+    spec:
+      "@spec :\"get_/sapi/v1/portfolio/repay-futures-switch\"(map(), keyword()) :: {:ok, %{auto_repay: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/portfolio/repay-futures-switch",
@@ -2913,7 +4668,11 @@ Weight(IP): 30"
 
 Change Auto-repay-futures Status
 
-Weight(IP): 1500"
+Weight(IP): 1500",
+    param_types: [auto_repay: "boolean()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{msg: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/portfolio/repay-futures-switch\"(map(), keyword()) :: {:ok, %{msg: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/sub-account/margin/account",
@@ -2928,7 +4687,12 @@ Weight(IP): 1500"
     error_mapping: &Parser.parse_error/1,
     doc: "Detail on Sub-account's Margin Account (For Master Account)
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [email: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{email: String.t(), margin_level: String.t(), margin_trade_coeff_vo: %{force_liquidation_bar: String.t(), margin_call_bar: String.t(), normal_bar: String.t()}, margin_user_asset_vo_list: list(%{asset: String.t(), borrowed: String.t(), free: String.t(), interest: String.t(), locked: String.t(), net_asset: String.t()}), total_asset_of_btc: String.t(), total_liability_of_btc: String.t(), total_net_asset_of_btc: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/sub-account/margin/account\"(map(), keyword()) :: {:ok, %{email: String.t(), margin_level: String.t(), margin_trade_coeff_vo: %{force_liquidation_bar: String.t(), margin_call_bar: String.t(), normal_bar: String.t()}, margin_user_asset_vo_list: list(%{asset: String.t(), borrowed: String.t(), free: String.t(), interest: String.t(), locked: String.t(), net_asset: String.t()}), total_asset_of_btc: String.t(), total_liability_of_btc: String.t(), total_net_asset_of_btc: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/loan/ongoing/orders",
@@ -2943,7 +4707,21 @@ Weight(IP): 10"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Loan Ongoing Orders (USER_DATA)
 
-Weight(IP): 300"
+Weight(IP): 300",
+    param_types: [
+      order_id: "integer()",
+      loan_coin: "String.t()",
+      collateral_coin: "String.t()",
+      current: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{collateral_amount: String.t(), collateral_coin: String.t(), current_ltv: String.t(), expiration_time: integer(), loan_coin: String.t(), order_id: integer(), residual_interest: String.t(), total_debt: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/loan/ongoing/orders\"(map(), keyword()) :: {:ok, %{rows: list(%{collateral_amount: String.t(), collateral_coin: String.t(), current_ltv: String.t(), expiration_time: integer(), loan_coin: String.t(), order_id: integer(), residual_interest: String.t(), total_debt: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/managed-subaccount/query-trans-log",
@@ -2960,7 +4738,22 @@ Weight(IP): 300"
 
 Query Managed Sub Account Transfer Log (For Trading Team Sub Account)
 
-Weight(UID): 60"
+Weight(UID): 60",
+    param_types: [
+      start_time: "integer()",
+      end_time: "integer()",
+      page: "integer()",
+      limit: "integer()",
+      transfers: ":from | :to",
+      transfer_function_account_type: ":spot | :margin | :isolated_margin | :usdt_future | :coin_future",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{count: integer(), manager_sub_transfer_history_vos: list(%{amount: String.t(), asset: String.t(), create_time: integer(), from_account_type: String.t(), from_email: String.t(), scheduled_data: integer(), status: String.t(), to_account_type: String.t(), to_email: String.t(), tran_id: integer()})}",
+    spec:
+      "@spec :\"get_/sapi/v1/managed-subaccount/query-trans-log\"(map(), keyword()) :: {:ok, %{count: integer(), manager_sub_transfer_history_vos: list(%{amount: String.t(), asset: String.t(), create_time: integer(), from_account_type: String.t(), from_email: String.t(), scheduled_data: integer(), status: String.t(), to_account_type: String.t(), to_email: String.t(), tran_id: integer()})}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/interest_rate_history",
@@ -2977,7 +4770,20 @@ Weight(UID): 60"
 
 The max interval between startTime and endTime is 30 days.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      asset: "String.t()",
+      vip_level: "integer()",
+      start_time: "integer()",
+      end_time: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{asset: String.t(), daily_interest_rate: String.t(), timestamp: integer(), vip_level: integer()})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/interest_rate_history\"(map(), keyword()) :: {:ok, list(%{asset: String.t(), daily_interest_rate: String.t(), timestamp: integer(), vip_level: integer()})} | {:error, term()}"
   },
   %{
     operation: :"cancel_/sapi/v1/algo/futures/order",
@@ -2996,7 +4802,11 @@ Cancel an active order.
 - You need to enable Futures Trading Permission for the api key which requests this endpoint.
 - Base URL: https://api.binance.com
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [algo_id: "integer()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{algo_id: integer(), code: integer(), msg: String.t(), success: boolean()}",
+    spec:
+      "@spec :\"cancel_/sapi/v1/algo/futures/order\"(map(), keyword()) :: {:ok, %{algo_id: integer(), code: integer(), msg: String.t(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/mining/worker/detail",
@@ -3011,7 +4821,19 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Request for Detail Miner List (USER_DATA)
 
-Weight(IP): 5"
+Weight(IP): 5",
+    param_types: [
+      algo: "String.t()",
+      user_name: "String.t()",
+      worker_name: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{code: integer(), data: list(%{hashrate_datas: list(%{hashrate: String.t(), reject: integer(), time: integer()}), type: String.t(), worker_name: String.t()}), msg: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/mining/worker/detail\"(map(), keyword()) :: {:ok, %{code: integer(), data: list(%{hashrate_datas: list(%{hashrate: String.t(), reject: integer(), time: integer()}), type: String.t(), worker_name: String.t()}), msg: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/lending/project/list",
@@ -3026,7 +4848,23 @@ Weight(IP): 5"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Fixed/Activity Project List(USER_DATA)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      asset: "String.t()",
+      type: ":activity | :customized_fixed",
+      status: ":all | :subscribable | :unsubscribable",
+      is_sort_asc: "boolean()",
+      sort_by: ":start_time | :lot_size | :interest_rate | :duration",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{asset: String.t(), display_priority: integer(), duration: integer(), interest_per_lot: String.t(), interest_rate: String.t(), lot_size: String.t(), lots_low_limit: integer(), lots_purchased: integer(), lots_up_limit: integer(), max_lots_per_user: integer(), need_kyc: boolean(), project_id: String.t(), project_name: String.t(), status: String.t(), type: String.t(), with_area_limitation: boolean()})",
+    spec:
+      "@spec :\"get_/sapi/v1/lending/project/list\"(map(), keyword()) :: {:ok, list(%{asset: String.t(), display_priority: integer(), duration: integer(), interest_per_lot: String.t(), interest_rate: String.t(), lot_size: String.t(), lots_low_limit: integer(), lots_purchased: integer(), lots_up_limit: integer(), max_lots_per_user: integer(), need_kyc: boolean(), project_id: String.t(), project_name: String.t(), status: String.t(), type: String.t(), with_area_limitation: boolean()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/asset/dribblet",
@@ -3041,7 +4879,19 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "DustLog(USER_DATA)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      account_type: ":spot | :margin",
+      start_time: "integer()",
+      end_time: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{total: integer(), user_asset_dribblets: list(%{operate_time: integer(), total_service_charge_amount: String.t(), total_transfered_amount: String.t(), trans_id: integer(), user_asset_dribblet_details: list(%{amount: String.t(), from_asset: String.t(), operate_time: integer(), service_charge_amount: String.t(), trans_id: integer(), transfered_amount: String.t()})})}",
+    spec:
+      "@spec :\"get_/sapi/v1/asset/dribblet\"(map(), keyword()) :: {:ok, %{total: integer(), user_asset_dribblets: list(%{operate_time: integer(), total_service_charge_amount: String.t(), total_transfered_amount: String.t(), trans_id: integer(), user_asset_dribblet_details: list(%{amount: String.t(), from_asset: String.t(), operate_time: integer(), service_charge_amount: String.t(), trans_id: integer(), transfered_amount: String.t()})})}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/lending/auto-invest/one-off/status",
@@ -3058,7 +4908,17 @@ Weight(IP): 1"
 
 Transaction status for one-time transaction
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      transaction_id: "integer()",
+      request_id: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{status: String.t(), transaction_id: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/lending/auto-invest/one-off/status\"(map(), keyword()) :: {:ok, %{status: String.t(), transaction_id: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/simple-earn/flexible/position",
@@ -3073,7 +4933,20 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Flexible Product Position (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      asset: "String.t()",
+      product_id: "String.t()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{air_drop_asset: String.t(), asset: String.t(), auto_subscribe: boolean(), can_redeem: boolean(), collateral_amount: String.t(), cumulative_bonus_rewards: String.t(), cumulative_real_time_rewards: String.t(), cumulative_total_rewards: String.t(), latest_annual_percentage_rate: String.t(), product_id: String.t(), tier_annual_percentage_rate: %{0-5_btc: float(), 5-10_btc: float()}, total_amount: String.t(), yesterday_airdrop_percentage_rate: String.t(), yesterday_real_time_rewards: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/simple-earn/flexible/position\"(map(), keyword()) :: {:ok, %{rows: list(%{air_drop_asset: String.t(), asset: String.t(), auto_subscribe: boolean(), can_redeem: boolean(), collateral_amount: String.t(), cumulative_bonus_rewards: String.t(), cumulative_real_time_rewards: String.t(), cumulative_total_rewards: String.t(), latest_annual_percentage_rate: String.t(), product_id: String.t(), tier_annual_percentage_rate: %{0-5_btc: float(), 5-10_btc: float()}, total_amount: String.t(), yesterday_airdrop_percentage_rate: String.t(), yesterday_real_time_rewards: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/account",
@@ -3088,7 +4961,12 @@ Weight(IP): 150"
     error_mapping: &Parser.parse_error/1,
     doc: "Query Cross Margin Account Details (USER_DATA)
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{total_collateral_value_in_usdt: String.t(), account_type: String.t(), borrow_enabled: boolean(), collateral_margin_level: String.t(), created: boolean(), margin_level: String.t(), total_asset_of_btc: String.t(), total_liability_of_btc: String.t(), total_net_asset_of_btc: String.t(), trade_enabled: boolean(), transfer_in_enabled: boolean(), transfer_out_enabled: boolean(), user_assets: list(%{asset: String.t(), borrowed: String.t(), free: String.t(), interest: String.t(), locked: String.t(), net_asset: String.t()})}",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/account\"(map(), keyword()) :: {:ok, %{total_collateral_value_in_usdt: String.t(), account_type: String.t(), borrow_enabled: boolean(), collateral_margin_level: String.t(), created: boolean(), margin_level: String.t(), total_asset_of_btc: String.t(), total_liability_of_btc: String.t(), total_net_asset_of_btc: String.t(), trade_enabled: boolean(), transfer_in_enabled: boolean(), transfer_out_enabled: boolean(), user_assets: list(%{asset: String.t(), borrowed: String.t(), free: String.t(), interest: String.t(), locked: String.t(), net_asset: String.t()})}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/nft/history/deposit",
@@ -3106,7 +4984,20 @@ Weight(IP): 10"
 - The max interval between startTime and endTime is 90 days.
 - If startTime and endTime are not sent, the recent 7 days' data will be returned.
 
-Weight(UID): 3000"
+Weight(UID): 3000",
+    param_types: [
+      start_time: "integer()",
+      end_time: "integer()",
+      limit: "integer()",
+      page: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{list: list(%{contract_adrress: String.t(), network: String.t(), timestamp: integer(), token_id: String.t(), tx_id: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/nft/history/deposit\"(map(), keyword()) :: {:ok, %{list: list(%{contract_adrress: String.t(), network: String.t(), timestamp: integer(), token_id: String.t(), tx_id: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/cross_margin_data",
@@ -3123,7 +5014,18 @@ Weight(UID): 3000"
 
 Get cross margin fee data collection with any vip level or user's current specific data as https://www.binance.com/en/margin-fee
 
-Weight(IP): 1 when coin is specified; 5 when the coin parameter is omitted"
+Weight(IP): 1 when coin is specified; 5 when the coin parameter is omitted",
+    param_types: [
+      vip_level: "integer()",
+      coin: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{borrow_limit: String.t(), borrowable: boolean(), coin: String.t(), daily_interest: String.t(), marginable_pairs: list(String.t()), transfer_in: boolean(), vip_level: integer(), yearly_interest: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/cross_margin_data\"(map(), keyword()) :: {:ok, list(%{borrow_limit: String.t(), borrowable: boolean(), coin: String.t(), daily_interest: String.t(), marginable_pairs: list(String.t()), transfer_in: boolean(), vip_level: integer(), yearly_interest: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/loan/collateral/data",
@@ -3140,7 +5042,18 @@ Weight(IP): 1 when coin is specified; 5 when the coin parameter is omitted"
 
 Get LTV information and collateral limit of collateral assets. The collateral limit is shown in USD value.
 
-Weight(IP): 400"
+Weight(IP): 400",
+    param_types: [
+      collateral_coin: "String.t()",
+      vip_level: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{collateral_coin: String.t(), initial_ltv: String.t(), liquidation_ltv: String.t(), margin_call_ltv: String.t(), max_limit: String.t(), vip_level: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/loan/collateral/data\"(map(), keyword()) :: {:ok, %{rows: list(%{collateral_coin: String.t(), initial_ltv: String.t(), liquidation_ltv: String.t(), margin_call_ltv: String.t(), max_limit: String.t(), vip_level: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/algo/spot/new_order_twap",
@@ -3157,7 +5070,21 @@ Weight(IP): 400"
 
 Place a new spot TWAP order with Algo service.
 
-Weight(UID): 3000"
+Weight(UID): 3000",
+    param_types: [
+      symbol: "String.t()",
+      side: ":sell | :buy",
+      quantity: "float()",
+      duration: "integer()",
+      client_algo_id: "String.t()",
+      limit_price: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{client_algo_id: String.t(), code: integer(), msg: String.t(), success: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/algo/spot/new_order_twap\"(map(), keyword()) :: {:ok, %{client_algo_id: String.t(), code: integer(), msg: String.t(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/dci/product/accounts",
@@ -3174,7 +5101,11 @@ Weight(UID): 3000"
 
 Check Dual Investment accounts
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{total_amount_in_btc: String.t(), total_amount_in_usdt: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/dci/product/accounts\"(map(), keyword()) :: {:ok, %{total_amount_in_btc: String.t(), total_amount_in_usdt: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/dci/product/auto_compound/edit-status",
@@ -3195,7 +5126,17 @@ Change Auto-Compound status
 
 Weight(IP): 1
 
-Rate Limit: Maximum 1 time/s per account"
+Rate Limit: Maximum 1 time/s per account",
+    param_types: [
+      position_id: "integer()",
+      auto_compound_plan: ":none | :standard | :advance",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{auto_compound_plan: String.t(), position_id: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/dci/product/auto_compound/edit-status\"(map(), keyword()) :: {:ok, %{auto_compound_plan: String.t(), position_id: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/managed-subaccount/withdraw",
@@ -3210,7 +5151,19 @@ Rate Limit: Maximum 1 time/s per account"
     error_mapping: &Parser.parse_error/1,
     doc: "Withdrawl assets from the managed sub-account(For Investor Master Account)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      from_email: "String.t()",
+      asset: "String.t()",
+      amount: "float()",
+      transfer_date: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{tran_id: integer()}",
+    spec:
+      "@spec :\"create_/sapi/v1/managed-subaccount/withdraw\"(map(), keyword()) :: {:ok, %{tran_id: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/spot/delist-schedule",
@@ -3227,7 +5180,11 @@ Weight(IP): 1"
 
 Get symbols delist schedule for spot
 
-Weight(IP): 100"
+Weight(IP): 100",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "list(%{delist_time: integer(), symbol: list(String.t())})",
+    spec:
+      "@spec :\"get_/sapi/v1/spot/delist-schedule\"(map(), keyword()) :: {:ok, list(%{delist_time: integer(), symbol: list(String.t())})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/simple-earn/locked/history/rewards_record",
@@ -3242,7 +5199,21 @@ Weight(IP): 100"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Locked Rewards History (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      position_id: "String.t()",
+      asset: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{amount: String.t(), asset: String.t(), lock_period: String.t(), position_id: String.t(), time: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/simple-earn/locked/history/rewards_record\"(map(), keyword()) :: {:ok, %{rows: list(%{amount: String.t(), asset: String.t(), lock_period: String.t(), position_id: String.t(), time: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/lending/auto-invest/target-asset/roi/list",
@@ -3259,7 +5230,17 @@ Weight(IP): 150"
 
 ROI return list for target asset
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      target_asset: "String.t()",
+      his_roi_type: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "list(%{date: String.t(), simulate_roi: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/lending/auto-invest/target-asset/roi/list\"(map(), keyword()) :: {:ok, list(%{date: String.t(), simulate_roi: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/sub-account/futures/enable",
@@ -3274,7 +5255,11 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Enable Futures for Sub-account (For Master Account)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [email: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{email: String.t(), is_futures_enabled: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/sub-account/futures/enable\"(map(), keyword()) :: {:ok, %{email: String.t(), is_futures_enabled: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"place_order/cancel_replace",
@@ -3295,7 +5280,36 @@ Filters and Order Count are evaluated before the processing of the cancellation 
 
 A new order that was not attempted (i.e. when newOrderResult: NOT_ATTEMPTED), will still increase the order count by 1.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      symbol: "String.t()",
+      side: ":sell | :buy",
+      type: ":limit | :market | :stop_loss | :stop_loss_limit | :take_profit | :take_profit_limit | :limit_maker",
+      cancel_replace_mode: "String.t()",
+      cancel_restrictions: ":only_new | :only_partially_filled",
+      time_in_force: ":gtc | :ioc | :fok",
+      quantity: "float()",
+      quote_order_qty: "float()",
+      price: "float()",
+      cancel_new_client_order_id: "String.t()",
+      cancel_orig_client_order_id: "String.t()",
+      cancel_order_id: "integer()",
+      new_client_order_id: "String.t()",
+      strategy_id: "integer()",
+      strategy_type: "integer()",
+      stop_price: "float()",
+      trailing_delta: "float()",
+      iceberg_qty: "float()",
+      new_order_resp_type: ":ack | :result | :full",
+      self_trade_prevention_mode: ":expire_taker | :expire_maker | :expire_both | :none",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{cancel_response: %{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_client_order_id: String.t(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), symbol: String.t(), time_in_force: String.t(), optional(:transact_time) => integer(), type: String.t()}, cancel_result: String.t(), new_order_response: %{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), fills: list(String.t()), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t(), working_time: integer()}, new_order_result: String.t()}",
+    spec:
+      "@spec :\"place_order/cancel_replace\"(map(), keyword()) :: {:ok, %{cancel_response: %{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_client_order_id: String.t(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), symbol: String.t(), time_in_force: String.t(), optional(:transact_time) => integer(), type: String.t()}, cancel_result: String.t(), new_order_response: %{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), fills: list(String.t()), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t(), working_time: integer()}, new_order_result: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/loan/income",
@@ -3313,7 +5327,22 @@ Weight(IP): 1"
 - If startTime and endTime are not sent, the recent 7-day data will be returned.
 - The max interval between startTime and endTime is 30 days.
 
-Weight(UID): 6000"
+Weight(UID): 6000",
+    param_types: [
+      asset: "String.t()",
+      type:
+        ":borrowin | :collateralspent | :repayamount | :collateralreturn | :addcollateral | :removecollateral | :collateralreturnafterliquidation",
+      start_time: "integer()",
+      end_time: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{amount: String.t(), asset: String.t(), timestamp: integer(), tran_id: String.t(), type: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/loan/income\"(map(), keyword()) :: {:ok, list(%{amount: String.t(), asset: String.t(), timestamp: integer(), tran_id: String.t(), type: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/rate_limit/order",
@@ -3330,7 +5359,18 @@ Weight(UID): 6000"
 
 Displays the user's current margin order count usage for all intervals.
 
-Weight(IP): 20"
+Weight(IP): 20",
+    param_types: [
+      is_isolated: "String.t()",
+      symbol: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{count: integer(), interval: String.t(), interval_num: integer(), limit: integer(), rate_limit_type: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/rate_limit/order\"(map(), keyword()) :: {:ok, list(%{count: integer(), interval: String.t(), interval_num: integer(), limit: integer(), rate_limit_type: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/mining/payment/list",
@@ -3345,7 +5385,23 @@ Weight(IP): 20"
     error_mapping: &Parser.parse_error/1,
     doc: "Earnings List (USER_DATA)
 
-Weight(IP): 5"
+Weight(IP): 5",
+    param_types: [
+      algo: "String.t()",
+      user_name: "String.t()",
+      coin: "String.t()",
+      start_date: "String.t()",
+      end_date: "String.t()",
+      page_index: "integer()",
+      page_size: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{code: integer(), data: %{account_profits: list(%{coin_name: String.t(), day_hash_rate: integer(), hash_transfer: integer(), profit_amount: float(), status: integer(), time: integer(), transfer_amount: float(), type: integer()}), page_size: integer(), total_num: integer()}, msg: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/mining/payment/list\"(map(), keyword()) :: {:ok, %{code: integer(), data: %{account_profits: list(%{coin_name: String.t(), day_hash_rate: integer(), hash_transfer: integer(), profit_amount: float(), status: integer(), time: integer(), transfer_amount: float(), type: integer()}), page_size: integer(), total_num: integer()}, msg: String.t()}} | {:error, term()}"
   },
   %{
     operation: :get_time,
@@ -3362,7 +5418,10 @@ Weight(IP): 5"
 
 Test connectivity to the Rest API and get the current server time.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [],
+    response_type: "%{server_time: integer()}",
+    spec: "@spec get_time(map(), keyword()) :: {:ok, %{server_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/capital/config/getall",
@@ -3379,7 +5438,12 @@ Weight(IP): 1"
 
 Get information of coins (available for deposit and withdraw) for user.
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "list(%{coin: String.t(), deposit_all_enable: boolean(), free: String.t(), freeze: String.t(), ipoable: String.t(), ipoing: String.t(), is_legal_money: boolean(), locked: String.t(), name: String.t(), network_list: list(%{address_regex: String.t(), coin: String.t(), deposit_desc: String.t(), deposit_enable: boolean(), is_default: boolean(), memo_regex: String.t(), min_confirm: integer(), name: String.t(), network: String.t(), same_address: boolean(), special_tips: String.t(), un_lock_confirm: integer(), withdraw_desc: String.t(), withdraw_enable: boolean(), withdraw_fee: String.t(), withdraw_integer_multiple: String.t(), withdraw_max: String.t(), withdraw_min: String.t()}), storage: String.t(), trading: boolean(), withdraw_all_enable: boolean(), withdrawing: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/capital/config/getall\"(map(), keyword()) :: {:ok, list(%{coin: String.t(), deposit_all_enable: boolean(), free: String.t(), freeze: String.t(), ipoable: String.t(), ipoing: String.t(), is_legal_money: boolean(), locked: String.t(), name: String.t(), network_list: list(%{address_regex: String.t(), coin: String.t(), deposit_desc: String.t(), deposit_enable: boolean(), is_default: boolean(), memo_regex: String.t(), min_confirm: integer(), name: String.t(), network: String.t(), same_address: boolean(), special_tips: String.t(), un_lock_confirm: integer(), withdraw_desc: String.t(), withdraw_enable: boolean(), withdraw_fee: String.t(), withdraw_integer_multiple: String.t(), withdraw_max: String.t(), withdraw_min: String.t()}), storage: String.t(), trading: boolean(), withdraw_all_enable: boolean(), withdrawing: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/asset/dust",
@@ -3396,7 +5460,18 @@ Weight(IP): 10"
 
 Convert dust assets to BNB.
 
-Weight(UID): 10"
+Weight(UID): 10",
+    param_types: [
+      asset: "list(String.t())",
+      account_type: ":spot | :margin",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{total_service_charge: String.t(), total_transfered: String.t(), transfer_result: list(%{amount: String.t(), from_asset: String.t(), operate_time: integer(), service_charge_amount: String.t(), tran_id: integer(), transfered_amount: String.t()})}",
+    spec:
+      "@spec :\"create_/sapi/v1/asset/dust\"(map(), keyword()) :: {:ok, %{total_service_charge: String.t(), total_transfered: String.t(), transfer_result: list(%{amount: String.t(), from_asset: String.t(), operate_time: integer(), service_charge_amount: String.t(), tran_id: integer(), transfered_amount: String.t()})}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/portfolio/margin-asset-leverage",
@@ -3411,7 +5486,11 @@ Weight(UID): 10"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Portfolio Margin Asset Leverage (USER_DATA)
 
-Weight(IP): 50"
+Weight(IP): 50",
+    param_types: [],
+    response_type: "list(%{optional(:asset) => String.t(), optional(:collateral_rate) => String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/portfolio/margin-asset-leverage\"(map(), keyword()) :: {:ok, list(%{optional(:asset) => String.t(), optional(:collateral_rate) => String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/simple-earn/flexible/history/subscription_record",
@@ -3426,7 +5505,23 @@ Weight(IP): 50"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Flexible Subscription Record (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      product_id: "String.t()",
+      purchase_id: "String.t()",
+      asset: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{amount: String.t(), amt_from_funding: String.t(), amt_from_spot: String.t(), asset: String.t(), product_id: String.t(), purchase_id: integer(), source_account: String.t(), status: String.t(), time: integer(), type: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/simple-earn/flexible/history/subscription_record\"(map(), keyword()) :: {:ok, %{rows: list(%{amount: String.t(), amt_from_funding: String.t(), amt_from_spot: String.t(), asset: String.t(), product_id: String.t(), purchase_id: integer(), source_account: String.t(), status: String.t(), time: integer(), type: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :get_my_prevented_matches,
@@ -3457,7 +5552,21 @@ Weight(IP):
 Case 	                          Weight
 If symbol is invalid: 	        2
 Querying by preventedMatchId: 	2
-Querying by orderId: 	          20"
+Querying by orderId: 	          20",
+    param_types: [
+      symbol: "String.t()",
+      prevented_match_id: "integer()",
+      order_id: "integer()",
+      from_prevented_match_id: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{maker_order_id: integer(), maker_prevented_quantity: String.t(), prevented_match_id: integer(), price: String.t(), self_trade_prevention_mode: String.t(), symbol: String.t(), taker_order_id: integer(), trade_group_id: integer(), transact_time: integer()})",
+    spec:
+      "@spec get_my_prevented_matches(map(), keyword()) :: {:ok, list(%{maker_order_id: integer(), maker_prevented_quantity: String.t(), prevented_match_id: integer(), price: String.t(), self_trade_prevention_mode: String.t(), symbol: String.t(), taker_order_id: integer(), trade_group_id: integer(), transact_time: integer()})} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/blvt/redeem",
@@ -3472,7 +5581,18 @@ Querying by orderId: 	          20"
     error_mapping: &Parser.parse_error/1,
     doc: "Redeem BLVT (USER_DATA)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      token_name: "String.t()",
+      amount: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{amount: String.t(), id: integer(), redeem_amount: String.t(), status: String.t(), timestamp: integer(), token_name: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/blvt/redeem\"(map(), keyword()) :: {:ok, %{amount: String.t(), id: integer(), redeem_amount: String.t(), status: String.t(), timestamp: integer(), token_name: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/convert/accept_quote",
@@ -3489,7 +5609,11 @@ Weight(IP): 1"
 
 Accept the offered quote by quote ID.
 
-Weight(UID): 500"
+Weight(UID): 500",
+    param_types: [quote_id: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{create_time: integer(), order_id: String.t(), order_status: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/convert/accept_quote\"(map(), keyword()) :: {:ok, %{create_time: integer(), order_id: String.t(), order_status: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/loan/vip/repay/history",
@@ -3506,7 +5630,22 @@ Weight(UID): 500"
 
 VIP loan is available for VIP users only.
 
-Weight(IP): 400"
+Weight(IP): 400",
+    param_types: [
+      order_id: "integer()",
+      loan_coin: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{collateral_coin: String.t(), loan_coin: String.t(), order_id: String.t(), repay_amount: String.t(), repay_status: String.t(), repay_time: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/loan/vip/repay/history\"(map(), keyword()) :: {:ok, %{rows: list(%{collateral_coin: String.t(), loan_coin: String.t(), order_id: String.t(), repay_amount: String.t(), repay_status: String.t(), repay_time: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/asset/wallet/balance",
@@ -3523,7 +5662,11 @@ Weight(IP): 400"
 
 Query User Wallet Balance
 
-Weight(IP): 60"
+Weight(IP): 60",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "list(%{activate: boolean(), balance: String.t(), wallet_name: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/asset/wallet/balance\"(map(), keyword()) :: {:ok, list(%{activate: boolean(), balance: String.t(), wallet_name: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/loan/vip/request/data",
@@ -3540,7 +5683,18 @@ Weight(IP): 60"
 
 Get Application Status
 
-Weight(UID): 400"
+Weight(UID): 400",
+    param_types: [
+      current: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{collateral_account_id: String.t(), collateral_coin: String.t(), loan_account_id: String.t(), loan_amount: String.t(), loan_coin: String.t(), loan_term: integer(), order_id: String.t(), request_id: String.t(), status: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/loan/vip/request/data\"(map(), keyword()) :: {:ok, %{rows: list(%{collateral_account_id: String.t(), collateral_coin: String.t(), loan_account_id: String.t(), loan_amount: String.t(), loan_coin: String.t(), loan_term: integer(), order_id: String.t(), request_id: String.t(), status: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/exchange-small-liability",
@@ -3557,7 +5711,12 @@ Weight(UID): 400"
 
 Query the coins which can be small liability exchange
 
-Weight(UID): 100"
+Weight(UID): 100",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "list(%{asset: String.t(), interest: String.t(), liability_asset: String.t(), liability_qty: float(), principal: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/exchange-small-liability\"(map(), keyword()) :: {:ok, list(%{asset: String.t(), interest: String.t(), liability_asset: String.t(), liability_qty: float(), principal: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/blvt/subscribe",
@@ -3572,7 +5731,18 @@ Weight(UID): 100"
     error_mapping: &Parser.parse_error/1,
     doc: "Subscribe BLVT (USER_DATA)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      token_name: "String.t()",
+      cost: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{amount: String.t(), cost: String.t(), id: integer(), status: String.t(), timestamp: integer(), token_name: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/blvt/subscribe\"(map(), keyword()) :: {:ok, %{amount: String.t(), cost: String.t(), id: integer(), status: String.t(), timestamp: integer(), token_name: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/capital/deposit/credit-apply",
@@ -3589,7 +5759,19 @@ Weight(IP): 1"
 
 Apply deposit credit for expired address (One click arrival)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      deposit_id: "integer()",
+      tx_id: "String.t()",
+      sub_account_id: "integer()",
+      sub_user_id: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{code: String.t(), data: boolean(), message: String.t(), success: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/capital/deposit/credit-apply\"(map(), keyword()) :: {:ok, %{code: String.t(), data: boolean(), message: String.t(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/capital/withdraw/address/list",
@@ -3606,7 +5788,12 @@ Weight(IP): 1"
 
 Fetch withdraw address list
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [],
+    response_type:
+      "list(%{address: String.t(), address_tag: String.t(), coin: String.t(), name: String.t(), network: String.t(), origin: String.t(), origin_type: String.t(), white_status: boolean()})",
+    spec:
+      "@spec :\"get_/sapi/v1/capital/withdraw/address/list\"(map(), keyword()) :: {:ok, list(%{address: String.t(), address_tag: String.t(), coin: String.t(), name: String.t(), network: String.t(), origin: String.t(), origin_type: String.t(), white_status: boolean()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/sub-account/futures/account",
@@ -3621,7 +5808,12 @@ Weight(IP): 10"
     error_mapping: &Parser.parse_error/1,
     doc: "Detail on Sub-account's Futures Account (For Master Account)
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [email: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{asset: String.t(), assets: list(%{asset: String.t(), initial_margin: String.t(), maintenance_margin: String.t(), margin_balance: String.t(), max_withdraw_amount: String.t(), open_order_initial_margin: String.t(), position_initial_margin: String.t(), unrealized_profit: String.t(), wallet_balance: String.t()}), can_deposit: boolean(), can_trade: boolean(), can_withdraw: boolean(), email: String.t(), fee_tier: integer(), max_withdraw_amount: String.t(), total_initial_margin: String.t(), total_maintenance_margin: String.t(), total_margin_balance: String.t(), total_open_order_initial_margin: String.t(), total_position_initial_margin: String.t(), total_unrealized_profit: String.t(), total_wallet_balance: String.t(), update_time: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/sub-account/futures/account\"(map(), keyword()) :: {:ok, %{asset: String.t(), assets: list(%{asset: String.t(), initial_margin: String.t(), maintenance_margin: String.t(), margin_balance: String.t(), max_withdraw_amount: String.t(), open_order_initial_margin: String.t(), position_initial_margin: String.t(), unrealized_profit: String.t(), wallet_balance: String.t()}), can_deposit: boolean(), can_trade: boolean(), can_withdraw: boolean(), email: String.t(), fee_tier: integer(), max_withdraw_amount: String.t(), total_initial_margin: String.t(), total_maintenance_margin: String.t(), total_margin_balance: String.t(), total_open_order_initial_margin: String.t(), total_position_initial_margin: String.t(), total_unrealized_profit: String.t(), total_wallet_balance: String.t(), update_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/max_borrowable",
@@ -3639,7 +5831,17 @@ Weight(IP): 10"
 - If `isolatedSymbol` is not sent, crossed margin data will be sent.
 - `borrowLimit` is also available from https://www.binance.com/en/margin-fee
 
-Weight(IP): 50"
+Weight(IP): 50",
+    param_types: [
+      asset: "String.t()",
+      isolated_symbol: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{amount: String.t(), borrow_limit: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/max_borrowable\"(map(), keyword()) :: {:ok, %{amount: String.t(), borrow_limit: String.t()}} | {:error, term()}"
   },
   %{
     operation: :get_my_allocations,
@@ -3668,7 +5870,22 @@ symbol + fromAllocationId 	          allocations by allocation ID
 symbol + orderId 	                    allocations related to an order starting with oldest
 symbol + orderId + fromAllocationId 	allocations related to an order by allocation ID
 
-Note: The time between startTime and endTime can't be longer than 24 hours."
+Note: The time between startTime and endTime can't be longer than 24 hours.",
+    param_types: [
+      symbol: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      from_allocation_id: "integer()",
+      limit: "integer()",
+      order_id: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{allocation_id: integer(), allocation_type: String.t(), commission: String.t(), commission_asset: String.t(), is_allocator: boolean(), is_buyer: boolean(), is_maker: boolean(), order_id: integer(), order_list_id: integer(), price: String.t(), qty: String.t(), quote_qty: String.t(), symbol: String.t(), time: integer()})",
+    spec:
+      "@spec get_my_allocations(map(), keyword()) :: {:ok, list(%{allocation_id: integer(), allocation_type: String.t(), commission: String.t(), commission_asset: String.t(), is_allocator: boolean(), is_buyer: boolean(), is_maker: boolean(), order_id: integer(), order_list_id: integer(), price: String.t(), qty: String.t(), quote_qty: String.t(), symbol: String.t(), time: integer()})} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/managed-subaccount/deposit",
@@ -3683,7 +5900,18 @@ Note: The time between startTime and endTime can't be longer than 24 hours."
     error_mapping: &Parser.parse_error/1,
     doc: "Deposit assets into the managed sub-account(For Investor Master Account)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      to_email: "String.t()",
+      asset: "String.t()",
+      amount: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{tran_id: integer()}",
+    spec:
+      "@spec :\"create_/sapi/v1/managed-subaccount/deposit\"(map(), keyword()) :: {:ok, %{tran_id: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/portfolio/repay",
@@ -3700,7 +5928,11 @@ Weight(IP): 1"
 
 Repay Portfolio Margin Bankruptcy Loan.
 
-Weight(UID): 3000"
+Weight(UID): 3000",
+    param_types: [from: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{tran_id: integer()}",
+    spec:
+      "@spec :\"create_/sapi/v1/portfolio/repay\"(map(), keyword()) :: {:ok, %{tran_id: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/managed-subaccount/deposit/address",
@@ -3717,7 +5949,18 @@ Weight(UID): 3000"
 
 Get investor's managed sub-account deposit address
 
-Weight(UID): 1"
+Weight(UID): 1",
+    param_types: [
+      email: "String.t()",
+      coin: "String.t()",
+      network: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{address: String.t(), coin: String.t(), tag: String.t(), url: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/managed-subaccount/deposit/address\"(map(), keyword()) :: {:ok, %{address: String.t(), coin: String.t(), tag: String.t(), url: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/loan/repay",
@@ -3732,7 +5975,18 @@ Weight(UID): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Crypto Loan Repay (TRADE)
 
-Weight(UID): 6000"
+Weight(UID): 6000",
+    param_types: [
+      order_id: "integer()",
+      amount: "float()",
+      type: "integer()",
+      collateral_return: "boolean()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "term()",
+    spec: "@spec :\"create_/sapi/v1/loan/repay\"(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/convert/get_quote",
@@ -3749,7 +6003,22 @@ Weight(UID): 6000"
 
 Request a quote for the requested token pairs
 
-Weight(UID): 200"
+Weight(UID): 200",
+    param_types: [
+      from_asset: "String.t()",
+      to_asset: "String.t()",
+      from_amount: "float()",
+      to_amount: "float()",
+      valid_time: "String.t()",
+      wallet_type: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{from_amount: String.t(), inverse_ratio: String.t(), quote_id: String.t(), ratio: String.t(), to_amount: String.t(), valid_timestamp: integer()}",
+    spec:
+      "@spec :\"create_/sapi/v1/convert/get_quote\"(map(), keyword()) :: {:ok, %{from_amount: String.t(), inverse_ratio: String.t(), quote_id: String.t(), ratio: String.t(), to_amount: String.t(), valid_timestamp: integer()}} | {:error, term()}"
   },
   %{
     operation: :cancel_order,
@@ -3768,7 +6037,21 @@ Cancel an active order.
 
 Either `orderId` or `origClientOrderId` must be sent.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      symbol: "String.t()",
+      order_id: "integer()",
+      orig_client_order_id: "String.t()",
+      new_client_order_id: "String.t()",
+      cancel_restrictions: ":only_new | :only_partially_filled",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_client_order_id: String.t(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t()}",
+    spec:
+      "@spec cancel_order(map(), keyword()) :: {:ok, %{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_client_order_id: String.t(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t()}} | {:error, term()}"
   },
   %{
     operation: :get_order,
@@ -3788,7 +6071,19 @@ Check an order's status.
 - Either `orderId` or `origClientOrderId` must be sent.
 - For some historical orders `cummulativeQuoteQty` will be < 0, meaning the data is not available at this time.
 
-Weight(IP): 4"
+Weight(IP): 4",
+    param_types: [
+      symbol: "String.t()",
+      order_id: "integer()",
+      orig_client_order_id: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), iceberg_qty: String.t(), is_working: boolean(), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), orig_quote_order_qty: String.t(), optional(:prevented_match_id) => integer(), optional(:prevented_quantity) => String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time: integer(), time_in_force: String.t(), type: String.t(), update_time: integer(), working_time: integer()}",
+    spec:
+      "@spec get_order(map(), keyword()) :: {:ok, %{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), iceberg_qty: String.t(), is_working: boolean(), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), orig_quote_order_qty: String.t(), optional(:prevented_match_id) => integer(), optional(:prevented_quantity) => String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time: integer(), time_in_force: String.t(), type: String.t(), update_time: integer(), working_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :place_order,
@@ -3820,7 +6115,29 @@ Trigger order price rules against market price for both `MARKET` and `LIMIT` ver
 - Price below market price: `STOP_LOSS` `SELL`, `TAKE_PROFIT` `BUY`
 
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      symbol: "String.t()",
+      side: ":sell | :buy",
+      type: ":limit | :market | :stop_loss | :stop_loss_limit | :take_profit | :take_profit_limit | :limit_maker",
+      time_in_force: ":gtc | :ioc | :fok",
+      quantity: "float()",
+      quote_order_qty: "float()",
+      price: "float()",
+      new_client_order_id: "String.t()",
+      strategy_id: "integer()",
+      strategy_type: "integer()",
+      stop_price: "float()",
+      trailing_delta: "float()",
+      iceberg_qty: "float()",
+      new_order_resp_type: ":ack | :result | :full",
+      self_trade_prevention_mode: ":expire_taker | :expire_maker | :expire_both | :none",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "term()",
+    spec: "@spec place_order(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v3/sub-account/assets",
@@ -3837,7 +6154,11 @@ Weight(IP): 1"
 
 Fetch sub-account assets
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [email: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{balances: list(%{asset: String.t(), free: integer(), locked: integer()})}",
+    spec:
+      "@spec :\"get_/sapi/v3/sub-account/assets\"(map(), keyword()) :: {:ok, %{balances: list(%{asset: String.t(), free: integer(), locked: integer()})}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/capital/contract/convertible-coins",
@@ -3854,7 +6175,12 @@ Weight(IP): 1"
 
 Get a user's auto-conversion settings in deposit/withdrawal
 
-Weight(UID): 600'"
+Weight(UID): 600'",
+    param_types: [],
+    response_type:
+      "%{coins: list(String.t()), convert_enabled: boolean(), exchange_rates: %{tusd: String.t(), usdc: String.t(), usdp: String.t()}}",
+    spec:
+      "@spec :\"get_/sapi/v1/capital/contract/convertible-coins\"(map(), keyword()) :: {:ok, %{coins: list(String.t()), convert_enabled: boolean(), exchange_rates: %{tusd: String.t(), usdc: String.t(), usdp: String.t()}}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/capital/contract/convertible-coins",
@@ -3871,7 +6197,11 @@ Weight(UID): 600'"
 
 User can use it to turn on or turn off the BUSD auto-conversion from/to a specific stable coin.
 
-Weight(UID): 600'"
+Weight(UID): 600'",
+    param_types: [coin: "String.t()", enable: "boolean()"],
+    response_type: "map()",
+    spec:
+      "@spec :\"create_/sapi/v1/capital/contract/convertible-coins\"(map(), keyword()) :: {:ok, map()} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/rebate/tax_query",
@@ -3890,7 +6220,19 @@ Weight(UID): 600'"
 - If startTime and endTime are not sent, the recent 7 days' data will be returned.
 - The earliest startTime is supported on June 10, 2020
 
-Weight(UID): 3000"
+Weight(UID): 3000",
+    param_types: [
+      start_time: "integer()",
+      end_time: "integer()",
+      page: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{code: String.t(), data: %{data: list(%{amount: String.t(), asset: String.t(), type: integer(), update_time: integer()}), page: integer(), total_page_num: integer(), total_records: integer()}, status: String.t(), type: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/rebate/tax_query\"(map(), keyword()) :: {:ok, %{code: String.t(), data: %{data: list(%{amount: String.t(), asset: String.t(), type: integer(), update_time: integer()}), page: integer(), total_page_num: integer(), total_records: integer()}, status: String.t(), type: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/convert/limit/place_order",
@@ -3911,7 +6253,23 @@ Enable users to place a limit order
 - Limit price is defined from baseAsset to quoteAsset.
 - Either baseAmount or quoteAmount is used.
 
-Weight(UID): 500"
+Weight(UID): 500",
+    param_types: [
+      base_asset: "String.t()",
+      quote_asset: "String.t()",
+      limit_price: "float()",
+      base_amount: "float()",
+      quote_amount: "float()",
+      side: ":sell | :buy",
+      wallet_type: ":spot | :funding | :spot_funding",
+      expired_type: ":1_d | :3_d | :7_d | :30_d",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{order_id: integer(), status: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/convert/limit/place_order\"(map(), keyword()) :: {:ok, %{order_id: integer(), status: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/portfolio/interest-history",
@@ -3928,7 +6286,20 @@ Weight(UID): 500"
 
 Query interest history of negative balance for portfolio margin.
 
-Weight(IP): 50"
+Weight(IP): 50",
+    param_types: [
+      asset: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{asset: String.t(), interest: String.t(), interest_accrued_time: integer(), interest_rate: String.t(), principal: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/portfolio/interest-history\"(map(), keyword()) :: {:ok, list(%{asset: String.t(), interest: String.t(), interest_accrued_time: integer(), interest_rate: String.t(), principal: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/leverage_bracket",
@@ -3945,7 +6316,12 @@ Weight(IP): 50"
 
 Liability Coin Leverage Bracket in Cross Margin Pro Mode
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [],
+    response_type:
+      "list(%{asset_names: list(String.t()), brackets: list(%{optional(:fast_num) => float(), optional(:initial_margin_rate) => float(), optional(:leverage) => integer(), optional(:maintenance_margin_rate) => float(), optional(:max_debt) => float()}), rank: integer()})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/leverage_bracket\"(map(), keyword()) :: {:ok, list(%{asset_names: list(String.t()), brackets: list(%{optional(:fast_num) => float(), optional(:initial_margin_rate) => float(), optional(:leverage) => integer(), optional(:maintenance_margin_rate) => float(), optional(:max_debt) => float()}), rank: integer()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/capital/deposit/sub_address",
@@ -3962,7 +6338,18 @@ Weight(IP): 1"
 
 Fetch sub-account deposit address
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      email: "String.t()",
+      coin: "String.t()",
+      network: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{address: String.t(), coin: String.t(), tag: String.t(), url: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/capital/deposit/sub_address\"(map(), keyword()) :: {:ok, %{address: String.t(), coin: String.t(), tag: String.t(), url: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/nft/history/transactions",
@@ -3980,7 +6367,21 @@ Weight(IP): 1"
 - The max interval between startTime and endTime is 90 days.
 - If startTime and endTime are not sent, the recent 7 days' data will be returned.
 
-Weight(UID): 3000"
+Weight(UID): 3000",
+    param_types: [
+      order_type: "integer()",
+      start_time: "integer()",
+      end_time: "integer()",
+      limit: "integer()",
+      page: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{list: list(%{order_no: String.t(), tokens: list(%{contract_address: String.t(), network: String.t(), token_id: String.t()}), trade_amount: String.t(), trade_currency: String.t(), trade_time: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/nft/history/transactions\"(map(), keyword()) :: {:ok, %{list: list(%{order_no: String.t(), tokens: list(%{contract_address: String.t(), network: String.t(), token_id: String.t()}), trade_amount: String.t(), trade_currency: String.t(), trade_time: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"place_order_list/otoco",
@@ -4003,7 +6404,49 @@ Place an `OTOCO`.
   - The rules of the pending above and pending below follow the same rules as the Order List `OCO`.
 - OTOCOs add 3 orders against the unfilled order count, `EXCHANGE_MAX_NUM_ORDERS` filter, and `MAX_NUM_ORDERS` filter.
 
-Weight: 1"
+Weight: 1",
+    param_types: [
+      symbol: "String.t()",
+      list_client_order_id: "String.t()",
+      new_order_resp_type: ":ack | :result | :full",
+      self_trade_prevention_mode: ":expire_taker | :expire_maker | :expire_both | :none",
+      working_type: ":limit | :limit_maker",
+      working_side: ":buy | :sell",
+      working_client_order_id: "String.t()",
+      working_price: "float()",
+      working_quantity: "float()",
+      working_iceberg_qty: "float()",
+      working_time_in_force: ":gtc | :ioc | :fok",
+      working_strategy_id: "float()",
+      working_strategy_type: "integer()",
+      pending_side: ":buy | :sell",
+      pending_quantity: "float()",
+      pending_above_type: ":limit_maker | :stop_loss | :stop_loss_limit",
+      pending_above_client_order_id: "String.t()",
+      pending_above_price: "float()",
+      pending_above_stop_price: "float()",
+      pending_above_trailing_delta: "float()",
+      pending_above_iceberg_qty: "float()",
+      pending_above_time_in_force: ":gtc | :ioc | :fok",
+      pending_above_strategy_id: "float()",
+      pending_above_strategy_type: "integer()",
+      pending_below_type: ":limit_maker | :stop_loss | :stop_loss_limit",
+      pending_below_client_order_id: "String.t()",
+      pending_below_price: "float()",
+      pending_below_stop_price: "float()",
+      pending_below_trailing_delta: "float()",
+      pending_below_iceberg_qty: "float()",
+      pending_below_time_in_force: ":gtc | :ioc | :fok",
+      pending_below_strategy_id: "float()",
+      pending_below_strategy_type: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{contingency_type: String.t(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), order_reports: list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t(), working_time: integer()}), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}",
+    spec:
+      "@spec :\"place_order_list/otoco\"(map(), keyword()) :: {:ok, %{contingency_type: String.t(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), order_reports: list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t(), working_time: integer()}), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/algo/futures/new_order_twap",
@@ -4030,7 +6473,23 @@ Base URL: https://api.binance.com
 - duration cannot be less than 5 mins or more than 24 hours.
 - For delivery contracts, TWAP end time should be one hour earlier than the delivery time of the symbol.
 
-Weight(UID): 3000}
+Weight(UID): 3000},
+    param_types: [
+      symbol: "String.t()",
+      side: ":sell | :buy",
+      position_side: ":both | :long | :short",
+      quantity: "float()",
+      duration: "integer()",
+      client_algo_id: "String.t()",
+      reduce_only: "boolean()",
+      limit_price: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{client_algo_id: String.t(), code: integer(), msg: String.t(), success: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/algo/futures/new_order_twap\"(map(), keyword()) :: {:ok, %{client_algo_id: String.t(), code: integer(), msg: String.t(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/eth-staking/eth/history/wbeth_rewards_history",
@@ -4050,7 +6509,20 @@ Weight(UID): 3000}
 - If startTime is sent but endTime is not sent, the next 30 days' data beginning from startTime will be returned.
 - If endTime is sent but startTime is not sent, the 30 days' data before endTime will be returned.
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{est_rewards_in_eth: String.t(), rows: list(%{amount_in_eth: String.t(), annual_percentage_rate: String.t(), holding: String.t(), holding_in_eth: String.t(), time: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/eth-staking/eth/history/wbeth_rewards_history\"(map(), keyword()) :: {:ok, %{est_rewards_in_eth: String.t(), rows: list(%{amount_in_eth: String.t(), annual_percentage_rate: String.t(), holding: String.t(), holding_in_eth: String.t(), time: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :get_ui_klines,
@@ -4069,7 +6541,17 @@ The request is similar to klines having the same parameters and response.
 
 uiKlines return modified kline data, optimized for presentation of candlestick charts.
 
-Weight(IP): 2"
+Weight(IP): 2",
+    param_types: [
+      symbol: "String.t()",
+      interval: ":1s | :1m | :3m | :5m | :15m | :30m | :1h | :2h | :4h | :6h | :8h | :12h | :1d | :3d | :1w | :1m",
+      start_time: "integer()",
+      end_time: "integer()",
+      time_zone: "String.t()",
+      limit: "integer()"
+    ],
+    response_type: "list(list(term()))",
+    spec: "@spec get_ui_klines(map(), keyword()) :: {:ok, list(list(term()))} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/pay/transactions",
@@ -4088,7 +6570,19 @@ Weight(IP): 2"
 - The max interval between startTime and endTime is 90 days.
 - Support for querying orders within the last 18 months.
 
-Weight(UID): 3000"
+Weight(UID): 3000",
+    param_types: [
+      start_time: "integer()",
+      end_time: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{code: String.t(), data: list(%{amount: String.t(), currency: String.t(), funds_detail: list(%{amount: String.t(), currency: String.t()}), order_type: String.t(), payer_info: %{account_id: String.t(), binance_id: String.t(), name: String.t(), type: String.t()}, receiver_info: %{account_id: String.t(), binance_id: String.t(), country_code: String.t(), email: String.t(), optional(:extend) => list(%{card_number: String.t(), digital_wallet_id: String.t(), institution_name: String.t()}), mobile_code: String.t(), name: String.t(), phone_number: String.t(), type: String.t()}, transaction_id: String.t(), transaction_time: integer(), wallet_type: integer(), wallet_types: list(integer())}), message: String.t(), success: boolean()}",
+    spec:
+      "@spec :\"get_/sapi/v1/pay/transactions\"(map(), keyword()) :: {:ok, %{code: String.t(), data: list(%{amount: String.t(), currency: String.t(), funds_detail: list(%{amount: String.t(), currency: String.t()}), order_type: String.t(), payer_info: %{account_id: String.t(), binance_id: String.t(), name: String.t(), type: String.t()}, receiver_info: %{account_id: String.t(), binance_id: String.t(), country_code: String.t(), email: String.t(), optional(:extend) => list(%{card_number: String.t(), digital_wallet_id: String.t(), institution_name: String.t()}), mobile_code: String.t(), name: String.t(), phone_number: String.t(), type: String.t()}, transaction_id: String.t(), transaction_time: integer(), wallet_type: integer(), wallet_types: list(integer())}), message: String.t(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"cancel_/sapi/v1/algo/spot/order",
@@ -4105,7 +6599,11 @@ Weight(UID): 3000"
 
 Cancel an open TWAP order
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [algo_id: "integer()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{algo_id: integer(), code: integer(), msg: String.t(), success: boolean()}",
+    spec:
+      "@spec :\"cancel_/sapi/v1/algo/spot/order\"(map(), keyword()) :: {:ok, %{algo_id: integer(), code: integer(), msg: String.t(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_ticker/trading_day",
@@ -4129,7 +6627,10 @@ Notes:
 
 Weight:
 - `4` for each requested symbol.
-- The weight for this request will cap at `200` once the number of symbols in the request is more than `50`."
+- The weight for this request will cap at `200` once the number of symbols in the request is more than `50`.",
+    param_types: [symbol: "String.t()", symbols: "String.t()", time_zone: "String.t()", type: ":full | :mini"],
+    response_type: "term()",
+    spec: "@spec :\"get_ticker/trading_day\"(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/simple-earn/flexible/subscribe",
@@ -4146,7 +6647,19 @@ Weight:
 
 Weight(IP): 1
 
-Rate Limit: 1/3s per account"
+Rate Limit: 1/3s per account",
+    param_types: [
+      product_id: "String.t()",
+      amount: "float()",
+      auto_subscribe: "boolean()",
+      source_account: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{purchase_id: integer(), success: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/simple-earn/flexible/subscribe\"(map(), keyword()) :: {:ok, %{purchase_id: integer(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/asset/dust-btc",
@@ -4161,7 +6674,17 @@ Rate Limit: 1/3s per account"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Assets That Can Be Converted Into BNB (USER_DATA)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      account_type: ":spot | :margin",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{details: list(%{amount_free: String.t(), asset: String.t(), asset_full_name: String.t(), exchange: String.t(), to_bnb: String.t(), to_bnb_off_exchange: String.t(), to_btc: String.t()}), dribblet_percentage: String.t(), total_transfer_bnb: String.t(), total_transfer_btc: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/asset/dust-btc\"(map(), keyword()) :: {:ok, %{details: list(%{amount_free: String.t(), asset: String.t(), asset_full_name: String.t(), exchange: String.t(), to_bnb: String.t(), to_bnb_off_exchange: String.t(), to_btc: String.t()}), dribblet_percentage: String.t(), total_transfer_bnb: String.t(), total_transfer_btc: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/mining/hash-transfer/profit/details",
@@ -4176,7 +6699,20 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Hashrate Resale Details (USER_DATA)
 
-Weight(IP): 5"
+Weight(IP): 5",
+    param_types: [
+      config_id: "String.t()",
+      user_name: "String.t()",
+      page_index: "integer()",
+      page_size: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{code: integer(), data: %{page_size: integer(), profit_transfer_details: list(%{algo_name: String.t(), amount: float(), coin_name: String.t(), day: integer(), hash_rate: integer(), pool_username: String.t(), to_pool_username: String.t()}), total_num: integer()}, msg: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/mining/hash-transfer/profit/details\"(map(), keyword()) :: {:ok, %{code: integer(), data: %{page_size: integer(), profit_transfer_details: list(%{algo_name: String.t(), amount: float(), coin_name: String.t(), day: integer(), hash_rate: integer(), pool_username: String.t(), to_pool_username: String.t()}), total_num: integer()}, msg: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/isolated/account_limit",
@@ -4193,7 +6729,11 @@ Weight(IP): 5"
 
 Query enabled isolated margin account limit.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{enabled_account: integer(), max_account: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/isolated/account_limit\"(map(), keyword()) :: {:ok, %{enabled_account: integer(), max_account: integer()}} | {:error, term()}"
   },
   %{
     operation: :"place_order_list/oco",
@@ -4217,7 +6757,40 @@ Send in an one-cancels-the-other (OCO) pair, where activation of one order immed
     - If the `OCO` is on the `BUY` side: `LIMIT_MAKER` price < Last Traded Price < stopPrice
 - OCOs add 2 orders to the unfilled order count, `EXCHANGE_MAX_ORDERS` filter, and the `MAX_NUM_ORDERS` filter.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      symbol: "String.t()",
+      list_client_order_id: "String.t()",
+      side: ":sell | :buy",
+      quantity: "float()",
+      above_type: "String.t()",
+      above_client_order_id: "String.t()",
+      above_iceberg_qty: "float()",
+      above_price: "float()",
+      above_stop_price: "float()",
+      above_trailing_delta: "float()",
+      above_time_in_force: ":gtc | :ioc | :fok",
+      above_strategy_id: "float()",
+      above_strategy_type: "integer()",
+      below_type: "String.t()",
+      below_client_order_id: "String.t()",
+      below_iceberg_qty: "float()",
+      below_price: "float()",
+      below_stop_price: "float()",
+      below_trailing_delta: "float()",
+      below_time_in_force: ":gtc | :ioc | :fok",
+      below_strategy_id: "float()",
+      below_strategy_type: "integer()",
+      new_order_resp_type: ":ack | :result | :full",
+      self_trade_prevention_mode: ":expire_taker | :expire_maker | :expire_both | :none",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{contingency_type: String.t(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), order_reports: list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t(), working_time: integer()}), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}",
+    spec:
+      "@spec :\"place_order_list/oco\"(map(), keyword()) :: {:ok, %{contingency_type: String.t(), list_client_order_id: String.t(), list_order_status: String.t(), list_status_type: String.t(), order_list_id: integer(), order_reports: list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time_in_force: String.t(), transact_time: integer(), type: String.t(), working_time: integer()}), orders: list(%{client_order_id: String.t(), order_id: integer(), symbol: String.t()}), symbol: String.t(), transaction_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :get_all_orders,
@@ -4238,7 +6811,21 @@ Get all account orders; active, canceled, or filled..
 - For some historical orders `cummulativeQuoteQty` will be < 0, meaning the data is not available at this time.
 - If `startTime` and/or `endTime` provided, `orderId` is not required
 
-Weight(IP): 20"
+Weight(IP): 20",
+    param_types: [
+      symbol: "String.t()",
+      order_id: "integer()",
+      start_time: "integer()",
+      end_time: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), iceberg_qty: String.t(), is_working: boolean(), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), orig_quote_order_qty: String.t(), optional(:prevented_match_id) => integer(), optional(:prevented_quantity) => String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time: integer(), time_in_force: String.t(), type: String.t(), update_time: integer(), working_time: integer()})",
+    spec:
+      "@spec get_all_orders(map(), keyword()) :: {:ok, list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), iceberg_qty: String.t(), is_working: boolean(), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), orig_quote_order_qty: String.t(), optional(:prevented_match_id) => integer(), optional(:prevented_quantity) => String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time: integer(), time_in_force: String.t(), type: String.t(), update_time: integer(), working_time: integer()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/portfolio/collateral_rate",
@@ -4255,7 +6842,11 @@ Weight(IP): 20"
 
 Portfolio Margin Collateral Rate.
 
-Weight(IP): 50"
+Weight(IP): 50",
+    param_types: [],
+    response_type: "list(%{asset: String.t(), collateral_rate: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/portfolio/collateral_rate\"(map(), keyword()) :: {:ok, list(%{asset: String.t(), collateral_rate: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/simple-earn/locked/history/redemption_record",
@@ -4270,7 +6861,23 @@ Weight(IP): 50"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Locked Redemption Record (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      position_id: "String.t()",
+      redeem_id: "String.t()",
+      asset: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{amount: String.t(), asset: String.t(), deliver_date: String.t(), est_extra_reward_amt: String.t(), extra_reward_asset: String.t(), is_complete: boolean(), lock_period: String.t(), loss_amount: String.t(), original_amount: String.t(), position_id: String.t(), redeem_id: integer(), reward_amt: String.t(), reward_asset: String.t(), status: String.t(), time: integer(), type: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/simple-earn/locked/history/redemption_record\"(map(), keyword()) :: {:ok, %{rows: list(%{amount: String.t(), asset: String.t(), deliver_date: String.t(), est_extra_reward_amt: String.t(), extra_reward_asset: String.t(), is_complete: boolean(), lock_period: String.t(), loss_amount: String.t(), original_amount: String.t(), position_id: String.t(), redeem_id: integer(), reward_amt: String.t(), reward_asset: String.t(), status: String.t(), time: integer(), type: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/sub-account/universal_transfer",
@@ -4290,7 +6897,23 @@ Weight(IP): 150"
 - The query time period must be less then 30 days.
 - If startTime and endTime not sent, return records of the last 30 days by default.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      from_email: "String.t()",
+      to_email: "String.t()",
+      client_tran_id: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      page: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{amount: String.t(), asset: String.t(), client_tran_id: String.t(), create_time_stamp: integer(), from_account_type: String.t(), from_email: String.t(), status: String.t(), to_account_type: String.t(), to_email: String.t(), tran_id: integer()})",
+    spec:
+      "@spec :\"get_/sapi/v1/sub-account/universal_transfer\"(map(), keyword()) :: {:ok, list(%{amount: String.t(), asset: String.t(), client_tran_id: String.t(), create_time_stamp: integer(), from_account_type: String.t(), from_email: String.t(), status: String.t(), to_account_type: String.t(), to_email: String.t(), tran_id: integer()})} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/sub-account/universal_transfer",
@@ -4313,7 +6936,23 @@ Weight(IP): 1"
   - Sub-account SPOT,USDT_FUTURE,COIN_FUTURE,MARGIN(Cross),ISOLATED_MARGIN transfer to master account SPOT
   - Transfer between two sub-account SPOT accounts
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      from_email: "String.t()",
+      to_email: "String.t()",
+      from_account_type: ":spot | :usdt_future | :coin_future | :margin | :isolated_margin",
+      to_account_type: ":spot | :usdt_future | :coin_future | :margin | :isolated_margin",
+      client_tran_id: "String.t()",
+      symbol: "String.t()",
+      asset: "String.t()",
+      amount: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{client_tran_id: String.t(), tran_id: integer()}",
+    spec:
+      "@spec :\"create_/sapi/v1/sub-account/universal_transfer\"(map(), keyword()) :: {:ok, %{client_tran_id: String.t(), tran_id: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/portfolio/pm_loan",
@@ -4330,7 +6969,11 @@ Weight(IP): 1"
 
 Query Portfolio Margin Bankruptcy Loan Amount.
 
-Weight(UID): 500"
+Weight(UID): 500",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{amount: String.t(), asset: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/portfolio/pm_loan\"(map(), keyword()) :: {:ok, %{amount: String.t(), asset: String.t()}} | {:error, term()}"
   },
   %{
     operation: :delete_open_orders,
@@ -4348,7 +6991,10 @@ Weight(UID): 500"
 Cancels all active orders on a symbol.
 This includes OCO orders.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [symbol: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "list(term())",
+    spec: "@spec delete_open_orders(map(), keyword()) :: {:ok, list(term())} | {:error, term()}"
   },
   %{
     operation: :get_open_orders,
@@ -4367,7 +7013,12 @@ Get all open orders on a symbol. Careful when accessing this with no symbol.
 
 Weight(IP):
 - `6` for a single symbol;
-- `80` when the symbol parameter is omitted;"
+- `80` when the symbol parameter is omitted;",
+    param_types: [symbol: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), iceberg_qty: String.t(), is_working: boolean(), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), orig_quote_order_qty: String.t(), optional(:prevented_match_id) => integer(), optional(:prevented_quantity) => String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time: integer(), time_in_force: String.t(), type: String.t(), update_time: integer(), working_time: integer()})",
+    spec:
+      "@spec get_open_orders(map(), keyword()) :: {:ok, list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), iceberg_qty: String.t(), is_working: boolean(), order_id: integer(), order_list_id: integer(), orig_qty: String.t(), orig_quote_order_qty: String.t(), optional(:prevented_match_id) => integer(), optional(:prevented_quantity) => String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time: integer(), time_in_force: String.t(), type: String.t(), update_time: integer(), working_time: integer()})} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v3/asset/get_user_asset",
@@ -4384,7 +7035,18 @@ Weight(IP):
 
 Get user assets, just for positive data.
 
-Weight(IP): 5"
+Weight(IP): 5",
+    param_types: [
+      asset: "String.t()",
+      need_btc_valuation: ":true | :false",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{asset: String.t(), btc_valuation: String.t(), free: String.t(), freeze: String.t(), ipoable: String.t(), locked: String.t(), withdrawing: String.t()})",
+    spec:
+      "@spec :\"create_/sapi/v3/asset/get_user_asset\"(map(), keyword()) :: {:ok, list(%{asset: String.t(), btc_valuation: String.t(), free: String.t(), freeze: String.t(), ipoable: String.t(), locked: String.t(), withdrawing: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/copy_trading/futures/lead_symbol",
@@ -4401,7 +7063,12 @@ Weight(IP): 5"
 
 Get Futures Lead Trading Symbol Whitelist
 
-Weight(IP): 20"
+Weight(IP): 20",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{code: String.t(), data: %{base_asset: String.t(), quote_asset: String.t(), symbol: String.t()}, message: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/copy_trading/futures/lead_symbol\"(map(), keyword()) :: {:ok, %{code: String.t(), data: %{base_asset: String.t(), quote_asset: String.t(), symbol: String.t()}, message: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/sub-account/margin/transfer",
@@ -4416,7 +7083,19 @@ Weight(IP): 20"
     error_mapping: &Parser.parse_error/1,
     doc: "Margin Transfer for Sub-account (For Master Account)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      email: "String.t()",
+      asset: "String.t()",
+      amount: "float()",
+      type: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{txn_id: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/sub-account/margin/transfer\"(map(), keyword()) :: {:ok, %{txn_id: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/transfer",
@@ -4435,7 +7114,23 @@ Weight(IP): 1"
 - Returns data for last 7 days by default
 - Set `archived` to `true` to query data from 6 months ago
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      asset: "String.t()",
+      type: ":roll_in | :roll_out",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      isolated_symbol: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{amount: String.t(), asset: String.t(), status: String.t(), timestamp: integer(), tx_id: integer(), type: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/transfer\"(map(), keyword()) :: {:ok, %{rows: list(%{amount: String.t(), asset: String.t(), status: String.t(), timestamp: integer(), tx_id: integer(), type: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v2/sub-account/futures/position_risk",
@@ -4450,7 +7145,17 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Futures Position-Risk of Sub-account V2 (For Master Account)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      email: "String.t()",
+      futures_type: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "term()",
+    spec:
+      "@spec :\"get_/sapi/v2/sub-account/futures/position_risk\"(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/convert/trade_flow",
@@ -4467,7 +7172,19 @@ Weight(IP): 1"
 
 - The max interval between startTime and endTime is 30 days.
 
-Weight(UID): 3000"
+Weight(UID): 3000",
+    param_types: [
+      start_time: "integer()",
+      end_time: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{end_time: integer(), limit: integer(), list: list(%{create_time: integer(), from_amount: String.t(), from_asset: String.t(), inverse_ratio: String.t(), order_id: integer(), order_status: String.t(), quote_id: String.t(), ratio: String.t(), to_amount: String.t(), to_asset: String.t()}), more_data: boolean(), start_time: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/convert/trade_flow\"(map(), keyword()) :: {:ok, %{end_time: integer(), limit: integer(), list: list(%{create_time: integer(), from_amount: String.t(), from_asset: String.t(), inverse_ratio: String.t(), order_id: integer(), order_status: String.t(), quote_id: String.t(), ratio: String.t(), to_amount: String.t(), to_asset: String.t()}), more_data: boolean(), start_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/next-hourly-interest-rate",
@@ -4484,7 +7201,17 @@ Weight(UID): 3000"
 
 Get user the next hourly estimate interest
 
-Weight(UID): 100"
+Weight(UID): 100",
+    param_types: [
+      assets: "String.t()",
+      is_isolated: ":true | :false",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "list(%{asset: String.t(), next_hourly_interest_rate: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/next-hourly-interest-rate\"(map(), keyword()) :: {:ok, list(%{asset: String.t(), next_hourly_interest_rate: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/capital/deposit/address/list",
@@ -4501,7 +7228,17 @@ Weight(UID): 100"
 
 Fetch deposit address list with network.
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [
+      coin: "String.t()",
+      network: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "list(%{address: String.t(), coin: String.t(), is_default: integer()})",
+    spec:
+      "@spec :\"get_/sapi/v1/capital/deposit/address/list\"(map(), keyword()) :: {:ok, list(%{address: String.t(), coin: String.t(), is_default: integer()})} | {:error, term()}"
   },
   %{
     operation: :"get_account/commission",
@@ -4518,7 +7255,12 @@ Weight(IP): 10"
 
 Get current account commission rates.
 
-Weight: 20"
+Weight: 20",
+    param_types: [symbol: "String.t()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{discount: %{optional(:discount) => String.t(), optional(:discount_asset) => String.t(), optional(:enabled_for_account) => boolean(), optional(:enabled_for_symbol) => boolean()}, standard_commission: %{buyer: String.t(), maker: String.t(), seller: String.t(), taker: String.t()}, symbol: String.t(), tax_commission: %{buyer: String.t(), maker: String.t(), seller: String.t(), taker: String.t()}}",
+    spec:
+      "@spec :\"get_account/commission\"(map(), keyword()) :: {:ok, %{discount: %{optional(:discount) => String.t(), optional(:discount_asset) => String.t(), optional(:enabled_for_account) => boolean(), optional(:enabled_for_symbol) => boolean()}, standard_commission: %{buyer: String.t(), maker: String.t(), seller: String.t(), taker: String.t()}, symbol: String.t(), tax_commission: %{buyer: String.t(), maker: String.t(), seller: String.t(), taker: String.t()}}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/sub-account/sub/transfer/history",
@@ -4536,7 +7278,22 @@ Weight: 20"
 - fromEmail and toEmail cannot be sent at the same time.
 - Return fromEmail equal master account email by default.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      from_email: "String.t()",
+      to_email: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      page: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{asset: String.t(), from: String.t(), qty: String.t(), status: String.t(), time: integer(), to: String.t(), tran_id: integer()})",
+    spec:
+      "@spec :\"get_/sapi/v1/sub-account/sub/transfer/history\"(map(), keyword()) :: {:ok, list(%{asset: String.t(), from: String.t(), qty: String.t(), status: String.t(), time: integer(), to: String.t(), tran_id: integer()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/asset/trade_fee",
@@ -4553,7 +7310,11 @@ Weight(IP): 1"
 
 Fetch trade fee
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [symbol: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "list(%{maker_commission: String.t(), symbol: String.t(), taker_commission: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/asset/trade_fee\"(map(), keyword()) :: {:ok, list(%{maker_commission: String.t(), symbol: String.t(), taker_commission: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/simple-earn/flexible/subscription_preview",
@@ -4568,7 +7329,18 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Flexible Subscription Preview (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      product_id: "String.t()",
+      amount: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{air_drop_asset: String.t(), est_daily_airdrop_rewards: String.t(), est_daily_bonus_rewards: String.t(), est_daily_real_time_rewards: String.t(), reward_asset: String.t(), total_amount: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/simple-earn/flexible/subscription_preview\"(map(), keyword()) :: {:ok, %{air_drop_asset: String.t(), est_daily_airdrop_rewards: String.t(), est_daily_bonus_rewards: String.t(), est_daily_real_time_rewards: String.t(), reward_asset: String.t(), total_amount: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/sub-account/status",
@@ -4585,7 +7357,12 @@ Weight(IP): 150"
 
 - If no `email` sent, all sub-accounts' information will be returned.
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [email: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "list(%{email: String.t(), insert_time: integer(), is_future_enabled: boolean(), is_margin_enabled: boolean(), is_sub_user_enabled: boolean(), is_user_active: boolean(), mobile: integer()})",
+    spec:
+      "@spec :\"get_/sapi/v1/sub-account/status\"(map(), keyword()) :: {:ok, list(%{email: String.t(), insert_time: integer(), is_future_enabled: boolean(), is_margin_enabled: boolean(), is_sub_user_enabled: boolean(), is_user_active: boolean(), mobile: integer()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/asset/custody/transfer-history",
@@ -4602,7 +7379,23 @@ Weight(IP): 10"
 
 Query User Delegation History
 
-Weight(IP): 60"
+Weight(IP): 60",
+    param_types: [
+      email: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      type: "String.t()",
+      asset: "String.t()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{amount: String.t(), asset: String.t(), client_tran_id: String.t(), time: integer(), transfer_type: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/asset/custody/transfer-history\"(map(), keyword()) :: {:ok, %{rows: list(%{amount: String.t(), asset: String.t(), client_tran_id: String.t(), time: integer(), transfer_type: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/sub-account/transaction-statistics",
@@ -4619,7 +7412,12 @@ Weight(IP): 60"
 
 Query Sub-account Transaction statistics (For Master Account).
 
-Weight(UID): 60"
+Weight(UID): 60",
+    param_types: [email: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{recent30_btc_futures_total: String.t(), recent30_btc_margin_total: String.t(), recent30_btc_total: String.t(), recent30_busd_futures_total: String.t(), recent30_busd_margin_total: String.t(), recent30_busd_total: String.t(), trade_info_vos: list(%{optional(:btc) => float(), optional(:btc_futures) => float(), optional(:btc_margin) => float(), optional(:busd) => float(), optional(:busd_futures) => float(), optional(:busd_margin) => float(), optional(:date) => integer(), optional(:user_id) => integer()})}",
+    spec:
+      "@spec :\"get_/sapi/v1/sub-account/transaction-statistics\"(map(), keyword()) :: {:ok, %{recent30_btc_futures_total: String.t(), recent30_btc_margin_total: String.t(), recent30_btc_total: String.t(), recent30_busd_futures_total: String.t(), recent30_busd_margin_total: String.t(), recent30_busd_total: String.t(), trade_info_vos: list(%{optional(:btc) => float(), optional(:btc_futures) => float(), optional(:btc_margin) => float(), optional(:busd) => float(), optional(:busd_futures) => float(), optional(:busd_margin) => float(), optional(:date) => integer(), optional(:user_id) => integer()})}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/mining/payment/uid",
@@ -4634,7 +7432,21 @@ Weight(UID): 60"
     error_mapping: &Parser.parse_error/1,
     doc: "Mining Account Earning (USER_DATA)
 
-Weight(IP): 5"
+Weight(IP): 5",
+    param_types: [
+      algo: "String.t()",
+      start_date: "String.t()",
+      end_date: "String.t()",
+      page_index: "integer()",
+      page_size: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{code: integer(), data: %{account_profits: list(%{amount: float(), coin_name: String.t(), puid: integer(), sub_name: String.t(), time: integer(), type: integer()}), page_size: integer(), total_num: integer()}, msg: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/mining/payment/uid\"(map(), keyword()) :: {:ok, %{code: integer(), data: %{account_profits: list(%{amount: float(), coin_name: String.t(), puid: integer(), sub_name: String.t(), time: integer(), type: integer()}), page_size: integer(), total_num: integer()}, msg: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/capital/deposit/address",
@@ -4654,7 +7466,17 @@ Fetch deposit address with network.
 - If network is not send, return with default network of the coin.
 - You can get network and isDefault in networkList in the response of Get /sapi/v1/capital/config/getall (HMAC SHA256).
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [
+      coin: "String.t()",
+      network: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{address: String.t(), coin: String.t(), tag: String.t(), url: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/capital/deposit/address\"(map(), keyword()) :: {:ok, %{address: String.t(), coin: String.t(), tag: String.t(), url: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/sub-account/transfer/sub_to_master",
@@ -4669,7 +7491,17 @@ Weight(IP): 10"
     error_mapping: &Parser.parse_error/1,
     doc: "Transfer to Master (For Sub-account)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      asset: "String.t()",
+      amount: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{txn_id: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/sub-account/transfer/sub_to_master\"(map(), keyword()) :: {:ok, %{txn_id: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/giftcard/create_code",
@@ -4693,7 +7525,18 @@ This API is for creating a Binance Code. To get started with, please make sure:
 
 Daily creation volume: 2 BTC / 24H Daily creation times: 200 Codes / 24H
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      token: "String.t()",
+      amount: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{code: String.t(), data: %{code: String.t(), expired_time: integer(), reference_no: String.t()}, message: String.t(), success: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/giftcard/create_code\"(map(), keyword()) :: {:ok, %{code: String.t(), data: %{code: String.t(), expired_time: integer(), reference_no: String.t()}, message: String.t(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_ticker/book_ticker",
@@ -4714,7 +7557,10 @@ Best price/qty on the order book for a symbol or symbols.
 
 Weight(IP):
 - `2` for a single symbol;
-- `4` when the symbol parameter is omitted;"
+- `4` when the symbol parameter is omitted;",
+    param_types: [symbol: "String.t()", symbols: "String.t()"],
+    response_type: "term()",
+    spec: "@spec :\"get_ticker/book_ticker\"(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/account/status",
@@ -4731,7 +7577,10 @@ Weight(IP):
 
 Fetch account status detail.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{data: String.t()}",
+    spec: "@spec :\"get_/sapi/v1/account/status\"(map(), keyword()) :: {:ok, %{data: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/isolated/all_pairs",
@@ -4746,7 +7595,12 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Get All Isolated Margin Symbol(USER_DATA)
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [symbol: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "list(%{base: String.t(), is_buy_allowed: boolean(), is_margin_trade: boolean(), is_sell_allowed: boolean(), quote: String.t(), symbol: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/isolated/all_pairs\"(map(), keyword()) :: {:ok, list(%{base: String.t(), is_buy_allowed: boolean(), is_margin_trade: boolean(), is_sell_allowed: boolean(), quote: String.t(), symbol: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/all_pairs",
@@ -4761,7 +7615,12 @@ Weight(IP): 10"
     error_mapping: &Parser.parse_error/1,
     doc: "Get All Cross Margin Pairs (MARKET_DATA)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [symbol: "String.t()"],
+    response_type:
+      "list(%{base: String.t(), id: integer(), is_buy_allowed: boolean(), is_margin_trade: boolean(), is_sell_allowed: boolean(), quote: String.t(), symbol: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/all_pairs\"(map(), keyword()) :: {:ok, list(%{base: String.t(), id: integer(), is_buy_allowed: boolean(), is_margin_trade: boolean(), is_sell_allowed: boolean(), quote: String.t(), symbol: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/eth-staking/wbeth/history/wrap_history",
@@ -4781,7 +7640,20 @@ Weight(IP): 1"
 - If startTime is sent but endTime is not sent, the next 30 days' data beginning from startTime will be returned.
 - If endTime is sent but startTime is not sent, the 30 days' data before endTime will be returned.
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{exchange_rate: String.t(), from_amount: String.t(), from_asset: String.t(), status: String.t(), time: integer(), to_amount: String.t(), to_asset: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/eth-staking/wbeth/history/wrap_history\"(map(), keyword()) :: {:ok, %{rows: list(%{exchange_rate: String.t(), from_amount: String.t(), from_asset: String.t(), status: String.t(), time: integer(), to_amount: String.t(), to_asset: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/lending/auto-invest/redeem/history",
@@ -4801,7 +7673,22 @@ Get the history of Index Linked Plan Redemption transactions
 Max 30 day difference between startTime and endTime
 If no startTime and endTime, default to show past 30 day records
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      request_id: "integer()",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      asset: "String.t()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{amount: String.t(), asset: String.t(), index_id: integer(), index_name: String.t(), redemption_date_time: integer(), redemption_id: integer(), status: String.t(), transaction_fee: String.t(), transaction_fee_unit: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/lending/auto-invest/redeem/history\"(map(), keyword()) :: {:ok, list(%{amount: String.t(), asset: String.t(), index_id: integer(), index_name: String.t(), redemption_date_time: integer(), redemption_id: integer(), status: String.t(), transaction_fee: String.t(), transaction_fee_unit: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/convert/limit/cancel_order",
@@ -4818,7 +7705,11 @@ Weight(IP): 1"
 
 Enable users to cancel a limit order
 
-Weight(UID): 200"
+Weight(UID): 200",
+    param_types: [order_id: "integer()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{order_id: integer(), status: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/convert/limit/cancel_order\"(map(), keyword()) :: {:ok, %{order_id: integer(), status: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/price_index",
@@ -4833,7 +7724,11 @@ Weight(UID): 200"
     error_mapping: &Parser.parse_error/1,
     doc: "Query Margin PriceIndex (MARKET_DATA)
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [symbol: "String.t()"],
+    response_type: "%{calc_time: integer(), price: String.t(), symbol: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/price_index\"(map(), keyword()) :: {:ok, %{calc_time: integer(), price: String.t(), symbol: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/sub-account/futures/internal_transfer",
@@ -4848,7 +7743,22 @@ Weight(IP): 10"
     error_mapping: &Parser.parse_error/1,
     doc: "Sub-account Futures Asset Transfer History (For Master Account)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      email: "String.t()",
+      futures_type: "integer()",
+      start_time: "integer()",
+      end_time: "integer()",
+      page: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{futures_type: integer(), success: boolean(), transfers: list(%{asset: String.t(), from: String.t(), qty: String.t(), time: integer(), to: String.t(), tran_id: integer()})}",
+    spec:
+      "@spec :\"get_/sapi/v1/sub-account/futures/internal_transfer\"(map(), keyword()) :: {:ok, %{futures_type: integer(), success: boolean(), transfers: list(%{asset: String.t(), from: String.t(), qty: String.t(), time: integer(), to: String.t(), tran_id: integer()})}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/sub-account/futures/internal_transfer",
@@ -4865,7 +7775,20 @@ Weight(IP): 1"
 
 - Master account can transfer max 2000 times a minute
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      from_email: "String.t()",
+      to_email: "String.t()",
+      futures_type: "integer()",
+      asset: "String.t()",
+      amount: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{success: boolean(), txn_id: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/sub-account/futures/internal_transfer\"(map(), keyword()) :: {:ok, %{success: boolean(), txn_id: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/loan/vip/renew",
@@ -4882,7 +7805,18 @@ Weight(IP): 1"
 
 VIP loan is available for VIP users only.
 
-Weight(UID): 6000"
+Weight(UID): 6000",
+    param_types: [
+      order_id: "integer()",
+      loan_term: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{collateral_account_id: String.t(), collateral_coin: String.t(), loan_account_id: String.t(), loan_amount: String.t(), loan_coin: String.t(), loan_term: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/loan/vip/renew\"(map(), keyword()) :: {:ok, %{collateral_account_id: String.t(), collateral_coin: String.t(), loan_account_id: String.t(), loan_amount: String.t(), loan_coin: String.t(), loan_term: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v2/sub-account/futures/account",
@@ -4897,7 +7831,16 @@ Weight(UID): 6000"
     error_mapping: &Parser.parse_error/1,
     doc: "Detail on Sub-account's Futures Account V2 (For Master Account)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      email: "String.t()",
+      futures_type: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "term()",
+    spec: "@spec :\"get_/sapi/v2/sub-account/futures/account\"(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/fiat/orders",
@@ -4914,7 +7857,21 @@ Weight(IP): 1"
 
 - If beginTime and endTime are not sent, the recent 30-day data will be returned.
 
-Weight(UID): 90000"
+Weight(UID): 90000",
+    param_types: [
+      transaction_type: "integer()",
+      begin_time: "integer()",
+      end_time: "integer()",
+      page: "integer()",
+      rows: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{code: String.t(), data: list(%{amount: String.t(), create_time: integer(), fiat_currency: String.t(), indicated_amount: String.t(), method: String.t(), order_no: String.t(), status: String.t(), total_fee: String.t(), update_time: integer()}), message: String.t(), success: boolean(), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/fiat/orders\"(map(), keyword()) :: {:ok, %{code: String.t(), data: list(%{amount: String.t(), create_time: integer(), fiat_currency: String.t(), indicated_amount: String.t(), method: String.t(), order_no: String.t(), status: String.t(), total_fee: String.t(), update_time: integer()}), message: String.t(), success: boolean(), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/algo/futures/sub_orders",
@@ -4932,7 +7889,19 @@ Weight(UID): 90000"
 - You need to enable Futures Trading Permission for the api key which requests this endpoint.
 - Base URL: https://api.binance.com
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      algo_id: "integer()",
+      page: "integer()",
+      page_size: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{executed_amt: String.t(), executed_qty: String.t(), sub_orders: list(%{algo_id: integer(), avg_price: String.t(), book_time: integer(), executed_amt: String.t(), optional(:executed_qty) => String.t(), fee_amt: String.t(), fee_asset: String.t(), order_id: integer(), order_status: String.t(), orig_qty: String.t(), side: String.t(), sub_id: integer(), symbol: String.t(), time_in_force: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/algo/futures/sub_orders\"(map(), keyword()) :: {:ok, %{executed_amt: String.t(), executed_qty: String.t(), sub_orders: list(%{algo_id: integer(), avg_price: String.t(), book_time: integer(), executed_amt: String.t(), optional(:executed_qty) => String.t(), fee_amt: String.t(), fee_asset: String.t(), order_id: integer(), order_status: String.t(), orig_qty: String.t(), side: String.t(), sub_id: integer(), symbol: String.t(), time_in_force: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/all_assets",
@@ -4947,7 +7916,12 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Get All Margin Assets (MARKET_DATA)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [asset: "String.t()"],
+    response_type:
+      "list(%{asset_full_name: String.t(), asset_name: String.t(), is_borrowable: boolean(), is_mortgageable: boolean(), user_min_borrow: String.t(), user_min_repay: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/all_assets\"(map(), keyword()) :: {:ok, list(%{asset_full_name: String.t(), asset_name: String.t(), is_borrowable: boolean(), is_mortgageable: boolean(), user_min_borrow: String.t(), user_min_repay: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/account/enable_fast_withdraw_switch",
@@ -4965,7 +7939,11 @@ Weight(IP): 1"
 - This request will enable fastwithdraw switch under your account. You need to enable \"trade\" option for the api key which requests this endpoint.
 - When Fast Withdraw Switch is on, transferring funds to a Binance account will be done instantly. There is no on-chain transaction, no transaction ID and no withdrawal fee.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "map()",
+    spec:
+      "@spec :\"create_/sapi/v1/account/enable_fast_withdraw_switch\"(map(), keyword()) :: {:ok, map()} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/sub-account/transfer/sub_to_sub",
@@ -4980,7 +7958,18 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Transfer to Sub-account of Same Master (For Sub-account)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      to_email: "String.t()",
+      asset: "String.t()",
+      amount: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{txn_id: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/sub-account/transfer/sub_to_sub\"(map(), keyword()) :: {:ok, %{txn_id: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/account/api_restrictions",
@@ -4995,7 +7984,12 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Get API Key Permission (USER_DATA)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{create_time: integer(), enable_futures: boolean(), enable_internal_transfer: boolean(), enable_margin: boolean(), optional(:enable_portfolio_margin_trading) => boolean(), enable_reading: boolean(), enable_spot_and_margin_trading: boolean(), enable_vanilla_options: boolean(), enable_withdrawals: boolean(), ip_restrict: boolean(), permits_universal_transfer: boolean(), trading_authority_expiration_time: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/account/api_restrictions\"(map(), keyword()) :: {:ok, %{create_time: integer(), enable_futures: boolean(), enable_internal_transfer: boolean(), enable_margin: boolean(), optional(:enable_portfolio_margin_trading) => boolean(), enable_reading: boolean(), enable_spot_and_margin_trading: boolean(), enable_vanilla_options: boolean(), enable_withdrawals: boolean(), ip_restrict: boolean(), permits_universal_transfer: boolean(), trading_authority_expiration_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :get_exchange_info,
@@ -5023,7 +8017,12 @@ Examples of Symbol Permissions Interpretation from the Response:
 - [["A"],["B"]] means you can place an order if your account has permission "A" and permission "B".
 - [["A"],["B","C"]] means you can place an order if your account has permission "A" and permission "B" or permission "C". (Inclusive or is applied here, not exclusive or, so your account may have both permission "B" and permission "C".)
 
-Weight(IP): 10}
+Weight(IP): 10},
+    param_types: [symbol: "String.t()", symbols: "String.t()", permissions: "String.t()"],
+    response_type:
+      "%{exchange_filters: list(map()), rate_limits: list(%{interval: String.t(), interval_num: integer(), limit: integer(), rate_limit_type: String.t()}), server_time: integer(), symbols: list(%{allow_trailing_stop: boolean(), allowed_self_trade_prevention_modes: list(String.t()), base_asset: String.t(), base_asset_precision: integer(), base_commission_precision: integer(), cancel_replace_allowed: boolean(), default_self_trade_prevention_mode: String.t(), filters: list(%{filter_type: String.t(), max_price: String.t(), min_price: String.t(), tick_size: String.t()}), iceberg_allowed: boolean(), is_margin_trading_allowed: boolean(), is_spot_trading_allowed: boolean(), oco_allowed: boolean(), order_types: list(String.t()), oto_allowed: boolean(), permission_sets: list(list(String.t())), permissions: list(String.t()), quote_asset: String.t(), quote_asset_precision: integer(), quote_commission_precision: integer(), quote_order_qty_market_allowed: boolean(), status: String.t(), symbol: String.t()}), timezone: String.t()}",
+    spec:
+      "@spec get_exchange_info(map(), keyword()) :: {:ok, %{exchange_filters: list(map()), rate_limits: list(%{interval: String.t(), interval_num: integer(), limit: integer(), rate_limit_type: String.t()}), server_time: integer(), symbols: list(%{allow_trailing_stop: boolean(), allowed_self_trade_prevention_modes: list(String.t()), base_asset: String.t(), base_asset_precision: integer(), base_commission_precision: integer(), cancel_replace_allowed: boolean(), default_self_trade_prevention_mode: String.t(), filters: list(%{filter_type: String.t(), max_price: String.t(), min_price: String.t(), tick_size: String.t()}), iceberg_allowed: boolean(), is_margin_trading_allowed: boolean(), is_spot_trading_allowed: boolean(), oco_allowed: boolean(), order_types: list(String.t()), oto_allowed: boolean(), permission_sets: list(list(String.t())), permissions: list(String.t()), quote_asset: String.t(), quote_asset_precision: integer(), quote_commission_precision: integer(), quote_order_qty_market_allowed: boolean(), status: String.t(), symbol: String.t()}), timezone: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/giftcard/verify",
@@ -5042,7 +8041,12 @@ This API is for verifying whether the Binance Code is valid or not by entering B
 
 Please note that if you enter the wrong binance code 5 times within an hour, you will no longer be able to verify any binance code for that hour.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [reference_no: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{code: String.t(), data: %{amount: String.t(), token: String.t(), valid: boolean()}, message: String.t(), success: boolean()}",
+    spec:
+      "@spec :\"get_/sapi/v1/giftcard/verify\"(map(), keyword()) :: {:ok, %{code: String.t(), data: %{amount: String.t(), token: String.t(), valid: boolean()}, message: String.t(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"delete_/sapi/v1/margin/isolated/account",
@@ -5059,7 +8063,11 @@ Weight(IP): 1"
 
 Disable isolated margin account for a specific symbol. Each trading pair can only be deactivated once every 24 hours .
 
-Weight(UID): 300"
+Weight(UID): 300",
+    param_types: [symbol: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{success: boolean(), symbol: String.t()}",
+    spec:
+      "@spec :\"delete_/sapi/v1/margin/isolated/account\"(map(), keyword()) :: {:ok, %{success: boolean(), symbol: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/isolated/account",
@@ -5077,7 +8085,12 @@ Weight(UID): 300"
 - If \"symbols\" is not sent, all isolated assets will be returned.
 - If \"symbols\" is sent, only the isolated assets of the sent symbols will be returned.
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [symbols: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{assets: list(%{base_asset: %{asset: String.t(), borrow_enabled: boolean(), borrowed: String.t(), free: String.t(), interest: String.t(), locked: String.t(), net_asset: String.t(), net_asset_of_btc: String.t(), repay_enabled: boolean(), total_asset: String.t()}, enabled: boolean(), index_price: String.t(), isolated_created: boolean(), liquidate_price: String.t(), liquidate_rate: String.t(), margin_level: String.t(), margin_level_status: String.t(), margin_ratio: String.t(), quote_asset: %{asset: String.t(), borrow_enabled: boolean(), borrowed: String.t(), free: String.t(), interest: String.t(), locked: String.t(), net_asset: String.t(), net_asset_of_btc: String.t(), repay_enabled: boolean(), total_asset: String.t()}, symbol: String.t(), trade_enabled: boolean()}), total_asset_of_btc: String.t(), total_liability_of_btc: String.t(), total_net_asset_of_btc: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/isolated/account\"(map(), keyword()) :: {:ok, %{assets: list(%{base_asset: %{asset: String.t(), borrow_enabled: boolean(), borrowed: String.t(), free: String.t(), interest: String.t(), locked: String.t(), net_asset: String.t(), net_asset_of_btc: String.t(), repay_enabled: boolean(), total_asset: String.t()}, enabled: boolean(), index_price: String.t(), isolated_created: boolean(), liquidate_price: String.t(), liquidate_rate: String.t(), margin_level: String.t(), margin_level_status: String.t(), margin_ratio: String.t(), quote_asset: %{asset: String.t(), borrow_enabled: boolean(), borrowed: String.t(), free: String.t(), interest: String.t(), locked: String.t(), net_asset: String.t(), net_asset_of_btc: String.t(), repay_enabled: boolean(), total_asset: String.t()}, symbol: String.t(), trade_enabled: boolean()}), total_asset_of_btc: String.t(), total_liability_of_btc: String.t(), total_net_asset_of_btc: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/margin/isolated/account",
@@ -5094,7 +8107,11 @@ Weight(IP): 10"
 
 Enable isolated margin account for a specific symbol.
 
-Weight(UID): 300"
+Weight(UID): 300",
+    param_types: [symbol: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{success: boolean(), symbol: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/margin/isolated/account\"(map(), keyword()) :: {:ok, %{success: boolean(), symbol: String.t()}} | {:error, term()}"
   },
   %{
     operation: :get_ping,
@@ -5111,7 +8128,10 @@ Weight(UID): 300"
 
 Test connectivity to the Rest API.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [],
+    response_type: "map()",
+    spec: "@spec get_ping(map(), keyword()) :: {:ok, map()} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/giftcard/cryptography/rsa-public-key",
@@ -5130,7 +8150,11 @@ This API is for fetching the RSA Public Key.
 This RSA Public key will be used to encrypt the card code.
 Please note that the RSA Public key fetched is valid only for the current day.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{code: String.t(), data: String.t(), message: String.t(), success: boolean()}",
+    spec:
+      "@spec :\"get_/sapi/v1/giftcard/cryptography/rsa-public-key\"(map(), keyword()) :: {:ok, %{code: String.t(), data: String.t(), message: String.t(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :get_historical_trades,
@@ -5147,7 +8171,12 @@ Weight(IP): 1"
 
 Get older market trades.
 
-Weight(IP): 10"
+Weight(IP): 10",
+    param_types: [symbol: "String.t()", limit: "integer()", from_id: "integer()"],
+    response_type:
+      "list(%{id: integer(), is_best_match: boolean(), is_buyer_maker: boolean(), price: String.t(), qty: String.t(), quote_qty: String.t(), time: integer()})",
+    spec:
+      "@spec get_historical_trades(map(), keyword()) :: {:ok, list(%{id: integer(), is_best_match: boolean(), is_buyer_maker: boolean(), price: String.t(), qty: String.t(), quote_qty: String.t(), time: integer()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/algo/futures/historical_orders",
@@ -5165,7 +8194,22 @@ Weight(IP): 10"
 - You need to enable Futures Trading Permission for the api key which requests this endpoint.
 - Base URL: https://api.binance.com
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      symbol: "String.t()",
+      side: ":sell | :buy",
+      start_time: "integer()",
+      end_time: "integer()",
+      page: "integer()",
+      page_size: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{orders: list(%{algo_id: integer(), algo_status: String.t(), algo_type: String.t(), avg_price: String.t(), book_time: integer(), client_algo_id: String.t(), end_time: integer(), executed_amt: String.t(), executed_qty: String.t(), position_side: String.t(), side: String.t(), symbol: String.t(), total_qty: String.t(), urgency: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/algo/futures/historical_orders\"(map(), keyword()) :: {:ok, %{orders: list(%{algo_id: integer(), algo_status: String.t(), algo_type: String.t(), avg_price: String.t(), book_time: integer(), client_algo_id: String.t(), end_time: integer(), executed_amt: String.t(), executed_qty: String.t(), position_side: String.t(), side: String.t(), symbol: String.t(), total_qty: String.t(), urgency: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/bnb_burn",
@@ -5180,7 +8224,11 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Get BNB Burn Status(USER_DATA)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{interest_bnb_burn: boolean(), spot_bnb_burn: boolean()}",
+    spec:
+      "@spec :\"get_/sapi/v1/bnb_burn\"(map(), keyword()) :: {:ok, %{interest_bnb_burn: boolean(), spot_bnb_burn: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/bnb_burn",
@@ -5197,7 +8245,17 @@ Weight(IP): 1"
 
 - "spotBNBBurn" and "interestBNBBurn" should be sent at least one.
 
-Weight(IP): 1}
+Weight(IP): 1},
+    param_types: [
+      spot_bnb_burn: ":true | :false",
+      interest_bnb_burn: ":true | :false",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{interest_bnb_burn: boolean(), spot_bnb_burn: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/bnb_burn\"(map(), keyword()) :: {:ok, %{interest_bnb_burn: boolean(), spot_bnb_burn: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/lending/auto-invest/one-off",
@@ -5214,7 +8272,23 @@ Weight(IP): 1}
 
 One time transaction
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      source_type: "String.t()",
+      request_id: "String.t()",
+      subscription_amount: "float()",
+      source_asset: "String.t()",
+      flexible_allowed_to_use: "boolean()",
+      plan_id: "integer()",
+      index_id: "integer()",
+      details: "list(%{optional(:percentage) => integer(), optional(:target_asset) => String.t()})",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{transaction_id: integer(), wait_second: integer()}",
+    spec:
+      "@spec :\"create_/sapi/v1/lending/auto-invest/one-off\"(map(), keyword()) :: {:ok, %{transaction_id: integer(), wait_second: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v2/loan/flexible/ongoing/orders",
@@ -5230,7 +8304,20 @@ Weight(IP): 1"
     doc: "Borrow - Get Flexible Loan Ongoing Orders (USER_DATA)
 
 
-Weight(IP): 300"
+Weight(IP): 300",
+    param_types: [
+      loan_coin: "String.t()",
+      collateral_coin: "String.t()",
+      current: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{collateral_amount: String.t(), collateral_coin: String.t(), current_ltv: String.t(), loan_coin: String.t(), total_debt: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v2/loan/flexible/ongoing/orders\"(map(), keyword()) :: {:ok, %{rows: list(%{collateral_amount: String.t(), collateral_coin: String.t(), current_ltv: String.t(), loan_coin: String.t(), total_debt: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/all_orders",
@@ -5250,7 +8337,22 @@ Weight(IP): 300"
 
 Weight(IP): 200
 
-Request Limit: 60 times/min per IP"
+Request Limit: 60 times/min per IP",
+    param_types: [
+      symbol: "String.t()",
+      is_isolated: ":true | :false",
+      order_id: "integer()",
+      start_time: "integer()",
+      end_time: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), iceberg_qty: String.t(), is_isolated: boolean(), is_working: boolean(), order_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time: integer(), time_in_force: String.t(), type: String.t(), update_time: integer()})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/all_orders\"(map(), keyword()) :: {:ok, list(%{client_order_id: String.t(), cummulative_quote_qty: String.t(), executed_qty: String.t(), iceberg_qty: String.t(), is_isolated: boolean(), is_working: boolean(), order_id: integer(), orig_qty: String.t(), price: String.t(), self_trade_prevention_mode: String.t(), side: String.t(), status: String.t(), stop_price: String.t(), symbol: String.t(), time: integer(), time_in_force: String.t(), type: String.t(), update_time: integer()})} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/eth-staking/wbeth/wrap",
@@ -5267,7 +8369,11 @@ Request Limit: 60 times/min per IP"
 
 - You need to open Enable Spot & Margin Trading permission for the API Key which requests this endpoint.
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [amount: "float()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{exchange_rate: String.t(), success: boolean(), wbeth_amount: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/eth-staking/wbeth/wrap\"(map(), keyword()) :: {:ok, %{exchange_rate: String.t(), success: boolean(), wbeth_amount: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/managed-subaccount/query_trans_log_for_investor",
@@ -5284,7 +8390,23 @@ Weight(IP): 150"
 
 Investor can use this api to query managed sub account transfer log. This endpoint is available for investor of Managed Sub-Account. A Managed Sub-Account is an account type for investors who value flexibility in asset allocation and account application, while delegating trades to a professional trading team.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      email: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      page: "integer()",
+      limit: "integer()",
+      transfers: "String.t()",
+      transfer_function_account_type: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{count: integer(), manager_sub_transfer_history_vos: list(%{amount: String.t(), asset: String.t(), create_time: integer(), from_account_type: String.t(), from_email: String.t(), scheduled_data: integer(), status: String.t(), to_account_type: String.t(), to_email: String.t(), tran_id: integer()})}",
+    spec:
+      "@spec :\"get_/sapi/v1/managed-subaccount/query_trans_log_for_investor\"(map(), keyword()) :: {:ok, %{count: integer(), manager_sub_transfer_history_vos: list(%{amount: String.t(), asset: String.t(), create_time: integer(), from_account_type: String.t(), from_email: String.t(), scheduled_data: integer(), status: String.t(), to_account_type: String.t(), to_email: String.t(), tran_id: integer()})}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/simple-earn/locked/redeem",
@@ -5301,7 +8423,11 @@ Weight(IP): 1"
 
 Weight(IP): 1
 
-Rate Limit: 1/3s per account"
+Rate Limit: 1/3s per account",
+    param_types: [position_id: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "%{redeem_id: integer(), success: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/simple-earn/locked/redeem\"(map(), keyword()) :: {:ok, %{redeem_id: integer(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"delete_/sapi/v1/user_data_stream/isolated",
@@ -5318,7 +8444,10 @@ Rate Limit: 1/3s per account"
 
 Close out a user data stream.
 
-Weight: 1"
+Weight: 1",
+    param_types: [listen_key: "String.t()"],
+    response_type: "map()",
+    spec: "@spec :\"delete_/sapi/v1/user_data_stream/isolated\"(map(), keyword()) :: {:ok, map()} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/user_data_stream/isolated",
@@ -5336,7 +8465,11 @@ Weight: 1"
 Start a new user data stream.
 The stream will close after 60 minutes unless a keepalive is sent. If the account has an active `listenKey`, that `listenKey` will be returned and its validity will be extended for 60 minutes.
 
-Weight: 1"
+Weight: 1",
+    param_types: [],
+    response_type: "%{listen_key: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/user_data_stream/isolated\"(map(), keyword()) :: {:ok, %{listen_key: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"update_/sapi/v1/user_data_stream/isolated",
@@ -5353,7 +8486,10 @@ Weight: 1"
 
 Keepalive a user data stream to prevent a time out. User data streams will close after 60 minutes. It's recommended to send a ping about every 30 minutes.
 
-Weight: 1"
+Weight: 1",
+    param_types: [listen_key: "String.t()"],
+    response_type: "map()",
+    spec: "@spec :\"update_/sapi/v1/user_data_stream/isolated\"(map(), keyword()) :: {:ok, map()} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/mining/hash-transfer/config/details/list",
@@ -5368,7 +8504,18 @@ Weight: 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Hashrate Resale List (USER_DATA)
 
-Weight(IP): 5"
+Weight(IP): 5",
+    param_types: [
+      page_index: "integer()",
+      page_size: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{code: integer(), data: %{config_details: list(%{algo_name: String.t(), config_id: integer(), end_day: integer(), hash_rate: integer(), pool_username: String.t(), start_day: integer(), status: integer(), to_pool_username: String.t()}), page_size: integer(), total_num: integer()}, msg: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/mining/hash-transfer/config/details/list\"(map(), keyword()) :: {:ok, %{code: integer(), data: %{config_details: list(%{algo_name: String.t(), config_id: integer(), end_day: integer(), hash_rate: integer(), pool_username: String.t(), start_day: integer(), status: integer(), to_pool_username: String.t()}), page_size: integer(), total_num: integer()}, msg: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"delete_/sapi/v1/sub-account/sub_account_api/ip_restriction/ip_list",
@@ -5383,7 +8530,19 @@ Weight(IP): 5"
     error_mapping: &Parser.parse_error/1,
     doc: "Delete IP List for a Sub-account API Key (For Master Account)
 
-Weight(UID): 3000"
+Weight(UID): 3000",
+    param_types: [
+      email: "String.t()",
+      sub_account_api_key: "String.t()",
+      ip_address: "String.t()",
+      third_party_name: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{api_key: String.t(), ip_list: list(String.t()), ip_restrict: String.t(), update_time: integer()}",
+    spec:
+      "@spec :\"delete_/sapi/v1/sub-account/sub_account_api/ip_restriction/ip_list\"(map(), keyword()) :: {:ok, %{api_key: String.t(), ip_list: list(String.t()), ip_restrict: String.t(), update_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/sub-account/sub_account_api/ip_restriction",
@@ -5398,7 +8557,17 @@ Weight(UID): 3000"
     error_mapping: &Parser.parse_error/1,
     doc: "Get IP Restriction for a Sub-account API Key (For Master Account)
 
-Weight(UID): 3000"
+Weight(UID): 3000",
+    param_types: [
+      email: "String.t()",
+      sub_account_api_key: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{api_key: String.t(), ip_list: list(String.t()), ip_restrict: String.t(), update_time: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/sub-account/sub_account_api/ip_restriction\"(map(), keyword()) :: {:ok, %{api_key: String.t(), ip_list: list(String.t()), ip_restrict: String.t(), update_time: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v2/loan/flexible/repay/history",
@@ -5416,7 +8585,22 @@ Weight(UID): 3000"
 - If startTime and endTime are not sent, the recent 90-day data will be returned.
 - The max interval between startTime and endTime is 180 days.
 
-Weight(IP): 400"
+Weight(IP): 400",
+    param_types: [
+      loan_coin: "String.t()",
+      collateral_coin: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{collateral_coin: String.t(), collateral_return: String.t(), loan_coin: String.t(), repay_amount: String.t(), repay_status: String.t(), repay_time: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v2/loan/flexible/repay/history\"(map(), keyword()) :: {:ok, %{rows: list(%{collateral_coin: String.t(), collateral_return: String.t(), loan_coin: String.t(), repay_amount: String.t(), repay_status: String.t(), repay_time: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/eth-staking/eth/history/rewards_history",
@@ -5436,7 +8620,20 @@ Weight(IP): 400"
 - If startTime is sent but endTime is not sent, the next 30 days' data beginning from startTime will be returned.
 - If endTime is sent but startTime is not sent, the 30 days' data before endTime will be returned.
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{amount: String.t(), annual_percentage_rate: String.t(), asset: String.t(), holding: String.t(), status: String.t(), time: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/eth-staking/eth/history/rewards_history\"(map(), keyword()) :: {:ok, %{rows: list(%{amount: String.t(), annual_percentage_rate: String.t(), asset: String.t(), holding: String.t(), status: String.t(), time: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/simple-earn/flexible/redeem",
@@ -5453,7 +8650,19 @@ Weight(IP): 150"
 
 Weight(IP): 1
 
-Rate Limit: 1/3s per account"
+Rate Limit: 1/3s per account",
+    param_types: [
+      product_id: "String.t()",
+      redeem_all: "boolean()",
+      amount: "float()",
+      dest_account: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{redeem_id: integer(), success: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/simple-earn/flexible/redeem\"(map(), keyword()) :: {:ok, %{redeem_id: integer(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/portfolio/account",
@@ -5470,7 +8679,12 @@ Rate Limit: 1/3s per account"
 
 Get the account info
 
-'Weight(IP): 1'"
+'Weight(IP): 1'",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{account_equity: String.t(), account_maint_margin: String.t(), account_status: String.t(), account_type: String.t(), actual_equity: String.t(), uni_mmr: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/portfolio/account\"(map(), keyword()) :: {:ok, %{account_equity: String.t(), account_maint_margin: String.t(), account_status: String.t(), account_type: String.t(), actual_equity: String.t(), uni_mmr: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/cross_margin_collateral_ratio",
@@ -5486,7 +8700,12 @@ Get the account info
     doc: "Cross margin collateral ratio (MARKET_DATA)
 
 
-Weight(IP): 100"
+Weight(IP): 100",
+    param_types: [],
+    response_type:
+      "list(%{asset_names: list(String.t()), collaterals: list(%{discount_rate: String.t(), max_usd_value: String.t(), min_usd_value: String.t()})})",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/cross_margin_collateral_ratio\"(map(), keyword()) :: {:ok, list(%{asset_names: list(String.t()), collaterals: list(%{discount_rate: String.t(), max_usd_value: String.t(), min_usd_value: String.t()})})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/simple-earn/locked/set_redeem_option",
@@ -5503,7 +8722,17 @@ Weight(IP): 100"
 
 Set redeem option for Locked product
 
-Weight(IP): 50"
+Weight(IP): 50",
+    param_types: [
+      position_id: "String.t()",
+      redeem_to: ":spot | :flexible",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{success: boolean()}",
+    spec:
+      "@spec :\"get_/sapi/v1/simple-earn/locked/set_redeem_option\"(map(), keyword()) :: {:ok, %{success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/lending/auto-invest/index/info",
@@ -5520,7 +8749,12 @@ Weight(IP): 50"
 
 Query index details
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [index_id: "integer()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{asset_allocation: list(%{allocation: String.t(), target_asset: String.t()}), index_id: integer(), index_name: String.t(), status: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/lending/auto-invest/index/info\"(map(), keyword()) :: {:ok, %{asset_allocation: list(%{allocation: String.t(), target_asset: String.t()}), index_id: integer(), index_name: String.t(), status: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/loan/vip/loanable/data",
@@ -5537,7 +8771,18 @@ Weight(IP): 1"
 
 Get interest rate and borrow limit of loanable assets. The borrow limit is shown in USD value.
 
-Weight(IP): 400"
+Weight(IP): 400",
+    param_types: [
+      loan_coin: "String.t()",
+      vip_level: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{_30d_daily_interest_rate: String.t(), _30d_yearly_interest_rate: String.t(), _60d_daily_interest_rate: String.t(), _60d_yearly_interest_rate: String.t(), _flexible_daily_interest_rate: String.t(), _flexible_yearly_interest_rate: String.t(), loan_coin: String.t(), max_limit: String.t(), min_limit: String.t(), vip_level: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/loan/vip/loanable/data\"(map(), keyword()) :: {:ok, %{rows: list(%{_30d_daily_interest_rate: String.t(), _30d_yearly_interest_rate: String.t(), _60d_daily_interest_rate: String.t(), _60d_yearly_interest_rate: String.t(), _flexible_daily_interest_rate: String.t(), _flexible_yearly_interest_rate: String.t(), loan_coin: String.t(), max_limit: String.t(), min_limit: String.t(), vip_level: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/giftcard/buy_code",
@@ -5564,7 +8809,19 @@ To get started with, please make sure:
 
 Daily creation volume: 2 BTC / 24H Daily creation times: 200 Codes / 24H
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      base_token: "String.t()",
+      face_token: "String.t()",
+      base_token_amount: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{code: String.t(), data: %{code: String.t(), expired_time: integer(), reference_no: String.t()}, message: String.t(), success: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/giftcard/buy_code\"(map(), keyword()) :: {:ok, %{code: String.t(), data: %{code: String.t(), expired_time: integer(), reference_no: String.t()}, message: String.t(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/mining/hash-transfer/config",
@@ -5579,7 +8836,21 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Hashrate Resale Request (USER_DATA)
 
-Weight(IP): 5"
+Weight(IP): 5",
+    param_types: [
+      user_name: "String.t()",
+      algo: "String.t()",
+      start_date: "String.t()",
+      end_date: "String.t()",
+      to_pool_user: "String.t()",
+      hash_rate: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{code: integer(), data: integer(), msg: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/mining/hash-transfer/config\"(map(), keyword()) :: {:ok, %{code: integer(), data: integer(), msg: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/blvt/user_limit",
@@ -5594,7 +8865,12 @@ Weight(IP): 5"
     error_mapping: &Parser.parse_error/1,
     doc: "BLVT User Limit Info (USER_DATA)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [token_name: "String.t()", recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "list(%{token_name: String.t(), user_daily_total_purchase_limit: String.t(), user_daily_total_redeem_limit: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/blvt/user_limit\"(map(), keyword()) :: {:ok, list(%{token_name: String.t(), user_daily_total_purchase_limit: String.t(), user_daily_total_redeem_limit: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/capital/withdraw/history",
@@ -5620,7 +8896,23 @@ This endpoint specifically uses per second UID rate limit, user's total second l
 - If withdrawOrderId is sent, startTime and endTime are not sent, will return last 7 days records by default.
 
 Weight(UID): 18000
-Request Limit: 10 requests per second"
+Request Limit: 10 requests per second",
+    param_types: [
+      coin: "String.t()",
+      withdraw_order_id: "String.t()",
+      status: "integer()",
+      start_time: "integer()",
+      end_time: "integer()",
+      offset: "integer()",
+      limit: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{address: String.t(), amount: String.t(), apply_time: String.t(), coin: String.t(), optional(:confirm_no) => integer(), id: String.t(), optional(:info) => String.t(), network: String.t(), status: integer(), transaction_fee: String.t(), transfer_type: integer(), tx_id: String.t(), withdraw_order_id: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/capital/withdraw/history\"(map(), keyword()) :: {:ok, list(%{address: String.t(), amount: String.t(), apply_time: String.t(), coin: String.t(), optional(:confirm_no) => integer(), id: String.t(), optional(:info) => String.t(), network: String.t(), status: integer(), transaction_fee: String.t(), transfer_type: integer(), tx_id: String.t(), withdraw_order_id: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v2/eth-staking/account",
@@ -5635,7 +8927,12 @@ Request Limit: 10 requests per second"
     error_mapping: &Parser.parse_error/1,
     doc: "ETH Staking account V2(USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type:
+      "%{holding_in_eth: String.t(), holdings: %{beth_amount: String.t(), wbeth_amount: String.t()}, profit: %{amount_from_beth: String.t(), amount_from_wbeth: String.t()}, thirty_days_profit_in_eth: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v2/eth-staking/account\"(map(), keyword()) :: {:ok, %{holding_in_eth: String.t(), holdings: %{beth_amount: String.t(), wbeth_amount: String.t()}, profit: %{amount_from_beth: String.t(), amount_from_wbeth: String.t()}, thirty_days_profit_in_eth: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/portfolio/bnb-transfer",
@@ -5652,7 +8949,17 @@ Weight(IP): 150"
 
 BNB transfer can be between Margin Account and USDM Account
 
-Weight(IP): 1500"
+Weight(IP): 1500",
+    param_types: [
+      transfer_side: ":to_um | :from_um",
+      amount: "float()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{tran_id: integer()}",
+    spec:
+      "@spec :\"create_/sapi/v1/portfolio/bnb-transfer\"(map(), keyword()) :: {:ok, %{tran_id: integer()}} | {:error, term()}"
   },
   %{
     operation: :"place_sor/order/test",
@@ -5672,7 +8979,27 @@ Creates and validates a new order but does not send it into the matching engine.
 
 Weight(IP):
   - Without computeCommissionRates: `1`
-  - With computeCommissionRates: `20`"
+  - With computeCommissionRates: `20`",
+    param_types: [
+      symbol: "String.t()",
+      side: ":sell | :buy",
+      type: ":limit | :market | :stop_loss | :stop_loss_limit | :take_profit | :take_profit_limit | :limit_maker",
+      time_in_force: ":gtc | :ioc | :fok",
+      quantity: "float()",
+      price: "float()",
+      new_client_order_id: "String.t()",
+      strategy_id: "integer()",
+      strategy_type: "integer()",
+      iceberg_qty: "float()",
+      new_order_resp_type: ":ack | :result | :full",
+      self_trade_prevention_mode: ":expire_taker | :expire_maker | :expire_both | :none",
+      compute_commission_rates: "boolean()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "map()",
+    spec: "@spec :\"place_sor/order/test\"(map(), keyword()) :: {:ok, map()} | {:error, term()}"
   },
   %{
     operation: :"place_order/test",
@@ -5692,7 +9019,29 @@ Creates and validates a new order but does not send it into the matching engine.
 
 Weight(IP):
   - Without computeCommissionRates: `1`
-  - With computeCommissionRates: `20`"
+  - With computeCommissionRates: `20`",
+    param_types: [
+      symbol: "String.t()",
+      side: ":sell | :buy",
+      type: ":limit | :market | :stop_loss | :stop_loss_limit | :take_profit | :take_profit_limit | :limit_maker",
+      time_in_force: ":gtc | :ioc | :fok",
+      quantity: "float()",
+      quote_order_qty: "float()",
+      price: "float()",
+      new_client_order_id: "String.t()",
+      strategy_id: "integer()",
+      strategy_type: "integer()",
+      stop_price: "float()",
+      trailing_delta: "float()",
+      iceberg_qty: "float()",
+      new_order_resp_type: ":ack | :result | :full",
+      recv_window: "integer()",
+      compute_commission_rates: "boolean()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "map()",
+    spec: "@spec :\"place_order/test\"(map(), keyword()) :: {:ok, map()} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/lending/project/position/list",
@@ -5707,7 +9056,19 @@ Weight(IP):
     error_mapping: &Parser.parse_error/1,
     doc: "Get Fixed/Activity Project Position (USER_DATA)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      asset: "String.t()",
+      project_id: "String.t()",
+      status: ":all | :subscribable | :unsubscribable",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{asset: String.t(), can_transfer: boolean(), create_timestamp: integer(), duration: integer(), end_time: integer(), interest: String.t(), interest_rate: String.t(), lot: integer(), position_id: integer(), principal: String.t(), project_id: String.t(), project_name: String.t(), purchase_time: integer(), redeem_date: String.t(), start_time: integer(), status: String.t(), type: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/lending/project/position/list\"(map(), keyword()) :: {:ok, list(%{asset: String.t(), can_transfer: boolean(), create_timestamp: integer(), duration: integer(), end_time: integer(), interest: String.t(), interest_rate: String.t(), lot: integer(), position_id: integer(), principal: String.t(), project_id: String.t(), project_name: String.t(), purchase_time: integer(), redeem_date: String.t(), start_time: integer(), status: String.t(), type: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/dci/product/list",
@@ -5724,7 +9085,21 @@ Weight(IP): 1"
 
 Get Dual Investment product list
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      option_type: ":call | :put",
+      exercised_coin: "String.t()",
+      invest_coin: "String.t()",
+      page_size: "String.t()",
+      page_index: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{list: list(%{apr: String.t(), auto_compound_plan_list: list(String.t()), can_purchase: boolean(), create_timestamp: integer(), duration: integer(), exercised_coin: String.t(), id: String.t(), invest_coin: String.t(), is_auto_compound_enable: boolean(), max_amount: String.t(), min_amount: String.t(), option_type: String.t(), order_id: integer(), purchase_decimal: integer(), purchase_end_time: integer(), settle_date: integer(), strike_price: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/dci/product/list\"(map(), keyword()) :: {:ok, %{list: list(%{apr: String.t(), auto_compound_plan_list: list(String.t()), can_purchase: boolean(), create_timestamp: integer(), duration: integer(), exercised_coin: String.t(), id: String.t(), invest_coin: String.t(), is_auto_compound_enable: boolean(), max_amount: String.t(), min_amount: String.t(), option_type: String.t(), order_id: integer(), purchase_decimal: integer(), purchase_end_time: integer(), settle_date: integer(), strike_price: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/mining/hash-transfer/config/cancel",
@@ -5739,7 +9114,17 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Cancel Hashrate Resale configuration (USER_DATA)
 
-Weight(IP): 5"
+Weight(IP): 5",
+    param_types: [
+      config_id: "String.t()",
+      user_name: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{code: integer(), data: boolean(), msg: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/mining/hash-transfer/config/cancel\"(map(), keyword()) :: {:ok, %{code: integer(), data: boolean(), msg: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/exchange-small-liability-history",
@@ -5756,7 +9141,20 @@ Weight(IP): 5"
 
 Get Small liability Exchange History
 
-Weight(UID): 100"
+Weight(UID): 100",
+    param_types: [
+      current: "integer()",
+      size: "integer()",
+      start_time: "integer()",
+      end_time: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{amount: String.t(), asset: String.t(), biz_type: String.t(), target_amount: String.t(), target_asset: String.t(), timestamp: integer()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/exchange-small-liability-history\"(map(), keyword()) :: {:ok, %{rows: list(%{amount: String.t(), asset: String.t(), biz_type: String.t(), target_amount: String.t(), target_asset: String.t(), timestamp: integer()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/lending/auto-invest/plan/add",
@@ -5773,7 +9171,27 @@ Weight(UID): 100"
 
 Post an investment plan creation
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      source_type: ":main_site | :tr",
+      request_id: "String.t()",
+      plan_type: ":single | :portfolio | :index",
+      index_id: "integer()",
+      subscription_amount: "float()",
+      subscription_cycle: ":h1 | :h4 | :h8 | :h12 | :weekly | :daily | :monthly | :bi_weekly",
+      subscription_start_day: "integer()",
+      subscription_start_weekday: ":mon | :tue | :wed | :thu | :fri | :sat | :sun",
+      subscription_start_time: "integer()",
+      source_asset: "String.t()",
+      flexible_allowed_to_use: "boolean()",
+      details: "list(%{optional(:percentage) => integer(), optional(:target_asset) => String.t()})",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{next_execution_date_time: integer(), plan_id: integer()}",
+    spec:
+      "@spec :\"create_/sapi/v1/lending/auto-invest/plan/add\"(map(), keyword()) :: {:ok, %{next_execution_date_time: integer(), plan_id: integer()}} | {:error, term()}"
   },
   %{
     operation: :"delete_/sapi/v1/user_data_stream",
@@ -5790,7 +9208,10 @@ Weight(IP): 1"
 
 Close out a user data stream.
 
-Weight: 1"
+Weight: 1",
+    param_types: [listen_key: "String.t()"],
+    response_type: "map()",
+    spec: "@spec :\"delete_/sapi/v1/user_data_stream\"(map(), keyword()) :: {:ok, map()} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/user_data_stream",
@@ -5808,7 +9229,11 @@ Weight: 1"
 Start a new user data stream.
 The stream will close after 60 minutes unless a keepalive is sent. If the account has an active `listenKey`, that `listenKey` will be returned and its validity will be extended for 60 minutes.
 
-Weight: 1"
+Weight: 1",
+    param_types: [],
+    response_type: "%{listen_key: String.t()}",
+    spec:
+      "@spec :\"create_/sapi/v1/user_data_stream\"(map(), keyword()) :: {:ok, %{listen_key: String.t()}} | {:error, term()}"
   },
   %{
     operation: :"update_/sapi/v1/user_data_stream",
@@ -5825,7 +9250,10 @@ Weight: 1"
 
 Keepalive a user data stream to prevent a time out. User data streams will close after 60 minutes. It's recommended to send a ping about every 30 minutes.
 
-Weight: 1"
+Weight: 1",
+    param_types: [listen_key: "String.t()"],
+    response_type: "map()",
+    spec: "@spec :\"update_/sapi/v1/user_data_stream\"(map(), keyword()) :: {:ok, map()} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/giftcard/redeem_code",
@@ -5844,7 +9272,18 @@ This API is for redeeming the Binance Code. Once redeemed, the coins will be dep
 
 Please note that if you enter the wrong code 5 times within 24 hours, you will no longer be able to redeem any Binance Code that day.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      code: "String.t()",
+      external_uid: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{code: String.t(), data: %{amount: String.t(), identity_no: String.t(), reference_no: String.t(), token: String.t()}, message: String.t(), success: boolean()}",
+    spec:
+      "@spec :\"create_/sapi/v1/giftcard/redeem_code\"(map(), keyword()) :: {:ok, %{code: String.t(), data: %{amount: String.t(), identity_no: String.t(), reference_no: String.t(), token: String.t()}, message: String.t(), success: boolean()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/capital/deposit/sub_hisrec",
@@ -5861,7 +9300,23 @@ Weight(IP): 1"
 
 Fetch sub-account deposit history
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      email: "String.t()",
+      coin: "String.t()",
+      status: "integer()",
+      start_time: "integer()",
+      end_time: "integer()",
+      limit: "integer()",
+      offset: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "list(%{address: String.t(), address_tag: String.t(), amount: String.t(), coin: String.t(), confirm_times: String.t(), insert_time: integer(), network: String.t(), status: integer(), transfer_type: integer(), tx_id: String.t()})",
+    spec:
+      "@spec :\"get_/sapi/v1/capital/deposit/sub_hisrec\"(map(), keyword()) :: {:ok, list(%{address: String.t(), address_tag: String.t(), amount: String.t(), coin: String.t(), confirm_times: String.t(), insert_time: integer(), network: String.t(), status: integer(), transfer_type: integer(), tx_id: String.t()})} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/lending/position_changed",
@@ -5878,7 +9333,18 @@ Weight(IP): 1"
 
 - PositionId is mandatory parameter for fixed position.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      project_id: "String.t()",
+      lot: "String.t()",
+      position_id: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type: "%{daily_purchase_id: integer(), success: boolean(), time: integer()}",
+    spec:
+      "@spec :\"create_/sapi/v1/lending/position_changed\"(map(), keyword()) :: {:ok, %{daily_purchase_id: integer(), success: boolean(), time: integer()}} | {:error, term()}"
   },
   %{
     operation: :"create_/sapi/v1/account/disable_fast_withdraw_switch",
@@ -5896,7 +9362,11 @@ Weight(IP): 1"
 - This request will disable fastwithdraw switch under your account.
 - You need to enable \"trade\" option for the api key which requests this endpoint.
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [recv_window: "integer()", timestamp: "integer()", signature: "String.t()"],
+    response_type: "map()",
+    spec:
+      "@spec :\"create_/sapi/v1/account/disable_fast_withdraw_switch\"(map(), keyword()) :: {:ok, map()} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/simple-earn/locked/position",
@@ -5911,7 +9381,21 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Get Locked Product Position (USER_DATA)
 
-Weight(IP): 150"
+Weight(IP): 150",
+    param_types: [
+      asset: "String.t()",
+      position_id: "String.t()",
+      project_id: "String.t()",
+      current: "integer()",
+      size: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{apy: String.t(), accrual_days: String.t(), amount: String.t(), asset: String.t(), auto_subscribe: boolean(), can_fast_redemption: boolean(), can_re_stake: boolean(), can_redeem_early: boolean(), deliver_date: String.t(), duration: String.t(), est_extra_reward_amt: String.t(), extra_reward_apr: String.t(), extra_reward_asset: String.t(), next_pay: String.t(), next_pay_date: String.t(), parent_position_id: String.t(), partial_amt_deliver_date: String.t(), pay_period: String.t(), position_id: String.t(), project_id: String.t(), purchase_time: String.t(), redeem_amount_early: String.t(), redeem_period: String.t(), redeem_to: String.t(), redeeming_amt: String.t(), reward_amt: String.t(), reward_asset: String.t(), rewards_end_date: String.t(), status: String.t(), type: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/simple-earn/locked/position\"(map(), keyword()) :: {:ok, %{rows: list(%{apy: String.t(), accrual_days: String.t(), amount: String.t(), asset: String.t(), auto_subscribe: boolean(), can_fast_redemption: boolean(), can_re_stake: boolean(), can_redeem_early: boolean(), deliver_date: String.t(), duration: String.t(), est_extra_reward_amt: String.t(), extra_reward_apr: String.t(), extra_reward_asset: String.t(), next_pay: String.t(), next_pay_date: String.t(), parent_position_id: String.t(), partial_amt_deliver_date: String.t(), pay_period: String.t(), position_id: String.t(), project_id: String.t(), purchase_time: String.t(), redeem_amount_early: String.t(), redeem_period: String.t(), redeem_to: String.t(), redeeming_amt: String.t(), reward_amt: String.t(), reward_asset: String.t(), rewards_end_date: String.t(), status: String.t(), type: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :get_depth,
@@ -5931,7 +9415,11 @@ Weight(IP): 150"
 | 1-100               | 5           |
 | 101-500             | 25          |
 | 501-1000            | 50          |
-| 1001-5000           | 250         |"
+| 1001-5000           | 250         |",
+    param_types: [symbol: "String.t()", limit: "integer()"],
+    response_type: "%{asks: list(list(String.t())), bids: list(list(String.t())), last_update_id: integer()}",
+    spec:
+      "@spec get_depth(map(), keyword()) :: {:ok, %{asks: list(list(String.t())), bids: list(list(String.t())), last_update_id: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/nft/user/get_asset",
@@ -5946,7 +9434,18 @@ Weight(IP): 150"
     error_mapping: &Parser.parse_error/1,
     doc: "Get NFT Asset (USER_DATA)
 
-Weight(UID): 3000"
+Weight(UID): 3000",
+    param_types: [
+      limit: "integer()",
+      page: "integer()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{list: list(%{contract_address: String.t(), network: String.t(), token_id: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/nft/user/get_asset\"(map(), keyword()) :: {:ok, %{list: list(%{contract_address: String.t(), network: String.t(), token_id: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/margin/interest_history",
@@ -5970,7 +9469,23 @@ Weight(UID): 3000"
   - `PERIODIC_CONVERTED` interest charged per hour converted into BNB
   - `ON_BORROW_CONVERTED` first interest charged on borrow converted into BNB
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      asset: "String.t()",
+      isolated_symbol: "String.t()",
+      start_time: "integer()",
+      end_time: "integer()",
+      current: "integer()",
+      size: "integer()",
+      archived: "String.t()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{rows: list(%{asset: String.t(), interest: String.t(), interest_accured_time: integer(), interest_rate: String.t(), isolated_symbol: String.t(), principal: String.t(), type: String.t()}), total: integer()}",
+    spec:
+      "@spec :\"get_/sapi/v1/margin/interest_history\"(map(), keyword()) :: {:ok, %{rows: list(%{asset: String.t(), interest: String.t(), interest_accured_time: integer(), interest_rate: String.t(), isolated_symbol: String.t(), principal: String.t(), type: String.t()}), total: integer()}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/lending/auto-invest/source-asset/list",
@@ -5987,7 +9502,20 @@ Weight(IP): 1"
 
 Query Source Asset to be used for investment
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [
+      target_asset: "String.t()",
+      index_id: "integer()",
+      usage_type: "String.t()",
+      flexible_allowed_to_use: "boolean()",
+      recv_window: "integer()",
+      timestamp: "integer()",
+      signature: "String.t()"
+    ],
+    response_type:
+      "%{fee_rate: String.t(), source_assets: list(%{asset_max_amount: String.t(), asset_min_amount: String.t(), flexible_amount: String.t(), scale: String.t(), source_asset: String.t()})}",
+    spec:
+      "@spec :\"get_/sapi/v1/lending/auto-invest/source-asset/list\"(map(), keyword()) :: {:ok, %{fee_rate: String.t(), source_assets: list(%{asset_max_amount: String.t(), asset_min_amount: String.t(), flexible_amount: String.t(), scale: String.t(), source_asset: String.t()})}} | {:error, term()}"
   },
   %{
     operation: :"get_/sapi/v1/mining/pub/coin_list",
@@ -6002,6 +9530,11 @@ Weight(IP): 1"
     error_mapping: &Parser.parse_error/1,
     doc: "Acquiring CoinName (MARKET_DATA)
 
-Weight(IP): 1"
+Weight(IP): 1",
+    param_types: [],
+    response_type:
+      "%{code: integer(), data: list(%{algo_id: integer(), algo_name: String.t(), coin_id: integer(), coin_name: String.t(), pool_index: integer()}), msg: String.t()}",
+    spec:
+      "@spec :\"get_/sapi/v1/mining/pub/coin_list\"(map(), keyword()) :: {:ok, %{code: integer(), data: list(%{algo_id: integer(), algo_name: String.t(), coin_id: integer(), coin_name: String.t(), pool_index: integer()}), msg: String.t()}} | {:error, term()}"
   }
 ]

@@ -20,6 +20,8 @@ defmodule Mix.Tasks.ZenCex.GenerateEndpoints do
 
   use Mix.Task
 
+  alias Mix.Tasks.Helpers.TypeGenerator
+
   # Default timeout for generated endpoints in milliseconds
   @default_endpoint_timeout_ms 5_000
 
@@ -115,11 +117,16 @@ defmodule Mix.Tasks.ZenCex.GenerateEndpoints do
 
   defp map_to_endpoint_format(openapi_spec) do
     paths = openapi_spec["paths"] || %{}
+    components = openapi_spec["components"] || %{}
 
     Enum.flat_map(paths, fn {path, operations} ->
       Enum.map(operations, fn {method, spec} ->
+        operation_name = derive_operation_name(method, path, spec)
+        param_types = TypeGenerator.extract_param_types(spec, components)
+        response_type = TypeGenerator.extract_response_type(spec, components)
+
         %{
-          operation: derive_operation_name(method, path, spec),
+          operation: operation_name,
           method: String.to_atom(method),
           path: path,
           requires_auth: requires_authentication?(spec),
@@ -132,7 +139,11 @@ defmodule Mix.Tasks.ZenCex.GenerateEndpoints do
           retry_on: [:rate_limited, :timeout],
           response_parser: derive_parser_function(path, spec),
           error_mapping: :parse_error,
-          doc: extract_documentation(spec)
+          doc: extract_documentation(spec),
+          # NEW: Type information
+          param_types: param_types,
+          response_type: response_type,
+          spec_annotation: TypeGenerator.generate_spec(operation_name, param_types, response_type)
         }
       end)
     end)
@@ -297,7 +308,10 @@ defmodule Mix.Tasks.ZenCex.GenerateEndpoints do
       "    retry_on: #{inspect(endpoint.retry_on)},\n" <>
       "    response_parser: &Parser.#{endpoint.response_parser}/1,\n" <>
       "    error_mapping: &Parser.#{endpoint.error_mapping}/1,\n" <>
-      "    doc: \"#{doc}\"\n" <>
+      "    doc: \"#{doc}\",\n" <>
+      "    param_types: #{inspect(endpoint.param_types)},\n" <>
+      "    response_type: #{inspect(endpoint.response_type)},\n" <>
+      "    spec: #{inspect(endpoint.spec_annotation)}\n" <>
       "  }"
   end
 end

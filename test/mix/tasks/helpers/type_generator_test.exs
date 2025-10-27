@@ -120,7 +120,7 @@ defmodule Mix.Tasks.Helpers.TypeGeneratorTest do
 
       result = TypeGenerator.openapi_type_to_elixir(schema, %{})
       assert String.contains?(result, "symbol: String.t()")
-      assert String.contains?(result, "optional(order_id) => integer()")
+      assert String.contains?(result, "optional(:order_id) => integer()")
     end
 
     test "converts empty object to map()" do

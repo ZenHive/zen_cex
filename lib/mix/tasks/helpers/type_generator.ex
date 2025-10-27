@@ -105,8 +105,31 @@ defmodule Mix.Tasks.Helpers.TypeGenerator do
   """
   @spec generate_spec(atom(), [{atom(), String.t()}], String.t()) :: String.t()
   def generate_spec(operation_name, _param_types, response_type) do
+    # Format the operation name properly (handle atoms with special characters)
+    func_name_str = format_atom_for_spec(operation_name)
+
     # All generated functions take (params :: map(), opts :: keyword())
-    "@spec #{operation_name}(map(), keyword()) :: {:ok, #{response_type}} | {:error, term()}"
+    "@spec #{func_name_str}(map(), keyword()) :: {:ok, #{response_type}} | {:error, term()}"
+  end
+
+  # Format an atom for use in a @spec annotation
+  # Handles atoms with special characters that need quoting
+  defp format_atom_for_spec(atom) when is_atom(atom) do
+    atom_str = Atom.to_string(atom)
+
+    # Check if the atom needs special quoting (contains special characters)
+    if needs_quoting?(atom_str) do
+      # Use inspect to get the proper quoted atom syntax
+      inspect(atom)
+    else
+      atom_str
+    end
+  end
+
+  # Check if an atom string needs quoting in specs
+  # Atoms need quoting if they contain characters other than alphanumeric, underscore, @, or ?
+  defp needs_quoting?(str) do
+    not Regex.match?(~r/^[a-z_][a-zA-Z0-9_?!@]*$/, str)
   end
 
   @doc """
@@ -241,7 +264,8 @@ defmodule Mix.Tasks.Helpers.TypeGenerator do
           if key in required_keys do
             "#{field_name}: #{field_type}"
           else
-            "optional(#{field_name}) => #{field_type}"
+            # Use :atom syntax for optional keys in typespecs
+            "optional(:#{field_name}) => #{field_type}"
           end
         end)
 

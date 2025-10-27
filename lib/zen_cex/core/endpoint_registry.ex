@@ -318,7 +318,8 @@ defmodule ZenCex.EndpointRegistry do
       weight: Map.get(endpoint, :weight, 1),
       params_transformer: Map.get(endpoint, :params_transformer),
       api_type: Map.get(endpoint, :api_type),
-      doc: Map.get(endpoint, :doc, "Executes the #{endpoint.operation} operation")
+      doc: Map.get(endpoint, :doc, "Executes the #{endpoint.operation} operation"),
+      custom_spec: Map.get(endpoint, :spec)
     }
   end
 
@@ -326,24 +327,65 @@ defmodule ZenCex.EndpointRegistry do
   defp generate_main_function(config) do
     func_name = config.operation
     doc = config.doc
+    spec_ast = generate_spec_ast_for_arity_1(config)
 
     quote do
       @doc unquote(doc)
-      @spec unquote(func_name)(map()) ::
-              {:ok, term()} | {:error, term()}
+      unquote(spec_ast)
+
       def unquote(func_name)(params \\ %{}) do
         unquote(func_name)(params, [])
       end
     end
   end
 
+  # Generate @spec AST for the arity-1 function
+  # If custom spec is available, extract response type AST; otherwise use default term()
+  defp generate_spec_ast_for_arity_1(config) do
+    func_name = config.operation
+    response_type_ast = extract_response_type_ast(config.custom_spec)
+
+    quote do
+      @spec unquote(func_name)(map()) :: unquote(response_type_ast)
+    end
+  end
+
+  # Extract response type AST from custom spec string
+  # Input: "@spec func(map(), keyword()) :: {:ok, %{...}} | {:error, term()}"
+  # Output: AST for "{:ok, %{...}} | {:error, term()}"
+  defp extract_response_type_ast(spec_string) when is_binary(spec_string) do
+    # Find the "::" separator and extract everything after it
+    case String.split(spec_string, "::", parts: 2) do
+      [_signature, response_type] ->
+        try do
+          # Parse the response type string into AST
+          {:ok, ast} = Code.string_to_quoted(String.trim(response_type))
+          ast
+        rescue
+          _ ->
+            # Fallback to term() on parse error
+            quote do: {:ok, term()} | {:error, term()}
+        end
+
+      _ ->
+        # Fallback if :: not found
+        quote do: {:ok, term()} | {:error, term()}
+    end
+  end
+
+  defp extract_response_type_ast(_) do
+    # Fallback for nil or non-string input
+    quote do: {:ok, term()} | {:error, term()}
+  end
+
   @spec generate_opts_function(map(), module() | nil) :: Macro.t()
   defp generate_opts_function(config, adapter) do
     func_name = config.operation
+    spec_ast = generate_spec_ast_for_arity_2(config)
 
     quote do
-      @spec unquote(func_name)(map(), keyword() | map()) ::
-              {:ok, term()} | {:error, term()}
+      unquote(spec_ast)
+
       def unquote(func_name)(params, opts) do
         endpoint_config =
           build_endpoint_config(
@@ -366,6 +408,17 @@ defmodule ZenCex.EndpointRegistry do
           unquote(Macro.escape(config.error_mapping))
         )
       end
+    end
+  end
+
+  # Generate @spec AST for the arity-2 function
+  # If custom spec is available, extract response type AST; otherwise use default term()
+  defp generate_spec_ast_for_arity_2(config) do
+    func_name = config.operation
+    response_type_ast = extract_response_type_ast(config.custom_spec)
+
+    quote do
+      @spec unquote(func_name)(map(), keyword() | map()) :: unquote(response_type_ast)
     end
   end
 
