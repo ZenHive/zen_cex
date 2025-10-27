@@ -14,7 +14,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_account/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Account Information"
+    doc: "Account Information",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec account_information(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :futures_account_balance,
@@ -28,7 +31,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_balances/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Futures Account Balance"
+    doc: "Futures Account Balance",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec futures_account_balance(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :user_commission_rate,
@@ -42,7 +48,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "User Commission Rate"
+    doc: "User Commission Rate",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec user_commission_rate(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :get_income_history,
@@ -56,7 +65,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_income/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Get Income History"
+    doc: "Get Income History",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec get_income_history(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :get_download_id_for_futures_transaction_history,
@@ -70,7 +82,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_income/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Get Download Id For Futures Transaction History"
+    doc: "Get Download Id For Futures Transaction History",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec get_download_id_for_futures_transaction_history(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :get_futures_transaction_history_download_link_by_id,
@@ -84,7 +99,11 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_income/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Get Futures Transaction History Download Link by Id"
+    doc: "Get Futures Transaction History Download Link by Id",
+    param_types: [],
+    response_type: "term()",
+    spec:
+      "@spec get_futures_transaction_history_download_link_by_id(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :notional_bracket_for_pair,
@@ -98,7 +117,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Notional Bracket for Pair"
+    doc: "Notional Bracket for Pair",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec notional_bracket_for_pair(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :get_download_id_for_futures_order_history,
@@ -112,7 +134,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_order/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Get Download Id For Futures Order History"
+    doc: "Get Download Id For Futures Order History",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec get_download_id_for_futures_order_history(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :get_futures_order_history_download_link_by_id,
@@ -126,7 +151,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_order/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Get Futures Order History Download Link by Id"
+    doc: "Get Futures Order History Download Link by Id",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec get_futures_order_history_download_link_by_id(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :get_current_position_mode,
@@ -140,7 +168,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Get Current Position Mode"
+    doc: "Get Current Position Mode",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec get_current_position_mode(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :get_download_id_for_futures_trade_history,
@@ -154,7 +185,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Get Download Id For Futures Trade History"
+    doc: "Get Download Id For Futures Trade History",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec get_download_id_for_futures_trade_history(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :get_futures_trade_download_link_by_id,
@@ -168,7 +202,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Get Futures Trade Download Link by Id"
+    doc: "Get Futures Trade Download Link by Id",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec get_futures_trade_download_link_by_id(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :notional_bracket_for_symbol,
@@ -182,7 +219,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Notional Bracket for Symbol"
+    doc: "Notional Bracket for Symbol",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec notional_bracket_for_symbol(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :position_adl_quantile_estimation,
@@ -196,7 +236,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Position ADL Quantile Estimation"
+    doc: "Position ADL Quantile Estimation",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec position_adl_quantile_estimation(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :cancel_all_orders,
@@ -210,7 +253,10 @@
     retry_on: [:timeout],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Cancel All Open Orders"
+    doc: "Cancel All Open Orders",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec cancel_all_orders(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :all_orders,
@@ -224,7 +270,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "All Orders"
+    doc: "All Orders",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec all_orders(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :cancel_multiple_orders,
@@ -238,7 +287,10 @@
     retry_on: [:timeout],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Cancel Multiple Orders"
+    doc: "Cancel Multiple Orders",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec cancel_multiple_orders(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :modify_multiple_orders,
@@ -252,7 +304,10 @@
     retry_on: [:timeout],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Modify Multiple Orders"
+    doc: "Modify Multiple Orders",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec modify_multiple_orders(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :auto_cancel_all_open_orders,
@@ -266,7 +321,10 @@
     retry_on: [:timeout],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Auto-Cancel All Open Orders"
+    doc: "Auto-Cancel All Open Orders",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec auto_cancel_all_open_orders(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :user_s_force_orders,
@@ -280,7 +338,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "User's Force Orders"
+    doc: "User's Force Orders",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec user_s_force_orders(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :change_initial_leverage,
@@ -294,7 +355,10 @@
     retry_on: [:timeout],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Change Initial Leverage"
+    doc: "Change Initial Leverage",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec change_initial_leverage(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :change_margin_type,
@@ -308,7 +372,10 @@
     retry_on: [:timeout],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Change Margin Type"
+    doc: "Change Margin Type",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec change_margin_type(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :query_current_open_order,
@@ -322,7 +389,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Query Current Open Order"
+    doc: "Query Current Open Order",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec query_current_open_order(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :get_open_orders,
@@ -336,7 +406,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Current All Open Orders"
+    doc: "Current All Open Orders",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec get_open_orders(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :cancel_order,
@@ -350,7 +423,10 @@
     retry_on: [:timeout],
     response_parser: &Parser.parse_order/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Cancel Order"
+    doc: "Cancel Order",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec cancel_order(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :modify_order,
@@ -364,7 +440,10 @@
     retry_on: [],
     response_parser: &Parser.parse_order/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Modify Order"
+    doc: "Modify Order",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec modify_order(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :place_order,
@@ -378,7 +457,10 @@
     retry_on: [],
     response_parser: &Parser.parse_order/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "New Order"
+    doc: "New Order",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec place_order(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :get_order,
@@ -392,7 +474,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_order/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Query Order"
+    doc: "Query Order",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec get_order(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :get_order_modify_history,
@@ -406,7 +491,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_order/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Get Order Modify History"
+    doc: "Get Order Modify History",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec get_order_modify_history(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :modify_isolated_position_margin,
@@ -420,7 +508,10 @@
     retry_on: [:timeout],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Modify Isolated Position Margin"
+    doc: "Modify Isolated Position Margin",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec modify_isolated_position_margin(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :get_position_margin_change_history,
@@ -434,7 +525,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Get Position Margin Change History"
+    doc: "Get Position Margin Change History",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec get_position_margin_change_history(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :position_information,
@@ -448,7 +542,10 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_positions/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Position Information"
+    doc: "Position Information",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec position_information(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :change_position_mode,
@@ -462,7 +559,10 @@
     retry_on: [:timeout],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Change Position Mode"
+    doc: "Change Position Mode",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec change_position_mode(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   },
   %{
     operation: :get_trade_history,
@@ -476,6 +576,9 @@
     retry_on: [:rate_limited, :timeout, :server_error],
     response_parser: &Parser.parse_generic/1,
     error_mapping: &Parser.parse_error/1,
-    doc: "Account Trade List"
+    doc: "Account Trade List",
+    param_types: [],
+    response_type: "term()",
+    spec: "@spec get_trade_history(map(), keyword()) :: {:ok, term()} | {:error, term()}"
   }
 ]

@@ -23,6 +23,8 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
 
   use Mix.Task
 
+  alias Mix.Tasks.Helpers.TypeGenerator
+
   # Default timeout for generated endpoints in milliseconds
   @default_endpoint_timeout_ms 5_000
 
@@ -142,9 +144,14 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
       request = item["request"]
       url = request["url"]["raw"] || ""
       path = extract_path_from_url(url)
+      operation_name = derive_operation_from_name(item["name"])
+
+      # Postman collections don't have schema information, use generic types
+      param_types = []
+      response_type = "term()"
 
       %{
-        operation: derive_operation_from_name(item["name"]),
+        operation: operation_name,
         method: request["method"] |> String.downcase() |> String.to_atom(),
         path: path,
         api_type: api_type,
@@ -155,7 +162,11 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
         retry_on: [:rate_limited, :timeout],
         response_parser: derive_parser_from_path(path),
         error_mapping: :parse_error,
-        doc: extract_documentation(item)
+        doc: extract_documentation(item),
+        # Type information (generic for Postman collections)
+        param_types: param_types,
+        response_type: response_type,
+        spec_annotation: TypeGenerator.generate_spec(operation_name, param_types, response_type)
       }
     end)
   end
@@ -303,7 +314,10 @@ defmodule Mix.Tasks.ZenCex.GenerateFuturesEndpoints do
     retry_on: #{inspect(endpoint.retry_on)},
     response_parser: &Parser.#{endpoint.response_parser}/1,
     error_mapping: &Parser.#{endpoint.error_mapping}/1,
-    doc: \"#{doc}\"
+    doc: \"#{doc}\",
+    param_types: #{inspect(endpoint.param_types)},
+    response_type: #{inspect(endpoint.response_type)},
+    spec: #{inspect(endpoint.spec_annotation)}
   }"
   end
 end
