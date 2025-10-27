@@ -213,7 +213,8 @@ defmodule Mix.Tasks.ZenCex.GenerateReadme do
     Mix.shell().info("PREVIEW of #{filename} (first 50 of #{total_lines} lines):")
     Mix.shell().info(String.duplicate("=", 80) <> "\n")
 
-    Enum.each(preview_lines, &Mix.shell().info/1)
+    shell = Mix.shell()
+    Enum.each(preview_lines, &shell.info/1)
 
     Mix.shell().info("\n" <> String.duplicate("=", 80))
     Mix.shell().info("Showing #{length(preview_lines)} of #{total_lines} lines")
