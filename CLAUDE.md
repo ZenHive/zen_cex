@@ -248,6 +248,13 @@ Enable with `ZenCex.Core.Debug.enable()` to export failed requests as curl comma
 - Direct module usage: `Unified`, `Common`, `MarketData`
 - WebSocket: `Bybit.WebSocket` for real-time data
 
+**Deribit** (planned):
+- **WebSocket-First Architecture**: Unlike Binance/Bybit, Deribit's preferred interface is WebSocket
+- JSON-RPC 2.0 protocol for both WebSocket and REST
+- WebSocket for trading operations AND market data (REST is fallback only)
+- zen_websocket already has Deribit support (`heartbeat_config: %{type: :deribit}`)
+- OpenAPI schema available at `github.com/deribit/deribit-api-clients` (reference only, may be auto-generated)
+
 ### Design Patterns
 - Req middleware for REST (auth, rate-limiting)
 - Gun-based WebSocket via zen_websocket
@@ -274,6 +281,34 @@ Unified.get_positions()
 - Unified V5 API
 - Single rate limit pool
 
+### Deribit (Planned)
+```elixir
+alias ZenCex.Adapters.Deribit.WebSocket
+
+# Primary interface: WebSocket with JSON-RPC 2.0
+Deribit.WebSocket.place_order(%{instrument: "BTC-PERPETUAL", amount: 100, type: "limit", price: 45000})
+Deribit.WebSocket.subscribe(["book.BTC-PERPETUAL.100ms", "trades.BTC-PERPETUAL.raw"])
+
+# REST fallback (same JSON-RPC calls)
+Deribit.Trading.place_order(%{...})
+```
+
+**Key Differences from Binance/Bybit**:
+- **WebSocket-first**: Trading operations via WebSocket, not REST
+- **JSON-RPC 2.0**: Both WebSocket and REST use JSON-RPC protocol
+- **Single auth**: Authenticate once per WebSocket session, not per request
+- **Subscriptions only via WebSocket**: Real-time data requires persistent connection
+- **zen_websocket features**: JSON-RPC support, Deribit heartbeats, request/response correlation
+
+**API Endpoints**:
+- Production: `https://www.deribit.com/api/v2` (WebSocket: `wss://www.deribit.com/ws/api/v2`)
+- Testnet: `https://test.deribit.com/api/v2` (WebSocket: `wss://test.deribit.com/ws/api/v2`)
+
+**Authentication**:
+- OAuth 2.0 client credentials flow
+- Single authentication message for WebSocket session
+- REST requires per-request OAuth or API key signing
+
 ## Environment Variables
 
 ```bash
@@ -283,6 +318,12 @@ BINANCE_FUTURES_TEST_API_KEY=xxx  # testnet.binancefuture.com
 
 # Bybit
 BYBIT_TESTNET_API_KEY=xxx         # api-testnet.bybit.com
+
+# Deribit (API key or OAuth client credentials)
+DERIBIT_TESTNET_API_KEY=xxx       # test.deribit.com
+DERIBIT_TESTNET_SECRET_KEY=xxx
+DERIBIT_CLIENT_ID=xxx             # OAuth (same as API key for testnet)
+DERIBIT_CLIENT_SECRET=xxx         # OAuth (same as secret key for testnet)
 ```
 
 
