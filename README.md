@@ -4,7 +4,7 @@ A comprehensive Elixir library for centralized cryptocurrency exchange (CEX) int
 
 ## Features
 
-- **Multi-Exchange Support**: Binance (fully implemented), Bybit (trading complete)
+- **Multi-Exchange Support**: Binance (fully implemented), Bybit (trading complete), Deribit (planned), Aster (planned)
 - **REST + WebSocket**: Full support for both HTTP APIs and real-time WebSocket streams
 - **Unified API Interface**: Consistent function naming across exchanges
 - **Built-in Safety Features**: Rate limiting, clock synchronization, order safety checks
@@ -766,6 +766,21 @@ Each exchange adapter consists of:
 - ✅ **Inverse Futures**: Coin-margined contracts
 - 🚧 **Options**: To be implemented
 - 🚧 **Market Data**: To be implemented
+
+### Deribit
+- 📋 **Planned**: WebSocket-first architecture with JSON-RPC 2.0
+- 📋 **Spot Trading**: Zero-fee spot markets (BTC/USDC, ETH/USDC, etc.)
+- 📋 **Options Trading**: BTC/ETH/SOL options (90% market share)
+- 📋 **Futures**: Perpetual and dated futures
+- 📋 **Market Data**: Real-time order books and trades via WebSocket
+- See `docs/deribit_specs.md` for implementation plan
+
+### Aster
+- 📋 **Planned**: Binance-compatible DEX perpetual futures API
+- 📋 **Standard API**: HMAC authentication (similar to Binance)
+- 📋 **V3 API**: Web3 wallet-based authentication with ECDSA signatures
+- 📋 **Perpetual Futures**: USD-margined contracts
+- See `docs/aster_specs.md` and `docs/aster_web3_specs.md` for details
 
 ## Testing
 

@@ -16,61 +16,9 @@ Guidance for Claude Code when working with the ZenCex library.
 
 ## 🚨 CRITICAL: NEVER HIDE TEST FAILURES
 
-**TESTS THAT HIDE ERRORS ARE WORSE THAN NO TESTS AT ALL**
+**See global CLAUDE.md for comprehensive test error handling rules.**
 
-You are writing tests to find bugs, not to make yourself feel good. A test that silently passes on errors is LYING and will cause production bugs.
-
-### ABSOLUTELY FORBIDDEN - NEVER WRITE THESE:
-
-```elixir
-# ❌ MAKES ANY OUTCOME PASS - COMPLETELY WORTHLESS
-case result do
-  {:ok, _} -> assert true
-  {:error, _} -> assert true  # ← This makes ALL failures pass silently!
-end
-
-# ❌ HIDES ALL ERRORS WITH COMMENTS - DANGEROUS
-{:error, _reason} ->
-  # This is acceptable for testnet
-  :ok  # ← NO! This silently passes EVERY error!
-
-# ❌ COMMENTS DON'T VALIDATE BEHAVIOR
-{:error, reason} ->
-  IO.puts("Error may be normal: #{inspect(reason)}")
-  assert true  # ← Still worthless!
-```
-
-### CORRECT PATTERNS - ALWAYS USE THESE:
-
-```elixir
-# ✅ FAILS LOUDLY ON UNEXPECTED ERRORS
-case result do
-  {:ok, data} -> assert is_map(data)
-  {:error, :specific_expected_error} -> :ok
-  {:error, other} -> flunk("Unexpected error: #{inspect(other)}")
-end
-
-# ✅ EXPLICIT ABOUT WHAT'S ACCEPTABLE
-{:error, :insufficient_balance} ->
-  :ok  # This specific error is expected and valid
-{:error, other} ->
-  flunk("Expected :insufficient_balance, got #{inspect(other)}")
-
-# ✅ TEST SPECIFIC BEHAVIOR, NOT OUTCOMES
-test "returns not_found when account doesn't exist" do
-  assert {:error, :not_found} = get_account("invalid_id")
-end
-
-test "returns data when account exists" do
-  assert {:ok, %{balance: _}} = get_account("valid_id")
-end
-```
-
-### THE RULE:
-
-**If you don't know what error to expect, DON'T write the test yet. Use Tidewave to explore the API first, understand the real error cases, THEN write proper assertions.**
-
-A test should FAIL if the code doesn't work as intended. Never write tests that silently pass on failures!
+**Project-specific addition**: When unsure what errors to expect from exchange APIs, use Tidewave MCP tools (`mcp__tidewave__project_eval`) to explore actual API behavior before writing assertions.
 
 ## Prerequisites
 - **Read AGENTS.md first** - Contains Elixir patterns, testing requirements, and module cooperation patterns
@@ -254,6 +202,14 @@ Enable with `ZenCex.Core.Debug.enable()` to export failed requests as curl comma
 - WebSocket for trading operations AND market data (REST is fallback only)
 - zen_websocket already has Deribit support (`heartbeat_config: %{type: :deribit}`)
 - OpenAPI schema available at `github.com/deribit/deribit-api-clients` (reference only, may be auto-generated)
+- See `docs/deribit_specs.md` for detailed implementation plan
+
+**Aster** (planned):
+- **Binance-Compatible DEX**: Perpetual futures with two API options
+- Standard API: HMAC-SHA256 auth (identical to Binance Futures)
+- V3 API: Web3 wallet authentication with ECDSA signatures
+- Manual endpoint definitions (~40 endpoints total)
+- See `docs/aster_specs.md` and `docs/aster_web3_specs.md` for details
 
 ### Design Patterns
 - Req middleware for REST (auth, rate-limiting)
@@ -293,6 +249,12 @@ Deribit.WebSocket.subscribe(["book.BTC-PERPETUAL.100ms", "trades.BTC-PERPETUAL.r
 Deribit.Trading.place_order(%{...})
 ```
 
+**Product Coverage**:
+- **Spot Trading**: Zero-fee markets (launched 2023)
+- **Options**: BTC/ETH/SOL options (90% market share)
+- **Futures**: Perpetual and dated futures contracts
+- **Perpetuals**: BTC-PERPETUAL, ETH-PERPETUAL, etc.
+
 **Key Differences from Binance/Bybit**:
 - **WebSocket-first**: Trading operations via WebSocket, not REST
 - **JSON-RPC 2.0**: Both WebSocket and REST use JSON-RPC protocol
@@ -309,6 +271,32 @@ Deribit.Trading.place_order(%{...})
 - Single authentication message for WebSocket session
 - REST requires per-request OAuth or API key signing
 
+### Aster (Planned)
+```elixir
+alias ZenCex.Adapters.Aster.{MarketData, UsdmFutures}
+
+# Standard API - HMAC authentication (like Binance)
+MarketData.get_ticker(%{symbol: "BTCUSDT"})
+UsdmFutures.place_order(%{symbol: "BTCUSDT", side: "BUY", type: "LIMIT", ...},
+  auth_credentials: %{api_key: "...", api_secret: "...", testnet: true})
+
+# V3 API - Web3 wallet authentication (future)
+UsdmFutures.place_order(%{...},
+  auth_credentials: %{wallet_address: "0x...", private_key: "0x..."})
+```
+
+**Key Characteristics**:
+- **Binance-Compatible**: Same endpoint structure (`/fapi/v1/*`), HMAC auth, response formats
+- **DEX with CEX UX**: Decentralized exchange with traditional API interface
+- **Dual Auth**: Standard HMAC (implemented first) + Web3 ECDSA signatures (future)
+- **Perpetual Futures Only**: USD-margined contracts with multi-assets and hedge mode
+- **Manual Endpoints**: ~40 endpoints defined manually (no OpenAPI spec available)
+
+**Rate Limits**:
+- Request weight: 2400/min
+- Order limit: 1200/min
+- IP-based with potential ban for violations
+
 ## Environment Variables
 
 ```bash
@@ -324,6 +312,12 @@ DERIBIT_TESTNET_API_KEY=xxx       # test.deribit.com
 DERIBIT_TESTNET_SECRET_KEY=xxx
 DERIBIT_CLIENT_ID=xxx             # OAuth (same as API key for testnet)
 DERIBIT_CLIENT_SECRET=xxx         # OAuth (same as secret key for testnet)
+
+# Aster (Standard API or V3 Web3)
+ASTER_API_KEY=xxx                 # fapi.asterdex.com (Standard API)
+ASTER_API_SECRET=xxx
+ASTER_WALLET_ADDRESS=xxx          # V3 Web3 API (future)
+ASTER_PRIVATE_KEY=xxx
 ```
 
 

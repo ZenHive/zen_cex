@@ -1,11 +1,24 @@
 # Deribit Integration Specification
 
-**Version**: 2.3
+**Version**: 2.4
 **Created**: 2025-01-31
-**Updated**: 2025-02-01
-**Status**: Implementation Ready
+**Updated**: 2025-11-02
+**Status**: In Progress - Task 2 Complete ✅
 
 ## Changelog
+
+### v2.4 (2025-11-02) - TASK 2 COMPLETE ✅
+- ✅ **Deribit.Rpc module created** (254 lines) - All 12 RPC methods copied from Examples.DeribitRpc
+- ✅ **Deribit.WebSocket module created** (355 lines) - Full adapter with ETS caching
+- ✅ **Message handlers implemented** - handle_orderbook_update, handle_ticker_update, handle_trade_update
+- ✅ **Integration tests passing** - 13 tests, 0 failures (connection, auth, subscriptions, ETS cache, direct requests)
+- ✅ **IntegrationCase updated** - Added enforce_deribit_testnet! and verify_deribit_connectivity!
+- ✅ **Real testnet validation** - All tests verified against test.deribit.com
+- 📊 **Files created**:
+  - `lib/zen_cex/adapters/deribit/rpc.ex` (254 lines)
+  - `lib/zen_cex/adapters/deribit/websocket.ex` (355 lines)
+  - `test/zen_cex/adapters/deribit/websocket_test.exs` (265 lines)
+- 🎯 **Next**: Task 3 - Parser module (normalize raw JSON → atom keys + snake_case)
 
 ### v2.3 (2025-02-01) - CRITICAL PATTERN CORRECTION ⚠️
 - 🚨 **Task 5 updated**: Match actual Binance pattern (WebSocket handlers update ETS, MarketData reads ETS)
@@ -73,12 +86,28 @@ This specification defines the Deribit exchange integration for zen_cex. Unlike 
 
 ### What zen_cex Needs to Add
 
-📋 **Rpc** module: Copy DeribitRpc methods, use JsonRpc.build_request/2 (~250 lines)
-🔌 **WebSocket** wrapper: Accept explicit credentials, copy DeribitAdapter pattern (~200 lines)
+✅ **Rpc** module: Copy DeribitRpc methods, use JsonRpc.build_request/2 (254 lines) - COMPLETE
+✅ **WebSocket** wrapper: Accept explicit credentials, copy DeribitAdapter pattern (355 lines) - COMPLETE
 📄 **Parser** module: CRITICAL - normalize raw JSON (string keys → atom keys, camelCase → snake_case)
 📊 **MarketData** cache: ETS table updated by WebSocket handler
 🏗️ **Trading** wrappers: Ultra-thin functions over Rpc methods
 📡 **REST** endpoints: Optional fallback for historical data (LOW priority)
+
+### Implementation Progress
+
+**Status**: 2/7 tasks complete (29%) ✅
+
+**Completed**:
+- ✅ Task 1: Understood - No Auth module needed
+- ✅ Task 2: Deribit.WebSocket + Rpc modules (609 lines, 13 tests passing)
+
+**Remaining**:
+- 📄 Task 3: Parser module (normalize JSON) - **NEXT**
+- 🏗️ Task 4: Trading wrapper
+- 📊 Task 5: MarketData wrapper + ETS cache
+- ⚙️ Task 6: RateLimiter config
+- 🧪 Task 7: Integration tests (partially complete)
+- ⚠️ Task 8: REST endpoints (optional, low priority)
 
 ---
 
@@ -176,10 +205,10 @@ Deribit follows the same three-layer connection architecture as Binance/Bybit:
 - Deribit.WebSocket receives credentials as function parameters
 - DeribitAdapter.authenticate() handles OAuth flow automatically
 
-**Acceptance Criteria**:
-- [ ] NO Auth module created (not needed!)
-- [ ] Understood: Library = explicit credentials, Calling code = reads ENV
-- [ ] Ready for Task 2 (WebSocket wrapper with explicit credentials)
+**Acceptance Criteria**: ✅ COMPLETE
+- [x] NO Auth module created (not needed!)
+- [x] Understood: Library = explicit credentials, Calling code = reads ENV
+- [x] Ready for Task 2 (WebSocket wrapper with explicit credentials)
 
 ---
 
@@ -258,18 +287,18 @@ end
 defstruct [:client, :authenticated, :subscriptions, :client_id, :client_secret]
 ```
 
-**Acceptance Criteria**:
-- [ ] Connection to test.deribit.com works
-- [ ] Credentials passed as function parameters (NOT from env!)
-- [ ] Uses `ZenWebsocket.Client` and `ZenWebsocket.JsonRpc` (core APIs)
-- [ ] **Does NOT import `Examples.*` modules** - all code copied into zen_cex
-- [ ] Message handlers update ETS cache (like Binance.WebSocket:480-577)
-- [ ] `handle_orderbook_update/1` → `Market.put_orderbook(:deribit, instrument, data, :infinity)`
-- [ ] `handle_ticker_update/1` → `Market.put_ticker(:deribit, instrument, data, 30)`
-- [ ] `handle_trade_update/1` → `Market.put_last_trade(:deribit, instrument, data)`
-- [ ] Integration test: connect → auth → subscribe → receive updates → verify ETS cache
-- [ ] Rpc module is ~250 lines (12 simple delegation functions)
-- [ ] WebSocket module is ~300 lines (pattern copy + state + message handlers)
+**Acceptance Criteria**: ✅ COMPLETE (2025-11-02)
+- [x] Connection to test.deribit.com works
+- [x] Credentials passed as function parameters (NOT from env!)
+- [x] Uses `ZenWebsocket.Client` and `ZenWebsocket.JsonRpc` (core APIs)
+- [x] **Does NOT import `Examples.*` modules** - all code copied into zen_cex
+- [x] Message handlers update ETS cache (like Binance.WebSocket:480-577)
+- [x] `handle_orderbook_update/1` → `Market.put_orderbook(:deribit, instrument, data, :infinity)`
+- [x] `handle_ticker_update/1` → `Market.put_ticker(:deribit, instrument, data, 30)`
+- [x] `handle_trade_update/1` → `Market.put_last_trade(:deribit, instrument, data)`
+- [x] Integration test: connect → auth → subscribe → receive updates → verify ETS cache
+- [x] Rpc module is 254 lines (12 simple delegation functions)
+- [x] WebSocket module is 355 lines (pattern copy + state + message handlers)
 
 ---
 
@@ -599,24 +628,24 @@ end
 
 ```
 lib/zen_cex/adapters/deribit/
-├── rpc.ex              (~250 lines) - COPIED from Examples.DeribitRpc
-├── websocket.ex        (~300 lines) - COPIED pattern + message handlers for ETS
+├── rpc.ex              (254 lines) ✅ - COPIED from Examples.DeribitRpc
+├── websocket.ex        (355 lines) ✅ - COPIED pattern + message handlers for ETS
 ├── parser.ex           (~300 lines) - Normalize JSON with normalize_keys
 ├── trading.ex          (~200 lines) - Ultra-thin wrappers over Rpc
 ├── market_data.ex      (~150 lines) - Read from ETS + direct requests
 └── rate_limiter.ex     (~80 lines)  - Config wrapper for zen_websocket
 
 test/zen_cex/adapters/deribit/
-├── rpc_test.exs
-├── websocket_test.exs
-├── parser_test.exs
-├── trading_test.exs
-├── market_data_test.exs
-├── rate_limiter_test.exs
-└── integration_test.exs (~300 lines) - Real testnet tests
+├── rpc_test.exs        (TBD)
+├── websocket_test.exs  (265 lines) ✅ - 13 tests, all passing
+├── parser_test.exs     (TBD)
+├── trading_test.exs    (TBD)
+├── market_data_test.exs (TBD)
+├── rate_limiter_test.exs (TBD)
+└── integration_test.exs (~300 lines) - Real testnet tests (may merge with websocket_test)
 ```
 
-**Total Lines**: ~1,580 lines
+**Total Lines**: ~1,580 lines (609 lines complete, 971 lines remaining)
 
 **Architecture Notes**:
 - NO auth.ex! Credentials passed explicitly per zen_cex design
@@ -664,14 +693,16 @@ DERIBIT_SECRET_KEY=xxx
 
 ## Success Criteria
 
-1. ✅ **All tasks completed** with passing tests
-2. ✅ **Integration tests** pass against real Deribit testnet
-3. ✅ **Connection reuse** via ConnectionRegistry (application layer)
-4. ✅ **Parser** handles all Deribit response formats
-5. ✅ **WebSocket** connection survives reconnections
-6. ✅ **Rate limiting** prevents API violations
-7. ✅ **ETS cache** reduces redundant API calls
-8. ✅ **Code coverage** >80% (unit tests + integration tests)
+**Progress: 2/7 tasks complete (29%)**
+
+1. ⏳ **All tasks completed** with passing tests (2/7 complete)
+2. ✅ **Integration tests** pass against real Deribit testnet (WebSocket tests passing)
+3. ⏳ **Connection reuse** via ConnectionRegistry (application layer - pending)
+4. ⏳ **Parser** handles all Deribit response formats (Task 3 - pending)
+5. ✅ **WebSocket** connection survives reconnections (zen_websocket handles this)
+6. ⏳ **Rate limiting** prevents API violations (Task 6 - pending)
+7. ✅ **ETS cache** reduces redundant API calls (message handlers implemented)
+8. ⏳ **Code coverage** >80% (unit tests + integration tests - 13 tests so far)
 
 ---
 
