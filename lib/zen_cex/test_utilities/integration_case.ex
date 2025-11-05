@@ -207,12 +207,64 @@ defmodule ZenCex.TestUtilities.IntegrationCase do
 
   # Deribit testnet enforcement
   defp enforce_deribit_testnet!(_api_type) do
-    # TODO: Implement Deribit testnet enforcement when Deribit adapter is added
-    # Deribit uses test.deribit.com for testnet
-    raise """
-    Deribit testnet enforcement not yet implemented.
-    The Deribit adapter needs to be completed first.
-    """
+    # Check credentials for authenticated endpoints
+    client_id =
+      fetch_testnet_credential!("DERIBIT_TESTNET_API_KEY", """
+      DERIBIT_TESTNET_API_KEY required for integration tests.
+
+      Get testnet credentials at: https://test.deribit.com/
+      Then run: export DERIBIT_TESTNET_API_KEY=your_client_id
+      """)
+
+    client_secret =
+      fetch_testnet_credential!("DERIBIT_TESTNET_SECRET_KEY", """
+      DERIBIT_TESTNET_SECRET_KEY required for integration tests.
+
+      Get testnet credentials at: https://test.deribit.com/
+      Then run: export DERIBIT_TESTNET_SECRET_KEY=your_client_secret
+      """)
+
+    # Verify connectivity to Deribit testnet
+    verify_deribit_connectivity!(client_id, client_secret)
+
+    {:ok, client_id: client_id, client_secret: client_secret, testnet: true, exchange: :deribit}
+  end
+
+  # Verify connectivity to Deribit testnet
+  defp verify_deribit_connectivity!(client_id, client_secret) do
+    alias ZenCex.Adapters.Deribit.WebSocket
+
+    case WebSocket.connect(client_id: client_id, client_secret: client_secret, testnet: true) do
+      {:ok, adapter} ->
+        # Try to authenticate
+        case WebSocket.authenticate(adapter) do
+          {:ok, _} ->
+            WebSocket.close(adapter)
+            :ok
+
+          {:error, reason} ->
+            WebSocket.close(adapter)
+
+            raise """
+            Cannot authenticate with Deribit testnet: #{inspect(reason)}
+
+            Please verify:
+            1. Your Deribit testnet credentials are correct
+            2. Your API key has not expired
+            3. The testnet API is operational
+            """
+        end
+
+      {:error, reason} ->
+        raise """
+        Cannot connect to Deribit testnet: #{inspect(reason)}
+
+        Please verify:
+        1. Your internet connection is working
+        2. Deribit testnet is accessible from your location
+        3. The testnet API is operational
+        """
+    end
   end
 
   # Helper to get expected Binance testnet URL based on API type
