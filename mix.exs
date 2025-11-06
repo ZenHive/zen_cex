@@ -107,7 +107,8 @@ defmodule ZenCex.MixProject do
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:doctor, "~> 0.22.0", only: [:dev, :test]},
       {:styler, "~> 1.5", only: [:dev, :test], runtime: false},
-      {:mox, "~> 1.0", only: :test}
+      {:mox, "~> 1.0", only: :test},
+      {:sobelow, "~> 0.14", only: [:dev, :test], runtime: false, warn_if_outdated: true}
     ]
   end
 
