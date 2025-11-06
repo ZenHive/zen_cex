@@ -522,6 +522,12 @@ end
 - [ ] Integration test: subscribe → receive updates → verify ETS → get functions work
 - [ ] Module is <150 lines (mostly thin wrappers!)
 
+**Parser Enhancements** (add during this task):
+- [ ] Add `parse_market_data/1` optional callback to `Deribit.Parser`
+- [ ] Implement WebSocket subscription data parsing (orderbook updates, ticker streams, trade streams)
+- [ ] Add `@behaviour ZenCex.Behaviors.Parser` declaration for compile-time verification
+- [ ] Test parsing of subscription channel messages with real Deribit examples
+
 ---
 
 ### Task 6: Configure Deribit.RateLimiter (100-credit bucket) [D:1/B:7 → Priority:7.0] 📋
