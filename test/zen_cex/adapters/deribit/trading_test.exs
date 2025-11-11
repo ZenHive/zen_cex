@@ -106,7 +106,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
   end
 
   describe "sell/4" do
-    test "places limit sell order", %{client: client, safe_buy_price: safe_buy_price, safe_sell_price: safe_sell_price} do
+    test "places limit sell order", %{client: client, safe_sell_price: safe_sell_price} do
       {:ok, order} =
         Trading.sell(client, @test_instrument, 10, %{
           type: "limit",
@@ -123,7 +123,6 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
 
     test "places post-only sell order", %{
       client: client,
-      safe_buy_price: safe_buy_price,
       safe_sell_price: safe_sell_price
     } do
       {:ok, order} =
@@ -139,7 +138,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
   end
 
   describe "cancel/2" do
-    test "cancels existing order", %{client: client, safe_buy_price: safe_buy_price, safe_sell_price: safe_sell_price} do
+    test "cancels existing order", %{client: client, safe_buy_price: safe_buy_price} do
       # Place order to cancel
       {:ok, order} =
         Trading.buy(client, @test_instrument, 10, %{
@@ -157,11 +156,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
       assert cancelled_order[:order_state] == :cancelled
     end
 
-    test "returns error for invalid order_id", %{
-      client: client,
-      safe_buy_price: safe_buy_price,
-      safe_sell_price: safe_sell_price
-    } do
+    test "returns error for invalid order_id", %{client: client} do
       case Trading.cancel(client, "INVALID-12345") do
         {:error, error} ->
           # Deribit returns JSON-RPC error
@@ -175,7 +170,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
   end
 
   describe "edit_order/3" do
-    test "edits order price", %{client: client, safe_buy_price: safe_buy_price, safe_sell_price: safe_sell_price} do
+    test "edits order price", %{client: client, safe_buy_price: safe_buy_price} do
       # Place initial order
       {:ok, order} =
         Trading.buy(client, @test_instrument, 10, %{
@@ -194,7 +189,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
       assert edited[:amount] == 10
     end
 
-    test "edits order amount", %{client: client, safe_buy_price: safe_buy_price, safe_sell_price: safe_sell_price} do
+    test "edits order amount", %{client: client, safe_buy_price: safe_buy_price} do
       # Place initial order
       {:ok, order} =
         Trading.buy(client, @test_instrument, 10, %{
@@ -211,8 +206,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
 
     test "edits both price and amount", %{
       client: client,
-      safe_buy_price: safe_buy_price,
-      safe_sell_price: safe_sell_price
+      safe_buy_price: safe_buy_price
     } do
       # Place initial order
       {:ok, order} =
@@ -238,8 +232,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
   describe "get_open_orders/2" do
     test "returns open orders for instrument", %{
       client: client,
-      safe_buy_price: safe_buy_price,
-      safe_sell_price: safe_sell_price
+      safe_buy_price: safe_buy_price
     } do
       # Place test order
       {:ok, order} =
@@ -259,11 +252,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
       assert Enum.any?(orders, &(&1[:order_id] == order[:order_id]))
     end
 
-    test "returns empty list when no open orders for instrument", %{
-      client: client,
-      safe_buy_price: safe_buy_price,
-      safe_sell_price: safe_sell_price
-    } do
+    test "returns empty list when no open orders for instrument", %{client: client} do
       # Cancel all orders first
       Trading.cancel_all(client, %{instrument_name: @test_instrument})
 
@@ -276,7 +265,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
       assert orders == []
     end
 
-    test "filters orders by currency", %{client: client, safe_buy_price: safe_buy_price, safe_sell_price: safe_sell_price} do
+    test "filters orders by currency", %{client: client, safe_buy_price: safe_buy_price} do
       # Place order
       {:ok, order} =
         Trading.buy(client, @test_instrument, 10, %{
@@ -295,8 +284,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
 
     test "returns all open orders without filters", %{
       client: client,
-      safe_buy_price: safe_buy_price,
-      safe_sell_price: safe_sell_price
+      safe_buy_price: safe_buy_price
     } do
       # Place order
       {:ok, order} =
@@ -354,8 +342,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
 
     test "cancels all orders for currency", %{
       client: client,
-      safe_buy_price: safe_buy_price,
-      safe_sell_price: safe_sell_price
+      safe_buy_price: safe_buy_price
     } do
       # Place multiple orders on the same instrument (all BTC)
       {:ok, _} = Trading.buy(client, @test_instrument, 10, %{type: "limit", price: safe_buy_price})
@@ -367,11 +354,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
       assert count >= 2
     end
 
-    test "returns 0 when no orders to cancel", %{
-      client: client,
-      safe_buy_price: safe_buy_price,
-      safe_sell_price: safe_sell_price
-    } do
+    test "returns 0 when no orders to cancel", %{client: client} do
       # Cancel all first
       Trading.cancel_all(client, %{instrument_name: @test_instrument})
 
@@ -386,11 +369,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
   end
 
   describe "get_order_history/2" do
-    test "returns historical orders for instrument", %{
-      client: client,
-      safe_buy_price: safe_buy_price,
-      safe_sell_price: safe_sell_price
-    } do
+    test "returns historical orders for instrument", %{client: client} do
       # Query history - testnet returns empty array (no history preserved)
       {:ok, history} =
         Trading.get_order_history(client, %{
@@ -402,11 +381,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
       assert history == []
     end
 
-    test "returns historical orders for currency", %{
-      client: client,
-      safe_buy_price: safe_buy_price,
-      safe_sell_price: safe_sell_price
-    } do
+    test "returns historical orders for currency", %{client: client} do
       {:ok, history} =
         Trading.get_order_history(client, %{
           currency: "BTC",
@@ -417,7 +392,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
       assert history == []
     end
 
-    test "respects count parameter", %{client: client, safe_buy_price: safe_buy_price, safe_sell_price: safe_sell_price} do
+    test "respects count parameter", %{client: client} do
       {:ok, history} =
         Trading.get_order_history(client, %{
           instrument_name: @test_instrument,
@@ -430,11 +405,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
   end
 
   describe "get_user_trades/2" do
-    test "returns trade history for instrument", %{
-      client: client,
-      safe_buy_price: safe_buy_price,
-      safe_sell_price: safe_sell_price
-    } do
+    test "returns trade history for instrument", %{client: client} do
       {:ok, trades} =
         Trading.get_user_trades(client, %{
           instrument_name: @test_instrument,
@@ -445,11 +416,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
       # May be empty if no fills on testnet
     end
 
-    test "returns trade history for currency", %{
-      client: client,
-      safe_buy_price: safe_buy_price,
-      safe_sell_price: safe_sell_price
-    } do
+    test "returns trade history for currency", %{client: client} do
       {:ok, trades} =
         Trading.get_user_trades(client, %{
           currency: "BTC",
@@ -461,8 +428,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
 
     test "returns trade history for specific order", %{
       client: client,
-      safe_buy_price: safe_buy_price,
-      safe_sell_price: safe_sell_price
+      safe_buy_price: safe_buy_price
     } do
       # Place and cancel order
       {:ok, order} =
@@ -480,7 +446,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
       assert is_list(trades)
     end
 
-    test "respects count parameter", %{client: client, safe_buy_price: safe_buy_price, safe_sell_price: safe_sell_price} do
+    test "respects count parameter", %{client: client} do
       {:ok, trades} =
         Trading.get_user_trades(client, %{
           instrument_name: @test_instrument,
@@ -493,7 +459,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
   end
 
   describe "order flow integration" do
-    test "complete order lifecycle", %{client: client, safe_buy_price: safe_buy_price, safe_sell_price: safe_sell_price} do
+    test "complete order lifecycle", %{client: client, safe_buy_price: safe_buy_price} do
       # 1. Place order
       {:ok, order} =
         Trading.buy(client, @test_instrument, 10, %{

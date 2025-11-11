@@ -617,4 +617,141 @@ defmodule ZenCex.Adapters.Deribit.ParserTest do
       assert error.error.data.param == "instrument_name"
     end
   end
+
+  describe "edge cases for enum normalization" do
+    test "parse_order handles nil enum fields" do
+      response = %{
+        "result" => %{
+          "order" => %{
+            "order_id" => "123",
+            "instrument_name" => "BTC-PERPETUAL",
+            "order_state" => nil,
+            "direction" => nil,
+            "order_type" => nil
+          }
+        }
+      }
+
+      assert {:ok, order} = Parser.parse_order(response)
+      assert order.order_id == "123"
+      assert order.order_state == nil
+      assert order.direction == nil
+      assert order.order_type == nil
+    end
+
+    test "parse_order handles numeric enum fields" do
+      response = %{
+        "result" => %{
+          "order" => %{
+            "order_id" => "123",
+            "instrument_name" => "BTC-PERPETUAL",
+            "order_state" => 1,
+            "direction" => 2,
+            "order_type" => 3
+          }
+        }
+      }
+
+      assert {:ok, order} = Parser.parse_order(response)
+      assert order.order_id == "123"
+      # Numeric values should pass through unchanged (not strings)
+      assert order.order_state == 1
+      assert order.direction == 2
+      assert order.order_type == 3
+    end
+
+    test "parse_ticker handles nil state field" do
+      response = %{
+        "result" => %{
+          "instrument_name" => "BTC-PERPETUAL",
+          "last_price" => 50_000.0,
+          "state" => nil
+        }
+      }
+
+      assert {:ok, ticker} = Parser.parse_ticker(response)
+      assert ticker.instrument_name == "BTC-PERPETUAL"
+      assert ticker.state == nil
+    end
+
+    test "parse_trades handles nil direction fields" do
+      response = %{
+        "result" => %{
+          "trades" => [
+            %{
+              "trade_id" => "123",
+              "instrument_name" => "BTC-PERPETUAL",
+              "direction" => nil,
+              "price" => 50_000.0,
+              "amount" => 10
+            }
+          ]
+        }
+      }
+
+      assert {:ok, trades} = Parser.parse_trades(response)
+      assert length(trades) == 1
+      assert hd(trades).direction == nil
+    end
+  end
+
+  describe "edge cases for empty collections" do
+    test "parse_orders handles empty list" do
+      response = %{"result" => []}
+
+      assert {:ok, orders} = Parser.parse_orders(response)
+      assert orders == []
+    end
+
+    test "parse_instruments handles empty list" do
+      response = %{"result" => []}
+
+      assert {:ok, instruments} = Parser.parse_instruments(response)
+      assert instruments == []
+    end
+
+    test "parse_trades handles empty trades list" do
+      response = %{"result" => %{"trades" => []}}
+
+      assert {:ok, trades} = Parser.parse_trades(response)
+      assert trades == []
+    end
+
+    test "parse_positions handles empty list" do
+      response = %{"result" => []}
+
+      assert {:ok, positions} = Parser.parse_positions(response)
+      assert positions == []
+    end
+  end
+
+  describe "edge cases for minimal valid data" do
+    test "parse_order_book with minimal data" do
+      response = %{
+        "result" => %{
+          "instrument_name" => "BTC-PERPETUAL",
+          "bids" => [],
+          "asks" => []
+        }
+      }
+
+      assert {:ok, orderbook} = Parser.parse_order_book(response)
+      assert orderbook.instrument_name == "BTC-PERPETUAL"
+      assert orderbook.bids == []
+      assert orderbook.asks == []
+    end
+
+    test "parse_account_summary with minimal data" do
+      response = %{
+        "result" => %{
+          "currency" => "BTC",
+          "balance" => 0.0
+        }
+      }
+
+      assert {:ok, summary} = Parser.parse_account_summary(response)
+      assert summary.currency == "BTC"
+      assert summary.balance == 0.0
+    end
+  end
 end

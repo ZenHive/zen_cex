@@ -39,7 +39,7 @@ defmodule ZenCex.Adapters.Binance.UsdmFuturesTest do
       endpoints = UsdmFutures.all_endpoints()
       assert is_list(endpoints)
       # After removing filtering: 37 -> 48 endpoints (comprehensive coverage)
-      assert length(endpoints) == 48
+      assert length(endpoints) == 54
 
       # Check that get_positions endpoint exists
       positions_endpoint = Enum.find(endpoints, fn e -> e.operation == :get_positions end)
