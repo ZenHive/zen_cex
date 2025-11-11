@@ -142,9 +142,9 @@ defmodule ZenCex.Adapters.Binance.AuthTest do
 
       {:ok, response} = Req.get(request)
 
-      # Should get 200 with valid auth, 400/401 if portfolio margin not enabled,
-      # or 404 if the specific PAPI endpoint doesn't exist on testnet
-      assert response.status in [200, 400, 401, 404]
+      # Should get 200 with valid auth, 202 if accepted but processing,
+      # 400/401 if portfolio margin not enabled, or 404 if the endpoint doesn't exist on testnet
+      assert response.status in [200, 202, 400, 401, 404]
 
       if response.status == 200 do
         assert Map.has_key?(response.body, "uniMMR") or

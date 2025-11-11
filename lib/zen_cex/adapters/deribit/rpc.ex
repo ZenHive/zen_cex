@@ -267,4 +267,135 @@ defmodule ZenCex.Adapters.Deribit.Rpc do
     {:ok, request} = JsonRpc.build_request("private/get_open_orders", opts)
     request
   end
+
+  @doc """
+  Edits an existing order.
+
+  ## Parameters
+  - `order_id` - The order ID to edit
+  - `opts` - Update options (amount, price, post_only, reduce_only)
+
+  ## Returns
+  A JSON-RPC request map for order editing.
+
+  ## Example
+      request = edit_order("ETH-349253", %{amount: 150, price: 9500})
+  """
+  @spec edit_order(String.t(), map()) :: map()
+  def edit_order(order_id, opts \\ %{}) do
+    params = Map.merge(%{order_id: order_id}, opts)
+    {:ok, request} = JsonRpc.build_request("private/edit", params)
+    request
+  end
+
+  @doc """
+  Cancels all orders with optional filters.
+
+  Automatically routes to the appropriate Deribit method based on the filters provided:
+  - `instrument_name` → private/cancel_all_by_instrument
+  - `currency` → private/cancel_all_by_currency
+  - No filters → private/cancel_all
+
+  ## Parameters
+  - `opts` - Optional filters (instrument_name, currency, kind, type)
+
+  ## Returns
+  A JSON-RPC request map for cancel all.
+
+  ## Example
+      request = cancel_all(%{instrument_name: "BTC-PERPETUAL"})
+      request = cancel_all(%{currency: "BTC"})
+  """
+  @spec cancel_all(map()) :: map()
+  def cancel_all(opts \\ %{}) do
+    method =
+      cond do
+        Map.has_key?(opts, :instrument_name) -> "private/cancel_all_by_instrument"
+        Map.has_key?(opts, :currency) -> "private/cancel_all_by_currency"
+        true -> "private/cancel_all"
+      end
+
+    {:ok, request} = JsonRpc.build_request(method, opts)
+    request
+  end
+
+  @doc """
+  Retrieves order history with filters.
+
+  Automatically routes to the appropriate Deribit method:
+  - `instrument_name` → private/get_order_history_by_instrument
+  - `currency` → private/get_order_history_by_currency
+
+  ## Parameters
+  - `opts` - Filters (instrument_name or currency REQUIRED, plus count, offset)
+
+  ## Returns
+  A JSON-RPC request map for order history.
+
+  ## Example
+      request = get_order_history(%{instrument_name: "BTC-PERPETUAL", count: 50})
+      request = get_order_history(%{currency: "BTC", count: 20})
+  """
+  @spec get_order_history(map()) :: map()
+  def get_order_history(opts) do
+    method =
+      if Map.has_key?(opts, :instrument_name) do
+        "private/get_order_history_by_instrument"
+      else
+        "private/get_order_history_by_currency"
+      end
+
+    {:ok, request} = JsonRpc.build_request(method, opts)
+    request
+  end
+
+  @doc """
+  Retrieves user trade history.
+
+  Automatically routes to the appropriate Deribit method:
+  - `order_id` → private/get_user_trades_by_order
+  - `instrument_name` → private/get_user_trades_by_instrument
+  - `currency` → private/get_user_trades_by_currency
+
+  ## Parameters
+  - `opts` - Filters (order_id, instrument_name, or currency REQUIRED)
+
+  ## Returns
+  A JSON-RPC request map for user trades.
+
+  ## Example
+      request = get_user_trades(%{instrument_name: "BTC-PERPETUAL"})
+      request = get_user_trades(%{order_id: "ETH-349253"})
+      request = get_user_trades(%{currency: "BTC", count: 50})
+  """
+  @spec get_user_trades(map()) :: map()
+  def get_user_trades(opts) do
+    method =
+      cond do
+        Map.has_key?(opts, :order_id) -> "private/get_user_trades_by_order"
+        Map.has_key?(opts, :instrument_name) -> "private/get_user_trades_by_instrument"
+        true -> "private/get_user_trades_by_currency"
+      end
+
+    {:ok, request} = JsonRpc.build_request(method, opts)
+    request
+  end
+
+  @doc """
+  Gets the state of a single order.
+
+  ## Parameters
+  - `order_id` - The order ID to query
+
+  ## Returns
+  A JSON-RPC request map for order state.
+
+  ## Example
+      request = get_order_state("ETH-349253")
+  """
+  @spec get_order_state(String.t()) :: map()
+  def get_order_state(order_id) do
+    {:ok, request} = JsonRpc.build_request("private/get_order_state", %{order_id: order_id})
+    request
+  end
 end

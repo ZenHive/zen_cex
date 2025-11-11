@@ -765,6 +765,72 @@ use ZenCex.IntegrationCase,
 - Separate success/error test cases
 - Use `_TESTNET_` in env variable names
 
+### Exchange-Specific Test Helpers
+
+**Pattern**: Extract reusable test utilities into `test/support/` for consistency across integration tests.
+
+**Example**: Deribit Test Helpers for Dynamic Pricing
+
+```elixir
+# test/support/deribit_test_helpers.ex
+defmodule ZenCex.DeribitTestHelpers do
+  @moduledoc """
+  Test helpers for Deribit integration tests.
+
+  Provides utilities for getting safe test prices from real market data
+  to ensure orders won't fill while staying within exchange limits.
+  """
+
+  alias ZenCex.Adapters.Deribit.{Parser, Rpc, WebSocket}
+
+  @default_price 100_000.0
+  @buy_price_offset 0.80   # 20% below market
+  @sell_price_offset 1.20  # 20% above market
+
+  def get_current_market_price(client, instrument) do
+    # Fetch real ticker data from exchange
+    # Fallback to reasonable default on error
+  end
+
+  def get_safe_buy_price(client, instrument) do
+    # Calculate price 20% below market (safe from fills)
+  end
+
+  def get_safe_sell_price(client, instrument) do
+    # Calculate price 20% above market (safe from fills)
+  end
+end
+
+# Usage in tests
+import ZenCex.DeribitTestHelpers
+
+setup context do
+  {:ok, client} = WebSocket.connect(...)
+  {:ok, client} = WebSocket.authenticate(client)
+
+  {:ok,
+   client: client,
+   safe_buy_price: get_safe_buy_price(client, "BTC-PERPETUAL"),
+   safe_sell_price: get_safe_sell_price(client, "BTC-PERPETUAL")}
+end
+```
+
+**Why This Pattern Works**:
+- ✅ **Dynamic pricing** based on real market data (not hardcoded)
+- ✅ **Safe from fills** - orders 20% away from market won't execute
+- ✅ **Exchange compliance** - within Deribit's price rejection limits
+- ✅ **Reusable** across all Deribit integration tests
+- ✅ **Well-documented** with `@moduledoc` and `@spec`
+- ✅ **Configurable** via module attributes (`@buy_price_offset`, etc.)
+
+**Benefits**:
+- Eliminates duplicate helper code across test files
+- Ensures consistent pricing strategy across all tests
+- Easy to adjust offsets if exchange rules change
+- Self-documenting with comprehensive docs
+
+**See**: `test/support/deribit_test_helpers.ex` for full implementation
+
 ## Module Dependencies
 
 Critical internal dependencies to be aware of:
