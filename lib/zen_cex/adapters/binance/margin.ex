@@ -44,31 +44,17 @@ defmodule ZenCex.Adapters.Binance.Margin do
       :get_borrow_repay ->
         %{endpoint | operation: :get_borrow_repay_history}
 
-      # Rename interest operations
-      :get_interestHistory ->
-        %{endpoint | operation: :get_interest_history}
-
-      :get_interestRateHistory ->
-        %{endpoint | operation: :get_interest_rate_history}
-
-      # Rename transfer operations
-      :get_maxTransferable ->
-        %{endpoint | operation: :get_max_transferable}
-
-      :get_maxBorrowable ->
-        %{endpoint | operation: :get_max_borrowable}
-
       # Rename order operations for clarity
-      :get_allOrders ->
+      :get_all_orders ->
         %{endpoint | operation: :get_order_history}
 
-      :get_allOrderList ->
+      :get_all_order_list ->
         %{endpoint | operation: :get_oco_history}
 
-      :get_myTrades ->
+      :get_my_trades ->
         %{endpoint | operation: :get_trade_history}
 
-      :cancel_openOrders ->
+      :cancel_open_orders ->
         %{endpoint | operation: :cancel_all_orders}
 
       # Fix isolated margin account enable/disable
@@ -108,7 +94,7 @@ defmodule ZenCex.Adapters.Binance.Margin do
         # Never retry order placement
         %{endpoint | max_retries: 0, retry_on: []}
 
-      op when op in [:cancel_order, :cancel_orderList] ->
+      op when op in [:cancel_order, :cancel_order_list] ->
         # Allow timeout retry for cancellations
         %{endpoint | max_retries: 1, retry_on: [:timeout]}
 
@@ -122,10 +108,10 @@ defmodule ZenCex.Adapters.Binance.Margin do
   @endpoints Enum.reject(@endpoints, fn endpoint ->
                endpoint.operation in [
                  :get_api_key_list,
-                 :place_apiKey,
-                 :cancel_apiKey,
-                 :get_apiKey,
-                 :update_apiKey_ip,
+                 :place_api_key,
+                 :cancel_api_key,
+                 :get_api_key,
+                 :update_api_key_ip,
                  # This is the misnamed bnbBurn operation
                  :get
                ]

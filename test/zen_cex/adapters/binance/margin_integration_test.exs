@@ -119,34 +119,25 @@ defmodule ZenCex.Adapters.Binance.MarginIntegrationTest do
 
   describe "margin market data" do
     @tag skip: "SAPI endpoints not available on testnet"
-    test "get_allAssets returns all margin assets" do
-      assert {:error, _} = Margin.get_allAssets()
+    test "get_all_assets returns all margin assets" do
+      assert {:error, _} = Margin.get_all_assets()
     end
 
     @tag skip: "SAPI endpoints not available on testnet"
-    test "get_allPairs returns all cross margin pairs" do
-      assert {:error, _} = Margin.get_allPairs()
+    test "get_all_pairs returns all cross margin pairs" do
+      assert {:error, _} = Margin.get_all_pairs()
     end
 
     @tag skip: "SAPI endpoints not available on testnet"
-    test "get_isolated_allPairs returns all isolated margin pairs" do
-      assert {:error, _} = Margin.get_isolated_allPairs()
+    test "get_isolated_all_pairs returns all isolated margin pairs" do
+      assert {:error, _} = Margin.get_isolated_all_pairs()
     end
   end
 
   describe "user data streams" do
     @tag skip: "SAPI endpoints not available on testnet"
-    test "create_listen_key creates a cross margin listen key" do
+    test "create_listen_key creates a margin listen key" do
       assert {:error, _} = Margin.create_listen_key()
-    end
-
-    @tag skip: "SAPI endpoints not available on testnet"
-    test "create_isolated_listen_key creates an isolated margin listen key" do
-      params = %{
-        symbol: "BTCUSDT"
-      }
-
-      assert {:error, _} = Margin.create_isolated_listen_key(params)
     end
   end
 

@@ -87,8 +87,8 @@ defmodule ZenCex.MixProject do
       {:req_fuse, "~> 0.3"},
       {:fuse, "~> 2.5"},
 
-      # Debug mode (dev only)
-      {:curl_req, "~> 0.98", only: [:dev, :test]},
+      # Debug mode (optional)
+      {:curl_req, "~> 0.98", optional: true},
 
       # JSON handling
       {:jason, "~> 1.4"},
@@ -100,7 +100,7 @@ defmodule ZenCex.MixProject do
       {:yaml_elixir, "~> 2.9", only: :dev},
 
       # Testing & development
-      {:plug, "~> 1.0", only: [:dev, :test]},
+      {:plug, "~> 1.16"},
       {:excoveralls, "~> 0.18", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},

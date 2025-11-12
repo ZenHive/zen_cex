@@ -236,7 +236,7 @@ defmodule ZenCex.Adapters.Binance.Spot do
   # Build request configuration for OCO cancellation
   defp build_cancel_oco_request_config do
     %{
-      operation: :cancel_orderList,
+      operation: :cancel_order_list,
       method: :delete,
       path: "/api/v3/orderList",
       requires_auth: true,

@@ -196,6 +196,7 @@ defmodule Mix.Tasks.ZenCex.GenerateMarginEndpoints do
 
     operation_parts
     |> Enum.map_join("_", &String.replace(&1, "-", "_"))
+    |> Macro.underscore()
     |> String.to_atom()
   end
 

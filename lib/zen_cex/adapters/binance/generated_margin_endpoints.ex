@@ -42,7 +42,7 @@
     doc: "Query Cross Isolated Margin Capital Flow (USER_DATA)"
   },
   %{
-    operation: :get_crossMarginData,
+    operation: :get_cross_margin_data,
     method: :get,
     path: "/sapi/v1/margin/crossMarginData",
     requires_auth: true,
@@ -94,7 +94,7 @@
     doc: "Query Isolated Margin Account Info (USER_DATA)"
   },
   %{
-    operation: :get_isolated_accountLimit,
+    operation: :get_isolated_account_limit,
     method: :get,
     path: "/sapi/v1/margin/isolated/accountLimit",
     requires_auth: true,
@@ -107,7 +107,7 @@
     doc: "Query Enabled Isolated Margin Account Limit (USER_DATA)"
   },
   %{
-    operation: :get_isolatedMarginData,
+    operation: :get_isolated_margin_data,
     method: :get,
     path: "/sapi/v1/margin/isolatedMarginData",
     requires_auth: true,
@@ -133,7 +133,7 @@
     doc: "Adjust cross margin max leverage (USER_DATA)"
   },
   %{
-    operation: :get_tradeCoeff,
+    operation: :get_trade_coeff,
     method: :get,
     path: "/sapi/v1/margin/tradeCoeff",
     requires_auth: true,
@@ -146,7 +146,7 @@
     doc: "Get Summary of Margin account (USER_DATA)"
   },
   %{
-    operation: :get_allOrderList,
+    operation: :get_all_order_list,
     method: :get,
     path: "/sapi/v1/margin/allOrderList",
     requires_auth: true,
@@ -159,7 +159,7 @@
     doc: "Query Margin Account's all OCO (USER_DATA)"
   },
   %{
-    operation: :get_allOrders,
+    operation: :get_all_orders,
     method: :get,
     path: "/sapi/v1/margin/allOrders",
     requires_auth: true,
@@ -185,7 +185,7 @@
     doc: "Query Special key List(Low Latency Trading)(TRADE)"
   },
   %{
-    operation: :place_apiKey,
+    operation: :place_api_key,
     method: :post,
     path: "/sapi/v1/margin/apiKey",
     requires_auth: true,
@@ -198,7 +198,7 @@
     doc: "Create Special Key(Low-Latency Trading)(TRADE)"
   },
   %{
-    operation: :cancel_apiKey,
+    operation: :cancel_api_key,
     method: :delete,
     path: "/sapi/v1/margin/apiKey",
     requires_auth: true,
@@ -211,7 +211,7 @@
     doc: "Delete Special Key(Low-Latency Trading)(TRADE)"
   },
   %{
-    operation: :get_apiKey,
+    operation: :get_api_key,
     method: :get,
     path: "/sapi/v1/margin/apiKey",
     requires_auth: true,
@@ -224,7 +224,7 @@
     doc: "Query Special key(Low Latency Trading)(TRADE)"
   },
   %{
-    operation: :update_apiKey_ip,
+    operation: :update_api_key_ip,
     method: :put,
     path: "/sapi/v1/margin/apiKey/ip",
     requires_auth: true,
@@ -276,7 +276,7 @@
     doc: "Get Small Liability Exchange History (USER_DATA)"
   },
   %{
-    operation: :get_forceLiquidationRec,
+    operation: :get_force_liquidation_rec,
     method: :get,
     path: "/sapi/v1/margin/forceLiquidationRec",
     requires_auth: true,
@@ -302,7 +302,7 @@
     doc: "Margin Manual Liquidation(MARGIN)"
   },
   %{
-    operation: :get_myTrades,
+    operation: :get_my_trades,
     method: :get,
     path: "/sapi/v1/margin/myTrades",
     requires_auth: true,
@@ -315,7 +315,7 @@
     doc: "Query Margin Account's Trade List (USER_DATA)"
   },
   %{
-    operation: :get_openOrderList,
+    operation: :get_open_order_list,
     method: :get,
     path: "/sapi/v1/margin/openOrderList",
     requires_auth: true,
@@ -328,7 +328,7 @@
     doc: "Query Margin Account's Open OCO (USER_DATA)"
   },
   %{
-    operation: :cancel_openOrders,
+    operation: :cancel_open_orders,
     method: :delete,
     path: "/sapi/v1/margin/openOrders",
     requires_auth: true,
@@ -341,7 +341,7 @@
     doc: "Margin Account Cancel all Open Orders on a Symbol (TRADE)"
   },
   %{
-    operation: :get_openOrders,
+    operation: :get_open_orders,
     method: :get,
     path: "/sapi/v1/margin/openOrders",
     requires_auth: true,
@@ -432,7 +432,7 @@
     doc: "Margin Account New OTOCO (TRADE)"
   },
   %{
-    operation: :cancel_orderList,
+    operation: :cancel_order_list,
     method: :delete,
     path: "/sapi/v1/margin/orderList",
     requires_auth: true,
@@ -445,7 +445,7 @@
     doc: "Margin Account Cancel OCO (TRADE)"
   },
   %{
-    operation: :get_orderList,
+    operation: :get_order_list,
     method: :get,
     path: "/sapi/v1/margin/orderList",
     requires_auth: true,
@@ -458,7 +458,7 @@
     doc: "Query Margin Account's OCO (USER_DATA)"
   },
   %{
-    operation: :get_rateLimit_order,
+    operation: :get_rate_limit_order,
     method: :get,
     path: "/sapi/v1/margin/rateLimit/order",
     requires_auth: true,
@@ -497,7 +497,7 @@
     doc: "Query borrow/repay records in Margin account(USER_DATA)"
   },
   %{
-    operation: :get_interestHistory,
+    operation: :get_interest_history,
     method: :get,
     path: "/sapi/v1/margin/interestHistory",
     requires_auth: true,
@@ -510,7 +510,7 @@
     doc: "Get Interest History (USER_DATA)"
   },
   %{
-    operation: :get_interestRateHistory,
+    operation: :get_interest_rate_history,
     method: :get,
     path: "/sapi/v1/margin/interestRateHistory",
     requires_auth: true,
@@ -523,7 +523,7 @@
     doc: "Query Margin Interest Rate History (USER_DATA)"
   },
   %{
-    operation: :get_maxBorrowable,
+    operation: :get_max_borrowable,
     method: :get,
     path: "/sapi/v1/margin/maxBorrowable",
     requires_auth: true,
@@ -588,7 +588,7 @@
     doc: "Start User Data Stream (USER_STREAM)"
   },
   %{
-    operation: :get_maxTransferable,
+    operation: :get_max_transferable,
     method: :get,
     path: "/sapi/v1/margin/maxTransferable",
     requires_auth: true,
@@ -614,7 +614,7 @@
     doc: "Get Cross Margin Transfer History (USER_DATA)"
   },
   %{
-    operation: :get_allAssets,
+    operation: :get_all_assets,
     method: :get,
     path: "/sapi/v1/margin/allAssets",
     requires_auth: true,
@@ -627,7 +627,7 @@
     doc: "Get All Margin Assets (MARKET_DATA)"
   },
   %{
-    operation: :get_allPairs,
+    operation: :get_all_pairs,
     method: :get,
     path: "/sapi/v1/margin/allPairs",
     requires_auth: true,
@@ -653,7 +653,7 @@
     doc: "Query Margin Available Inventory(USER_DATA)"
   },
   %{
-    operation: :get_crossMarginCollateralRatio,
+    operation: :get_cross_margin_collateral_ratio,
     method: :get,
     path: "/sapi/v1/margin/crossMarginCollateralRatio",
     requires_auth: true,
@@ -679,7 +679,7 @@
     doc: "Get Delist Schedule (MARKET_DATA)"
   },
   %{
-    operation: :get_isolated_allPairs,
+    operation: :get_isolated_all_pairs,
     method: :get,
     path: "/sapi/v1/margin/isolated/allPairs",
     requires_auth: true,
@@ -692,7 +692,7 @@
     doc: "Get All Isolated Margin Symbol(MARKET_DATA)"
   },
   %{
-    operation: :get_isolatedMarginTier,
+    operation: :get_isolated_margin_tier,
     method: :get,
     path: "/sapi/v1/margin/isolatedMarginTier",
     requires_auth: true,
@@ -705,7 +705,7 @@
     doc: "Query Isolated Margin Tier Data (USER_DATA)"
   },
   %{
-    operation: :get_leverageBracket,
+    operation: :get_leverage_bracket,
     method: :get,
     path: "/sapi/v1/margin/leverageBracket",
     requires_auth: true,
@@ -744,7 +744,7 @@
     doc: "Get list Schedule (MARKET_DATA)"
   },
   %{
-    operation: :get_priceIndex,
+    operation: :get_price_index,
     method: :get,
     path: "/sapi/v1/margin/priceIndex",
     requires_auth: true,
