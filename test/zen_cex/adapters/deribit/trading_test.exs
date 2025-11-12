@@ -24,7 +24,8 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
 
   @test_instrument "BTC-PERPETUAL"
 
-  setup context do
+  # Shared authenticated connection for all tests
+  setup_all context do
     # Connect and authenticate
     {:ok, adapter} =
       WebSocket.connect(
@@ -35,7 +36,7 @@ defmodule ZenCex.Adapters.Deribit.TradingTest do
 
     {:ok, adapter} = WebSocket.authenticate(adapter)
 
-    # Get safe test prices based on current market
+    # Get safe test prices based on current market (calculated once for all tests)
     safe_buy_price = get_safe_buy_price(adapter, @test_instrument)
     safe_sell_price = get_safe_sell_price(adapter, @test_instrument)
 

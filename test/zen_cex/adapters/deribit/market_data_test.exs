@@ -214,21 +214,6 @@ defmodule ZenCex.Adapters.Deribit.MarketDataTest do
   end
 
   describe "error handling" do
-    setup context do
-      {:ok, client} =
-        WebSocket.connect(
-          client_id: context[:client_id],
-          client_secret: context[:client_secret],
-          testnet: true
-        )
-
-      {:ok, client} = WebSocket.authenticate(client)
-
-      on_exit(fn -> WebSocket.close(client) end)
-
-      {:ok, client: client}
-    end
-
     test "get_order_book/1 with invalid instrument name" do
       # Invalid instrument should return :not_subscribed (no cache entry)
       assert {:error, :not_subscribed} = MarketData.get_order_book("INVALID-INSTRUMENT")
@@ -249,22 +234,10 @@ defmodule ZenCex.Adapters.Deribit.MarketDataTest do
   end
 
   describe "cache behavior" do
-    setup context do
-      {:ok, client} =
-        WebSocket.connect(
-          client_id: context[:client_id],
-          client_secret: context[:client_secret],
-          testnet: true
-        )
-
-      {:ok, client} = WebSocket.authenticate(client)
-
-      # Clear cache before tests
+    setup do
+      # Clear cache before each test in this block
       Market.clear_exchange(:deribit)
-
-      on_exit(fn -> WebSocket.close(client) end)
-
-      {:ok, client: client}
+      :ok
     end
 
     @tag timeout: 15_000
@@ -315,22 +288,10 @@ defmodule ZenCex.Adapters.Deribit.MarketDataTest do
   end
 
   describe "integration with WebSocket message handlers" do
-    setup context do
-      {:ok, client} =
-        WebSocket.connect(
-          client_id: context[:client_id],
-          client_secret: context[:client_secret],
-          testnet: true
-        )
-
-      {:ok, client} = WebSocket.authenticate(client)
-
-      # Clear cache
+    setup do
+      # Clear cache before each test in this block
       Market.clear_exchange(:deribit)
-
-      on_exit(fn -> WebSocket.close(client) end)
-
-      {:ok, client: client}
+      :ok
     end
 
     @tag timeout: 15_000

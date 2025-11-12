@@ -19,6 +19,22 @@ defmodule ZenCex.Adapters.Deribit.WebSocketTest do
 
   @subscription_wait_ms 2000
 
+  # Shared authenticated connection for market data, cache, and API request tests
+  setup_all context do
+    {:ok, adapter} =
+      WebSocket.connect(
+        client_id: context[:client_id],
+        client_secret: context[:client_secret],
+        testnet: true
+      )
+
+    {:ok, authenticated_adapter} = WebSocket.authenticate(adapter)
+
+    on_exit(fn -> WebSocket.close(authenticated_adapter) end)
+
+    {:ok, adapter: authenticated_adapter}
+  end
+
   describe "connection and authentication" do
     test "connects to Deribit testnet", context do
       assert {:ok, adapter} =
@@ -59,21 +75,6 @@ defmodule ZenCex.Adapters.Deribit.WebSocketTest do
   end
 
   describe "market data subscriptions" do
-    setup context do
-      {:ok, adapter} =
-        WebSocket.connect(
-          client_id: context[:client_id],
-          client_secret: context[:client_secret],
-          testnet: true
-        )
-
-      {:ok, authenticated_adapter} = WebSocket.authenticate(adapter)
-
-      on_exit(fn -> WebSocket.close(authenticated_adapter) end)
-
-      {:ok, adapter: authenticated_adapter}
-    end
-
     test "subscribes to order book channel", %{adapter: adapter} do
       channels = ["book.BTC-PERPETUAL.raw"]
 
@@ -111,21 +112,6 @@ defmodule ZenCex.Adapters.Deribit.WebSocketTest do
   end
 
   describe "ETS cache integration" do
-    setup context do
-      {:ok, adapter} =
-        WebSocket.connect(
-          client_id: context[:client_id],
-          client_secret: context[:client_secret],
-          testnet: true
-        )
-
-      {:ok, authenticated_adapter} = WebSocket.authenticate(adapter)
-
-      on_exit(fn -> WebSocket.close(authenticated_adapter) end)
-
-      {:ok, adapter: authenticated_adapter}
-    end
-
     @tag timeout: 15_000
     test "receives order book updates and caches to ETS", %{adapter: adapter} do
       instrument = "BTC-PERPETUAL"
@@ -207,21 +193,6 @@ defmodule ZenCex.Adapters.Deribit.WebSocketTest do
   end
 
   describe "direct API requests" do
-    setup context do
-      {:ok, adapter} =
-        WebSocket.connect(
-          client_id: context[:client_id],
-          client_secret: context[:client_secret],
-          testnet: true
-        )
-
-      {:ok, authenticated_adapter} = WebSocket.authenticate(adapter)
-
-      on_exit(fn -> WebSocket.close(authenticated_adapter) end)
-
-      {:ok, adapter: authenticated_adapter}
-    end
-
     test "sends direct request for instruments list", %{adapter: adapter} do
       assert {:ok, response} = WebSocket.send_request(adapter, "public/get_instruments", %{currency: "BTC"})
 
