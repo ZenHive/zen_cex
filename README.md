@@ -4,7 +4,7 @@ A comprehensive Elixir library for centralized cryptocurrency exchange (CEX) int
 
 ## Features
 
-- **Multi-Exchange Support**: Binance (fully implemented), Bybit (trading complete), Deribit (planned), Aster (planned)
+- **Multi-Exchange Support**: Binance (fully implemented), Bybit (trading complete), Deribit (WebSocket-only), Aster (planned)
 - **REST + WebSocket**: Full support for both HTTP APIs and real-time WebSocket streams
 - **Unified API Interface**: Consistent function naming across exchanges
 - **Built-in Safety Features**: Rate limiting, clock synchronization, order safety checks
@@ -22,7 +22,7 @@ Add `zen_cex` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:zen_cex, "~> 0.1.0"}
+    {:zen_cex, "~> 0.2.0"}
   ]
 end
 ```
@@ -768,12 +768,13 @@ Each exchange adapter consists of:
 - 🚧 **Market Data**: To be implemented
 
 ### Deribit
-- 📋 **Planned**: WebSocket-first architecture with JSON-RPC 2.0
-- 📋 **Spot Trading**: Zero-fee spot markets (BTC/USDC, ETH/USDC, etc.)
-- 📋 **Options Trading**: BTC/ETH/SOL options (90% market share)
-- 📋 **Futures**: Perpetual and dated futures
-- 📋 **Market Data**: Real-time order books and trades via WebSocket
-- See `docs/deribit_specs.md` for implementation plan
+- ✅ **WebSocket-Only Architecture**: JSON-RPC 2.0 protocol for all operations
+- ✅ **Spot Trading**: Zero-fee spot markets (BTC/USDC, ETH/USDC, etc.)
+- ✅ **Options Trading**: BTC/ETH/SOL options with full Greeks support
+- ✅ **Perpetuals**: BTC-PERPETUAL, ETH-PERPETUAL, SOL-PERPETUAL
+- ✅ **Futures**: Dated contracts (e.g., BTC-29MAR24)
+- ✅ **Market Data**: Real-time order books, tickers, and instruments via WebSocket
+- **Note**: REST endpoints not implemented - use WebSocket for all operations
 
 ### Aster
 - 📋 **Planned**: Binance-compatible DEX perpetual futures API
