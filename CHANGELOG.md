@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-01-13
+
+### Added
+
+#### Deribit Support (WebSocket-Only)
+- **WebSocket-First Architecture**: JSON-RPC 2.0 protocol for all operations
+- **Trading Operations**: Place, cancel, and edit orders via WebSocket
+  - Order types: limit, market, stop-limit, stop-market
+  - Time-in-force options: GTC, FOK, IOC
+  - Advanced options: post-only, reduce-only, trigger orders
+- **Market Data**: Subscription-based real-time data with ETS caching
+  - Order books with configurable depth
+  - Ticker data (mark price, funding rate, open interest)
+  - Instruments metadata (contracts, expirations, specs)
+- **Authentication**: OAuth 2.0 client credentials flow
+- **Rate Limiter**: Built-in rate limiting for API compliance
+- **Parser**: JSON-RPC 2.0 response normalization
+- **RPC Module**: Centralized JSON-RPC method definitions
+- **Comprehensive Tests**: Integration tests with shared WebSocket connections
+
+#### Product Support
+- **Spot Trading**: Zero-fee spot markets
+- **Perpetuals**: BTC-PERPETUAL, ETH-PERPETUAL, SOL-PERPETUAL
+- **Futures**: Dated contracts (e.g., BTC-29MAR24)
+- **Options**: BTC/ETH/SOL options with full Greeks support
+
+### Changed
+- Updated zen_websocket to 0.1.4 for improved stability
+- Optimized test suite with shared WebSocket connections
+
 ## [0.1.0] - 2025-01-XX
 
 ### Added
@@ -63,8 +93,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Dependencies
 - `req ~> 0.5.0` - HTTP client
 - `finch ~> 0.20.0` - Connection pooling
-- `zen_websocket 0.1.3` - WebSocket client
+- `zen_websocket 0.1.4` - WebSocket client
 - `jason ~> 1.4` - JSON encoding/decoding
 - `telemetry ~> 1.0` - Observability
 
+[0.2.0]: https://github.com/ZenHive/zen_cex/releases/tag/v0.2.0
 [0.1.0]: https://github.com/ZenHive/zen_cex/releases/tag/v0.1.0
