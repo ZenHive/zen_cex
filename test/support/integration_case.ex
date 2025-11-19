@@ -229,12 +229,24 @@ defmodule ZenCex.IntegrationCase do
 
   # Deribit testnet enforcement
   defp enforce_deribit_testnet!(_api_type) do
-    # TODO: Implement Deribit testnet enforcement when Deribit adapter is added
-    # Deribit uses test.deribit.com for testnet
-    raise """
-    Deribit testnet enforcement not yet implemented.
-    The Deribit adapter needs to be completed first.
-    """
+    # Deribit uses environment variables for testnet credentials
+    api_key = System.get_env("DERIBIT_TESTNET_API_KEY")
+    api_secret = System.get_env("DERIBIT_TESTNET_API_SECRET")
+
+    if is_nil(api_key) or is_nil(api_secret) do
+      raise """
+      Missing Deribit testnet credentials!
+      Set DERIBIT_TESTNET_API_KEY and DERIBIT_TESTNET_API_SECRET.
+      Register at: https://test.deribit.com/
+      """
+    end
+
+    # Return credentials for test context
+    %{
+      api_key: api_key,
+      api_secret: api_secret,
+      testnet: true
+    }
   end
 
   # Multi-exchange testnet enforcement for tests that need multiple exchanges

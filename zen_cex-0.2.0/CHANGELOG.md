@@ -5,25 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.1] - 2025-01-19
-
-### Added
-- **Deribit Examples**: Complete trading workflow examples (`DeribitTrading` module)
-  - Connection and authentication examples
-  - Order placement (limit and market)
-  - Order management (cancel, edit)
-  - Order queries with filtering
-  - Comprehensive integration tests with DeribitTestHelpers
-- **Documentation**: Added Deribit section to README
-  - Auto-generated examples from module documentation
-  - Updated API Coverage section with Deribit features
-  - Added Deribit testnet setup instructions
-
-### Changed
-- Updated README to reflect Deribit as implemented (not planned)
-- Added DeribitTrading to README generator module list
-- Enhanced IntegrationCase to support Deribit testnet credentials
-
 ## [0.2.0] - 2025-01-13
 
 ### Added
@@ -116,6 +97,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `jason ~> 1.4` - JSON encoding/decoding
 - `telemetry ~> 1.0` - Observability
 
-[0.2.1]: https://github.com/ZenHive/zen_cex/releases/tag/v0.2.1
 [0.2.0]: https://github.com/ZenHive/zen_cex/releases/tag/v0.2.0
 [0.1.0]: https://github.com/ZenHive/zen_cex/releases/tag/v0.1.0

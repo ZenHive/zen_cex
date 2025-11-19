@@ -29,7 +29,6 @@ defmodule ZenCex.Docs.ReadmeGenerator do
     ZenCex.Examples.BinanceMarketData,
     ZenCex.Examples.BinanceWebsocketStreams,
     ZenCex.Examples.BybitTrading,
-    ZenCex.Examples.DeribitTrading,
     ZenCex.Examples.BinanceStrategies,
     ZenCex.Examples.ProductionRestFeatures,
     ZenCex.Examples.DebugTroubleshooting,

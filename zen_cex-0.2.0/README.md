@@ -4,7 +4,7 @@ A comprehensive Elixir library for centralized cryptocurrency exchange (CEX) int
 
 ## Features
 
-- **Multi-Exchange Support**: Binance (fully implemented), Bybit (trading complete), Deribit (WebSocket-only), Aster (planned)
+- **Multi-Exchange Support**: Binance (fully implemented), Bybit (trading complete), Deribit (planned), Aster (planned)
 - **REST + WebSocket**: Full support for both HTTP APIs and real-time WebSocket streams
 - **Unified API Interface**: Consistent function naming across exchanges
 - **Built-in Safety Features**: Rate limiting, clock synchronization, order safety checks
@@ -22,7 +22,7 @@ Add `zen_cex` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:zen_cex, "~> 0.2.1"}
+    {:zen_cex, "~> 0.1.0"}
   ]
 end
 ```
@@ -479,67 +479,6 @@ Place a spot market order.
 
 
 
-## Deribit Trading
-
-Complete trading workflow examples for Deribit WebSocket API.
-
-
-### Buy Limit/4
-
-Place a limit buy order.
-
-
-
-### Buy Market/3
-
-Place a market buy order.
-
-
-
-### Cancel All Orders/2
-
-Cancel all orders for an instrument or currency.
-
-
-
-### Cancel Order/2
-
-Cancel an order.
-
-
-
-### Connect And Authenticate/1
-
-Connect to Deribit WebSocket and authenticate.
-
-
-
-### Edit Order/3
-
-Edit an existing order.
-
-
-
-### Get Open Orders/2
-
-Get open orders for an instrument or currency.
-
-
-
-### Sell Limit/4
-
-Place a limit sell order.
-
-
-
-### Sell Market/3
-
-Place a market sell order.
-
-
-
-
-
 ## Binance Strategies
 
 Example module demonstrating high-level trading strategies with Binance.
@@ -829,13 +768,12 @@ Each exchange adapter consists of:
 - 🚧 **Market Data**: To be implemented
 
 ### Deribit
-- ✅ **WebSocket-Only Architecture**: JSON-RPC 2.0 protocol for all operations
-- ✅ **Spot Trading**: Zero-fee spot markets (BTC/USDC, ETH/USDC, etc.)
-- ✅ **Options Trading**: BTC/ETH/SOL options with full Greeks support
-- ✅ **Perpetuals**: BTC-PERPETUAL, ETH-PERPETUAL, SOL-PERPETUAL
-- ✅ **Futures**: Dated contracts (e.g., BTC-29MAR24)
-- ✅ **Market Data**: Real-time order books, tickers, and instruments via WebSocket
-- **Note**: REST endpoints not implemented - use WebSocket for all operations
+- 📋 **Planned**: WebSocket-first architecture with JSON-RPC 2.0
+- 📋 **Spot Trading**: Zero-fee spot markets (BTC/USDC, ETH/USDC, etc.)
+- 📋 **Options Trading**: BTC/ETH/SOL options (90% market share)
+- 📋 **Futures**: Perpetual and dated futures
+- 📋 **Market Data**: Real-time order books and trades via WebSocket
+- See `docs/deribit_specs.md` for implementation plan
 
 ### Aster
 - 📋 **Planned**: Binance-compatible DEX perpetual futures API
@@ -870,7 +808,6 @@ mix coveralls.html
 
 1. **Binance Testnet**: https://testnet.binance.vision/
 2. **Bybit Testnet**: https://testnet.bybit.com/
-3. **Deribit Testnet**: https://test.deribit.com/
 
 Generate API keys and set them as environment variables with `_TESTNET_` in the name.
 

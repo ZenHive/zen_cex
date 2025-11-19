@@ -1,7 +1,7 @@
 defmodule ZenCex.MixProject do
   use Mix.Project
 
-  @version "0.2.1"
+  @version "0.2.0"
 
   def project do
     [
@@ -38,7 +38,7 @@ defmodule ZenCex.MixProject do
   defp description do
     """
     A comprehensive Elixir library for cryptocurrency exchange integrations with REST and WebSocket support.
-    Provides unified API access to Binance, Bybit, and Deribit exchanges with built-in rate limiting, clock sync, and safety features.
+    Provides unified API access to Binance and Bybit exchanges with built-in rate limiting, clock sync, and safety features.
     """
   end
 
