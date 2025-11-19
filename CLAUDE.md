@@ -923,6 +923,30 @@ Core Elixir best practices for library development:
 - **No custom error wrapping** - Pass raw errors through
 - **Create abstractions only with proven need** - Need 3+ use cases
 
+### High-Level Strategies
+
+**Strategies are explicitly allowed and encouraged** when they provide real trading value.
+
+Unlike low-level adapters which should stay minimal, strategy modules can be higher-level abstractions that:
+- ✅ Combine multiple API calls into common trading workflows
+- ✅ Implement proven trading patterns (hedging, rebalancing, etc.)
+- ✅ Provide business logic for portfolio management
+- ✅ Include dry-run modes for safe testing
+- ✅ Are well-documented with examples and tests
+
+**Current Strategies** (`lib/adapters/binance/strategies.ex`):
+1. **Auto-hedge spot positions** - Hedge spot with futures
+2. **PAXG gold hedge** - Create gold exposure via PAXG perpetuals
+3. **Portfolio rebalancing** - Rebalance to target allocation
+
+**Strategy Guidelines**:
+- Must have comprehensive documentation and examples
+- Must support dry-run mode (no real trades)
+- Must be tested (at minimum with dry-run)
+- Should solve real trading needs, not speculative features
+- Keep focused on proven patterns, not experimental trading ideas
+
+**Examples belong in** `lib/examples/` with corresponding tests in `test/examples/`.
 
 ### Error Handling Philosophy
 
