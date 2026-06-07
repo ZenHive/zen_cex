@@ -526,10 +526,6 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
         process_book_ticker(data)
 
 
-      # User data events (2026 private stream)
-      type when type in ["ORDER_TRADE_UPDATE", "ACCOUNT_UPDATE", "ACCOUNT_CONFIG_UPDATE", "MARGIN_CALL"] ->
-        process_user_data_event(data)
-
       "kline" ->
         process_kline(data)
 
@@ -554,22 +550,6 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
 
   defp process_stream_data(data) do
     Logger.debug("Unhandled Binance message: #{inspect(data)}")
-  end
-
-  @spec process_user_data_event(map()) :: :ok
-  defp process_user_data_event(%{"e" => event_type} = data) do
-    # Symbol extraction varies by event type:
-    # - ORDER_TRADE_UPDATE: data["o"]["s"]
-    # - ACCOUNT_UPDATE: no symbol (account-level), use "_account"
-    # - MARGIN_CALL: data["p"][0]["s"] (first position), use "_account" as fallback
-    # - ACCOUNT_CONFIG_UPDATE: no symbol, use "_account"
-    symbol =
-      get_in(data, ["o", "s"]) ||
-      get_in(data, ["ac", "s"]) ||
-      "_account"
-    Logger.debug("User data event: #{event_type} for #{symbol}")
-    ZenCex.Cache.Market.put_market_data(:binance, symbol, event_type, data, 300)
-    :ok
   end
 
   @spec process_kline(map()) :: :ok
