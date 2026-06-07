@@ -144,6 +144,11 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
   @futures_ws_url "wss://fstream.binance.com/ws"
   @futures_ws_testnet_url "wss://fstream.binancefuture.com/ws"
 
+  # Binance 2026 new architecture (effective April 23, 2026)
+  @futures_public_url "wss://fstream.binance.com/public"
+  @futures_market_url "wss://fstream.binance.com/market"
+  @futures_private_url "wss://fstream.binance.com/private"
+
   # Maximum message size to prevent memory exhaustion (1MB)
   @max_message_size 1_048_576
 
@@ -225,10 +230,11 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
     market = Keyword.get(opts, :market, :spot)
     supervised? = Keyword.get(opts, :supervised, false)
 
-    url = get_ws_url(market, testnet?)
-
-    # Create message handler for Binance data
-    handler = create_message_handler()
+    # Create message handler (user can override via :handler opt)
+    handler = case Keyword.get(opts, :handler) do
+      nil -> create_message_handler()
+      user_fn -> wrap_handler(user_fn)
+    end
 
     # Connection options for zen_websocket
     ws_opts = [
@@ -239,15 +245,45 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
       reconnect_on_error: true
     ]
 
-    # Connect using zen_websocket
-    with {:ok, client} <- do_connect(url, ws_opts, supervised?),
-         {:ok, _} <- subscribe(client, streams) do
-      Logger.info("Connected to Binance WebSocket: #{url}")
-      {:ok, client}
-    else
+    result = case market do
+      :futures_private ->
+        # User data stream (2026 new architecture)
+        listen_key = Keyword.fetch!(opts, :listen_key)
+        events = Keyword.get(opts, :events, ["ORDER_TRADE_UPDATE"])
+        url = build_private_url(listen_key, events)
+        do_connect(url, ws_opts, supervised?)
+
+      m when m in [:futures_public, :futures_market] ->
+        # Public/Market data (2026 new architecture)
+        url = get_ws_url(m, testnet?) <> "/ws/" <> Enum.join(streams, "/")
+        do_connect(url, ws_opts, supervised?)
+
+      _ ->
+        # Spot and legacy :futures
+        url = get_ws_url(market, testnet?)
+        with {:ok, client} <- do_connect(url, ws_opts, supervised?),
+             {:ok, _} <- subscribe(client, streams) do
+          {:ok, client}
+        end
+    end
+
+    case result do
+      {:ok, client} ->
+        Logger.info("Connected to Binance WebSocket (market: #{market})")
+        {:ok, client}
       {:error, reason} = error ->
-        Logger.error("Failed to connect to Binance WebSocket: #{inspect(reason)}")
+        Logger.error("Failed to connect: #{inspect(reason)}")
         error
+    end
+  end
+
+  defp build_private_url(listen_key, events) do
+    case events do
+      [single] ->
+        "#{@futures_private_url}/ws?listenKey=#{listen_key}&events=#{single}"
+      multiple ->
+        streams = Enum.map_join(multiple, "/", &"#{listen_key}@#{&1}")
+        "#{@futures_private_url}/stream?streams=#{streams}"
     end
   end
 
@@ -384,6 +420,9 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
   defp get_ws_url(:spot, false), do: @spot_ws_url
   defp get_ws_url(:futures, true), do: @futures_ws_testnet_url
   defp get_ws_url(:futures, false), do: @futures_ws_url
+  defp get_ws_url(:futures_public, _testnet), do: @futures_public_url
+  defp get_ws_url(:futures_market, _testnet), do: @futures_market_url
+  defp get_ws_url(:futures_private, _testnet), do: @futures_private_url
 
   @spec do_connect(String.t(), keyword(), boolean()) :: {:ok, ZenWebsocket.Client.t()} | {:error, term()}
   defp do_connect(url, opts, false) do
@@ -414,6 +453,20 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
 
       _other ->
         :ok
+    end
+  end
+
+  # Wraps user handler to also run built-in caching logic
+  defp wrap_handler(user_handler) do
+    fn msg ->
+      # Built-in caching
+      case msg do
+        {:message, {:text, data}} when is_binary(data) -> handle_message(data)
+        {:message, %{} = decoded} -> process_stream_data(decoded)
+        _ -> :ok
+      end
+      # User handler
+      user_handler.(msg)
     end
   end
 
@@ -458,6 +511,17 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
       "bookTicker" ->
         process_book_ticker(data)
 
+
+      # User data events (2026 private stream)
+      type when type in ["ORDER_TRADE_UPDATE", "ACCOUNT_UPDATE", "ACCOUNT_CONFIG_UPDATE", "MARGIN_CALL"] ->
+        process_user_data_event(data)
+
+      "kline" ->
+        process_kline(data)
+
+      "markPrice" ->
+        process_mark_price(data)
+
       _ ->
         Logger.debug("Unhandled Binance event type: #{event_type}")
     end
@@ -477,7 +541,46 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
     Logger.debug("Unhandled Binance message: #{inspect(data)}")
   end
 
-  @spec process_orderbook_update(map()) :: :ok
+  @spec process_user_data_event(map()) :: :ok
+  defp process_user_data_event(%{"e" => event_type} = data) do
+    symbol = get_in(data, ["o", "s"]) || "unknown"
+    Logger.debug("User data event: #{event_type} for #{symbol}")
+    ZenCex.Cache.Market.put_market_data(:binance, symbol, event_type, data, 300)
+    :ok
+  end
+
+  @spec process_kline(map()) :: :ok
+  defp process_kline(%{"s" => symbol, "k" => k} = _data) do
+    kline = %{
+      symbol: symbol,
+      interval: k["i"],
+      open: k["o"],
+      high: k["h"],
+      low: k["l"],
+      close: k["c"],
+      volume: k["v"],
+      close_time: k["T"],
+      is_closed: k["x"],
+      timestamp: :os.system_time(:millisecond)
+    }
+    ZenCex.Cache.Market.put_market_data(:binance, symbol, "kline_#{k["i"]}", kline, 300)
+    :ok
+  end
+
+  @spec process_mark_price(map()) :: :ok
+  defp process_mark_price(%{"s" => symbol, "p" => price} = data) do
+    mark = %{
+      symbol: symbol,
+      mark_price: price,
+      funding_rate: data["r"],
+      next_funding_time: data["T"],
+      timestamp: :os.system_time(:millisecond)
+    }
+    ZenCex.Cache.Market.put_market_data(:binance, symbol, "markPrice", mark, 300)
+    :ok
+  end
+
+    @spec process_orderbook_update(map()) :: :ok
   defp process_orderbook_update(data) do
     %{
       "s" => symbol,
