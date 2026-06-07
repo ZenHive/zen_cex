@@ -28,7 +28,10 @@ defmodule ZenCex.Application do
       ZenWebsocket.ClientSupervisor,
 
       # WebSocket connection registry for tracking and health monitoring
-      ZenCex.Websocket.ConnectionRegistry
+      ZenCex.Websocket.ConnectionRegistry,
+
+      # Registry for UserDataStream processes (one per account_id)
+      {Registry, keys: :unique, name: ZenCex.UserDataStreamRegistry}
 
       # NOTE: Following Req-centric architecture:
       # - No Core.Supervisor needed (Req handles connection lifecycle)
