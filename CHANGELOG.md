@@ -5,6 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-06-07
+
+### Fixed
+
+#### Binance WebSocket — 2026 新架构适配（4 项 bug 修复）
+
+Binance 于 2026 年 4 月 23 日对 Futures WebSocket 端点进行了重大架构调整，
+将原来统一的 `/ws/<stream>` 拆分为三条独立通道（`/public`、`/market`、`/private`）。
+本次修复解决了适配过程中发现的 4 个功能性 bug，均通过真实下单的集成测试验证。
+
+- **`create_message_handler` 死分支清理**：移除永远不会触发的 `{:message, {:text, data}}`
+  和 `{:message, {:binary, data}}` 分支。zen_websocket 实际分发的是已解码 map
+  `{:message, %{}}` 而非原始 binary tuple，死分支造成代码误导。
+
+- **`wrap_handler` 未解包 stream wrapper 传给 user handler**（功能 bug）：
+  多事件私有流响应格式为 `{"stream": "lk@EVENT", "data": {...}}`，
+  旧实现对内置缓存做了解包，但 `user_handler.(msg)` 传的仍是原始 wrapper（无 `"e"` key），
+  导致 user handler 里所有基于 `"e"` 的事件匹配永远失败。
+  修复：先 normalize（解包），再将 normalized_msg 传给 user handler 和内置缓存。
+
+- **`markPriceUpdate` 事件类型错误**（功能 bug）：
+  Binance futures markPrice stream 实际推送 `e: "markPriceUpdate"`，
+  不是 `"markPrice"`。旧代码只有 `"markPrice"` 分支，导致 markPrice 数据
+  全部进入 `Unhandled` 分支，ETS 永远没有 markPrice 缓存。
+  修复：`t when t in ["markPrice", "markPriceUpdate"]`。
+
+- **`process_user_data_event` symbol 提取错误**（功能 bug）：
+  旧代码用 `get_in(data, ["o", "s"])` 提取 symbol，只对 `ORDER_TRADE_UPDATE` 有效。
+  `ACCOUNT_UPDATE`、`ACCOUNT_CONFIG_UPDATE`、`MARGIN_CALL` 无此路径，
+  全部以 `"unknown"` 为 ETS key 存储，导致无法按 symbol 查询。
+  修复：fallback 到 `"_account"` key。
+
+### Added
+
+- **Binance 2026 WS 架构使用文档**：`docs/binance_ws_2026.md`
+  - 三通道端点说明（`futures_public` / `futures_market` / `futures_private`）
+  - 单事件 vs 多事件私有流连接示例
+  - ETS 缓存键速查表
+  - listenKey 管理说明
+  - 常见问题排查
+
+- **集成测试脚本**：`scripts/test_ws_full.exs`（10 项测试，全部真实断言）
+  - T1–T4：ETS 缓存填充验证（kline、markPrice、orderbook、trade）
+  - T5–T7：真实下单触发 ORDER_TRADE_UPDATE 私有流事件
+  - T8：URL 构造验证（单事件 vs 多事件）
+  - T9：动态 subscribe/unsubscribe
+  - T10：`get_state/1` 连接状态验证
+
+### Security
+
+- 测试日志中 listenKey 截断为前 8 位 + `...`，避免完整 token 出现在日志或 CI 输出中
+
 ## [0.2.1] - 2025-01-19
 
 ### Added
@@ -116,6 +168,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `jason ~> 1.4` - JSON encoding/decoding
 - `telemetry ~> 1.0` - Observability
 
+[0.2.2]: https://github.com/superdecentman/zen_cex/tree/fix/binance-2026-ws-architecture
 [0.2.1]: https://github.com/ZenHive/zen_cex/releases/tag/v0.2.1
 [0.2.0]: https://github.com/ZenHive/zen_cex/releases/tag/v0.2.0
 [0.1.0]: https://github.com/ZenHive/zen_cex/releases/tag/v0.1.0
