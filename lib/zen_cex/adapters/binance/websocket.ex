@@ -438,35 +438,44 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
 
   @spec create_message_handler() :: (term() -> :ok)
   defp create_message_handler do
+    # zen_websocket dispatches already-decoded maps: {:message, %{...}}
+    # Raw binary frames are rare (non-JSON text), but handled for safety.
     fn
-      {:message, {:text, data}} when is_binary(data) ->
-        handle_message(data)
-
-      {:message, {:binary, data}} when is_binary(data) ->
-        handle_message(data)
+      {:message, %{} = decoded} ->
+        process_stream_data(decoded)
 
       {:message, data} when is_binary(data) ->
         handle_message(data)
-
-      {:message, %{} = decoded} ->
-        process_stream_data(decoded)
 
       _other ->
         :ok
     end
   end
 
-  # Wraps user handler to also run built-in caching logic
+  # Wraps user handler to also run built-in caching logic.
+  # zen_websocket dispatches {:message, %{} = decoded} (already-decoded map).
+  # For stream-mode wrapper {"stream": "lk@EVENT", "data": {...}}, we unwrap
+  # before passing to the user handler so it always sees the inner event map.
   defp wrap_handler(user_handler) do
     fn msg ->
-      # Built-in caching
-      case msg do
-        {:message, {:text, data}} when is_binary(data) -> handle_message(data)
+      # Normalize message: unwrap stream-mode wrapper if present
+      normalized_msg =
+        case msg do
+          {:message, %{"stream" => _stream_name, "data" => data}} when is_map(data) ->
+            {:message, data}
+          other ->
+            other
+        end
+
+      # Built-in caching on the normalized message
+      case normalized_msg do
         {:message, %{} = decoded} -> process_stream_data(decoded)
+        {:message, data} when is_binary(data) -> handle_message(data)
         _ -> :ok
       end
-      # User handler
-      user_handler.(msg)
+
+      # User handler receives the normalized (unwrapped) message
+      user_handler.(normalized_msg)
     end
   end
 
@@ -524,7 +533,8 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
       "kline" ->
         process_kline(data)
 
-      "markPrice" ->
+      # Binance futures markPrice stream sends event type "markPriceUpdate"
+      t when t in ["markPrice", "markPriceUpdate"] ->
         process_mark_price(data)
 
       _ ->
@@ -548,7 +558,15 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
 
   @spec process_user_data_event(map()) :: :ok
   defp process_user_data_event(%{"e" => event_type} = data) do
-    symbol = get_in(data, ["o", "s"]) || "unknown"
+    # Symbol extraction varies by event type:
+    # - ORDER_TRADE_UPDATE: data["o"]["s"]
+    # - ACCOUNT_UPDATE: no symbol (account-level), use "_account"
+    # - MARGIN_CALL: data["p"][0]["s"] (first position), use "_account" as fallback
+    # - ACCOUNT_CONFIG_UPDATE: no symbol, use "_account"
+    symbol =
+      get_in(data, ["o", "s"]) ||
+      get_in(data, ["ac", "s"]) ||
+      "_account"
     Logger.debug("User data event: #{event_type} for #{symbol}")
     ZenCex.Cache.Market.put_market_data(:binance, symbol, event_type, data, 300)
     :ok
