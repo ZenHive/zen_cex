@@ -490,6 +490,11 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
   end
 
   @spec process_stream_data(map()) :: :ok
+  # Stream-mode wrapper (multi-event private stream): {"stream": "lk@EVENT", "data": {...}}
+  defp process_stream_data(%{"stream" => _stream_name, "data" => data}) when is_map(data) do
+    process_stream_data(data)
+  end
+
   defp process_stream_data(%{"e" => event_type} = data) do
     case event_type do
       "depthUpdate" ->
