@@ -248,8 +248,9 @@ defmodule ZenCex.Adapters.Binance.UserDataStream do
                              else: "#{extra_qs}&timestamp=#{ts}&recvWindow=5000"
     sig = :crypto.mac(:hmac, :sha256, api_secret, qs) |> Base.encode16(case: :lower)
     url = String.to_charlist("#{@fapi_base}#{path}?#{qs}&signature=#{sig}")
-    headers = [{"X-MBX-APIKEY", api_key}]
-    case :httpc.request(method, {url, headers, ~c"", ~c""}, [], []) do
+    headers = [{~c"X-MBX-APIKEY", String.to_charlist(api_key)}]
+    request = if method == :get, do: {url, headers}, else: {url, headers, ~c"application/x-www-form-urlencoded", ~c""}
+    case :httpc.request(method, request, [], []) do
       {:ok, {{_, 200, _}, _, body}} ->
         Jason.decode(List.to_string(body))
       {:ok, {{_, status, _}, _, body}} ->
