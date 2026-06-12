@@ -140,9 +140,16 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
 
   # WebSocket endpoints
   @spot_ws_url "wss://stream.binance.com/ws"
+  @spot_ws_demo_url    "wss://demo-stream.binance.com/ws"
   @spot_ws_testnet_url "wss://stream.testnet.binance.vision/ws"
   @futures_ws_url "wss://fstream.binance.com/ws"
   @futures_ws_testnet_url "wss://fstream.binancefuture.com/ws"
+
+  # Binance 2026 new architecture (effective April 23, 2026)
+  @futures_public_url "wss://fstream.binance.com/public"
+  @futures_market_url "wss://fstream.binance.com/market"
+  @futures_private_url "wss://fstream.binance.com/private"
+  @futures_private_testnet_url "wss://fstream.binancefuture.com/private"
 
   # Maximum message size to prevent memory exhaustion (1MB)
   @max_message_size 1_048_576
@@ -180,8 +187,6 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
   """
   @spec ensure_connection(list(String.t()), keyword()) :: {:ok, ZenWebsocket.Client.t()} | {:error, term()}
   def ensure_connection(streams, opts \\ []) do
-    # Always creates a new connection - connection reuse happens at the application layer
-    # via ConnectionRegistry and MarketData.ensure_websocket_connection/2
     connect(streams, opts)
   end
 
@@ -216,21 +221,25 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
 
   ## Options
     * `:testnet` - Use testnet endpoints (default: false)
-    * `:market` - Market type :spot or :futures (default: :spot)
+    * `:market` - Market type: :spot, :futures, :futures_public, :futures_market,
+      or :futures_private (default: :spot)
     * `:supervised` - Use ClientSupervisor for production (default: false)
+    * `:handler` - Custom message handler fn (for :futures_private, required)
+    * `:listen_key` - listenKey string (required for :futures_private)
+    * `:events` - Event types to subscribe to (for :futures_private, default: ["ORDER_TRADE_UPDATE"])
   """
   @spec connect(list(String.t()), keyword()) :: {:ok, ZenWebsocket.Client.t()} | {:error, term()}
   def connect(streams, opts) do
-    testnet? = Keyword.get(opts, :testnet, false)
-    market = Keyword.get(opts, :market, :spot)
+    testnet?   = Keyword.get(opts, :testnet, false)
+    market     = Keyword.get(opts, :market, :spot)
     supervised? = Keyword.get(opts, :supervised, false)
 
-    url = get_ws_url(market, testnet?)
+    handler =
+      case Keyword.get(opts, :handler) do
+        nil     -> create_message_handler()
+        user_fn -> wrap_handler(user_fn)
+      end
 
-    # Create message handler for Binance data
-    handler = create_message_handler()
-
-    # Connection options for zen_websocket
     ws_opts = [
       handler: handler,
       retry_count: 5,
@@ -239,16 +248,44 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
       reconnect_on_error: true
     ]
 
-    # Connect using zen_websocket
-    with {:ok, client} <- do_connect(url, ws_opts, supervised?),
-         {:ok, _} <- subscribe(client, streams) do
-      Logger.info("Connected to Binance WebSocket: #{url}")
-      {:ok, client}
-    else
+    result =
+      case market do
+        :futures_private ->
+          listen_key = Keyword.fetch!(opts, :listen_key)
+          events     = Keyword.get(opts, :events, ["ORDER_TRADE_UPDATE"])
+          do_connect(build_private_url(listen_key, events, testnet?), ws_opts, supervised?)
+
+        m when m in [:futures_public, :futures_market] ->
+          url = get_ws_url(m, testnet?) <> "/ws/" <> Enum.join(streams, "/")
+          do_connect(url, ws_opts, supervised?)
+
+        _ ->
+          url = get_ws_url(market, testnet?)
+          with {:ok, client} <- do_connect(url, ws_opts, supervised?),
+               {:ok, _}      <- subscribe(client, streams) do
+            {:ok, client}
+          end
+      end
+
+    case result do
+      {:ok, client} ->
+        Logger.info("Connected to Binance WebSocket (market: #{market})")
+        {:ok, client}
       {:error, reason} = error ->
-        Logger.error("Failed to connect to Binance WebSocket: #{inspect(reason)}")
+        Logger.error("Failed to connect: #{inspect(reason)}")
         error
     end
+  end
+
+  defp build_private_url(listen_key, events, testnet \\ false)
+  defp build_private_url(listen_key, [single], testnet) do
+    base = if testnet in [:demo, :testnet, true], do: @futures_private_testnet_url, else: @futures_private_url
+    "#{base}/ws?listenKey=#{listen_key}&events=#{single}"
+  end
+  defp build_private_url(listen_key, multiple, testnet) do
+    base = if testnet in [:demo, :testnet, true], do: @futures_private_testnet_url, else: @futures_private_url
+    streams = Enum.map_join(multiple, "/", &"#{listen_key}@#{&1}")
+    "#{base}/stream?streams=#{streams}"
   end
 
   @doc """
@@ -256,7 +293,6 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
   """
   @spec subscribe(ZenWebsocket.Client.t(), list(String.t())) :: {:ok, :subscribed} | {:error, term()}
   def subscribe(connection, streams) when is_list(streams) do
-    # Return early if no streams to subscribe
     if streams == [] do
       {:ok, :subscribed}
     else
@@ -266,7 +302,6 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
         id: :os.system_time(:millisecond)
       }
 
-      # Binance responds with {"result": nil, "id": <same_id>}
       case ZenWebsocket.Client.send_message(connection, Jason.encode!(sub_message)) do
         {:ok, %{"result" => nil}} ->
           Logger.debug("Subscribed to Binance streams: #{inspect(streams)}")
@@ -321,256 +356,222 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
     end
   end
 
-  @doc """
-  Closes the WebSocket connection.
-  """
+  @doc "Closes the WebSocket connection."
   @spec close(ZenWebsocket.Client.t()) :: :ok
-  def close(connection) do
-    ZenWebsocket.Client.close(connection)
-  end
+  def close(connection), do: ZenWebsocket.Client.close(connection)
 
-  @doc """
-  Gets connection state.
-  """
+  @doc "Gets connection state."
   @spec get_state(ZenWebsocket.Client.t()) :: {:ok, :connected | :connecting | :disconnected}
-  def get_state(connection) do
-    state = ZenWebsocket.Client.get_state(connection)
-    {:ok, state}
-  end
+  def get_state(connection), do: {:ok, ZenWebsocket.Client.get_state(connection)}
 
-  @doc """
-  Sends a raw message to the WebSocket connection.
-  Accepts a JSON-encodable map or a raw binary.
-  """
+  @doc "Sends a raw message to the WebSocket connection."
   @spec send_message(ZenWebsocket.Client.t(), binary() | map()) :: :ok | {:ok, map()} | {:error, term()}
   def send_message(connection, message) when is_map(message) do
     ZenWebsocket.Client.send_message(connection, Jason.encode!(message))
   end
-
   def send_message(connection, message) when is_binary(message) do
     ZenWebsocket.Client.send_message(connection, message)
   end
 
-  @doc """
-  Gets the heartbeat health of the connection.
-  Returns a map with details about the connection's heartbeat status.
-  """
+  @doc "Gets the heartbeat health of the connection."
   @spec get_heartbeat_health(ZenWebsocket.Client.t()) :: map() | nil
-  def get_heartbeat_health(connection) do
-    ZenWebsocket.Client.get_heartbeat_health(connection)
-  end
+  def get_heartbeat_health(connection), do: ZenWebsocket.Client.get_heartbeat_health(connection)
 
-  @doc """
-  Gets detailed metrics about the client's internal state.
-  Returns a map containing data structure sizes, memory usage, and process stats.
-  """
+  @doc "Gets detailed metrics about the client's internal state."
   @spec get_state_metrics(ZenWebsocket.Client.t()) :: map() | nil
-  def get_state_metrics(connection) do
-    ZenWebsocket.Client.get_state_metrics(connection)
-  end
+  def get_state_metrics(connection), do: ZenWebsocket.Client.get_state_metrics(connection)
 
-  @doc """
-  Closes and re-establishes the WebSocket connection.
-  """
+  @doc "Closes and re-establishes the WebSocket connection."
   @spec reconnect(ZenWebsocket.Client.t()) :: {:ok, ZenWebsocket.Client.t()} | {:error, term()}
-  def reconnect(connection) do
-    ZenWebsocket.Client.reconnect(connection)
-  end
+  def reconnect(connection), do: ZenWebsocket.Client.reconnect(connection)
 
   # Private functions
 
   @spec get_ws_url(atom(), boolean()) :: String.t()
-  defp get_ws_url(:spot, true), do: @spot_ws_testnet_url
-  defp get_ws_url(:spot, false), do: @spot_ws_url
-  defp get_ws_url(:futures, true), do: @futures_ws_testnet_url
-  defp get_ws_url(:futures, false), do: @futures_ws_url
+  defp get_ws_url(:spot, :demo),          do: @spot_ws_demo_url
+  defp get_ws_url(:spot, :testnet),       do: @spot_ws_testnet_url
+  defp get_ws_url(:spot, :live),          do: @spot_ws_url
+  defp get_ws_url(:spot, true),           do: @spot_ws_testnet_url   # legacy
+  defp get_ws_url(:spot, false),          do: @spot_ws_url            # legacy
+  defp get_ws_url(:futures, :demo),       do: @futures_ws_testnet_url
+  defp get_ws_url(:futures, :testnet),    do: @futures_ws_testnet_url
+  defp get_ws_url(:futures, :live),       do: @futures_ws_url
+  defp get_ws_url(:futures, true),        do: @futures_ws_testnet_url  # legacy
+  defp get_ws_url(:futures, false),       do: @futures_ws_url           # legacy
+  defp get_ws_url(:futures_public, _),    do: @futures_public_url
+  defp get_ws_url(:futures_market, _),    do: @futures_market_url
 
   @spec do_connect(String.t(), keyword(), boolean()) :: {:ok, ZenWebsocket.Client.t()} | {:error, term()}
-  defp do_connect(url, opts, false) do
-    # Direct connection for development
-    ZenWebsocket.Client.connect(url, opts)
-  end
+  defp do_connect(url, opts, false), do: ZenWebsocket.Client.connect(url, opts)
+  defp do_connect(url, opts, true),  do: ZenWebsocket.ClientSupervisor.start_client(url, opts)
 
-  defp do_connect(url, opts, true) do
-    # Supervised connection for production
-    # ClientSupervisor must be started in application supervisor
-    ZenWebsocket.ClientSupervisor.start_client(url, opts)
-  end
-
+  # Default handler: decode and cache market data in ETS.
+  # zen_websocket dispatches {:message, %{}} (already-decoded map) or raw binary.
   @spec create_message_handler() :: (term() -> :ok)
   defp create_message_handler do
     fn
-      {:message, {:text, data}} when is_binary(data) ->
-        handle_message(data)
+      {:message, %{} = decoded} -> process_stream_data(decoded)
+      {:message, data} when is_binary(data) -> handle_message(data)
+      _other -> :ok
+    end
+  end
 
-      {:message, {:binary, data}} when is_binary(data) ->
-        handle_message(data)
-
-      {:message, data} when is_binary(data) ->
-        handle_message(data)
-
-      {:message, %{} = decoded} ->
-        process_stream_data(decoded)
-
-      _other ->
-        :ok
+  # Wraps a user-supplied handler.
+  # Unwraps stream-mode {"stream": "lk@EVENT", "data": {...}} before dispatch,
+  # so the user handler always receives the inner event map.
+  # Built-in ETS caching is NOT run for private-stream events (no market data).
+  defp wrap_handler(user_handler) do
+    fn msg ->
+      normalized =
+        case msg do
+          {:message, %{"stream" => _, "data" => data}} when is_map(data) -> {:message, data}
+          other -> other
+        end
+      user_handler.(normalized)
     end
   end
 
   @spec handle_message(binary()) :: :ok
-  defp handle_message(message) when is_binary(message) and byte_size(message) <= @max_message_size do
+  defp handle_message(message) when byte_size(message) <= @max_message_size do
     case Jason.decode(message) do
-      {:ok, data} ->
-        process_stream_data(data)
-
-      {:error, reason} ->
-        Logger.error("Failed to decode Binance message: #{inspect(reason)}")
+      {:ok, data}      -> process_stream_data(data)
+      {:error, reason} -> Logger.error("Failed to decode Binance message: #{inspect(reason)}")
     end
   end
-
-  defp handle_message(message) when is_binary(message) do
-    Logger.warning(
-      "Binance WebSocket message exceeded size limit: #{byte_size(message)} bytes (max: #{@max_message_size})"
-    )
-
+  defp handle_message(message) do
+    Logger.warning("Binance WebSocket message exceeded size limit: #{byte_size(message)} bytes (max: #{@max_message_size})")
     :ok
   end
 
   @spec process_stream_data(map()) :: :ok
   defp process_stream_data(%{"e" => event_type} = data) do
     case event_type do
-      "depthUpdate" ->
-        process_orderbook_update(data)
-
-      "trade" ->
-        process_trade(data)
-
-      "aggTrade" ->
-        # Aggregate trades have similar structure to regular trades
-        process_trade(data)
-
-      "24hrTicker" ->
-        process_ticker(data)
-
-      "24hrMiniTicker" ->
-        process_mini_ticker(data)
-
-      "bookTicker" ->
-        process_book_ticker(data)
-
-      _ ->
-        Logger.debug("Unhandled Binance event type: #{event_type}")
+      "depthUpdate"  -> process_orderbook_update(data)
+      "trade"        -> process_trade(data)
+      "aggTrade"     -> process_trade(data)
+      "24hrTicker"   -> process_ticker(data)
+      "24hrMiniTicker" -> process_mini_ticker(data)
+      "bookTicker"   -> process_book_ticker(data)
+      "kline"        -> process_kline(data)
+      t when t in ["markPrice", "markPriceUpdate"] -> process_mark_price(data)
+      _              -> Logger.debug("Unhandled Binance event type: #{event_type}")
     end
   end
-
-  defp process_stream_data(%{"result" => nil, "id" => _id}) do
-    # Subscription/unsubscription confirmation
-    :ok
-  end
-
+  defp process_stream_data(%{"result" => nil, "id" => _}), do: :ok
   defp process_stream_data(%{"code" => code, "msg" => msg}) do
-    # Error response
     Logger.error("Binance WebSocket error: #{code} - #{msg}")
   end
-
   defp process_stream_data(data) do
     Logger.debug("Unhandled Binance message: #{inspect(data)}")
   end
 
-  @spec process_orderbook_update(map()) :: :ok
-  defp process_orderbook_update(data) do
-    %{
-      "s" => symbol,
-      "U" => first_update_id,
-      "u" => final_update_id,
-      "b" => bids,
-      "a" => asks
-    } = data
-
-    orderbook = %{
-      symbol: symbol,
-      update_id: final_update_id,
-      first_update_id: first_update_id,
-      bids: parse_orderbook_levels(bids),
-      asks: parse_orderbook_levels(asks),
+  @spec process_kline(map()) :: :ok
+  defp process_kline(%{"s" => symbol, "k" => k}) do
+    kline = %{
+      symbol:    symbol,
+      interval:  k["i"],
+      open:      k["o"],
+      high:      k["h"],
+      low:       k["l"],
+      close:     k["c"],
+      volume:    k["v"],
+      close_time: k["T"],
+      is_closed: k["x"],
       timestamp: :os.system_time(:millisecond)
     }
+    ZenCex.Cache.Market.put_market_data(:binance, symbol, "kline_#{k["i"]}", kline, 300)
+  end
 
-    # Store with infinite TTL - orderbook updates are frequent
+  @spec process_mark_price(map()) :: :ok
+  defp process_mark_price(%{"s" => symbol, "p" => price} = data) do
+    mark = %{
+      symbol:           symbol,
+      mark_price:       price,
+      funding_rate:     data["r"],
+      next_funding_time: data["T"],
+      timestamp:        :os.system_time(:millisecond)
+    }
+    ZenCex.Cache.Market.put_market_data(:binance, symbol, "markPrice", mark, 300)
+  end
+
+  @spec process_orderbook_update(map()) :: :ok
+  defp process_orderbook_update(%{"s" => symbol, "U" => first_id, "u" => final_id, "b" => bids, "a" => asks}) do
+    orderbook = %{
+      symbol:          symbol,
+      update_id:       final_id,
+      first_update_id: first_id,
+      bids:            parse_orderbook_levels(bids),
+      asks:            parse_orderbook_levels(asks),
+      timestamp:       :os.system_time(:millisecond)
+    }
     Market.put_orderbook(:binance, symbol, orderbook)
   end
 
   @spec process_trade(map()) :: :ok
   defp process_trade(data) do
     trade = %{
-      symbol: data["s"],
-      price: data["p"],
-      quantity: data["q"],
-      time: data["T"] || data["E"],
+      symbol:         data["s"],
+      price:          data["p"],
+      quantity:       data["q"],
+      time:           data["T"] || data["E"],
       is_buyer_maker: data["m"] || false,
-      trade_id: to_string(data["t"] || data["a"]),
-      timestamp: :os.system_time(:millisecond)
+      trade_id:       to_string(data["t"] || data["a"]),
+      timestamp:      :os.system_time(:millisecond)
     }
-
     Market.put_last_trade(:binance, data["s"], trade)
   end
 
   @spec process_ticker(map()) :: :ok
   defp process_ticker(data) do
     ticker = %{
-      symbol: data["s"],
-      last_price: data["c"],
-      open_price: data["o"],
-      high_price: data["h"],
-      low_price: data["l"],
-      volume: data["v"],
-      quote_volume: data["q"],
-      open_time: data["O"],
-      close_time: data["C"],
+      symbol:        data["s"],
+      last_price:    data["c"],
+      open_price:    data["o"],
+      high_price:    data["h"],
+      low_price:     data["l"],
+      volume:        data["v"],
+      quote_volume:  data["q"],
+      open_time:     data["O"],
+      close_time:    data["C"],
       first_trade_id: data["F"],
       last_trade_id: data["L"],
-      trade_count: data["n"],
-      timestamp: :os.system_time(:millisecond)
+      trade_count:   data["n"],
+      timestamp:     :os.system_time(:millisecond)
     }
-
     Market.put_ticker(:binance, data["s"], ticker)
   end
 
   @spec process_mini_ticker(map()) :: :ok
   defp process_mini_ticker(data) do
     ticker = %{
-      symbol: data["s"],
-      last_price: data["c"],
-      open_price: data["o"],
-      high_price: data["h"],
-      low_price: data["l"],
-      volume: data["v"],
+      symbol:       data["s"],
+      last_price:   data["c"],
+      open_price:   data["o"],
+      high_price:   data["h"],
+      low_price:    data["l"],
+      volume:       data["v"],
       quote_volume: data["q"],
-      timestamp: :os.system_time(:millisecond)
+      timestamp:    :os.system_time(:millisecond)
     }
-
     Market.put_ticker(:binance, data["s"], ticker, 30)
   end
 
   @spec process_book_ticker(map()) :: :ok
   defp process_book_ticker(data) do
     book_ticker = %{
-      symbol: data["s"],
+      symbol:    data["s"],
       bid_price: data["b"],
-      bid_qty: data["B"],
+      bid_qty:   data["B"],
       ask_price: data["a"],
-      ask_qty: data["A"],
+      ask_qty:   data["A"],
       update_id: data["u"],
       timestamp: :os.system_time(:millisecond)
     }
-
     Market.put_book_ticker(:binance, data["s"], book_ticker)
   end
 
   @spec parse_orderbook_levels(list()) :: list(map())
   defp parse_orderbook_levels(levels) do
-    Enum.map(levels, fn [price, quantity] ->
-      %{price: price, quantity: quantity}
-    end)
+    Enum.map(levels, fn [price, quantity] -> %{price: price, quantity: quantity} end)
   end
 end

@@ -81,7 +81,7 @@ defmodule ZenCex.MixProject do
       {:finch, "~> 0.20.0"},
 
       # WebSocket client
-      {:zen_websocket, "0.1.4"},
+      {:zen_websocket, git: "https://github.com/ZenHive/zen_websocket.git", branch: "main"},
 
       # Circuit breaker
       {:req_fuse, "~> 0.3"},
