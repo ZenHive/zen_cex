@@ -49,7 +49,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   use ZenCex.Adapters.BaseEndpoints,
     exchange: :binance,
     prod_url: "https://api.binance.com",
-    test_url: "https://testnet.binance.vision"
+    test_url: "https://demo-api.binance.com"
 
   alias ZenCex.Adapters.Binance.Auth
   alias ZenCex.Adapters.Binance.CoinmFutures
@@ -100,7 +100,7 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
       Default: false (production)
 
   ## Examples
-      base_url(:spot, testnet: true)  # => "https://testnet.binance.vision"
+      base_url(:spot, testnet: true)  # => "https://demo-api.binance.com"
       base_url(:spot, testnet: false) # => "https://api.binance.com"
       base_url(:spot)                 # => "https://api.binance.com" (production)
   """
@@ -108,58 +108,49 @@ defmodule ZenCex.Adapters.Binance.Endpoints do
   def base_url(api_type, opts \\ [])
 
   def base_url(api_type, opts) do
-    testnet = Keyword.get(opts, :testnet, false)
-    base_url_impl(testnet, api_type)
+    env = Keyword.get(opts, :testnet, :live)
+    base_url_impl(env, api_type)
   end
 
-  @spec base_url_impl(boolean(), atom()) :: String.t() | {:error, atom()}
-  defp base_url_impl(testnet, api_type)
+  @spec base_url_impl(:demo | :testnet | :live, atom()) :: String.t() | {:error, atom()}
+  defp base_url_impl(env, api_type)
 
   # ============================
-  # Testnet Environment
+  # Demo Trading (demo-fapi.binance.com / demo-api.binance.com)
   # ============================
-
-  # Spot (and Margin) — only /api/* endpoints (NOT /sapi/*)
-  defp base_url_impl(true, :spot), do: "https://testnet.binance.vision"
-  defp base_url_impl(true, :margin), do: "https://testnet.binance.vision"
-
-  # USD-M Futures Testnet
-  defp base_url_impl(true, :usdm_futures), do: "https://testnet.binancefuture.com"
-
-  # COIN-M Futures Testnet
-  defp base_url_impl(true, :coinm_futures), do: "https://testnet.binancefuture.com"
-
-  # SAPI endpoints are NOT supported on Testnet
-  defp base_url_impl(true, :sapi), do: {:error, :no_testnet_for_sapi}
-
-  # Portfolio Margin endpoints are NOT supported on Testnet
-  defp base_url_impl(true, :portfolio), do: {:error, :no_testnet_for_portfolio_margin}
-
-  # Default to Spot Testnet
-  defp base_url_impl(true, _), do: "https://testnet.binance.vision"
+  defp base_url_impl(:demo, :usdm_futures), do: "https://demo-fapi.binance.com"
+  defp base_url_impl(:demo, :coinm_futures), do: "https://demo-fapi.binance.com"
+  defp base_url_impl(:demo, :spot),          do: "https://demo-api.binance.com"
+  defp base_url_impl(:demo, :margin),        do: "https://demo-api.binance.com"
+  defp base_url_impl(:demo, :sapi),          do: {:error, :no_demo_for_sapi}
+  defp base_url_impl(:demo, :portfolio),     do: {:error, :no_demo_for_portfolio}
+  defp base_url_impl(:demo, _),              do: "https://demo-api.binance.com"
 
   # ============================
-  # Production Environment
+  # Futures Testnet (testnet.binancefuture.com / demo-api.binance.com for spot)
   # ============================
+  defp base_url_impl(:testnet, :usdm_futures), do: "https://testnet.binancefuture.com"
+  defp base_url_impl(:testnet, :coinm_futures), do: "https://testnet.binancefuture.com"
+  defp base_url_impl(:testnet, :spot),          do: "https://testnet.binance.vision"
+  defp base_url_impl(:testnet, :margin),        do: "https://testnet.binance.vision"
+  defp base_url_impl(:testnet, :sapi),          do: {:error, :no_testnet_for_sapi}
+  defp base_url_impl(:testnet, :portfolio),     do: {:error, :no_testnet_for_portfolio_margin}
+  defp base_url_impl(:testnet, _),              do: "https://testnet.binance.vision"
 
-  # Spot + Margin
-  defp base_url_impl(false, :spot), do: "https://api.binance.com"
-  defp base_url_impl(false, :margin), do: "https://api.binance.com"
+  # ============================
+  # Live / Production
+  # ============================
+  defp base_url_impl(:live, :spot),          do: "https://api.binance.com"
+  defp base_url_impl(:live, :margin),        do: "https://api.binance.com"
+  defp base_url_impl(:live, :sapi),          do: "https://api.binance.com"
+  defp base_url_impl(:live, :usdm_futures),  do: "https://fapi.binance.com"
+  defp base_url_impl(:live, :coinm_futures), do: "https://dapi.binance.com"
+  defp base_url_impl(:live, :portfolio),     do: "https://papi.binance.com"
+  defp base_url_impl(:live, _),              do: "https://api.binance.com"
 
-  # SAPI (sub-account, fiat, etc.)
-  defp base_url_impl(false, :sapi), do: "https://api.binance.com"
-
-  # USD-M Futures
-  defp base_url_impl(false, :usdm_futures), do: "https://fapi.binance.com"
-
-  # COIN-M Futures
-  defp base_url_impl(false, :coinm_futures), do: "https://dapi.binance.com"
-
-  # Portfolio Margin
-  defp base_url_impl(false, :portfolio), do: "https://papi.binance.com"
-
-  # Default to Spot
-  defp base_url_impl(false, _), do: "https://api.binance.com"
+  # Fallback for legacy boolean callers (should not happen in new code)
+  defp base_url_impl(true, api_type),  do: base_url_impl(:testnet, api_type)
+  defp base_url_impl(false, api_type), do: base_url_impl(:live, api_type)
 
   # ============================================================================
   # Discovery Functions

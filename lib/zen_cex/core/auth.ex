@@ -405,20 +405,25 @@ defmodule ZenCex.Core.Auth do
       Auth.get_testnet_flag(opts)
       # => false (defaults to production)
   """
-  @spec get_testnet_flag(keyword() | map()) :: boolean()
+  # Returns :demo | :testnet | :live
+  # - :demo    => demo: true               (Binance Demo Trading)
+  # - :testnet => testnet: true            (Futures Testnet)
+  # - :live    => neither (default)        (Production)
+  # demo and testnet are mutually exclusive; demo takes priority if both set.
+  @spec get_testnet_flag(keyword() | map()) :: :demo | :testnet | :live
   def get_testnet_flag(opts) when is_list(opts) do
-    case Keyword.get(opts, :auth_credentials) do
-      %{testnet: testnet} when is_boolean(testnet) -> testnet
-      _ -> false
-    end
+    creds = Keyword.get(opts, :auth_credentials, %{})
+    resolve_env(creds)
   end
 
   def get_testnet_flag(opts) when is_map(opts) do
-    case Map.get(opts, :auth_credentials) do
-      %{testnet: testnet} when is_boolean(testnet) -> testnet
-      _ -> false
-    end
+    creds = Map.get(opts, :auth_credentials, %{})
+    resolve_env(creds)
   end
+
+  defp resolve_env(%{demo: true}),    do: :demo
+  defp resolve_env(%{testnet: true}), do: :testnet
+  defp resolve_env(_),                do: :live
 
   # Private functions - removed all ENV fallback logic
 end

@@ -86,6 +86,7 @@ defmodule ZenCex.Adapters.Binance.UserDataStream do
   @keepalive_interval_ms 20 * 60 * 1000
   @reconnect_delay_ms    3_000
   @fapi_base             "https://fapi.binance.com"
+  @fapi_testnet_base     "https://demo-fapi.binance.com"
 
   # ── Public API ───────────────────────────────────────────────
 
@@ -126,14 +127,17 @@ defmodule ZenCex.Adapters.Binance.UserDataStream do
 
   @impl true
   def init(opts) do
+    creds = Keyword.fetch!(opts, :credentials)
+    env = resolve_env(creds)
     state = %{
       account_id:  Keyword.fetch!(opts, :account_id),
-      credentials: Keyword.fetch!(opts, :credentials),
+      credentials: creds,
       handlers:    Keyword.fetch!(opts, :handlers),
       events:      Keyword.get(opts, :events, ["ORDER_TRADE_UPDATE"]),
       listen_key:  nil,
       ws_client:   nil,
       connected:   false,
+      testnet:     env,
       started_at:  System.system_time(:millisecond)
     }
     send(self(), :connect)
@@ -146,7 +150,7 @@ defmodule ZenCex.Adapters.Binance.UserDataStream do
       {:ok, %{"listenKey" => lk}} ->
         Logger.info("[UserDataStream:#{state.account_id}] listenKey obtained: #{String.slice(lk, 0, 8)}...")
         handler = build_dispatch_handler(state.account_id, state.handlers)
-        case WebSocket.connect([], market: :futures_private, listen_key: lk, events: state.events, handler: handler) do
+        case WebSocket.connect([], market: :futures_private, listen_key: lk, events: state.events, handler: handler, testnet: state.testnet) do
           {:ok, client} ->
             Logger.info("[UserDataStream:#{state.account_id}] Connected")
             schedule_keepalive()
@@ -242,12 +246,18 @@ defmodule ZenCex.Adapters.Binance.UserDataStream do
   # Handles HMAC signing, request dispatch, and response parsing for all
   # /fapi/v1/listenKey operations (POST create, PUT keepalive, DELETE close).
 
-  defp fapi_request(method, path, %{api_key: api_key, api_secret: api_secret}, extra_qs) do
+  defp fapi_request(method, path, credentials, extra_qs) do
+    %{api_key: api_key, api_secret: api_secret} = credentials
+    fapi_base = case resolve_env(credentials) do
+      :demo    -> @fapi_testnet_base                    # demo-fapi.binance.com
+      :testnet -> "https://testnet.binancefuture.com"   # testnet.binancefuture.com
+      :live    -> @fapi_base                            # fapi.binance.com
+    end
     ts  = :os.system_time(:millisecond)
     qs  = if extra_qs == "", do: "timestamp=#{ts}&recvWindow=5000",
                              else: "#{extra_qs}&timestamp=#{ts}&recvWindow=5000"
     sig = :crypto.mac(:hmac, :sha256, api_secret, qs) |> Base.encode16(case: :lower)
-    url = String.to_charlist("#{@fapi_base}#{path}?#{qs}&signature=#{sig}")
+    url = String.to_charlist("#{fapi_base}#{path}?#{qs}&signature=#{sig}")
     headers = [{~c"X-MBX-APIKEY", String.to_charlist(api_key)}]
     request = if method == :get, do: {url, headers}, else: {url, headers, ~c"application/x-www-form-urlencoded", ~c""}
     case :httpc.request(method, request, [], []) do
@@ -259,4 +269,9 @@ defmodule ZenCex.Adapters.Binance.UserDataStream do
         {:error, reason}
     end
   end
+
+  # Resolve account environment from credentials map
+  defp resolve_env(%{demo: true}),    do: :demo
+  defp resolve_env(%{testnet: true}), do: :testnet
+  defp resolve_env(_),                do: :live
 end

@@ -61,6 +61,10 @@ defmodule ZenCex.Safety.ClockSync do
   @genserver_timeout_buffer_ms 1000
   # Maximum exchanges multiplier for parallel sync
   @max_exchanges_multiplier 3
+  # Per-task timeout for Task.await_many in initial sync
+  # Each task makes a Req call with receive_timeout=@sync_timeout_ms,
+  # so we need to account for network latency + Req overhead per task
+  @await_many_timeout_ms 15000
 
   # Client API
 
@@ -271,7 +275,19 @@ defmodule ZenCex.Safety.ClockSync do
 
   @impl true
   def handle_info(:initial_sync, state) do
-    case sync_all_exchanges_internal() do
+    results =
+      try do
+        sync_all_exchanges_internal()
+      rescue
+        e ->
+          Logger.error("ClockSync: Initial sync failed: #{inspect(e)}")
+          %{}
+      catch
+        kind, reason ->
+          Logger.error("ClockSync: Initial sync failed: #{inspect(kind)} #{inspect(reason)}")
+          %{}
+      end
+    case results do
       results when map_size(results) > 0 ->
         Logger.info("ClockSync: Initial synchronization completed for #{map_size(results)} exchanges")
 
@@ -286,7 +302,18 @@ defmodule ZenCex.Safety.ClockSync do
 
   @impl true
   def handle_info(:periodic_sync, state) do
-    results = sync_all_exchanges_internal()
+    results =
+      try do
+        sync_all_exchanges_internal()
+      rescue
+        e ->
+          Logger.warning("ClockSync: Periodic sync failed: #{inspect(e)}")
+          %{}
+      catch
+        kind, reason ->
+          Logger.warning("ClockSync: Periodic sync failed: #{inspect(kind)} #{inspect(reason)}")
+          %{}
+      end
 
     successful_count =
       Enum.count(results, fn {_exchange, result} ->
@@ -366,9 +393,10 @@ defmodule ZenCex.Safety.ClockSync do
       end)
 
     # Collect results with timeout
+    # Use a generous timeout since each task makes a Req call with receive_timeout=@sync_timeout_ms
     results =
       tasks
-      |> Task.await_many(@sync_timeout_ms)
+      |> Task.await_many(@await_many_timeout_ms)
       |> Map.new()
 
     results

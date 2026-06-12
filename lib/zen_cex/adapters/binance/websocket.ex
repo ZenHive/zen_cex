@@ -140,6 +140,7 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
 
   # WebSocket endpoints
   @spot_ws_url "wss://stream.binance.com/ws"
+  @spot_ws_demo_url    "wss://demo-stream.binance.com/ws"
   @spot_ws_testnet_url "wss://stream.testnet.binance.vision/ws"
   @futures_ws_url "wss://fstream.binance.com/ws"
   @futures_ws_testnet_url "wss://fstream.binancefuture.com/ws"
@@ -148,6 +149,7 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
   @futures_public_url "wss://fstream.binance.com/public"
   @futures_market_url "wss://fstream.binance.com/market"
   @futures_private_url "wss://fstream.binance.com/private"
+  @futures_private_testnet_url "wss://fstream.binancefuture.com/private"
 
   # Maximum message size to prevent memory exhaustion (1MB)
   @max_message_size 1_048_576
@@ -251,7 +253,7 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
         :futures_private ->
           listen_key = Keyword.fetch!(opts, :listen_key)
           events     = Keyword.get(opts, :events, ["ORDER_TRADE_UPDATE"])
-          do_connect(build_private_url(listen_key, events), ws_opts, supervised?)
+          do_connect(build_private_url(listen_key, events, testnet?), ws_opts, supervised?)
 
         m when m in [:futures_public, :futures_market] ->
           url = get_ws_url(m, testnet?) <> "/ws/" <> Enum.join(streams, "/")
@@ -275,12 +277,15 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
     end
   end
 
-  defp build_private_url(listen_key, [single]) do
-    "#{@futures_private_url}/ws?listenKey=#{listen_key}&events=#{single}"
+  defp build_private_url(listen_key, events, testnet \\ false)
+  defp build_private_url(listen_key, [single], testnet) do
+    base = if testnet in [:demo, :testnet, true], do: @futures_private_testnet_url, else: @futures_private_url
+    "#{base}/ws?listenKey=#{listen_key}&events=#{single}"
   end
-  defp build_private_url(listen_key, multiple) do
+  defp build_private_url(listen_key, multiple, testnet) do
+    base = if testnet in [:demo, :testnet, true], do: @futures_private_testnet_url, else: @futures_private_url
     streams = Enum.map_join(multiple, "/", &"#{listen_key}@#{&1}")
-    "#{@futures_private_url}/stream?streams=#{streams}"
+    "#{base}/stream?streams=#{streams}"
   end
 
   @doc """
@@ -383,10 +388,16 @@ defmodule ZenCex.Adapters.Binance.WebSocket do
   # Private functions
 
   @spec get_ws_url(atom(), boolean()) :: String.t()
-  defp get_ws_url(:spot, true),           do: @spot_ws_testnet_url
-  defp get_ws_url(:spot, false),          do: @spot_ws_url
-  defp get_ws_url(:futures, true),        do: @futures_ws_testnet_url
-  defp get_ws_url(:futures, false),       do: @futures_ws_url
+  defp get_ws_url(:spot, :demo),          do: @spot_ws_demo_url
+  defp get_ws_url(:spot, :testnet),       do: @spot_ws_testnet_url
+  defp get_ws_url(:spot, :live),          do: @spot_ws_url
+  defp get_ws_url(:spot, true),           do: @spot_ws_testnet_url   # legacy
+  defp get_ws_url(:spot, false),          do: @spot_ws_url            # legacy
+  defp get_ws_url(:futures, :demo),       do: @futures_ws_testnet_url
+  defp get_ws_url(:futures, :testnet),    do: @futures_ws_testnet_url
+  defp get_ws_url(:futures, :live),       do: @futures_ws_url
+  defp get_ws_url(:futures, true),        do: @futures_ws_testnet_url  # legacy
+  defp get_ws_url(:futures, false),       do: @futures_ws_url           # legacy
   defp get_ws_url(:futures_public, _),    do: @futures_public_url
   defp get_ws_url(:futures_market, _),    do: @futures_market_url
 
